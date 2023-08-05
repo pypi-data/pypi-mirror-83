@@ -1,0 +1,67 @@
+Metadata-Version: 2.1
+Name: dac-autoreg
+Version: 0.2.7
+Summary: Register endpoints and services in DAC
+Home-page: https://github.com/OnePoint-Team/DAC-autoreg
+Author: Hasan Aliyev
+Author-email: hasan.aliyev.555@gmail.com
+License: MIT
+Platform: UNKNOWN
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Software Development :: Build Tools
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Description-Content-Type: text/markdown
+Requires-Dist: httpx
+
+![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)
+[![GitHub stars](https://img.shields.io/github/stars/OnePoint-Team/DAC-autoreg.svg)](https://github.com/OnePoint-Team/DAC-autoreg/stargazers)
+[![GitHub forks](https://img.shields.io/github/forks/OnePoint-Team/DAC-autoreg.svg)](https://github.com/OnePoint-Team/DAC-autoreg/network)
+[![GitHub issues](https://img.shields.io/github/issues-raw/OnePoint-Team/DAC-autoreg)](https://github.com/OnePoint-Team/DAC-autoreg/issues)
+<!-- [![Downloads](https://pepy.tech/badge/dac-autoreg)](https://pepy.tech/project/dac_autoreg) -->
+
+### About ###
+
+This module is used to register `endpoints` and `service names` to `DAC` [Dyncamic Access Control] service.
+
+`DAC` [Dyncamic Access Control] service is used to control accesses between `microservices` and `users`
+
+Visit https://github.com/OnePoint-Team/DAC for more information about `DAC` service
+
+
+###  🔨  Installation ###
+```sh
+ $ sudo pip3 install dac_autoreg
+```
+
+### 🕹 Python Module
+```python
+from fastapi import FastAPI
+from core.factories import settings
+from core.extensions import log
+
+from dac_autoreg.modules import Autoreg
+
+app = FastAPI()
+
+@app.on_event("startup")
+async def startup():
+    await Autoreg(app=app, log=log, settings=settings).autoreg()
+```
+
+## Supported OS
+Linux, MacOS
+
+## 🌱 Contributing
+Feel free to open issue and send pull request.
+
+### Python >= 3.6
+
