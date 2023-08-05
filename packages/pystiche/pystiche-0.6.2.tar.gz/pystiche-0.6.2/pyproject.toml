@@ -1,0 +1,75 @@
+[build-system]
+requires = [
+  "setuptools>=42",
+  "setuptools_scm[toml]>=3.4",
+  "wheel",
+]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools_scm]
+# See link below for available options
+# https://github.com/pypa/setuptools_scm/#configuration-parameters
+
+write_to = "pystiche/_version.py"
+version_scheme = "release-branch-semver"
+local_scheme = "node-and-timestamp"
+
+[tool.isort]
+# See link below for available options
+# https://timothycrosley.github.io/isort/docs/configuration/options/
+
+profile = "black"
+line_length = 88
+
+skip_gitignore = true
+float_to_top = true
+color_output = true
+order_by_type = true
+combine_star = true
+filter_files = true
+
+extra_standard_library = ["importlib_metadata"]
+known_third_party = [
+  "dill",
+  "igittigitt",
+  "light-the-torch",
+  "matplotlib",
+  "numpy",
+  "PIL",
+  "pillow_affine",
+  "pyimagetest",
+  "pytest",
+  "pytorch_testing_utils",
+  "requests",
+  "sphinx_gallery",
+  "yaml",
+]
+known_pytorch = ["torch", "torchvision"]
+known_first_party = ["pystiche"]
+known_local_folder = ["tests", "utils"]
+sections= ["FUTURE", "STDLIB", "THIRDPARTY", "PYTORCH", "FIRSTPARTY", "LOCALFOLDER"]
+
+skip = [
+  "pystiche/__init__.py",
+  "pystiche/image/__init__.py",
+]
+
+[tool.black]
+# See link below for available options
+# https://github.com/psf/black#configuration-format
+
+line-length = 88
+target-version = ["py36"]
+exclude = '''
+/(
+    \.git
+  | \.github
+  | \.venv
+  | \.tox
+  | \.mypy_cache
+  | \.pytest_cache
+  | __pycache__
+  | docs/build
+  | docs/source/galleries
+)/
+'''
