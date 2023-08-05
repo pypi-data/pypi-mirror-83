@@ -1,0 +1,183 @@
+Metadata-Version: 2.1
+Name: aio-peewee
+Version: 0.0.5
+Summary: Tools to make Peewee work when using Asyncio
+Home-page: UNKNOWN
+Author: Kirill Klenov
+Author-email: horneds@gmail.com
+License: MIT
+Keywords: config settings configuration
+Platform: UNKNOWN
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Programming Language :: Python :: 3.4
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Requires-Dist: async-timeout
+
+aio-peewee
+##########
+
+.. _description:
+
+aio-peewee -- Use Peewee with async framework
+
+.. _badges:
+
+.. image:: https://github.com/klen/aio-peewee/workflows/tests/badge.svg
+    :target: https://github.com/klen/aio-peewee/actions
+    :alt: Tests Status
+
+.. image:: https://img.shields.io/pypi/v/aio-peewee
+    :target: https://pypi.org/project/aio-peewee/
+    :alt: PYPI Version
+
+The library doesn't make peewee work async, but allows you to use Peewee with
+your asyncio based libraries correctly.
+
+.. _features:
+
+Features
+========
+
+- Tasks Safety. The library tracks of the connection state using
+  asyncio.Task-local storage, making the Peewee Database object safe to use
+  with multiple tasks inside a loop.
+- Async support for connections. Connect to database asyncroniously
+- Async support for Peewee Connections Pool
+
+.. _contents:
+
+.. contents::
+
+.. _requirements:
+
+Requirements
+=============
+
+- python >= 3.8
+
+.. _installation:
+
+Installation
+=============
+
+**aio-peewee** should be installed using pip: ::
+
+    pip install aio-peewee
+
+.. _usage:
+
+QuickStart
+==========
+
+.. code:: python
+
+    from aiopeewee import db_url
+
+    db = db_url.connect('postgres+async://locahost:5432/database')
+
+    async def main(id=1):
+        async with db:
+            item = Model.get(Model.id == 1)
+
+        return item.name
+
+
+Usage
+=====
+
+Initialization
+--------------
+
+.. code:: python
+
+   from aiopeewee import PostgresqlDatabaseAsync, SqliteDatabaseAsync, MySQLDatabaseAsync, CockroachDatabaseAsync
+
+    db = MySQLDatabase('my_app', user='app', password='db_password', host='10.1.0.8', port=3306)
+
+
+Async Connect/Close
+-------------------
+
+.. code:: python
+
+   # Manual
+   async def main():
+        await db.connect_async()
+        # ...
+        await db.close_async()
+
+    # Context manager
+   async def main():
+        async with db:
+            # ...
+
+
+Connection Pooling
+------------------
+
+.. code:: python
+
+   from aiopeewee import PooledPostgresqlDatabaseAsync, PooledSqliteDatabaseAsync, PooledMySQLDatabaseAsync, PooledCockroachDatabaseAsync
+
+   db = PooledPostgresqlDatabase('my_database', max_connections=8, stale_timeout=300, user='postgres')
+
+
+Database URL
+------------
+
+.. code:: python
+
+   from aiopeewee import db_url
+
+    db0 = db_url.connect('cockroachdb+async://localhost/db', **db_params)
+    db1 = db_url.connect('cockroachdb+pool+async://localhost/db', **db_params)
+    db2 = db_url.connect('mysql+async://localhost/db', **db_params)
+    db3 = db_url.connect('mysql+pool+async://localhost/db', **db_params)
+    db4 = db_url.connect('postgres+async://localhost/db', **db_params)
+    db5 = db_url.connect('postgres+pool+async://localhost/db', **db_params)
+    db6 = db_url.connect('sqlite+async://localhost/db', **db_params)
+    db7 = db_url.connect('sqlite+pool+async://localhost/db', **db_params)
+    db8 = db_url.connect('sqliteexc+async://localhost/db', **db_params)
+    db9 = db_url.connect('sqliteexc+pool+async://localhost/db', **db_params)
+
+
+
+.. _bugtracker:
+
+Bug tracker
+===========
+
+If you have any suggestions, bug reports or
+annoyances please report them to the issue tracker
+at https://github.com/klen/aio-peewee/issues
+
+.. _contributing:
+
+Contributing
+============
+
+Development of the project happens at: https://github.com/klen/aio-peewee
+
+.. _license:
+
+License
+========
+
+Licensed under a `MIT license`_.
+
+
+.. _links:
+
+
+.. _klen: https://github.com/klen
+
+.. _MIT license: http://opensource.org/licenses/MIT
+
+
+
