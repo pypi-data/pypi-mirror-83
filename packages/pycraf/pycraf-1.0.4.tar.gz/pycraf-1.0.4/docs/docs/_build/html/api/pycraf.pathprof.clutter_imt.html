@@ -1,0 +1,163 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>clutter_imt &#8212; pycraf v1.0.4</title>
+    <link rel="stylesheet" href="../_static/pycraf.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" type="text/css" href="../_static/graphviz.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/gallery.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/gallery-binder.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/gallery-dataframe.css" />
+    
+    <script id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <script src="../_static/language_data.js"></script>
+    <script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <script type="text/javascript" src="../_static/sidebar.js"></script>
+    <script type="text/javascript" src="../_static/copybutton.js"></script>
+    <link rel="shortcut icon" href="../_static/astropy_logo.ico"/>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="deltaN_N0_from_map" href="pycraf.pathprof.deltaN_N0_from_map.html" />
+    <link rel="prev" title="clutter_correction" href="pycraf.pathprof.clutter_correction.html" />
+    <link href='https://fonts.googleapis.com/css?family=Source+Sans+Pro:200,600' rel='stylesheet' type='text/css'/>
+
+  </head><body>
+<div class="topbar">
+  <a class="brand" title="Documentation Home" href="../index.html"><span id="logotext1">py</span><span id="logotext2">craf</span><span id="logotext3">:docs</span></a>
+  <ul>
+    
+    <li><a class="homelink" title="Astropy Homepage" href="http://www.astropy.org"></a></li>
+    <li><a title="General Index" href="../genindex.html">Index</a></li>
+    <li><a title="Module Index" href="../py-modindex.html">Modules</a></li>
+    <li>
+      
+      
+<form action="../search.html" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <input type="hidden" name="check_keywords" value="yes" />
+  <input type="hidden" name="area" value="default" />
+</form>
+      
+    </li>
+  </ul>
+</div>
+
+<div class="related">
+    <h3>Navigation</h3>
+    <ul>
+      <li class="right">
+	<a href="pycraf.pathprof.deltaN_N0_from_map.html" title="deltaN_N0_from_map">
+	  next &raquo;
+	</a>
+      </li>
+      <li class="right">
+	<a href="pycraf.pathprof.clutter_correction.html" title="clutter_correction">
+	  &laquo; previous
+	</a>
+	 |
+      </li>
+      <li>
+	<a href="../index.html">pycraf v1.0.4</a>
+	 &#187;
+      </li>
+      <li><a href="../pathprof/index.html" accesskey="U">Path attenuation, terrain data, and geodesics (<code class="xref py py-obj docutils literal notranslate"><span class="pre">pycraf.pathprof</span></code>)</a> &#187;</li>
+      
+      <li>clutter_imt</li> 
+    </ul>
+</div>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="clutter-imt">
+<h1>clutter_imt<a class="headerlink" href="#clutter-imt" title="Permalink to this headline">¶</a></h1>
+<dl class="py function">
+<dt id="pycraf.pathprof.clutter_imt">
+<code class="sig-prename descclassname">pycraf.pathprof.</code><code class="sig-name descname">clutter_imt</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">freq</span></em>, <em class="sig-param"><span class="n">dist</span></em>, <em class="sig-param"><span class="n">location_percent</span></em>, <em class="sig-param"><span class="n">num_end_points</span><span class="o">=</span><span class="default_value">1</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pycraf/pathprof/propagation.html#clutter_imt"><span class="viewcode-link">[source]</span></a><a class="reference external" href="https://github.com/bwinkel/pycraf/tree/v1.0.4/pycraf/pathprof/propagation.py#L527" title="Push the Edit button on the next page"><span class="edit-on-github viewcode-link">&nbsp;[edit on github]</span></a><a class="headerlink" href="#pycraf.pathprof.clutter_imt" title="Permalink to this definition">¶</a></dt>
+<dd><p>Calculate the Clutter loss according to IMT.CLUTTER document (method 2).</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><dl>
+<dt><strong>freq</strong><span class="classifier"><a class="reference external" href="https://docs.astropy.org/en/stable/api/astropy.units.Quantity.html#astropy.units.Quantity" title="(in Astropy v4.0.2)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Quantity</span></code></a></span></dt><dd><p>Frequency of radiation [GHz]</p>
+</dd>
+<dt><strong>dist</strong><span class="classifier"><a class="reference external" href="https://docs.astropy.org/en/stable/api/astropy.units.Quantity.html#astropy.units.Quantity" title="(in Astropy v4.0.2)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Quantity</span></code></a></span></dt><dd><p>Distance between Tx/Rx antennas [km]</p>
+<p>Minimal distance must be 0.25 km (single endpoint clutter) or 1 km
+(if both endpoints are to be corrected for clutter)</p>
+</dd>
+<dt><strong>location_percent</strong><span class="classifier"><a class="reference external" href="https://docs.astropy.org/en/stable/api/astropy.units.Quantity.html#astropy.units.Quantity" title="(in Astropy v4.0.2)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Quantity</span></code></a></span></dt><dd><p>Percentage of locations for which the clutter loss <code class="xref py py-obj docutils literal notranslate"><span class="pre">L_clutter</span></code>
+(calculated with this function) will not be exceeded [%]</p>
+</dd>
+<dt><strong>num_end_points</strong><span class="classifier">int, optional</span></dt><dd><p>number of endpoints affected by clutter, allowed values: 1, 2</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><dl>
+<dt><strong>L_clutter</strong><span class="classifier"><a class="reference external" href="https://docs.astropy.org/en/stable/api/astropy.units.Quantity.html#astropy.units.Quantity" title="(in Astropy v4.0.2)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Quantity</span></code></a></span></dt><dd><p>Clutter loss [dB]</p>
+</dd>
+</dl>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>The algorithm is independent of effective antenna height (w.r.t.
+clutter height), i.e., it doesn’t distinguish between terminals which
+are close to the ground and those closer to the top of the building.
+However, the model is only appropriate if the terminal is “in the
+clutter”, below the rooftops.</p></li>
+<li><p>The result of this function is to be understood as a cumulative
+value. For example, if <code class="xref py py-obj docutils literal notranslate"><span class="pre">location_percent</span> <span class="pre">=</span> <span class="pre">2%</span></code>, it means that for
+2% of all possible locations, the clutter loss will not exceed the
+returned <code class="xref py py-obj docutils literal notranslate"><span class="pre">L_clutter</span></code> value, for the remaining 98% of locations it
+will therefore be lower than <code class="xref py py-obj docutils literal notranslate"><span class="pre">L_clutter</span></code>. The smaller <code class="xref py py-obj docutils literal notranslate"><span class="pre">location_percent</span></code>,
+the smaller the returned <code class="xref py py-obj docutils literal notranslate"><span class="pre">L_clutter</span></code>, i.e., low clutter attenuations
+are more unlikely.</p></li>
+<li><p>This model was proposed by ITU study group SG 3 to replace
+<a class="reference internal" href="pycraf.pathprof.clutter_correction.html#pycraf.pathprof.clutter_correction" title="pycraf.pathprof.clutter_correction"><code class="xref py py-obj docutils literal notranslate"><span class="pre">clutter_correction</span></code></a> for IMT 5G studies (especially,
+at higher frequencies, where multipath effects play a role in
+urban and suburban areas).</p></li>
+</ul>
+</dd></dl>
+
+</div>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper"><h3>Page Contents</h3>
+<ul>
+<li><a class="reference internal" href="#">clutter_imt</a></li>
+</ul>
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+<footer class="footer">
+  <p class="pull-right">
+    <a href="https://github.com/bwinkel/pycraf/tree/v1.0.4/docs/api/pycraf.pathprof.clutter_imt.rst">Edit This Page on Github</a> &nbsp;
+    <a href="../_sources/api/pycraf.pathprof.clutter_imt.rst.txt"
+       rel="nofollow">Page Source</a> &nbsp;
+    <a href="#">Back to Top</a></p>
+  <p>
+    &copy; Copyright 2020, Benjamin Winkel.<br/>
+    Created using <a href="http://www.sphinx-doc.org/en/stable/">Sphinx</a> 3.2.1. &nbsp;
+    Last built 21 Oct 2020. <br/>
+  </p>
+</footer>
+  </body>
+</html>
