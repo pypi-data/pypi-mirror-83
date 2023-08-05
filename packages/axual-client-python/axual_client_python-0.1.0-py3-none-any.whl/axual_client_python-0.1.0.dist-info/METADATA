@@ -1,0 +1,175 @@
+Metadata-Version: 2.1
+Name: axual-client-python
+Version: 0.1.0
+Summary: Axual client for Python
+Home-page: https://gitlab.com/axual-public/axual-client-python/
+License: UNKNOWN
+Platform: UNKNOWN
+Classifier: Programming Language :: Python :: 3
+Classifier: Development Status :: 3 - Alpha
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown
+Requires-Dist: confluent-kafka[avro] (>=1.4.0)
+
+Axual Python Client
+-------------------
+
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![Pipeline Status](https://gitlab.com/axual-public/axual-client-python/badges/master/pipeline.svg)](https://gitlab.com/axual-public/axual-client-python/commits/master) 
+
+Python client library that enables interaction with the Axual platform.
+
+```plantuml
+!include <cloudinsight/kafka>
+
+'
+' copied inline here from the plantuml/ folder.
+'
+
+frame "Producer app" as producer {
+	component "Axual client" as prodclient
+}
+frame "Consumer app" as consumer {
+	component "Axual client" as consclient
+}
+
+frame "Axual" as axual {
+
+	component "Discovery API" as disco
+	component "Schema registry" as registry
+	queue "<$kafka>" as kafka1
+	queue "<$kafka>" as kafka2
+
+	disco -[hidden]-> registry
+	registry -[hidden]-> kafka1
+	kafka1 --> kafka2
+	kafka2 --> kafka1
+
+}
+
+prodclient <-> disco
+prodclient <-> registry
+prodclient <-> kafka1
+registry <-> consclient
+disco <-> consclient
+consclient <-> kafka2
+```
+
+## Prerequisites
+
+Python 3 is required, Python 3.6 or greater is recommended.
+
+## Installation
+Currently the client exists only on our private repos, to install using the pip package manager run:
+```bash
+pip install -i https://dev.axual.io/nexus/repository/axual-pypi/simple axual-client-python
+```
+You will be prompted to enter your nexus username and password.
+
+## Testing
+Tests are located in the `tests/` directory.
+To run all of them:
+```bash
+python -m unittest discover tests
+```
+
+## Project Overview
+
+## Usage
+In each application, a client must be instantiated once.
+```python
+from axualclient import ClientConfig, SslConfig, AxualClient
+
+# Client configuration
+conf = ClientConfig(endpoint = "https://url_to_discovery_api/v2", # As provided during onboarding
+                    tenant = "tenant",
+                    environment = "env",
+                    application_id = "groupname", # As defined in self-service
+                    ssl_config = SslConfig(certificate_location = "./path/to/certificate/for/application.pem",
+                                          private_key_location = "./path/to/private_key/for/application.key",
+                                          root_ca_location = "./path/to/certificate/for/rootCAs.pem"),
+                    )
+# Instantiate the client
+client = AxualClient(conf)
+```
+See [SSL Configuration](#ssl-configuration) for more info on the certificates required in ```SslConfig```.
+
+The client can provide multiple producers and consumers to be used in the application, but also periodically calls the discovery API to check if a cluster switchover is required (and if so, makes sure the producers and consumers are switched).
+
+### Producer (String / JSON)
+```python
+import json
+p = client.get_producer('TopicName') # TopicName as defined in self-service
+p.produce(value = json.dumps(dict(a = 1, b = "banana")))
+p.flush() # Flushes producer before ending (triggering callbacks for delivery reports)
+```
+
+### Consumer (String / JSON / AVRO)
+```python
+c = client.get_consumer('TopicName') # TopicName as defined in self-service
+## For consuming an AVRO topic, use:
+# c = client.getAVROConsumer('TopicName')
+for msg in c:
+	# msg equals None if no new message
+	if msg is not None:
+		if msg.error():
+			# Error handling
+			print(msg.error().code())
+		else:
+			# Do some processing on the message
+			print(msg.value().decode('utf-8'))
+			# Commit message offset to the topic
+			c.commit(msg)
+	if somethinghappens:
+		c.pause = True # Causes to break from for loop
+# Cleanly unregister from cluster by closing consumer
+c.close()
+```
+
+### Producer (AVRO)
+Producing AVRO messages works if you have the AVRO schema available that was uploaded to self-service. ```schema_value``` and ```schema_key``` can be either an AVRO schema (string), or the path to a file containing the schema. ```schema_key``` is optional and depends on whether the key has to be AVRO-serialized as well.
+```python
+p = client.get_avro_producer('TopicName', schema_value = "./schema.avsc", schema_key = None)
+p.produce(str(dict(a = 1, b = "banana")))
+p.flush() # Flushes producer before ending (triggering callbacks for delivery reports)
+```
+
+## SSL Configuration
+The client configuration requires a correct SSL configuration in order to communicate securely with brokers, the discovery API, and the schema registry.  
+Each application (as defined in self-service) requires an application certificate (```certificate_location``` in ```SslConfig```) and corresponding private key (```private_key_location```). The application certificate must match the one uploaded in self-service for that application.  
+The file with root certificates needs to be created properly: The brokers might be using a root certificate authority different from the authority that signed the certificates for the discovery API and schema registry.
+The base64-encoded unencrypted versions of these certificates can be pasted into one file to use as certificate that ```root_ca_location``` in ```SslConfig``` points to. This file would then look like the following example:
+```
+-----BEGIN CERTIFICATE-----
+MIIQdaGDAksKadksSDKNsdka5sjy8elAMsm3d .....
+ ...  more base64-encoded content here ...
+..... LKlmsf02mz2EWYnds=
+-----END CERTIFICATE-----
+
+-----BEGIN CERTIFICATE-----
+MIIPmsd92nNWlasHWdwMOe92nwoa2QNinnNaZ .....
+ ...  more base64-encoded content here ...
+..... ldFAf02SArubBW7wVFW2i1=
+-----END CERTIFICATE-----
+```
+
+## Examples
+
+Simple use cases using the client code can be found in the 
+[Axual Python Client Examples](https://gitlab.com/axual-public/axual-client-python-examples).
+
+
+## Contributing
+
+Axual is interested in building the community; we would welcome any thoughts or 
+[patches](https://gitlab.com/axual-public/axual-client-python/-/issues).
+You can reach us [here](https://axual.com/contact/).
+
+See [contributing](https://gitlab.com/axual-public/axual-client-python/blob/master/CONTRIBUTING.md).
+
+## License
+
+Axual Python Client is licensed under the [Apache License, Version 2.0](https://www.apache.org/licenses/LICENSE-2.0.txt).
+
