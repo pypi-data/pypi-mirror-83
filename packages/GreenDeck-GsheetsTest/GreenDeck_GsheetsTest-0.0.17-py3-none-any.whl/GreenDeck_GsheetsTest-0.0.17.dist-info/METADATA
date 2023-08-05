@@ -1,0 +1,104 @@
+Metadata-Version: 2.1
+Name: GreenDeck-GsheetsTest
+Version: 0.0.17
+Summary: Greendeck Test to plot graph using gsheets
+Home-page: https://github.com/snehkothari/GreenDeck_gsheets
+Author: Sneh Kothari
+Author-email: snehkothari1@gmail.com
+License: UNKNOWN
+Platform: UNKNOWN
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.7
+Description-Content-Type: text/markdown
+Requires-Dist: matplotlib
+Requires-Dist: pandas
+Requires-Dist: gsheets
+
+Installation
+=============
+
+
+### Installation with pip
+```bash
+pip install GreenDeck-GsheetsTest==0.0.17
+```
+To run the file clients_secrets.json file is required in the root directory.
+For example in a Mac the root directory is "/Users/username" therefore the "client_secrets.json" file will be searched at this location.\
+Download the client_secrets.json file from the github repository and save it in the root directory.
+
+### Dependency
+```pip
+matplot
+pandas
+gsheets
+```
+
+Usage
+=========
+
+To use the package in the terminal the following steps need to be performed. First enter the python environment before brginning to execute these commands.
+
+In order to use the package it needs to be imported using the command
+```python
+import GreenDeck
+```
+After this the module needs to be imported using the command
+```python
+from GreenDeck import GsheetsTest
+```
+
+Lastly you need to call the login method in order to start using the package.
+```python
+GsheetsTest.login()
+```
+### Sample
+![screenshot-run-program](https://github.com/snehkothari/Test_GreenDeck_Gsheets/blob/main/Screenshot%202020-10-21%20at%204.03.59%20PM.png)
+
+Run-through 
+-------------
+
+After calling the login() method if the user has not logged in then the default browser is opened where user can login using his/her Google Account and the data is stored in the storage.json file which then omits the process of logging in again every time the program is run.
+
+![screenshot-login-screen](https://github.com/snehkothari/Test_GreenDeck_Gsheets/blob/main/Screenshot%202020-10-21%20at%204.04.24%20PM.png)
+
+### Result
+![screenshot-login-success](https://github.com/snehkothari/Test_GreenDeck_Gsheets/blob/main/Screenshot%202020-10-21%20at%204.05.03%20PM.png)
+
+After getting this result on the web browser. Close the browser and go back to the terminal where the program was being executed. You will see a list of all the sheets that are present or have been added to that Google Account. These sheets are numbered and for further operations you can select one of the sheets from the list by entering their corresponding number. 
+
+![screenshot-list-sheet](https://github.com/snehkothari/Test_GreenDeck_Gsheets/blob/main/Screenshot%202020-10-21%20at%204.05.19%20PM.png)
+
+The sheet corresponding to the entered number is accessed and the column names of that sheet are displayed. Following which user is asked to select the column to be taken as x-axis and y-axis.
+
+![screenshot-list-column](https://github.com/snehkothari/Test_GreenDeck_Gsheets/blob/main/Screenshot%202020-10-21%20at%204.05.49%20PM.png)
+
+The columns entered are then plot on the graph with the corresponding columns for x-axis and y-axis.
+
+![screenshot-result-graph](https://github.com/snehkothari/Test_GreenDeck_Gsheets/blob/main/offer_price:timestamp.png)
+
+
+Methods
+=========
+
+### login()
+
+This method is used for logging in the user. After logging in the user this method gets all the sheets available at the GoogleSheets account and calls the list_sheet() method.
+
+### list_sheet()
+
+This method takes a list of all sheets as the input and prints all these sheet objects and asks the user to select one of the sheets. This selected sheet is then passed onto the plot_graph method.
+
+### plot_graph()
+
+This method takes the google sheet object as the input and then displays all the column names in the sheet. Then the user is asked to select a column for x-axis and y-axis. The cholumns selected are then plot on a graph. 
+
+
+License
+=======
+
+MIT License . For more details, please read the
+[LICENSE](https://github.com/snehkothari/Test_GreenDeck_Gsheets/blob/main/LICENSE) file.
+
+
