@@ -1,0 +1,70 @@
+{% extends 'base.html' %}
+
+{% block style %}
+    <link href="/static/datatables/jquery.dataTables.min.css" rel="stylesheet">
+    <link href="/static/datatables/dataTables.semanticui.min.css" rel="stylesheet">
+{% endblock %}
+
+{% block script %}
+    <script src="/static/datatables/jquery.dataTables.min.js"></script>
+    <script src="/static/datatables/dataTables.semanticui.min.js"></script>
+    <script src="/static/js/users.js"></script>
+{% endblock %}
+
+{% block content %}
+    <div class="ui segment">
+    <h1 class="ui header">{% trans %}My consents{% endtrans %}</h1>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for category, message in messages %}
+    <div class="ui attached message {{ category }}">
+        {{ message }}
+    </div>
+    {% endfor %}
+    {% endwith %}
+
+    {% if consents %}
+    <div class="ui centered cards">
+        {% for consent in consents %}
+        {% set client = clients[consent.oauthClient] %}
+        <div class="ui card">
+            <div class="content">
+                {% if client.oauthLogoURI %}
+                    <img class="right floated mini ui image" src="{{ client.oauthLogoURI }}">
+                {% endif %}
+                {% if client.oauthClientURI %}
+                    <a href="{{ client.oauthClientURI }}" class="header">{{ client.oauthClientName }}</a>
+                {% else %}
+                    <div class="header">{{ client.oauthClientName }}</div>
+                {% endif %}
+                <div class="meta">{% trans %}From:{% endtrans %} {{ consent.issue_date.strftime("%d/%m/%Y %H:%M:%S") }}</div>
+                {% if consent.oauthRevokationDate %}
+                <div class="meta">{% trans %}Revoked:{% endtrans %} {{ consent.revokation_date.strftime("%d/%m/%Y %H:%M:%S") }}</div>
+                {% endif %}
+                <div class="description">
+                    <p>{% trans %}Has access to:{% endtrans %}</p>
+                    <ul>
+                        {% for s in consent.oauthScope %}
+                            <li>{{ s }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+            <a class="ui bottom attached button" href="{{ url_for('canaille.consents.delete', consent_id=consent.cn[0] ) }}">
+                <i class="remove icon"></i>
+                {% trans %}Remove access{% endtrans %}
+            </a>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="ui center aligned">
+        <i class="massive smile outline icon image ui"></i>
+
+    <h2 class="ui center aligned header">
+        <div class="content">{% trans %}Nothing here{% endtrans %}</div>
+        <div class="sub header">{% trans %}You did not authorize applications yet.{% endtrans %}</div>
+    </h2>
+    </div>
+    {% endif %}
+    </div>
+{% endblock %}

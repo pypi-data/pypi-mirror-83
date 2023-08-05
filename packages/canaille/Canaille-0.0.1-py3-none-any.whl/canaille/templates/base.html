@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="fr">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+
+    <title>{% block title %}{% trans %}OpenID Connect LDAP Bridge{% endtrans %}{% endblock %}</title>
+
+    <link href="/static/fomanticui/semantic.min.css" rel="stylesheet">
+    <link href="/static/css/base.css" rel="stylesheet">
+    {% if logo_url %}<link rel="icon" href="{{ logo_url }}">{% endif %}
+    {% block style %}{% endblock %}
+
+    <!--[if lt IE 9]>
+        <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+        <script>window.html5 || document.write('<script src="/static/js/html5shiv.min.js"><\/script>')</script>
+        <script src="/static/js/respond.min.js"></script>
+    <![endif]-->
+
+</head>
+
+<body>
+    {% block menu %}
+        {% if user and menu %}
+        <nav class="ui stackable labeled icon menu container">
+            {% if logo_url %}
+            <div class="header item">
+                <a href="/" class="logo">
+                    <img class="ui image" src="{{ logo_url }}" alt="{{ website_name }}" />
+                </a>
+            </div>
+            {% endif %}
+            <a class="item {% if menuitem == "profile" %}active{% endif %}"
+                href="{{ url_for('canaille.account.profile') }}">
+                <i class="id card icon"></i>
+                {% trans %}My profile{% endtrans %}
+            </a>
+            <a class="item {% if menuitem == "consents" %}active{% endif %}"
+                href="{{ url_for('canaille.consents.consents') }}">
+                <i class="handshake icon"></i>
+                {% trans %}My consents{% endtrans %}
+            </a>
+            <a class="item {% if menuitem == "tokens" %}active{% endif %}"
+                href="{{ url_for('canaille.tokens.tokens') }}">
+                <i class="key icon"></i>
+                {% trans %}My tokens{% endtrans %}
+            </a>
+            {% if user.admin %}
+            <div class="ui dropdown item {% if menuitem == "admin" %}active{% endif %}">
+                <i class="settings icon"></i>
+                Admin
+                <div class="menu">
+                    <a class="item" href="{{ url_for('canaille.admin.clients.index') }}">
+                    <i class="plug icon"></i>
+                    {% trans %}Clients{% endtrans %}
+                </a>
+                <a class="item" href="{{ url_for('canaille.admin.tokens.index') }}">
+                    <i class="key icon"></i>
+                    {% trans %}Tokens{% endtrans %}
+                </a>
+                <a class="item" href="{{ url_for('canaille.admin.authorizations.index') }}">
+                    <i class="user secret icon"></i>
+                    {% trans %}Codes{% endtrans %}
+                </a>
+                <a class="item" href="">
+                    <i class="handshake icon"></i>
+                    {% trans %}Consents{% endtrans %}
+                </a>
+                </div>
+            </div>
+            {% endif %}
+            <a class="item" href="{{ url_for('canaille.account.logout') }}">
+                <i class="sign out alternate icon"></i>
+                {% trans %}Log out{% endtrans %}
+            </a>
+        </nav>
+        {% endif %}
+    {% endblock %}
+
+    <div class="ui container">
+        <div class="content">
+            {% block content %}{% endblock %}
+        </div>
+    </div>
+    <script src="/static/jquery/jquery.min.js"></script>
+    <script src="/static/fomanticui/semantic.min.js"></script>
+    <script src="/static/js/base.js"></script>
+    {% block script %}{% endblock %}
+</body>
+</html>
