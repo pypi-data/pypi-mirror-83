@@ -1,0 +1,192 @@
+from .gen import *
+
+__all__ = ["DtkSyncApi"]
+
+
+class DtkSyncApi(object):
+    """"""
+
+    def __init__(self, app_key: str, app_secret: str):
+        self._inner = DtkSync(app_key=app_key, app_secret=app_secret)
+
+    @staticmethod
+    def _generic_get_data(d: Optional[dict]) -> Optional[dict]:
+        if isinstance(d, dict) and d["code"] == 0:
+            return d["data"]
+        return None
+
+    def goods_price_trend(self, args: GoodsPriceTrendArgs) -> Optional[dict]:
+        """
+        doc: https://www.dataoke.com/pmc/api-d.html?id=36
+        """
+        return self._inner.goods_price_trend(args)
+
+    def goods_liveMaterial_goods_list(
+        self, args: GoodsLivematerialGoodsListArgs
+    ) -> Optional[dict]:
+        return self._inner.goods_liveMaterial_goods_list(args)
+
+    def goods_explosive_goods_list(
+        self, args: GoodsExplosiveGoodsListArgs
+    ) -> Optional[dict]:
+        return self._inner.goods_explosive_goods_list(args)
+
+    def tb_service_parse_content(
+        self, args: TbServiceParseContentArgs
+    ) -> Optional[dict]:
+        return self._inner.tb_service_parse_content(args)
+
+    def goods_exclusive_goods_list(
+        self, args: GoodsExclusiveGoodsListArgs
+    ) -> Optional[dict]:
+        return self._inner.goods_exclusive_goods_list(args)
+
+    def tb_service_activity_link(
+        self, args: TbServiceActivityLinkArgs
+    ) -> Optional[dict]:
+        return self._inner.tb_service_activity_link(args)
+
+    def tb_service_twd_to_twd(self, args: TbServiceTwdToTwdArgs) -> Optional[dict]:
+        return self._inner.tb_service_twd_to_twd(args)
+
+    def goods_first_order_gift_money(
+        self, args: GoodsFirstOrderGiftMoneyArgs
+    ) -> Optional[dict]:
+        return self._inner.goods_first_order_gift_money(args)
+
+    def tb_service_creat_taokouling(
+        self, args: TbServiceCreatTaokoulingArgs
+    ) -> Optional[dict]:
+        return self._inner.tb_service_creat_taokouling(args)
+
+    def tb_service_get_order_details(
+        self, args: TbServiceGetOrderDetailsArgs
+    ) -> Optional[dict]:
+        return self._inner.tb_service_get_order_details(args)
+
+    def tb_service_parse_taokouling(
+        self, args: TbServiceParseTaokoulingArgs
+    ) -> Optional[dict]:
+        return self._inner.tb_service_parse_taokouling(args)
+
+    def tb_service_get_privilege_link(
+        self, args: TbServiceGetPrivilegeLinkArgs
+    ) -> Optional[TbServiceGetPrivilegeLinkResp]:
+        ret = self._inner.tb_service_get_privilege_link(args)
+        data = self._generic_get_data(ret)
+        return TbServiceGetPrivilegeLinkResp(**data)
+
+    def goods_nine_op_goods_list(
+        self, args: GoodsNineOpGoodsListArgs
+    ) -> Optional[dict]:
+        return self._inner.goods_nine_op_goods_list(args)
+
+    def category_ddq_goods_list(self, args: CategoryDdqGoodsListArgs) -> Optional[dict]:
+        return self._inner.category_ddq_goods_list(args)
+
+    def goods_get_ranking_list(self, args: GoodsGetRankingListArgs) -> Optional[dict]:
+        return self._inner.goods_get_ranking_list(args)
+
+    def goods_friends_circle_list(
+        self, args: GoodsFriendsCircleListArgs
+    ) -> Optional[dict]:
+        return self._inner.goods_friends_circle_list(args)
+
+    def goods_topic_catalogue(self) -> Optional[dict]:
+        return self._inner.goods_topic_catalogue()
+
+    def goods_topic_goods_list(self, args: GoodsTopicGoodsListArgs) -> Optional[dict]:
+        return self._inner.goods_topic_goods_list(args)
+
+    def category_get_tb_topic_list(
+        self, args: CategoryGetTbTopicListArgs
+    ) -> Optional[dict]:
+        return self._inner.category_get_tb_topic_list(args)
+
+    def tb_service_get_brand_list(
+        self, args: TbServiceGetBrandListArgs
+    ) -> Optional[dict]:
+        return self._inner.tb_service_get_brand_list(args)
+
+    def goods_search_suggestion(
+        self, args: GoodsSearchSuggestionArgs
+    ) -> Optional[dict]:
+        return self._inner.goods_search_suggestion(args)
+
+    def goods_list_super_goods(self, args: GoodsListSuperGoodsArgs) -> Optional[dict]:
+        return self._inner.goods_list_super_goods(args)
+
+    def goods_list_similer_goods_by_open(
+        self, args: GoodsListSimilerGoodsByOpenArgs
+    ) -> Optional[dict]:
+        return self._inner.goods_list_similer_goods_by_open(args)
+
+    def goods_get_goods_list(self, args: GoodsGetGoodsListArgs) -> Optional[dict]:
+        return self._inner.goods_get_goods_list(args)
+
+    def goods_get_goods_details(self, args: GoodsGetGoodsDetailsArgs) -> Optional[dict]:
+        return self._inner.goods_get_goods_details(args)
+
+    def goods_get_dtk_search_goods(
+        self, args: GoodsGetDtkSearchGoodsArgs
+    ) -> Optional[GoodsGetDtkSearchGoodsResp]:
+        ret = self._inner.goods_get_dtk_search_goods(args)
+        data = self._generic_get_data(ret)
+        if data is None:
+            return None
+        return GoodsGetDtkSearchGoodsResp(**data)
+
+    def goods_pull_goods_by_time(
+        self, args: GoodsPullGoodsByTimeArgs
+    ) -> Optional[dict]:
+        return self._inner.goods_pull_goods_by_time(args)
+
+    def category_get_top100(self) -> Optional[CategoryGetTop100Resp]:
+        ret = self._inner.category_get_top100()
+        data = self._generic_get_data(ret)
+        if data is None:
+            return None
+        return CategoryGetTop100Resp(**data)
+
+    def goods_get_stale_goods_by_time(
+        self, args: GoodsGetStaleGoodsByTimeArgs
+    ) -> Optional[dict]:
+        return self._inner.goods_get_stale_goods_by_time(args)
+
+    def goods_get_newest_goods(self, args: GoodsGetNewestGoodsArgs) -> Optional[dict]:
+        return self._inner.goods_get_newest_goods(args)
+
+    def category_get_super_category(
+        self,
+    ) -> Optional[List[CategoryGetSuperCategoryResp]]:
+        ret = self._inner.category_get_super_category()
+        data = self._generic_get_data(ret)
+        if data is None:
+            return None
+        return list(map(lambda x: CategoryGetSuperCategoryResp(**x), data))
+
+    def tb_service_get_tb_service(
+        self, args: TbServiceGetTbServiceArgs
+    ) -> Optional[List[TbServiceGetTbServiceResp]]:
+        ret = self._inner.tb_service_get_tb_service(args)
+        data = self._generic_get_data(ret)
+        if data is None:
+            return None
+
+        return list(map(lambda x: TbServiceGetTbServiceResp(**x), data))
+
+    def goods_get_collection_list(
+        self, args: GoodsGetCollectionListArgs
+    ) -> Optional[dict]:
+        return self._inner.goods_get_collection_list(args)
+
+    def goods_get_owner_goods(self, args: GoodsGetOwnerGoodsArgs) -> Optional[dict]:
+        return self._inner.goods_get_owner_goods(args)
+
+    def goods_activity_goods_list(
+        self, args: GoodsActivityGoodsListArgs
+    ) -> Optional[dict]:
+        return self._inner.goods_activity_goods_list(args)
+
+    def goods_activity_catalogue(self) -> Optional[dict]:
+        return self._inner.goods_activity_catalogue()
