@@ -1,0 +1,242 @@
+"""
+Generic handler functionality for Phantom App connector implementations.
+
+To implement a basic connector that supports a hypothetical `echo message`
+action:
+```
+@main_connector
+class MyConnector(HandlerMixin, BaseConnector):
+    @ActionHandler
+    def echo_message(self, message, context=None):
+        self.save_progress(message)
+        return message
+```
+"""
+import json
+from abc import ABCMeta
+from inspect import getfile
+from functools import partial, update_wrapper, wraps
+from logging import getLogger
+from pathlib import Path
+from traceback import format_exception
+
+import requests
+
+from phantom.action_result import ActionResult
+from phantom.app import APP_ERROR, APP_SUCCESS
+
+
+logger = getLogger(__name__)
+
+
+class ActionHandler:
+    """
+    A descriptor for a method designated as an action handler for a connector
+    class.
+    When used as a decorator, it provides a straightforward way to register
+    the decorated method as an action handler.
+
+    This class wraps the provided method with standard error handling, and
+    manages the conversion of generic method results to Phantom ActionResults.
+
+    :param function method: The method that implements the connector's action
+        handler logic for the action of the same name
+    """
+    def __init__(self, method):
+        self.unbound_method = method
+        self.handler_method = self.create_handler_method()
+
+    def __get__(self, instance, owner=None):
+        if instance is None:
+            return self
+
+        bound_method = partial(self.unbound_method, instance)
+        update_wrapper(bound_method, self.unbound_method)
+        return bound_method
+
+    @property
+    def action_identifier(self):
+        return self.unbound_method.__name__
+
+    def create_handler_method(self):
+        """
+        Wrap the action handler logic in standard Phantom ActionResult results
+        and error-handling
+
+        :return: A new unbound method that wraps the original in Phantom
+            reporting and error handling
+        :rtype: function
+        """
+        action_identifier = self.action_identifier
+
+        @wraps(self.unbound_method)
+        def handler_method(connector, param):
+            connector.save_progress(f'Handling {action_identifier}')
+            action_result = connector.add_action_result(
+                ActionResult(dict(param)))
+            try:
+                result = self.unbound_method(connector, **param)
+            except Exception as error:
+                # Phantom appears to expect errors to be handled by the
+                # connector.
+                # Catch any `Exception`, report the details, and signal
+                # failure.
+                logger.error(str(error), exc_info=error)
+                connector.save_progress(f'{action_identifier} failed: {error}')
+                exception_lines = format_exception(
+                    error.__class__, error, error.__traceback__)
+                connector.error_print(''.join(exception_lines))
+                return action_result.set_status(
+                    APP_ERROR, str(error.__class__), exception=error)
+
+            logger.debug('handler result data: %r', result)
+            if result is not None:
+                connector.save_progress(
+                    f'Adding {action_identifier} result data')
+                action_result.add_data(result)
+
+            connector.save_progress(f'{action_identifier} complete')
+            return action_result.set_status(APP_SUCCESS)
+
+        return handler_method
+
+
+class HandlerMixin(metaclass=ABCMeta):
+    """
+    An abstract mixin class that automates the delegation of action execution
+    to the appropriately decorated class method.
+
+    The current implementation of `phantom.base_connector.BaseConnector` is
+    problematic to subclass, as Phantom blindly chooses the first such subclass
+    as the connector implementation.
+    This class sidesteps this issue at the cost of an extra superclass for
+    connector implementations.
+    """
+    def handle_action(self, param):
+        """
+        Implements abstract method
+        `phantom.base_connector.BaseConnector.handle_action`.
+
+        Delegates execution to the appropriate action handler logic
+
+        :param dict param: Parameter dictionary passed in by Phantom
+        :return: The Phantom action result
+        :rtype: phantom.action_result.ActionResult
+        """
+        action_identifier = self.get_action_identifier()
+        unbound_method = self.get_handler_method(action_identifier)
+        return unbound_method(self, param)
+
+    @classmethod
+    def get_app_json(cls):
+        """
+        Get the app JSON configuration
+
+        :return: Contents of the app configuration JSON file as a dictionary
+        :rtype: dict
+        """
+        class_file_path = Path(getfile(cls)).absolute()
+        APP_JSON_PATH, = class_file_path.parent.glob('*.json')
+        with APP_JSON_PATH.open() as json_file:
+            return json.load(json_file)
+
+    @classmethod
+    def get_handler_method(cls, action_identifier):
+        """
+        Get the unbound handler method for the provided action identifier
+
+        The connector class is expected to have an `ActionHandler` member that
+        is named after the action identifier.
+
+        :param str action_identifier: The identifer of a handled action
+        :return: The wrapped unbound handler method for the identified action
+        :rtype: function
+        """
+        handler = getattr(cls, action_identifier)
+        return handler.handler_method
+
+    @classmethod
+    def main(cls):
+        """
+        A direct copy of the logic provided by the app-creation wizard
+        """
+        import pudb
+        import argparse
+
+        pudb.set_trace()
+
+        argparser = argparse.ArgumentParser()
+
+        argparser.add_argument('input_test_json', help='Input Test JSON file')
+        argparser.add_argument(
+            '-u', '--username', help='username', required=False)
+        argparser.add_argument(
+            '-p', '--password', help='password', required=False)
+
+        args = argparser.parse_args()
+        session_id = None
+
+        username = args.username
+        password = args.password
+
+        if username is not None and password is None:
+
+            # User specified a username but not a password, so ask
+            import getpass
+            password = getpass.getpass("Password: ")
+
+        if username and password:
+            try:
+                phantom_base_url = cls._get_phantom_base_url()
+                login_url = f'{phantom_base_url}/login'
+
+                print("Accessing the Login page")
+                r = requests.get(login_url, verify=False)
+                csrftoken = r.cookies['csrftoken']
+
+                data = dict()
+                data['username'] = username
+                data['password'] = password
+                data['csrfmiddlewaretoken'] = csrftoken
+
+                headers = dict()
+                headers['Cookie'] = 'csrftoken=' + csrftoken
+                headers['Referer'] = login_url
+
+                print("Logging into Platform to get the session id")
+                r2 = requests.post(
+                    login_url, verify=False, data=data, headers=headers)
+                session_id = r2.cookies['sessionid']
+            except Exception as e:
+                print(
+                    f"Unable to get session id from the platform. Error: {e}")
+                exit(1)
+
+        with open(args.input_test_json) as f:
+            in_json = f.read()
+            in_json = json.loads(in_json)
+            print(json.dumps(in_json, indent=4))
+
+            connector = cls()
+            connector.print_progress_message = True
+
+            if session_id is not None:
+                in_json['user_session_token'] = session_id
+                connector._set_csrf_info(csrftoken, headers['Referer'])
+
+            ret_val = connector._handle_action(json.dumps(in_json), None)
+            print(json.dumps(json.loads(ret_val), indent=4))
+
+        exit(0)
+
+
+def main_connector(connector_class):
+    """
+    This decorator automatically executes the decorated class's `main` method
+    if the class is defined in the `__main__` module
+
+    :param type connector_class: A Phantom app connector implementation
+    """
+    if connector_class.__module__ == '__main__':
+        connector_class.main()
+    return connector_class
