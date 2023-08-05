@@ -1,0 +1,49 @@
+Metadata-Version: 2.1
+Name: x-net-email-css-inliner
+Version: 1.0.2
+Summary: An Email CSS Inliner to inline a external CSS to HTML
+Home-page: https://github.com/x-net-services/x-net-email-css-inliner
+Author: X-Net Services GmbH
+Author-email: support-software@x-net.at
+License: MIT
+Platform: UNKNOWN
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Topic :: Internet :: WWW/HTTP
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown
+Requires-Dist: beautifulsoup4 (==4.9.3)
+Requires-Dist: requests (==2.24.0)
+Requires-Dist: tinycss2 (==1.0.2)
+
+# X-Net Email CSS Inliner
+
+The *X-Net Email CSS Inliner* is a HTML email inliner inspired by the
+[ZURB CSS inliner](https://get.foundation/emails/inliner.html).
+
+Inlining is the process of prepping an HTML email for delivery to email clients
+Some email clients strip out your email's styles unless they are written inline
+with style tags. Here's what the inliner does:
+
+* *Inlining CSS:* All of your CSS is embedded directly into the HTML as style attributes on each tag.
+* CSS inside a *@media* block can't be inlined, so it's put in a `<style>` tag.
+
+You can use our great [X-Net Django Email Template](https://github.com/x-net-services/x-net-django-email-template)
+with the *X-Net Email CSS Inliner*
+
+## Installation
+
+```
+pip install x_net_email_css_inliner
+```
+
+## Example
+
+```
+from x_net_email_css_inliner import EmailCSSInliner
+
+raw_html = "<html>...</html>"  # HTML email template
+html_with_inline_css = str(EmailCSSInliner(raw_html))
+```
+
+
