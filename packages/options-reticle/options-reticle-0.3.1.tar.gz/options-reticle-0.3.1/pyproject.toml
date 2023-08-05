@@ -1,0 +1,36 @@
+[tool.poetry]
+name = "options-reticle"
+version = "0.3.1"
+description = "Generate OTM strike targets from tradingview watchlists."
+license = "MIT"
+authors = ["dgnsrekt <dgnsrekt@pm.me>"]
+readme = "README.md"
+homepage = "https://github.com/dgnsrekt/tradingview-options-reticle"
+repository = "https://github.com/dgnsrekt/tradingview-options-reticle"
+documentation = "https://github.com/dgnsrekt/tradingview-options-reticle"
+keywords = ["tradingview", "options-trading", "python"]
+include = ["images", ".flake8", "noxfile.py", "poetry.lock", "tests"]
+
+[tool.poetry.scripts]
+options-reticle = "options_reticle.core:app"
+
+[tool.poetry.dependencies]
+python = "^3.8"
+pendulum = "^2.1.2"
+jinja2 = "^2.11.2"
+pydantic = "^1.6.1"
+more-itertools = "^8.5.0"
+typer = {extras = ["all"], version = "^0.3.2"}
+yfs = "^0.3.1"
+requests-whaor = "^0.2.1"
+toml = "^0.10.1"
+
+[tool.poetry.dev-dependencies]
+pytest-watch = "^4.2.0"
+pytest-sugar = "^0.9.4"
+pytest-regressions = "^2.0.2"
+nox = "^2020.8.22"
+
+[build-system]
+requires = ["poetry_core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
