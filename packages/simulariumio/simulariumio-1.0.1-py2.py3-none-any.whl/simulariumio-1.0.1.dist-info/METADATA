@@ -1,0 +1,179 @@
+Metadata-Version: 2.1
+Name: simulariumio
+Version: 1.0.1
+Summary: Simularium Conversion helps convert simulation outputs to the format consumed by the Simularium viewer.
+Home-page: https://github.com/allen-cell-animated/simulariumio
+Author: Blair Lyons
+Author-email: blairl@alleninstitute.org
+License: Allen Institute Software License
+Keywords: simulariumio
+Platform: UNKNOWN
+Classifier: Development Status :: 2 - Pre-Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: Free for non-commercial use
+Classifier: Natural Language :: English
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Requires-Python: >=3.7
+Description-Content-Type: text/markdown
+Requires-Dist: numpy (>=1.16)
+Provides-Extra: all
+Requires-Dist: numpy (>=1.16) ; extra == 'all'
+Requires-Dist: pytest-runner (>=5.2) ; extra == 'all'
+Requires-Dist: black (>=19.10b0) ; extra == 'all'
+Requires-Dist: codecov (>=2.1.4) ; extra == 'all'
+Requires-Dist: flake8 (>=3.8.3) ; extra == 'all'
+Requires-Dist: flake8-debugger (>=3.2.1) ; extra == 'all'
+Requires-Dist: pytest (>=5.4.3) ; extra == 'all'
+Requires-Dist: pytest-cov (>=2.9.0) ; extra == 'all'
+Requires-Dist: pytest-raises (>=0.11) ; extra == 'all'
+Requires-Dist: pandas (>=1.1.2) ; extra == 'all'
+Requires-Dist: scipy (>=1.5.2) ; extra == 'all'
+Requires-Dist: bumpversion (>=0.6.0) ; extra == 'all'
+Requires-Dist: coverage (>=5.1) ; extra == 'all'
+Requires-Dist: ipython (>=7.15.0) ; extra == 'all'
+Requires-Dist: m2r (>=0.2.1) ; extra == 'all'
+Requires-Dist: Sphinx (<3,>=2.0.0b1) ; extra == 'all'
+Requires-Dist: sphinx-rtd-theme (>=0.4.3) ; extra == 'all'
+Requires-Dist: tox (>=3.15.2) ; extra == 'all'
+Requires-Dist: tox-conda (>=0.2.1) ; extra == 'all'
+Requires-Dist: twine (>=3.1.1) ; extra == 'all'
+Requires-Dist: wheel (>=0.34.2) ; extra == 'all'
+Provides-Extra: dev
+Requires-Dist: pytest-runner (>=5.2) ; extra == 'dev'
+Requires-Dist: black (>=19.10b0) ; extra == 'dev'
+Requires-Dist: codecov (>=2.1.4) ; extra == 'dev'
+Requires-Dist: flake8 (>=3.8.3) ; extra == 'dev'
+Requires-Dist: flake8-debugger (>=3.2.1) ; extra == 'dev'
+Requires-Dist: pytest (>=5.4.3) ; extra == 'dev'
+Requires-Dist: pytest-cov (>=2.9.0) ; extra == 'dev'
+Requires-Dist: pytest-raises (>=0.11) ; extra == 'dev'
+Requires-Dist: pandas (>=1.1.2) ; extra == 'dev'
+Requires-Dist: scipy (>=1.5.2) ; extra == 'dev'
+Requires-Dist: bumpversion (>=0.6.0) ; extra == 'dev'
+Requires-Dist: coverage (>=5.1) ; extra == 'dev'
+Requires-Dist: ipython (>=7.15.0) ; extra == 'dev'
+Requires-Dist: m2r (>=0.2.1) ; extra == 'dev'
+Requires-Dist: Sphinx (<3,>=2.0.0b1) ; extra == 'dev'
+Requires-Dist: sphinx-rtd-theme (>=0.4.3) ; extra == 'dev'
+Requires-Dist: tox (>=3.15.2) ; extra == 'dev'
+Requires-Dist: tox-conda (>=0.2.1) ; extra == 'dev'
+Requires-Dist: twine (>=3.1.1) ; extra == 'dev'
+Requires-Dist: wheel (>=0.34.2) ; extra == 'dev'
+Provides-Extra: physicell
+Requires-Dist: pandas (>=1.1.2) ; extra == 'physicell'
+Requires-Dist: scipy (>=1.5.2) ; extra == 'physicell'
+Provides-Extra: setup
+Requires-Dist: pytest-runner (>=5.2) ; extra == 'setup'
+Provides-Extra: test
+Requires-Dist: black (>=19.10b0) ; extra == 'test'
+Requires-Dist: codecov (>=2.1.4) ; extra == 'test'
+Requires-Dist: flake8 (>=3.8.3) ; extra == 'test'
+Requires-Dist: flake8-debugger (>=3.2.1) ; extra == 'test'
+Requires-Dist: pytest (>=5.4.3) ; extra == 'test'
+Requires-Dist: pytest-cov (>=2.9.0) ; extra == 'test'
+Requires-Dist: pytest-raises (>=0.11) ; extra == 'test'
+Requires-Dist: pandas (>=1.1.2) ; extra == 'test'
+Requires-Dist: scipy (>=1.5.2) ; extra == 'test'
+
+# SimulariumIO
+
+[![Build Status](https://github.com/allen-cell-animated/simulariumio/workflows/Build%20Master/badge.svg)](https://github.com/allen-cell-animated/simulariumio/actions)
+[![Documentation](https://github.com/allen-cell-animated/simulariumio/workflows/Documentation/badge.svg)](https://allen-cell-animated.github.io/simulariumio)
+[![Code Coverage](https://codecov.io/gh/allen-cell-animated/simulariumio/branch/master/graph/badge.svg)](https://codecov.io/gh/allen-cell-animated/simulariumio)
+
+Simulariumio converts simulation outputs to the format consumed by the [Simularium viewer](https://simularium.allencell.org/).
+
+---
+
+## Features
+* Converts 3D spatiotemporal trajectories to .simularium JSON format
+* Accepts spatial trajectories from the following biological simulation engines:
+    * CytoSim (https://gitlab.com/f.nedelec/cytosim)
+    * ReaDDy (https://readdy.github.io/)
+    * PhysiCell (http://physicell.org/)
+* Conversions for data from custom engines can be implemented using the CustomConverter class
+* Also accepts metrics data for plots to display alongside spatial data
+
+## Quick Start
+
+### Convert spatial trajectory from a supported engine
+See the Tutorial for the simulation engine you're using for details:
+* [Cytosim Tutorial](examples/Tutorial_cytosim.ipynb)
+* [ReaDDy Tutorial](examples/Tutorial_readdy.ipynb)
+* [PhysiCell Tutorial](examples/Tutorial_physicell.ipynb)
+
+An overview for data from ReaDDy:
+```python
+from simulariumio.readdy import ReaddyConverter, ReaddyData
+
+# see ReaDDy Tutorial for parameter details
+input_data = ReaddyData(
+    box_size=BOX_SIZE,
+    timestep=TIMESTEP,
+    path_to_readdy_h5=PATH_TO_H5_FILE,
+)
+ReaddyConverter(input_data).write_JSON("output_file_name")
+```
+
+### Convert spatial trajectory from a custom engine
+See the [Custom Data Tutorial](examples/Tutorial_custom.ipynb) for details. An overview:
+```python
+from simulariumio import CustomConverter, CustomData, AgentData
+
+# see Custom Data Tutorial for parameter details
+input_data = CustomData(  
+    box_size=BOX_SIZE,
+    agent_data=AgentData(
+        times=TIMES,
+        n_agents=N_AGENTS,
+        viz_types=VIZ_TYPES,
+        unique_ids=UNIQUE_IDS,
+        types=TYPE_IDS,
+        positions=POSITIONS,
+        radii=RADII,
+    )
+)
+CustomConverter(input_data).write_JSON("output_file_name")
+```
+
+### Add metrics data to plot
+See the [Plots Tutorial](examples/Tutorial_plots.ipynb) for details. An overview:
+```python
+from simulariumio import ScatterPlotData
+
+# see Plots Tutorial for parameter details
+example_scatter_plot = ScatterPlotData(
+    title=TITLE,
+    xaxis_title=X_TITLE,
+    yaxis_title=Y_TITLE,
+    xtrace=X_VALUES,
+    ytraces=Y_VALUES,
+)
+converter = CustomConverter(input_data) # see above to create converter
+converter.add_plot(example_scatter_plot, "scatter")
+converter.write_JSON("output_file_name")
+```
+
+## Installation
+**Install Requires:** 
+
+* Requires Python 3.7 or 3.8
+
+* If ReaDDy trajectories will be converted, the ReaDDy python package must be installed:
+(add conda forge channel if it's not already: `conda config --add channels conda-forge`)
+`conda install -c readdy readdy`
+
+**Stable Release:** `pip install simulariumio`
+
+**Development Head:** `pip install git+https://github.com/allen-cell-animated/simulariumio.git`
+
+## Documentation
+For full package documentation please visit [allen-cell-animated.github.io/simulariumio](https://allen-cell-animated.github.io/simulariumio).
+
+## Development
+See [CONTRIBUTING.md](CONTRIBUTING.md) for information related to developing the code.
+
+***Free software: Allen Institute Software License***
+
+
