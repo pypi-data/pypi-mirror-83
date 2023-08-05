@@ -1,0 +1,57 @@
+/* -----------------------------------------------------------------------------
+  FUNCTIONS
+*/
+
+// Calculates a pixel value for a grid column width.
+// @param {number} $column-number - Column count of the column.
+// @param {number} $total-columns, - Column count of the entire row.
+// @param {number} $container-width - Width of the surrounding container, in pixels.
+// @returns {number} A pixel width value.
+@function grid-calc-px($column-number, $total-columns, $container-width) {
+  @return ($container-width / $total-columns * $column-number - $email-grid-gutter);
+}
+
+// Calculates a percentage value for a grid column width.
+// @param {number} $col-number - Column count of the column.
+// @param {number} $total-columns - Column count of the entire row.
+// @returns {number} A percentage width value.
+@function grid-calc-pct($col-number, $total-columns) {
+  @return floor(percentage(($col-number / $total-columns)) * 1000000) / 1000000;
+}
+
+// Append px unit to unitless value
+// @param {number} $value - Pixel value without unit
+@function px($value) {
+  @if $value != 0 {
+    @return #{$value}px;
+  }
+
+  @return $value;
+}
+
+// Convert px to rem
+// @param {number} $value - Pixel value without unit
+@function rem($value) {
+  @if $value != 0 {
+    @if $value != "auto" {
+      @return #{$value / 16}rem;
+    }
+  }
+
+  @return $value;
+}
+
+@mixin fallback_unit($property, $value) {
+  @if (str-index($property, "margin") == 1) {
+    #{to-upper-case(str-slice($property, 1, 1)) + str-slice($property, 2)}: rem($value); // fallback for Outlook.com
+  }
+
+  @if $value != 0 {
+    @if $value != "auto" {
+      #{$property}: px($value); // fallback for Outlook
+      #{$property}: rem($value);
+    } @else {
+      #{$property}: $value;
+    }
+  }
+}

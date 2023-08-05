@@ -1,0 +1,57 @@
+/* -----------------------------------------------------------------------------
+  BUTTON
+*/
+
+td.button-wrapper {
+  @include fallback_unit("padding-bottom", $email-button-margin-bottom);
+}
+
+table {
+  &.button {
+    width: auto;
+
+    td {
+      background: $email-button-bg-color;
+      color: $email-button-color;
+      line-height: px($email-font-size);
+      text-align: left;
+      vertical-align: top;
+      @include fallback_unit("padding-bottom", $email-button-padding / 2);
+      @include fallback_unit("padding-left", $email-button-padding);
+      @include fallback_unit("padding-right", $email-button-padding);
+      @include fallback_unit("padding-top", $email-button-padding / 2);
+
+      a {
+        color: $email-button-color;
+        display: inline-block;
+        font-family: $email-font-family;
+        font-weight: $email-button-font-weight;
+        line-height: 1;
+        text-decoration: none;
+        @include fallback_unit("font-size", $email-font-size);
+
+        &:hover {
+          color: $email-button-color;
+          text-decoration: underline;
+        }
+
+        &:focus,
+        &:active,
+        &:visited {
+          color: $email-button-color;
+        }
+      }
+    }
+
+    &:hover {
+      td {
+        background: darken($email-button-bg-color, 10%);
+        color: $email-button-color;
+
+        a {
+          color: $email-button-color;
+        }
+      }
+    }
+  }
+}
