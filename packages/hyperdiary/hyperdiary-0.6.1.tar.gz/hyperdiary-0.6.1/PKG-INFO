@@ -1,0 +1,189 @@
+Metadata-Version: 1.1
+Name: hyperdiary
+Version: 0.6.1
+Summary: A command line tool for my image processing needs.
+Home-page: https://github.com/luphord/hyperdiary
+Author: luphord
+Author-email: luphord@protonmail.com
+License: MIT license
+Description: ============
+        hyperdiary
+        ============
+        
+        .. image:: https://img.shields.io/pypi/v/hyperdiary.svg
+                :target: https://pypi.python.org/pypi/hyperdiary
+        
+        .. image:: https://travis-ci.com/luphord/hyperdiary.svg
+                :target: https://travis-ci.com/luphord/hyperdiary
+        
+        .. image:: https://readthedocs.org/projects/hyperdiary/badge/?version=latest
+                :target: https://hyperdiary.readthedocs.io/en/latest/?badge=latest
+                :alt: Documentation Status
+        
+        A command line tool for writing diaries with hyperlinks. Free software, licensed under MIT license.
+        
+        Installation
+        ------------
+        
+        hyperdiary requires Python version 3.5 or later. Once you have Python and pip installed on your machine (and available in your path) you can install hyperdiary by executing
+        
+        .. code-block:: console
+        
+                pip install hyperdiary
+        
+        Setup
+        -----
+        
+        A project file *hyperdiary.json* is required to setup your diary. It should be of this form:
+        
+        .. code-block:: json
+        
+                {
+                        "sources": [
+                                "2019/05.yaml",
+                                "2019/06.yaml"
+                        ],
+                        "expected": [
+                                {"start": "2019-05-01", "end": "2019-05-01"},
+                                {"start": "2019-06-09", "end": "2019-06-10"}
+                        ],
+                        "localization": {
+                                "months": ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                                           "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+                                "date_fmt": "%-d.%-m.%Y"
+                        }
+                }
+        
+        You diary content itself is entered in yaml files like this (*2019/06.yaml*):
+        
+        .. code-block:: yaml
+        
+                2019-06-09:
+                  - Some entry goes here with a $special_identity|link
+                  - This entry is +surprise tagged +mytag +nexttag
+                  - This entry contains nothing new
+                2019-06-10:
+                  - Same $special_identity|link again and $New_Identity|NewIdentity
+                  - $test +mytag
+        
+        Use *$target|linktext* to create a hyperlink to *target* showing text *linktext*. Use *+mytag* to add tag *mytag*.
+        
+        Usage
+        -----
+        
+        .. code-block:: console
+        
+                usage: hyperdiary [-h]
+                          {check,stats,html,htmlfolder,hugo,tiddlers,tiddlywiki,view}
+                          ...
+        
+                The hyperdiary main command line interface.
+        
+                optional arguments:
+                        -h, --help            show this help message and exit
+        
+                subcommands:
+                        {check,stats,html,htmlfolder,hugo,tiddlers,tiddlywiki,view}
+                                                Available subcommands
+                        check               Check entire diary for integrity up-to-dateness
+                        stats               Calculate impressive diary statistics
+                        html                Export diary to html
+                        htmlfolder          Export diary to html in folders
+                        hugo                Export diary to hugo static site format
+                        tiddlers            Export diary to tiddlywiki tiddlers format
+                        tiddlywiki          Export diary to tiddlywiki
+                        view                View entries on command line
+        
+        =======
+        History
+        =======
+        
+        0.6.1 (2020-10-21)
+        ------------------
+        
+        * add support for Python 3.8
+        * upgrade to flake8 3.8.4 and fix linter issues
+        * replace deprecated test command
+        * move to travis-ci.com
+        
+        0.6.0 (2019-11-29)
+        ------------------
+        
+        * promote status to alpha
+        * introduced localization using hyperdiary.json; date format and month names so far
+        * added tiddlers for month (calendar) and year overview with hyperlinks
+        * Diary supports iteration by year/month
+        * make docs work
+        
+        0.5.0 (2019-11-06)
+        ------------------
+        
+        * removed EntryType, refactored iteration, primarily passing Diary instances around
+        * fix bug when an ID is followed by a bracket )
+        * only line entries are allowed, no more dicts
+        
+        0.4.0 (2019-10-30)
+        ------------------
+        
+        * full type annotations added for package
+        * linting and type checking in CI
+        * EntryTypes Dict and DictLine are deprecated and will be removed in 0.5 (check issues a warning)
+        
+        0.3.2 (2019-10-17)
+        ------------------
+        
+        * fix linter configuration (and activate it)
+        * make all hyperdiary source files PEP8 conform
+        * set up bumpversion config
+        
+        0.3.1 (2019-07-03)
+        ------------------
+        
+        * open date ranges iterate until yesterday, not today
+        * fix loading hyperdiary.json without expected field
+        
+        0.3.0 (2019-06-19)
+        ------------------
+        
+        * Expected date ranges for check subcommand can be specified
+        * subcommand for export to tiddlywiki
+        * Tests for various output formats
+        
+        0.2.0 (2019-06-12)
+        ------------------
+        
+        * stats subcommand can be invoked for all entries
+        * Rename `tiddlywiki` subcommand to `tiddlers` for different future usage
+        * Integrate Travis CI for automated testing
+        * Add basic tests
+        * Refactor diary/entry passing to subcommands
+        
+        0.1.2 (2019-06-11)
+        ------------------
+        
+        * Fix htmlfolder subcommand by packaging picnic.min.css
+        * Fix view subcommand by using correct relative import
+        * Avoid deprecation warning in stats subcommand by using yaml.SafeLoader
+        
+        0.1.1 (2019-04-29)
+        ------------------
+        
+        * Fix setup
+        
+        0.1.0 (2019-04-28)
+        ------------------
+        
+        * First release on PyPI
+        * Import from fossil
+        
+Keywords: hyperdiary
+Platform: UNKNOWN
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Natural Language :: English
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
