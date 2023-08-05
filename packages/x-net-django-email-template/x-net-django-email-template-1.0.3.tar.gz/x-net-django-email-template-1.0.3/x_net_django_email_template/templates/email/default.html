@@ -1,0 +1,82 @@
+{% extends "email/base.html" %}
+
+{% load html_email i18n %}
+
+{% block content %}
+  <table class="container header" role="presentation">
+    <tr>
+      <td align="top" class="color-header">
+        <!--[if (gte mso 9)|(IE)]>
+          <table border="0" cellspacing="0" cellpadding="0" role="presentation" width="600">
+            <tr>
+              <td height="15" style="font-size: 15px; line-height: 15px;">
+        <![endif]-->
+
+        {% block logo %}<img alt="" class="image-fullsize" height="15" src="{% full_static "img/email/color_header.png" %}" width="600" />{% endblock %}
+
+        <!--[if (gte mso 9)|(IE)]>
+              </td>
+            </tr>
+          </table>
+        <![endif]-->
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <table class="header-row" role="presentation">
+          <tr>
+            <th class="header-column-left">
+              <h1>
+                {% block header_title %}{% endblock %}
+              </h1>
+            </th>
+            <th class="header-column-right">
+              <table align="right">
+                <tr>
+                  <td>
+                    <img alt="X-NET" src="{% full_static "img/email/logo.png" %}" width="60" />
+                  </td>
+                </tr>
+              </table>
+            </th>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+
+  <table class="container main" role="presentation">
+    <tr>
+      <td class="main-content">
+        {% block main %}
+          <p>This is an example of text.</p>
+
+          <table role="presentation">
+              <tr>
+              <td class="button-wrapper">
+                <table class="button" role="presentation">
+                  <tr>
+                    <td>
+                      <a href="#">Click me</a>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+        {% endblock %}
+      </td>
+    </tr>
+  </table>
+
+  <table align="center" class="container footer" role="presentation">
+    <tr>
+      <td class="footer-content">
+        {% block footer %}
+          <p><small>{% trans "This is an automatically generated email, please do not reply to this message." %}</small></p>
+        {% endblock %}
+      </td>
+    </tr>
+  </table>
+{% endblock %}
+
