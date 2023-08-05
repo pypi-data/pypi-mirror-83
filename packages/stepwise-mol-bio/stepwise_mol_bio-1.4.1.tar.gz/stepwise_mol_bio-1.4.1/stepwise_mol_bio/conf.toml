@@ -1,0 +1,165 @@
+[pcr]
+primer_stock_uM = 100
+default_preset = 'q5'
+
+[pcr.presets.q5]
+brief = "Official protocol for Q5 High-Fidelity DNA Polymerase (NEB)."
+reagents = '''
+Reagent            Stock      Volume  MM?
+==============  ========  ==========  ===
+water                     to 10.0 µL  yes
+template DNA    20 pg/µL      1.0 µL
+forward primer     10 µM      0.5 µL
+reverse primer     10 µM      0.5 µL
+Q5 master mix         2x      5.0 µL  yes
+'''
+num_cycles = 35
+initial_denature_temp_C = 98
+initial_denature_time_s = 30
+denature_temp_C = 98
+denature_time_s = 10
+anneal_temp_C = 60
+anneal_time_s = 20
+extend_temp_C = 72
+extend_time_s = 120
+final_extend_temp_C = 72
+final_extend_time_s = 120
+hold_temp_C = 4
+
+[pcr.presets.ssoadv]
+brief = "Official protocol for qPCR with SsoAdvanced™ Universal SYBR® Green Supermix (BioRad)."
+reagents = '''
+Reagent                  Stock    Volume  MM?
+====================  ========  ========  ===
+water                           to 20 µL  yes
+template DNA                        1 µL
+forward primer           10 µM      1 µL
+reverse primer           10 µM      1 µL
+SsoAdvanced supermix        2x     10 µL  yes
+'''
+num_cycles = 40
+initial_denature_temp_C = 95
+initial_denature_time_s = 30
+denature_temp_C = 95
+denature_time_s = 10
+anneal_temp_C = 60
+anneal_time_s = 15
+melt_curve_low_temp_C = 65
+melt_curve_high_temp_C = 95
+melt_curve_temp_step_C = 0.5
+melt_curve_time_step_s = 5
+two_step = true
+qpcr = true
+
+[gel.presets.sds]
+title = "SDS PAGE"
+gel_type = "SDS PAGE"
+gel_percent = "4−12"
+sample_mix = """
+Reagent                     Stock      Volume  MM?
+======================  =========  ==========  ===
+water                              to 10.0 µL  yes
+Bolt LDS sample buffer         4x      2.5 µL  yes
+Bolt reducing agent           10x      1.0 µL  yes
+sample                  100 ng/µL      2.5 µL
+"""
+incubate_temp_C = 70
+incubate_time_min = 10
+load_volume_uL = 10
+run_volts = 165
+run_time_min = 42
+stain = "coomassie"
+
+[gel.presets.sdsmax]
+inherit = 'sds'
+sample_mix = """
+Reagent                 Stock    Volume  MM?
+======================  =====  ========  ===
+Bolt LDS sample buffer     4x   3.85 µL  yes
+Bolt reducing agent       10x   1.54 µL  yes
+sample                         10.00 µL
+"""
+load_volume_uL = 15.39
+
+[gel.presets.native]
+title = "native PAGE"
+gel_type = "native PAGE"
+gel_percent = "3−12"
+sample_mix = """
+Reagent             Stock      Volume  MM?
+==============  =========  ==========  ===
+water                      to 6.00 µL  yes
+sample buffer          4x     1.50 µL  yes
+sample                        1.25 µL
+"""
+load_volume_uL = 5
+run_volts = 150
+run_time_min = 115
+stain = "coomassie"
+
+[gel.presets.nativeblue]
+inherit = "native"
+sample_mix = """
+Reagent             Stock      Volume  MM?
+==============  =========  ==========  ===
+water                      to 6.00 µL  yes
+sample buffer          4x     1.50 µL  yes
+G-250 additive         5%     0.25 µL  yes
+sample                        1.25 µL
+"""
+
+[gel.presets.urea]
+title = "TBE/urea PAGE"
+gel_type = "TBE/urea PAGE"
+gel_percent = 6
+sample_mix = """
+Reagent             Stock    Volume  MM?
+==============  =========  ========  ===
+water                      to 10 µL  yes
+sample buffer          2x      5 µL  yes
+sample          200 ng/µL      1 µL
+"""
+incubate_temp_C = 70
+incubate_time_min = 3
+load_volume_uL = 10
+run_volts = 180
+run_time_min = 40
+stain = "gelred"
+
+[gel.presets.agarose1]
+gel_type = "agarose"
+gel_percent = 1
+sample_mix = """
+Reagent             Stock  Volume  MM?
+==============  =========  ======  ===
+loading buffer         6x    1 µL  yes
+sample                       5 µL
+"""
+load_volume_uL = 5
+run_volts = 100
+run_time_min = 60
+stain = ''
+
+[gel.presets.agarose15]
+inherit = 'agarose1'
+gel_percent = 1.5
+
+[gel.presets.agarose2]
+inherit = 'agarose1'
+gel_percent = 2
+
+[laser.presets.blue]
+laser = 488
+filter = '518BP22'
+
+[laser.presets.green]
+laser = 520
+filter = '565BP24'
+
+[laser.presets.red]
+laser = 658
+filter = '710BP40'
+
+[laser.presets.nir]
+laser = 784
+filter = '832BP37'
