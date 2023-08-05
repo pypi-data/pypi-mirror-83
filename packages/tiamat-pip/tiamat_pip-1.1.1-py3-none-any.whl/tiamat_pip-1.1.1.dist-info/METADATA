@@ -1,0 +1,73 @@
+Metadata-Version: 2.1
+Name: tiamat-pip
+Version: 1.1.1
+Summary: Pip handling for tiamat projects
+Home-page: http://saltstack.com
+Author: Pedro Algarvio
+Author-email: pedro@algarvio.me
+License: Apache Software License 2.0
+Project-URL: Source, https://gitlab.com/saltstack/pop/tiamat-pip
+Project-URL: Tracker, https://gitlab.com/saltstack/pop/tiamat-pip/-/issues
+Platform: unix
+Platform: linux
+Platform: osx
+Platform: cygwin
+Platform: win32
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Cython
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown
+Requires-Dist: pip (>=20.2.3)
+Requires-Dist: PyInstaller (>=4.0)
+
+# Tiamat Pip
+
+Pip handling for tiamat projects
+
+## Setup
+In order to be able to `pip install` packages which can be used with your tiamat packaged application
+you need to add `tiamat-pip` as a dependency and your `run.py` should look similar to:
+
+```python
+#!/usr/bin/env python3
+
+import sys
+import multiprocessing
+
+import tiamatpip.cli
+import tiamatpip.configure
+
+import mainapp
+
+# Configure the path where to install the new packages
+tiamatpip.configure.set_user_site_packages_path("THIS SHOULD BE A HARDCODED PATH")
+
+
+def main(argv):
+    # Let's see if we should be handling pip related stuff
+    if tiamatpip.cli.should_redirect_argv(argv):
+        tiamatpip.cli.process_pip_argv(argv)
+
+    # If we reached this far, it means we're not handling pip stuff
+    # Your application logic can resume
+
+    mainapp.main(argv)
+    sys.exit(0)
+
+
+if __name__ == "__main__":
+    if sys.platform.startswith("win"):
+        multiprocessing.freeze_support()
+    main(sys.argv)
+```
+
+
