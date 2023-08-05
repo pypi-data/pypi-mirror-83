@@ -1,0 +1,284 @@
+BOTLIB
+######
+
+Welcome to BOTLIB, the bot library !  
+BOTLIB is placed in the public domain and contains no copyright or LICENSE, this makes BOTLIB truely free (pastable) code you can use how you see fit.
+see https://pypi.org/project/botlib/
+
+INSTALL
+=======
+
+Installation is through pypi:
+
+::
+
+ > sudo pip3 install botlib
+
+If you have previous versions already installed and things fail try to force reinstall:
+
+::
+
+ > sudo pip3 install botlib --upgrade --force-reinstall
+
+
+You can also run directly from the tarball, see https://pypi.org/project/botlib/#files
+
+USAGE
+=====
+
+BOTLIB has it's own CLI, you can run it by giving the bcmd command on the prompt, it will return with no response:
+
+:: 
+
+ $ bcmd
+ $ 
+
+You can use bcmd <cmd> to run a command directly, use the !cmd command to see a list of commands:
+
+::
+
+ $ bcmd cmd
+ cmd|dne|edt|fnd|flt|krn|log|add|tsk|tdo|udp|upt|ver
+
+
+BOTLIB also has it's own shell, bsh:
+
+::
+
+  $ bsh
+  > cmd
+  cmd|dne|edt|fnd|flt|krn|log|add|tsk|tdo|udp|upt|ver
+
+MODULES
+=======
+
+BOTLIB uses bmod as the namespace to distribute modules for BOTLIB:
+
+::
+
+   bmod.cfg	= config
+   bmod.cmd	- command
+   bmod.edt	- edit
+   bmod.ent	- enter log and todo items
+   bmod.fnd	- find typed objects
+   bmod.rss	- rich site syndicate
+   bmod.udp	- UDP to IRC gateway
+
+IRC
+===
+
+BOTLIB provides the bot as IRC client, configuration is done with the icfg command:
+
+::
+
+ $ bcmd icfg
+ channel=#botlib nick=birc port=6667 realname=botlib server=localhost username=botlib
+
+You can use setters to edit fields in a configuration:
+
+::
+
+ $ bcmd icfg server=irc.freenode.net channel=\#botlib nick=birc
+ channel=#botib nick=birc port=6667 realname=botlib server=irc.freenode.net username=botlib
+
+RSS
+===
+
+BOTLIB provides with the use of feedparser the possibility to server rss
+feeds in your channel. BOTLIB itself doesn't depend, you need to install
+python3-feedparser first:
+
+::
+
+ $ sudo apt install python3-feedparser
+ $
+
+Adding rss to mods= will load the rss module and start it's poller.
+
+::
+
+ $ bot mods=rss
+
+To add an url use the rss command with an url:
+
+::
+
+ $ bcmd rss https://github.com/bthate/botlib/commits/master.atom
+ ok 1
+
+Run the rss command to see what urls are registered:
+
+::
+
+ $ bcmd fnd rss
+ 0 https://github.com/bthate/botlib/commits/master.atom
+
+The ftc (fetch) command can be used to poll the added feeds:
+
+::
+
+ $ bcmd ftc
+ fetched 20
+
+UDP
+===
+
+BOTLIB also has the possibility to serve as a UDP to IRC relay where you
+can send UDP packages to the bot and have txt displayed on the channel.
+
+Use the 'budp' command to send text via the bot to the channel on the irc server:
+
+::
+
+ $ tail -f /var/log/syslog | budp
+
+To send the tail output to the IRC channel you can use python3 code to send a UDP packet 
+to botlib, it's unencrypted txt send to the bot and display on the joined channels.
+
+To send a udp packet to botlib in python3:
+
+::
+
+ import socket
+
+ def toudp(host=localhost, port=5500, txt=""):
+     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+     sock.sendto(bytes(txt.strip(), "utf-8"), host, port)
+
+PROGRAMMING
+===========
+
+BOTLIB uses the OLIB library as object programming library, it provides a "move all methods to functions" like this:
+
+::
+
+ obj.method(*args) -> method(obj, *args) 
+
+ >>> import ol
+ >>> o = ol.Object()
+ >>> o.set("key", "value")
+ >>> o.key
+ 'value'
+
+ becomes:
+
+ >>> import ol
+ >>> o = ol.Object()
+ >>> ol.set(o, "key", "value")
+ >>> o.key
+ 'value'
+
+It's a way of programming with objects, replacing OOP. It works because the object library is 2 characters long and using the, now generic, method is not too much typing.
+Not object-oriented programming, but object programming. If you are used to functional programming you'll like it (or not) ;]
+
+OLIB has the following modules:
+
+::
+
+    ol	 	- object library
+    ol.bus	- announce
+    ol.csl	- console
+    ol.dbs	- databases
+    ol.hdl	- handler
+    ol.krn	- kernel
+    ol.prs 	- parser
+    ol.tms	- times
+    ol.trm	- terminal
+    ol.tsk	- tasks
+    ol.utl	- utilities
+
+BOTLIB has 1 module in the bot namespace, the bot.irc module:
+
+::
+
+   bot.irc
+
+You can add you own modules to the bot and bmod packages, they are namespace packages.
+
+SERVICE
+=======
+
+If you want to run the BOTLIB 24/7 you can install botd as a service for
+the systemd daemon. You can do this by copying the following into
+the /etc/systemd/system/botd.service file:
+
+::
+ 
+ [Unit]
+ Description=24/7 channel daemon
+ After=network-online.target
+ Wants=network-online.target
+ 
+ [Service]
+ User=botd
+ Group=botd
+ ExecStart=/usr/local/bin/botd
+  
+ [Install]
+ WantedBy=multi-user.target
+
+BOTLIB uses the botd user, so we add botd user and group to the system (as root):
+
+::
+
+ $ groupadd botd
+ $ useradd botd -d /var/lib/botd/
+ $ passwd botd
+ $ chown -R botd:botd /var/lib/botd/
+
+Then copy any modules over to botd's modules directory (bmod):
+
+::
+
+ $ cp -Ra bmod/*.py /var/lib/botd/bmod
+
+Make sure permissions are set properly:
+
+::
+
+ $ chmod -R 700 /var/lib/botd/bmod/
+ $ chmod -R 400 /var/lib/botd/bmod/*.py
+
+Add the botd service with:
+
+::
+
+ $ systemctl enable botd
+ $ systemctl daemon-reload
+
+Configure botd to connect to irc:
+
+::
+
+ $ bctl icfg server=irc.freenode.net channel=#botlib nick=botd
+
+Then restart the botd service.
+
+::
+
+ $ service botd stop
+ $ service botd start
+
+The bot should join your configured channel, if it doesn't look at /var/log/syslog for any debug messages. 
+
+If you don't want botd to startup at boot, remove the service file:
+
+::
+
+ $ rm /etc/systemd/system/botd.service
+
+CONTACT
+=======
+
+"hope you enjoy my contribution back to society."
+
+You can contact me on IRC/freenode/#dunkbots or email me at bthate@dds.nl
+
+| Bart Thate (bthate@dds.nl, thatebart@gmail.com)
+| botfather on #dunkbots irc.freenode.net
+
+.. toctree::
+   :hidden:
+   :glob:
+
+   *

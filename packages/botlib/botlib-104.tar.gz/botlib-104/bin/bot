@@ -1,0 +1,18 @@
+#!/usr/bin/python3
+# BOTLIB - the bot library !
+#
+#
+
+import os, sys ; sys.path.insert(0, os.getcwd())
+from ol.spc import Console, boot, execute, os
+
+def main():
+    k = boot("bot", os.path.expanduser("~/.bot"))
+    k.start()
+    k.init(k.cfg.mods, k.cfg.exc)
+    c = Console()
+    c.start()
+    k.wait()
+
+execute(main)
+os._exit(0)
