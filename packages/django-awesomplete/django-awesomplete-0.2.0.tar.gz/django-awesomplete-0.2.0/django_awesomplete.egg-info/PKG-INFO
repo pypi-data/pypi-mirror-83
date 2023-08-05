@@ -1,0 +1,202 @@
+Metadata-Version: 2.1
+Name: django-awesomplete
+Version: 0.2.0
+Summary: A django app that provides suggestions while you type into the field.
+Home-page: https://github.com/dldevinc/django-awesomplete
+Author: Mihail Mishakin
+Author-email: x896321475@gmail.com
+Maintainer: Mihail Mishakin
+Maintainer-email: x896321475@gmail.com
+License: BSD license
+Description: # Django Awesomplete
+        A django app that provides suggestions while you type into the field.
+        
+        [![PyPI](https://img.shields.io/pypi/v/django-awesomplete.svg)](https://pypi.org/project/django-awesomplete/)
+        [![Build Status](https://travis-ci.org/dldevinc/django-awesomplete.svg?branch=master)](https://travis-ci.org/dldevinc/django-awesomplete)
+        
+        ## Requirements
+        + Python 3.4+
+        + Django 1.11+
+        
+        ## Installation
+        Install the desired version with pip:
+        
+        ```
+        pip install django-awesomplete
+        ```
+        
+        Then add awesomplete to INSTALLED_APPS in your settings file:
+        
+        ```python
+        INSTALLED_APPS = (
+            # ...
+            'awesomplete',
+            # ...
+        )
+        ```
+        
+        ## Quickstart
+        
+        Lets assume we are making a cities app in django and our `models.py` is:
+        ```python
+        from django.db import models
+        
+        
+        class City(models.Model):
+            name = models.CharField(max_length=255)
+            country = models.CharField(max_length=255)
+        
+            def __str__(self):
+                return self.name
+        ```
+        
+        To use suggestions we need to override widget in `admin.py`:
+        ```python
+        from django import forms
+        from django.contrib import admin
+        from awesomplete.widgets import AwesompleteWidgetWrapper
+        from .models import City
+        
+        
+        def get_country_suggestions():
+            """
+            Get a suggestions list from existing records.
+            """
+            return City.objects.values_list(
+                'country', flat=True
+            ).order_by('country').distinct()
+        
+        
+        class CityAdminForm(forms.ModelForm):
+            class Meta:
+                model = City
+                fields = forms.ALL_FIELDS
+                widgets = {
+                    'country': AwesompleteWidgetWrapper(
+                        suggestions=get_country_suggestions
+                    )
+                }
+        
+        
+        @admin.register(City)
+        class CityAdmin(admin.ModelAdmin):
+            form = CityAdminForm
+        ```
+        
+        Result:
+        
+        ![](http://i.imgur.com/NRCdgNu.png)
+        
+        ## Suggestions
+        You can pass either an iterable of strings, 2-tuples, dicts 
+        or a callable that returns such an iterable.
+        
+        ```python
+        # iterable of strings
+        AwesompleteWidgetWrapper(
+            suggestions=['one', 'two', 'three']
+        )
+        
+        # iterable of 2-tuples (value, label)
+        AwesompleteWidgetWrapper(
+            suggestions=(
+                ('en', 'English'),
+                ('es', 'Spanish')
+            )
+        )
+        
+        # iterable of dicts
+        AwesompleteWidgetWrapper(
+            suggestions=(
+                {
+                    'label': 'English',
+                    'value': 'en'        
+                },
+                {
+                    'label': 'Spanish',
+                    'value': 'es'        
+                }
+            )
+        )
+        ```
+        
+        ## AwesompleteWidgetWrapper
+        Actually, `AwesompleteWidgetWrapper` is a wrapper for a widget. 
+        When the `widget` is not defined, it defaults to `TextInput`.
+        
+        You can specify another widget explicitly, e.g. `EmailInput`:
+        
+        ```python
+        from django import forms
+        from awesomplete.widgets import AwesompleteWidgetWrapper
+        from .models import City
+        
+        
+        class CityAdminForm(forms.ModelForm):
+            class Meta:
+                model = City
+                fields = forms.ALL_FIELDS
+                widgets = {
+                    'email_awesomplete': AwesompleteWidgetWrapper(
+                        widget=forms.EmailInput,
+                        min_chars=0,
+                        suggestions=(
+                            'noreply@mail.com',
+                            'dont_disturb@mail.com',
+                            'mayor@mail.com',
+                            'support@mail.com',
+                        ),
+                    )
+                }
+        ```
+        
+        You can also pass additional parameters to `AwesompleteWidgetWrapper`:
+        
+        + **`min_chars`**
+          <br>
+          Minimum characters the user has to type before the autocomplete 
+          popup shows up.
+          <br>
+          *Default*: `1`
+        
+        + **`max_items`**
+            <br>
+            Maximum number of suggestions to display.
+            <br>
+            *Default*: `10`
+        
+        + **`autofirst`**
+            <br>
+            Should the first element be automatically selected?
+            <br>
+            *Default*: `True`
+        
+        
+        ## Links
+        + [awesomplete](http://leaverou.github.io/awesomplete/) created by Lea Verou.
+        
+        ## License
+        Copyright (c) 2018 Mihail Mishakin Released under the BSD license (see LICENSE)
+        
+Platform: OS Independent
+Classifier: Intended Audience :: Developers
+Classifier: Development Status :: 3 - Alpha
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Operating System :: OS Independent
+Classifier: Framework :: Django :: 1.11
+Classifier: Framework :: Django :: 2.0
+Classifier: Framework :: Django :: 2.1
+Classifier: Framework :: Django :: 2.2
+Classifier: Framework :: Django :: 3.0
+Classifier: Framework :: Django :: 3.1
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.4
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.4
+Description-Content-Type: text/markdown
