@@ -1,0 +1,51 @@
+
+                      =================================
+                            MACHINE SPECIFIC NOTES
+                                    FOR
+               HCL OneDB Client SDK 1.0.0.0 PRODUCT RELEASE
+                    HCL OneDB  .NET Core Provider Version 1.0
+                               On Windows x64
+                               DATE: 15 Jul 2020
+                      =================================
+
+OS Information : Built on Windows Server 2016 x64.
+
+Machine Specific Notes
+======================
+
+1.  OneDB .NET Core Provider for .NET Core framework is built on Windows
+    2016 using Visual C# compiler from (Visual Studio 2017):
+
+        Microsoft .NET Framework : v4.6.01586 
+	Microsoft Windows Server 2016 Standard : v10.0.14393
+        SDK Version : v3.1.201
+        CMake Version : v3.13.0-rc3
+        Microsoft Visual Studio Enterprise 2017 : v15.8.6
+
+	
+2.  The file/assembly name for OneDB is Informix.Net.Core.dll and the file is located at INFORMIXDIR\bin folder on both Windows and Linux CSDK installations. 
+
+3.  Applications using oneDB would need other .NET Core assemblies/libraries. Such applications need to download/acquire the required assembly files (.NET Core SDK/Runtime) as suits the applications. In order to run such applications, all the oneDB related environment variables required i.e. INFORMIXDIR, INFORMIXSQLHOSTS, PATH etc must be set appropriately.
+
+4.  IPv6 Support 
+  
+    OneDB supports Internet Protocol Version 6 (128 Bit Internet Addresses)
+    as well as IPv4 (32 Bit Addresses).
+
+    In order for the machine name specified in the SQLHOSTS registry to resolve 
+    to the correct IP address, the name services files on the Operating System 
+    should be correctly configured.
+
+    For compatibility with older HCL OneDB client and server products, 
+    assign the same hostname with both an IPv4 address and an IPv6 address. 
+    If the listener needs to be bound to an IPv4 address and the name services 
+    resolve the name in the order of the IPv6 address followed by IPv4 address,
+    then an explicit IPv4 address needs to be put in the nodename field of the
+    server registry. Client applications should also use the same setting.
+
+Check the following web site for the latest Windows system requirements:
+
+     https://onedb.hcldoc.com
+
+(C) Copyright IBM Corp. 2007, 2017
+(C) Copyright HCL Technologies Ltd. 2017, 2020. All Rights Reserved.

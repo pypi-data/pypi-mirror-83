@@ -1,0 +1,101 @@
+
+                      =================================
+                            MACHINE SPECIFIC NOTES
+                                    FOR
+              HCL OneDB Client SDK 1.0.0.0 PRODUCT RELEASE
+                    HCL OneDB ODBC Driver Version 1.0
+                               On Windows x64
+                               DATE: 15 Jul 2020
+                      =================================
+
+OS Information : Built on Windows Server 2016 x64.
+
+Machine Specific Notes
+======================
+
+1.  This product supports the following compiler:
+
+        Microsoft Visual Studio 2017
+
+    This product is built on Windows 2016 using the following compiler from
+    Microsoft Visual Studio 2017:
+
+        Microsoft Visual C++ 2017
+
+2.  Pluggable Authentication Module (PAM)
+
+    PAM functionality is supported. Use of PAM can be enabled or disabled by 
+    the system administrator. By default, HCL OneDB will use the traditional 
+    authentication mechanism in order to avoid widespread changes required 
+    by the users.
+
+3.  IPv6 Support 
+  
+    OneDB supports Internet Protocol Version 6 (128 Bit Internet Addresses)
+    as well as IPv4 (32 Bit Addresses).
+
+    In order for the machine name specified in the SQLHOSTS registry to resolve
+    to the correct IP address, the name services files on the Operating System 
+    should be correctly configured.
+
+    For compatibility with older HCL OneDB client and server products, 
+    assign the same hostname with both an IPv4 address and an IPv6 address. 
+    If the listener needs to be bound to an IPv4 address and the name services 
+    resolve the name in the order of the IPv6 address followed by IPv4 address,
+    then an explicit IPv4 address needs to be put in the nodename field of the
+    server registry. Client applications should also use the same setting.
+
+
+4.  Workaround to list ODBC driver in Data Sources(ODBC Window)
+
+    Warning:  As we will be modifying the registry, performing a registry
+              back-up is recommended.
+
+    1) Copy the lines between BEGIN and END block, save it as a
+       file(for example, ifmx_odbc_driver.txt) in any location in your
+       hard drive (for example in C:\MyFolder\).
+       NOTE: All lines should start at column 1(no spaces before start of line)
+
+       BEGIN Block
+       Windows Registry Editor Version 5.00
+
+       [HKEY_LOCAL_MACHINE\SOFTWARE\ODBC\ODBCINST.INI\ODBC Drivers]
+       "HCL ONEDB ODBC DRIVER"="installed"
+
+       [HKEY_LOCAL_MACHINE\SOFTWARE\ODBC\ODBCINST.INI\HCL ONEDB ODBC DRIVER]
+       "Driver"="INFORMIXDIR\bin\iclit09b.dll"
+       "Setup"="INFORMIXDIR\bin\iclit09b.dll"
+       "SQLLevel"="1"
+       "FileUsage"="0"
+       "DriverODBCVer"="03.51"
+       "ConnectFunctions"="YYY"
+       "APILevel"="1"
+       "CPTimeout"="<not pooled>"
+        END   Block
+
+    2) Edit ifmx_odbc_driver.txt to replace INFORMIXDIR to the installed
+       location of HCL OneDB Client SDK. For example, if HCL OneDB CLient SDK is installed in c:\HCL\ folder,
+       then replace INFORMIXDIR with c:\HCL.
+
+    3) Rename ifmx_odbc_driver.txt to  ifmx_odbc_driver.reg.  To update
+       the registry, either double click on the ifmx_odbc_driver.reg file or
+       type the following line from a command prompt.
+
+       regedit c:\MyFolder\ifmx_odbc_driver.reg
+
+       Click Yes, when you get the following message:
+       "Are you sure you want to add the information in
+       c:\MyFolder\ifmx_odbc_driver.reg file to the registry?"
+
+       Click OK, when you get the following message:
+       "Information in c:\MyFolder\ifmx_odbc_driver.reg file has been
+        successfully entered into the registry."
+
+    4) You can now configure ODBC DSNs  by running odbcad32.exe
+
+Check the following web site for the latest Windows system requirements:
+
+        https://onedb.hcldoc.com
+
+(C) Copyright IBM Corp. 2007, 2017
+(C) Copyright HCL Technologies Ltd. 2017, 2020. All Rights Reserved.
