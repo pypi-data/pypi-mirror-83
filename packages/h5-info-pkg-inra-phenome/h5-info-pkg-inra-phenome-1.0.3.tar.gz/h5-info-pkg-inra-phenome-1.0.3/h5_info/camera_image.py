@@ -1,0 +1,29 @@
+class CameraImage:
+    """Store HDF5 CameraImage attributes in a simplified structure"""
+    def __init__(self):
+        self.name = ""
+        self.date = ""
+        self.shutter_time = 0
+        self.width = 0
+        self.height = 0
+        self.size = 0
+        self.image = None
+
+    def to_json(self):
+        json_dict = {
+            "name": self.name,
+            "date": self.date,
+            "shutter_time": self.shutter_time,
+            "width": self.width,
+            "height": self.height,
+            "size": self.size
+        }
+        return json_dict
+
+    def from_json(self, json_dict):
+        self.name = json_dict["name"]
+        self.date = json_dict["date"]
+        self.shutter_time = json_dict["shutter_time"]
+        self.width = json_dict["width"]
+        self.height = json_dict["height"]
+        self.size = json_dict["size"]
