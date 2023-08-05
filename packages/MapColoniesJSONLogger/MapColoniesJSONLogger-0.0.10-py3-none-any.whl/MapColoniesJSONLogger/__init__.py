@@ -1,0 +1,1 @@
+from MapColoniesJSONLogger.logger import *
