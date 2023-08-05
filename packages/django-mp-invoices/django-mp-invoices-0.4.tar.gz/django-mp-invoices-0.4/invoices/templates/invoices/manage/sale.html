@@ -1,0 +1,108 @@
+
+{% extends 'invoices/manage/base.html' %}
+
+{% load i18n static services %}
+
+
+{% block content %}
+    {{ block.super }}
+
+    <hr />
+
+    <div class="row">
+        <div class="col-xs-6">
+            <h4>{% trans 'Services' %}</h4>
+        </div>
+        <div class="col-xs-6">
+            <a href="{% url 'services:print-services' invoice.id %}"
+               target="blank"
+               class="btn btn-primary btn-sm pull-right">
+                <i class="fa fa-print"></i> {% trans 'Print' %}
+            </a>
+        </div>
+    </div>
+
+    <div data-role="services-section">
+        {% include 'invoices/service-select-list.html' %}
+
+        <table class="table table-bordered table-sm m-t-20" data-role="service-invoice-list">
+            <thead>
+                <tr>
+                    <th>
+                        {% trans 'Code' %}
+                    </th>
+                    <th>
+                        {% trans 'Service' %}
+                    </th>
+                    <th class="text-center" width="100">
+                        {% trans 'Quantity' %}
+                    </th>
+                    <th class="text-center" width="150">
+                        {% trans 'Price' %}
+                    </th>
+                    <th width="50"></th>
+                </tr>
+            </thead>
+            <tbody data-role="list-items">
+                {% for item in invoice.services.all %}
+                    {{ item.render }}
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td colspan="3" class="text-right">
+                        <b>{% trans 'Total' %}:</b>
+                    </td>
+                    <td data-role="service_total" class="text-right">
+                        {{ invoice.service_total }}
+                    </td>
+                    <td></td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+{% endblock %}
+
+
+{% block js %}
+
+    {{ block.super }}
+
+    <script src="{% static 'invoices/SelectServiceItemList.js' %}"></script>
+
+    <script>
+        (function ($) {
+
+            var $serviceItemList = $('[data-role=service-item-list]');
+
+            {% get_service_categories as service_categories %}
+
+            new CategoryTree({
+                $container: $('[data-role=services-section]'),
+                data: [
+                    {% for c in service_categories %}
+                        {
+                            text: "{{ c.name|escapejs }}",
+                            id: {{ c.id }}
+                        },
+                    {% endfor %}
+                ]
+            });
+
+            new List({
+                $container: $serviceItemList,
+                url: '{% url 'services:items' %}'
+            });
+
+            new SelectServiceItemList({
+                $container: $serviceItemList
+            });
+
+            new InvoiceList({
+                $container: $('[data-role=service-invoice-list]'),
+                addItemUrl: '{% url 'services:add-service' invoice.id %}',
+                target: 'service'
+            });
+        })(jQuery);
+    </script>
+{% endblock %}
