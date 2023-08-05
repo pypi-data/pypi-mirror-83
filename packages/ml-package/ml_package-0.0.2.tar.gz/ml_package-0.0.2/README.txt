@@ -1,0 +1,1 @@
+This package contains everything one needs to code out a machine learning project thereby simplifying their life and reducing the number of imports.
