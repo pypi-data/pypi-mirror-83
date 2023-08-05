@@ -1,0 +1,300 @@
+# cdk8s
+
+> Cloud Development Kit for Kubernetes
+
+**cdk8s** is a software development framework for defining Kubernetes
+applications using rich object-oriented APIs. It allows developers to leverage
+the full power of software in order to define abstract components called
+"constructs" which compose Kubernetes resources or other constructs into
+higher-level abstractions.
+
+This library is the foundation of **cdk8s**. It includes base types that are
+used to define cdk8s applications.
+
+## Chart
+
+The `Chart` is a container that synthesizes a single Kubernetes manifest.
+
+```python
+# Example automatically generated without compilation. See https://github.com/aws/jsii/issues/826
+class MyChart(Chart):
+    def __init__(self, scope, ns):
+        super().__init__(scope, ns)
+```
+
+During synthesis, charts collect all the `ApiObject` nodes (recursively) and
+emit a single YAML manifest that includes all these objects.
+
+When a chart is defined, you can specify chart-level `namespace` and `labels`.
+Those will be applied to all API objects defined within the chart (recursively):
+
+```python
+# Example automatically generated without compilation. See https://github.com/aws/jsii/issues/826
+class MyChart(Chart):
+    def __init__(self, scope, ns):
+        super().__init__(scope, ns,
+            namespace="my-namespace",
+            labels={
+                "app": "my-app"
+            }
+        )
+
+        ApiObject(self, "my-object",
+            api_version="v1",
+            kind="Foo"
+        )
+```
+
+Will synthesize into:
+
+```yaml
+apiVersion: v1
+kind: Foo
+metadata:
+  namesapce: my-namespace
+  labels:
+    app: my-app
+```
+
+## ApiObject
+
+An `ApiObject` is a construct that represents an entry in a Kubernetes manifest (level 0).
+In most cases, you won't use `ApiObject` directly but rather use classes that
+are imported through `cdk8s import` and which extend this base class.
+
+## Include
+
+The `Include` construct can be used to include an existing manifest in a chart.
+
+The following example will include the Kubernetes Dashboard in `MyChart`:
+
+```python
+# Example automatically generated without compilation. See https://github.com/aws/jsii/issues/826
+from cdk8s import Include
+
+class MyChart(Chart):
+    def __init__(self, scope, id):
+        super().__init__(scope, id)
+
+        dashboard = Include(self, "dashboard", {
+            "url": "https://raw.githubusercontent.com/kubernetes/dashboard/v2.0.0/aio/deploy/recommended.yaml",
+            # or
+            "url": "dashboard.yaml"
+        })
+```
+
+All API objects defined in the included manifest will be added as children
+`ApiObject`s under the `Include` construct's scope and can be accessed
+through the `apiObject` property:
+
+The following example queries for all the `Deployment` resources in the
+dashboard:
+
+```python
+# Example automatically generated without compilation. See https://github.com/aws/jsii/issues/826
+deployment_api_object = dashboard.api_objects.find(c => c.kind === 'Deployment);)
+```
+
+NOTE: names of included objects (`metadata.name`) are preserved. This means that
+if you try to include the same manifest twice into the same chart, your manifest
+will have duplicate definitions of the same objects.
+
+## Dependencies
+
+You can declare dependencies between any two cdk8s constructs using the `addDependency()` method.
+
+### ApiObjects
+
+For example, you can force kubernetes to first apply a `Namespace` before applying the `Service` in the scope of that namespace:
+
+```python
+# Example automatically generated without compilation. See https://github.com/aws/jsii/issues/826
+namespace = k8s.Namespace(chart, "backend")
+service = k8s.Service(chart, "Service", metadata={"namespace": namespace.name})
+
+# declare the dependency. this is just a syntactic sugar for Node.of(service).addDependency(namespace)
+service.add_dependency(namespace)
+```
+
+`cdk8s` will ensure that the `Namespace` object is placed before the `Service` object in the resulting manifest:
+
+```yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: chart-backend-a59d2e47
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: chart-service-93d02be7
+  namespace: chart-backend-a59d2e47
+```
+
+### Charts
+
+You can also specify dependencies between charts, in exactly the same manner. For example, if we have a chart that provisions our `namespace`, we need that chart to be applied first:
+
+```python
+# Example automatically generated without compilation. See https://github.com/aws/jsii/issues/826
+namespace_chart = NamespaceChart(app, "namespace")
+application_chart = ApplicationChart(app, "application")
+
+# declare the dependency. this is just a syntactic sugar for Node.of(applicationChart).addDependency(namespaceChart)
+application_chart.add_dependency(namespace_chart)
+```
+
+Running `cdk8s synth` will produce the following `dist` directory:
+
+```console
+> cdk8s synth
+
+dist/0000-namespace.k8s.yaml
+dist/0001-application.k8s.yaml
+```
+
+Notice that the `namespace` chart appears first with the `0000` prefix. This will ensure that a subsequent execution of `kubectl apply -f dist/` will apply the `namespace` first, and the `application` second.
+
+### Custom Constructs
+
+The behavior above applies in the same way to custom constructs that you create or use.
+
+```python
+# Example automatically generated without compilation. See https://github.com/aws/jsii/issues/826
+class Database(Construct):
+    def __init__(self, scope, name):
+        super().__init__(scope, name)
+
+        k8s.StatefulSet(self, "StatefulSet")
+        k8s.ConfigMap(self, "ConfigMap")
+
+app = App()
+
+chart = Chart(app, "Chart")
+
+service = k8s.Service(chart, "Service")
+database = Database(chart, "Database")
+
+service.add_dependency(database)
+```
+
+Declaring such a dependency will cause **each** `ApiObject` in the source construct, to *depend on* **every** `ApiObject` in the target construct.
+
+Note that in the example above, the source construct is actually an `ApiObject`, which is also ok since it is essentially a construct with a single `ApiObject`.
+
+> Note that if the source of your dependency is a custom construct, it won't have the `addDependency` syntactic sugar by default, so you'll have to use `Node.of()`.
+
+The resulting manifest will be:
+
+```yaml
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: chart-database-statefulset-4627f8e2
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: chart-database-configmap-676f8640
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: chart-service-93d02be7
+```
+
+You can see that all `ApiObject`s of the `Database` construct, appear before the `Service` object.
+
+### Things just got cool
+
+If you simply declare a dependency between two `ApiObject`s (or `Constructs`), that belong to two different `Chart`s, `cdk8s` will create the chart dependency automatically for you.
+
+```python
+# Example automatically generated without compilation. See https://github.com/aws/jsii/issues/826
+namespace_chart = NamespaceChart(app, "namespace")
+application_chart = ApplicationChart(app, "application")
+
+namespace = k8s.Namespace(namespace_chart, "namespace")
+deployment = k8s.Deployment(application_chart, "Deployment")
+
+# dependency between ApiObjects, not Charts!
+deployment.add_dependency(namespace)
+```
+
+Running `cdk8s synth` will produce the same result as if explicit chart dependencies were declared:
+
+```console
+> cdk8s synth
+
+dist/0000-namespace.k8s.yaml
+dist/0001-application.k8s.yaml
+```
+
+This means you need not be bothered with managing chart dependencies, simply work with the `ApiObject`s you create, and let `cdk8s` infer the chart dependencies.
+
+## Helm Support
+
+You can use the `Helm` construct in order to include [Helm](https://helm.sh)
+charts.
+
+In order to use this construct, you must have `helm` installed on your system.
+See [Installing Helm](https://helm.sh/docs/intro/install/) in the Helm
+documentation for details.
+
+The following example adds the
+[bitnami/redis](https://github.com/bitnami/charts/tree/master/bitnami/redis)
+Helm chart with sentinel containers enabled:
+
+> The Bitnami helm repo needs to be added through: `helm repo add bitnami https://charts.bitnami.com/bitnami`
+
+```python
+# Example automatically generated without compilation. See https://github.com/aws/jsii/issues/826
+class MyChart(cdk8s.Chart):
+    def __init__(self, scope, id):
+        super().__init__(scope, id)
+
+        redis = Helm(self, "redis",
+            chart="bitnami/redis",
+            values={
+                "sentinel": {
+                    "enabled": True
+                }
+            }
+        )
+```
+
+The `Helm` construct will render the manifest from the specified chart by
+executing `helm template`. If `values` is specified, these values will override
+the default values included with the chart.
+
+The `name` option can be used to specify the chart's [release name](https://helm.sh/docs/intro/using_helm/#three-big-concepts).
+If not specified, a valid and unique release name will be allocated
+based on the construct path.
+
+The `Helm` construct extends `Include` and inherits it's API. For example, you
+can use the `apiObjects` property to find and interact with included API
+objects.
+
+The following example shows how to add an annotation to the Redis master
+deployment:
+
+```python
+# Example automatically generated without compilation. See https://github.com/aws/jsii/issues/826
+master = redis.api_objects.find(o => o.name === 'foo-redis-master);,
+    master.metadata.add_annotation("my.annotation", "hey-there"))
+```
+
+## Testing
+
+cdk8s bundles a set of test utilities under the `Testing` class:
+
+* `Testing.app()` returns an `App` object bound to a temporary output directory.
+* `Testing.chart()` returns a `Chart` object bound to a testing app.
+* `Testing.synth(chart)` returns the Kubernetes manifest synthesized from a
+  chart.
+
+## License
+
+This project is distributed under the [Apache License, Version 2.0](./LICENSE).
+
+This module is part of the [cdk8s project](https://github.com/awslabs/cdk8s).
