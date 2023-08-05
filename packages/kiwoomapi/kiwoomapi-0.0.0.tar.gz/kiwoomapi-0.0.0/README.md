@@ -1,0 +1,81 @@
+# Kiwoom OpenAPI+
+
+
+# ============================================================
+## Overview.
+# ============================================================
+키움증권OpenAPI Wrapper.
+키움증권OpenAPI 를 사용하는 앱(Frontend), 시스템(backend) 등 어플리케이션을 별도의 프로젝트로
+만든 후 이 API를 임포트해서 사용한다.
+
+kiwoomapi
+pykoa: PythonKiwoomOpenAPI (PyPi 이미 존재)
+pykoap: PythonKiwoomOpenAPI+
+ipykoa: InnovataPythonKiwoomOpenAPI
+kiwoomde: DataEngineering
+kiwoomda: DataAnalysis
+
+
+
+
+
+##### ============================================================
+## IDE :: Python3 :: 경고 !!
+##### ============================================================
+Python3 32-bit(Windows x86 executable installer) 를 설치해라.
+Python3 64-bit 도 같이 설치할 경우, VirtualEnvironment 생성 시, 32-bit를 명시해서 생성해라.
+##### ============================================================
+## IDE :: Platform Layer :: Windows OS
+##### ============================================================
+
+mkdir project_name
+mkdir package_name
+git init
+py -3.9-32 -m venv env
+.\env\bin\activate
+pip install --upgrade pip
+pip install -r requirements.txt
+
+
+##### ============================================================
+## IDE :: Platform Layer :: MacOS
+##### ============================================================
+
+mkdir project_name
+mkdir package_name
+git init
+python3 -m venv env
+source env/bin/activate
+pip install --upgrade pip
+pip install -r requirements.txt
+
+##### ============================================================
+## IDE :: Application Layer
+##### ============================================================
+
+### Terminal
+
+python ide.py
+
+### Jupyter
+
+import os
+import sys
+sys.path.append(f"{os.environ['HOME']}/pjts/PROJECT_NAME")
+import ide
+ide.main(ide='jupyter')
+ide.setup_logpath(modulepath='jupyter.MODULE_NAME')
+
+
+
+# -*- coding: utf-8 -*-
+"""
+"""
+# print(f"{'@'*50} {__name__}")
+# ============================================================ Python.
+# ============================================================ External-Library.
+# import pandas as pd
+# ============================================================ My-Library.
+# import idebug as dbg
+# ============================================================ Project.
+# ============================================================ Constant.
