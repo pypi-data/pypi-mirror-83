@@ -1,0 +1,44 @@
+#!/usr/bin/python3
+# GENOCIDE - the king of the netherlands commits genocide - OTP-CR-117/19/001 - otp.informationdesk@icc-cpi.int - https://genocide.rtfd.io
+#
+#
+
+import os, sys ; sys.path.insert(0, os.getcwd())
+import ol
+
+def open(txt):
+    try:
+        for line in os.popen(txt).readlines():
+            print(line.rstrip())
+    except:
+        pass
+
+def nopen(txt):
+    txt += " 2>&1"
+    try:
+        for line in os.popen(txt).readlines():
+            pass
+    except:
+        pass
+
+def main():
+    if not os.path.exists("/var/lib/genocide"):
+        ol.utl.cdir("/var/lib/genocide/")
+    if not os.path.exists("/var/lib/genocide/store/"):
+        ol.utl.cdir("/var/lib/genocide/store/")
+    if not os.path.exists("/var/lib/genocide/mods"):
+        ol.utl.cdir("/var/lib/genocide/mods/")
+    open("cp mods/*.py /var/lib/genocide/mods")
+    nopen("groupadd genocide")
+    nopen("useradd genocide -g genocide -d /var/lib/genocide")
+    open("chown -R genocide:genocide /var/lib/genocide/")
+    open("chmod -R 700 /var/lib/genocide/")
+    open("chmod -R 400 /var/lib/genocide/mods/*.py")
+    nopen("python3 setup.py install")
+    open("cp files/genocide.service /etc/systemd/system/")
+    open("systemctl daemon-reload")
+    open("service genocide stop")
+    open("service genocide start")
+    open("systemctl status genocide")
+
+ol.trm.execute(main)
