@@ -1,0 +1,78 @@
+<configure xmlns="http://namespaces.zope.org/zope"
+           xmlns:genericsetup="http://namespaces.zope.org/genericsetup"
+           xmlns:i18n="http://namespaces.zope.org/i18n"
+           i18n_domain="collective.directory">
+
+    <genericsetup:registerProfile
+        name="default"
+        title="collective.directory"
+        directory="profiles/default"
+        description="Installs Collective Directory"
+        for="Products.CMFPlone.interfaces.IPloneSiteRoot"
+        provides="Products.GenericSetup.interfaces.EXTENSION"
+        />
+
+    <genericsetup:registerProfile
+        name="uninstall"
+        title="collective.directory: uninstall"
+        directory="profiles/uninstall"
+        description="Uninstalls Collective Directory"
+        for="Products.CMFPlone.interfaces.IPloneSiteRoot"
+        provides="Products.GenericSetup.interfaces.EXTENSION"
+        />
+
+    <genericsetup:registerProfile
+        name="migration"
+        title="collective.directory: migration from Products.directory"
+        directory="profiles/migration"
+        description="Migrate Collective Directory from Products.directory"
+        for="Products.CMFPlone.interfaces.IPloneSiteRoot"
+        provides="Products.GenericSetup.interfaces.EXTENSION"
+        />
+
+    <genericsetup:upgradeStep
+        source="1"
+        destination="2"
+        title="Rename id for directory and category"
+        description="Used to prevent error on duplicate id in vocabulary"
+        profile="collective.directory:default"
+        handler=".upgrades.upgrade_1_to_2"
+        />
+
+    <genericsetup:upgradeStep
+        source="2"
+        destination="3"
+        title="Add metadata for improving map geojson"
+        description="Category is now indexed from a Card"
+        profile="collective.directory:default"
+        handler=".upgrades.add_collective_directory_category_metadata"
+        />
+
+    <genericsetup:upgradeStep
+        source="3"
+        destination="4"
+        title="Order map and force width to 100% on install."
+        description="Update generic setup"
+        profile="collective.directory:default"
+        handler=".upgrades.update_3_to_4"
+        />
+
+    <genericsetup:upgradeStep
+        source="4"
+        destination="5"
+        title="Set translatable"
+        description="Set all content types translatable."
+        profile="collective.directory:default"
+        handler=".upgrades.set_translatable"
+        />
+
+    <genericsetup:upgradeStep
+        source="5"
+        destination="6"
+        title="View to export cards"
+        description="New view to export directory's cards to csv file."
+        profile="collective.directory:default"
+        handler=".upgrades.update_5_to_6"
+        />
+
+</configure>

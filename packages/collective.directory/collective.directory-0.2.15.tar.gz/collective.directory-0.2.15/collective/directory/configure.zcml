@@ -1,0 +1,37 @@
+<configure xmlns="http://namespaces.zope.org/zope"
+           xmlns:i18n="http://namespaces.zope.org/i18n"
+           xmlns:browser="http://namespaces.zope.org/browser"
+           xmlns:genericsetup="http://namespaces.zope.org/genericsetup"
+           i18n_domain="collective.directory">
+
+    <include package="five.grok" />
+    <include package="plone.app.dexterity" />
+    <include package="collective.geo.leaflet" />
+    <include package="collective.geo.settings" />
+    <include package="collective.geo.geographer" />
+    <include package="collective.geo.mapwidget" />
+    <include package="collective.geo.behaviour" />
+    <include package="collective.geo.contentlocations" />
+    <include package="collective.geo.json" />
+    <include package="collective.js.leaflet" />
+    <include package="collective.schedulefield" />
+
+    <include package=".browser" />
+    <include package=".content" />
+
+    <include file="profiles.zcml" />
+
+    <i18n:registerTranslations directory="locales" />
+
+    <utility component=".vocabulary.DirectoryVocabularyFactory"
+             name="collective.directory.vocabularies.directory" />
+
+    <utility component=".vocabulary.CategoryVocabularyFactory"
+             name="collective.directory.vocabularies.category" />
+
+    <browser:resourceDirectory
+        name="collective.directory"
+        directory="static"
+        />
+
+</configure>

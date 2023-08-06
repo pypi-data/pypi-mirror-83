@@ -1,0 +1,21 @@
+<configure xmlns="http://namespaces.zope.org/zope"
+           xmlns:genericsetup="http://namespaces.zope.org/genericsetup">
+
+  <include file="configure.zcml" />
+
+  <genericsetup:registerProfile
+      name="testing"
+      title="collective.directory: testing"
+      directory="profiles/testing"
+      description="Installs collective.directory test profile"
+      provides="Products.GenericSetup.interfaces.EXTENSION"
+      />
+
+  <genericsetup:importStep
+      name="collective.directory.tests_content"
+      title="collective.directory test collection"
+      description="Various import steps that are not handled by GS import/export handlers."
+      handler=".setuphandlers.testSetup">
+  </genericsetup:importStep>
+
+</configure>

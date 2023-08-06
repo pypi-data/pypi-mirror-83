@@ -1,0 +1,63 @@
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xml:lang="en"
+      xmlns:tal="http://xml.zope.org/namespaces/tal"
+      xmlns:metal="http://xml.zope.org/namespaces/metal"
+      xmlns:i18n="http://xml.zope.org/namespaces/i18n"
+      lang="en"
+      metal:use-macro="context/main_template/macros/master"
+      i18n:domain="collective.directory">
+  <body>
+    <metal:main fill-slot="main">
+      <tal:main-macro metal:define-macro="main">
+
+        <div class="listing-cards">
+          <tal:for tal:repeat="card view/getSubCards">
+            <div class="card-summary">
+                <a href="" tal:attributes="href card/absolute_url"><h2 tal:content="structure card/title" class="card-title" /></a>
+
+              <h3 tal:content="structure card/subtitle" class="card-subtitle" />
+
+              <img tal:define="scales card/@@images;
+                               thumbnail python: scales.scale('photo', width=125, height=125);"
+                  tal:condition="thumbnail"
+                  tal:attributes="src thumbnail/url;
+                                  width thumbnail/width;
+                                  height thumbnail/height"
+                  class="card-image" />
+
+              <p tal:content="structure card/address" class="card-address" />
+
+              <p tal:content="structure card/zip_code" class="card-zip-code" />
+
+              <p tal:content="structure card/city" class="card-city" />
+
+              <p tal:content="structure card/phone" class="card-phone" />
+
+              <p tal:content="structure card/mobile_phone" class="card-mobile-phone" />
+
+              <p tal:content="structure card/fax" class="card-fax" />
+
+              <p class="card-email">
+                <a tal:attributes="href string:mailto:${card/email}"
+                   tal:content="card/email" />
+              </p>
+
+              <p class="card-website">
+                <a tal:attributes="href card/website"
+                   target="_blank"
+                   tal:content="card/website" />
+              </p>
+
+              <span tal:replace="structure python:view.schedule_render(card)" />
+
+              <p tal:content="structure card/description" class="card-description" />
+
+            </div>
+
+          </tal:for>
+        </div>
+
+      </tal:main-macro>
+    </metal:main>
+  </body>
+</html>
