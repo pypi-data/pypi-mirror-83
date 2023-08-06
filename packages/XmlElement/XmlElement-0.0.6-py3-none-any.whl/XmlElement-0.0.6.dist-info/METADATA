@@ -1,0 +1,50 @@
+Metadata-Version: 2.1
+Name: XmlElement
+Version: 0.0.6
+Summary: A simpler XML writer
+Home-page: https://gitlab.ecmind.ch/rk/xmlelement
+Author: Roland Koller
+Author-email: info@ecmind.ch
+License: UNKNOWN
+Platform: UNKNOWN
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown
+
+# XmlElement
+
+A simpler XML writer.
+
+## Installation
+
+`pip install XmlElement`
+
+## Test
+
+```
+>>> from XmlElement import XmlElement as X
+>>> xml = X.from_string('<test><x/></test>')
+>>> xml
+XmlElement(test)
+```
+
+## Usage
+
+```python
+import XmlElement from XmlElement
+
+xml = XmlElement('RootElement', s=[ # root element without attributes
+    X('Child1', {'name': 'child1'}, [ # sub element with an attribute
+        X('Child2', t='Example Value') # sub-sub element with text value
+    ])
+])
+
+print(xml)
+```
+
+
+
+
+
