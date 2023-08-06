@@ -1,0 +1,25 @@
+# pass-import completion file for bash
+
+PASSWORD_STORE_EXTENSION_COMMANDS+=(import)
+
+__password_store_extension_complete_import() {
+	# importers begin
+	local importers=(1password aegis andotp apple-keychain bitwarden blur 
+		buttercup chrome clipperz csv dashlane encryptr enpass firefox fpm 
+		freeotp+ gnome gnome-auth gorilla kedpm keepass keepassx keepassx2 
+		keepassxc keeper lastpass myki network-manager padlock pass passman 
+		passpack passpie pwsafe revelation roboform saferpass upm zoho)
+	# importers end
+	local args=(-r --root -p --path -k --key -a --all -f --force -c --clean
+		-C --convert --sep --del --cols --config -l --list -h --help
+		-V --version -v --verbose -q --quiet)
+	local lastarg="${COMP_WORDS[$COMP_CWORD-1]}"
+	if [[ $lastarg == "-p" || $lastarg == "--path" ]]; then
+		_pass_complete_folders
+		compopt -o nospace
+	elif [[ $COMP_CWORD -gt 2 ]]; then
+		COMPREPLY+=($(compgen -W "${args[*]}" -- ${cur}))
+	else
+		COMPREPLY+=($(compgen -W "${importers[*]} ${args[*]}" -- ${cur}))
+	fi
+}
