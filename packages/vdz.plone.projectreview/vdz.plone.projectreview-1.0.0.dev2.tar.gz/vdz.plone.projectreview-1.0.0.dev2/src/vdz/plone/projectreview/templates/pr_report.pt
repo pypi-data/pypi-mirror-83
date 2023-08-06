@@ -1,0 +1,296 @@
+<tal:ns_global define="formdata python:view.formdata_report();
+"><metal:page use-macro="context/pr_master/macros/master"
+            i18n:domain="vdz.projectreview">
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>WiTraBau Review-Management</title>
+
+    <!-- Meta data -->
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <meta name="description" content="WiTraBau Review-Management">
+    <meta name="author" content="visaplan GmbH">
+
+    <!-- Styles -->
+    <link href="./lib/bootstrap/css/bootstrap.min.css" rel="stylesheet"
+          tal:replace="nothing" />
+    <link href="./css/panel.css" rel="stylesheet"
+          tal:attributes="href string:/++resource++panel.css"
+          />
+    <link href="./lib/chosen/chosen.css" rel="stylesheet"
+          tal:replace="nothing" />
+
+</head>
+
+<body>
+
+    <!-- page wrapper and container -->
+<metal:content fill-slot="pr-main"
+><tal:ns define="
+action formdata/action | nothing;
+pool formdata/pool | nothing;
+current_reviews formdata/current_reviews | nothing;
+readonly python:action == 'view';
+make_view_links request/make_view_links | python:False;
+omit_view_links not:make_view_links;
+sp_macros context/pr_subprojects/macros;
+">
+    <div class="wrap">
+    <div class="container">
+
+    <!-- CONTENT START -->
+
+    <tal:hint condition="python:0">
+    <div class="alert alert-warning" role="alert">Einsicht für Review-Koordinator</div>
+
+    <br/><hr/>
+    </tal:hint>
+
+    <h1>Analyse und Review: Bericht</h1>
+
+    <br/>
+
+    <div class="panel panel-info"
+           metal:use-macro="sp_macros/info-panel">
+    <div class="panel-heading"
+           metal:fill-slot="heading">Bearbeitungsstatus</div>
+    <div class="panel-body">
+    <h2>Projekt Akronym Titel</h2>
+    <p>Untertitel</p>
+    <p>Bekanntmachung</p>
+    <p>Laufzeit</p>
+    <p>Verbundkoordinator</p>
+    </div>
+
+    <metal:list-slot fill-slot="list">
+    <tal:list-ns define="rows current_reviews | nothing">
+    <table class="table table-default"
+           tal:condition="rows">
+        <tbody tal:define="
+base string:pr_report?id=${formdata/given/project_id};
+member_of formdata/current_user/member_of;
+is_admin current_user/is_admin;
+is_rc current_user/is_project_rc;
+project_open current_project/is_open;
+all_links_enabled python:is_admin or project_open;
+">
+
+        <tal:rv-loop repeat="row rows">
+        <tr class="success"
+            tal:define="
+is_submitted row/is_submitted;
+owner_id row/member_id;
+is_own python:member_of[owner_id];
+is_final row/is_final;
+row_class python:is_submitted and 'success' or 'error';
+review_id row/review_id;
+result_ids row/result_ids | nothing;
+review_exists python:review_id is not None or result_ids;
+enable_links python:(all_links_enabled
+                     or is_own
+					 or is_rc and is_submitted);
+omit_links not:enable_links;
+"
+tal:attributes="class row_class">
+            <td>
+                <a href="#review-42"
+                   tal:omit-tag="not:is_submitted"
+                   tal:attributes="href string:$base#review-$review_id"
+                   ><tal:if-final condition="is_final">Review-Koordinator</tal:if-final><tal:not-final condition="not:is_final">Review-Stelle
+                    <span tal:replace="repeat/row/number">1</span></tal:not-final></a>
+            </td>
+            <td tal:content="row/member_acronym">Name eines WiTraBau-Projektpartners</td>
+            <td tal:define="
+                text python:(is_submitted and (is_final and 'Review abgeschlossen'
+                                                        or  'Review eingereicht')
+                             or (review_exists and 'Review in Arbeit')
+                             or 'Review fehlt');
+                make_review_link python:is_submitted or member_of[owner_id] or is_admin;
+                review_qs python:enable_links and (
+                                  (review_id is not None
+                                   and 'review_id=%(review_id)d'
+                                   or  'partner_id=%(partner_id)d&is_final=%(is_final)s'
+                                   ) % row);
+                make_submit_link python:is_submitted and permission['submit']">
+                <a href="pr_result.html"
+                   tal:omit-tag="not:enable_links"
+                   tal:attributes="href string:pr_result?${review_qs}"><em tal:omit-tag="review_exists"
+                       tal:content="text">
+                       Review eingereicht
+                   </em></a>
+
+                <tal:if-make-return-link condition="make_submit_link">
+                (<a href="?review_id=$review_id"
+                   tal:define="qs string:review_id=$review_id&project_id=$project_id&action=revoke"
+                   tal:attributes="href string:@@projectreview/action_result?$qs"
+                   data-confirm="Die Bearbeitung durch die Review-Stelle wieder ermöglichen?"
+                   onclick="return confirm($(this).data('confirm'))"
+                   >zurückgeben</a>)
+                </tal:if-make-return-link>
+            </td>
+            <td>
+                <a href="#review-42"
+                   tal:condition="enable_links"
+                   tal:attributes="href string:/pr_result?review_id=$review_id">
+                Review-Bericht
+                </a>
+            </td>
+        </tr>
+        </tal:rv-loop>
+        </tbody>
+        <tbody tal:replace="nothing">
+        <tr class="success"><td>Review-Stelle 2</td><td>Name eines WiTraBau-Projektpartners</td><td>Review eingereicht</td></tr>
+        <tr class="danger"><td>Review-Stelle 3</td><td>Name eines WiTraBau-Projektpartners</td><td>Review in Arbeit</td></tr>
+        <tr class="success"><td>Review-Stelle 4</td><td>Name eines WiTraBau-Projektpartners</td><td>Review eingereicht</td></tr>
+        </tbody>
+    </table>
+    </tal:list-ns>
+    </metal:list-slot>
+    </div>
+
+    <tal:no-reviews-yet condition="not:current_reviews">
+    <hr/>
+
+    <p>Es wurden noch keine Reviews eingereicht.</p>
+    </tal:no-reviews-yet>
+
+    <tal:reviews-loop repeat="current_review current_reviews">
+    <div class="panel panel-info"
+         tal:condition="current_review/is_submitted"
+         tal:attributes="id string:review-${current_review/review_id}">
+    <div class="panel-heading">Review-Ergebnis
+        <span tal:content="current_review/member_acronym">
+        VDZ
+        </span>
+    </div>
+    <table class="table table-default"
+           tal:define="results current_review/results">
+        <thead>
+            <tr>
+                <th>Ergebnisse</th>
+                <th title="Erkenntnisstufe">Erkenntn.-St.</th>
+                <th colspan="11">Verwertungsoptionen</th>
+            </tr>
+            <tr>
+                <th>&nbsp;</th>
+                <th>&nbsp;</th>
+                <th tal:repeat="row formdata/pool/recovery_options"
+                    tal:attributes="title row/option_label"
+                    style="width: 6%"
+                    tal:content="row/option_acronym">
+                    0
+                </th>
+                <tal:prototype replace="nothing">
+                <th>1</th>
+                <th>2</th>
+                <th>3</th>
+                <th>4</th>
+                <th>5</th>
+                <th>6.1</th>
+                <th>6.2</th>
+                <th>6.3</th>
+                <th>7</th>
+                <th>8</th>
+                </tal:prototype>
+            </tr>
+        </thead>
+        <tbody>
+		<tal:results-per-review-loop repeat="row results">
+		<tr>
+            <td tal:content="row/result_label">
+                Titel Ergebnis 1
+            </td>
+            <td tal:content="row/use_level">
+                1
+            </td>
+            <tal:td-loop repeat="reco row/recovery_choices">
+            <td tal:define="ma reco/member_acronym | nothing;
+                            ol reco/option_label | nothing;
+                            title python:ma and ol"
+                tal:attributes="title title"
+                tal:content="ma">
+                VDZ
+            </td>
+            </tal:td-loop>
+            <tal:prototype replace="nothing">
+            <td>VDZ</td>
+            <td>VDZ</td>
+            <td>VDZ</td>
+            <td>VDZ</td>
+            <td>VDZ</td>
+            <td>VDZ</td>
+            <td>VDZ</td>
+            <td>VDZ</td>
+            <td>VDZ</td>
+            <td>VDZ</td>
+            </tal:prototype>
+        </tr>
+		</tal:results-per-review-loop>
+        </tbody>
+        <tbody tal:replace="nothing">
+        <tr><td>Titel Ergebnis 1</td><td>1</td><td>VDZ</td><td>VDZ</td><td>VDZ</td><td>VDZ</td><td>VDZ</td><td>VDZ</td><td>VDZ</td><td>VDZ</td><td>VDZ</td><td>VDZ</td><td>VDZ</td></tr>
+        <tr><td>Titel Ergebnis 1</td><td>1</td><td>VDZ</td><td>VDZ</td><td>VDZ</td><td>VDZ</td><td>VDZ</td><td>VDZ</td><td>VDZ</td><td>VDZ</td><td>VDZ</td><td>VDZ</td><td>VDZ</td></tr>
+        <tr><td>Titel Ergebnis 1</td><td>1</td><td>VDZ</td><td>VDZ</td><td>VDZ</td><td>VDZ</td><td>VDZ</td><td>VDZ</td><td>VDZ</td><td>VDZ</td><td>VDZ</td><td>VDZ</td><td>VDZ</td></tr>
+        <tr><td>Titel Ergebnis 1</td><td>1</td><td>VDZ</td><td>VDZ</td><td>VDZ</td><td>VDZ</td><td>VDZ</td><td>VDZ</td><td>VDZ</td><td>VDZ</td><td>VDZ</td><td>VDZ</td><td>VDZ</td></tr>
+        <tr><td>Titel Ergebnis 1</td><td>1</td><td>VDZ</td><td>VDZ</td><td>VDZ</td><td>VDZ</td><td>VDZ</td><td>VDZ</td><td>VDZ</td><td>VDZ</td><td>VDZ</td><td>VDZ</td><td>VDZ</td></tr>
+        </tbody>
+    </table>
+    </div>
+
+    </tal:reviews-loop>
+
+
+	<tal:if-coordinator
+	define="is_rc current_user/is_project_rc;
+	        is_admin current_user/is_admin"
+	condition="python:is_rc or is_admin">
+	<hr>
+
+    <form action="@@projectreview/action_result" method="post"
+          tal:define="is_open current_project/is_open;
+		              action python:is_open and 'unset_open' or 'set_open';
+					  txt python:(is_open and 'Sichtbarkeit der Reviews zurücksetzen'
+					                      or  'Reviews sichtbar machen');
+					  cls python:is_open and 'btn-danger' or 'btn-success';
+					  "
+		  tal:attributes="action string:@@projectreview/$action">
+        <input type="hidden" name="project_id"
+               value="41"
+               tal:attributes="value project_id"/>
+		<button type="submit"
+				class="btn btn-success"
+				tal:attributes="class string:btn $cls"
+				tal:content="txt">
+		 Reviews sichtbar machen
+		</button>
+    </form>
+	</tal:if-coordinator>
+
+
+    <button class="btn btn-primary"
+            disabled="disabled"
+            title="Noch nicht implementiert"
+            tal:condition="python:0"
+        >Review-Ergebnis als XML-Datei herunterladen</button>
+
+    <!-- CONTENT END -->
+
+    </div><!-- /container -->
+    </div><!-- /wrap -->
+
+
+<tal:prototype replace="nothing">
+    <!-- JavaScript  -->
+    <script src="./lib/jquery/jquery-1.10.1.min.js"></script>
+    <script src="./lib/bootstrap/js/bootstrap.min.js"></script>
+    <!--<script src="./bootstrap-vp/js/bootstrap-sortable.js"></script>-->
+</tal:prototype>
+
+</tal:ns>
+</metal:content>
+</body>
+</html><!-- vim: set ts=4 sts=4 sw=4 si noet: --></metal:page></tal:ns_global>

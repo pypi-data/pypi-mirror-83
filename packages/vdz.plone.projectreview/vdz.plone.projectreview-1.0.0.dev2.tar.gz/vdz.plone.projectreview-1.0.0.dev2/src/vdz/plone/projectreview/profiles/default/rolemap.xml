@@ -1,0 +1,27 @@
+<?xml version="1.0"?>
+<!-- Seems it is not really necessary nor advisable to un-install permissions;
+     they are created during start of the Zope instance
+     (but the permission assignements are persisted),
+     so we don't have a ../uninstall/rolemap.xml file;
+     see:
+     - https://stackoverflow.com/a/14399847/1051649
+     - https://lucafbb.blogspot.com/2013/05/how-to-make-your-plone-add-on-products.html
+
+     (what about the roles?)
+  -->
+<rolemap>
+  <roles>
+    <role name="ReviewAdministrator" />
+    <role name="ProjectReviewer" />
+  </roles>
+  <permissions>
+    <permission name="vdz.plone.projectreview: Review administation" acquire="True">
+      <role name="ReviewAdministrator"/>
+      <role name="Manager"/>
+    </permission>
+    <permission name="vdz.plone.projectreview: View" acquire="True">
+      <role name="ProjectReviewer" />
+      <role name="Member"/>
+    </permission>
+  </permissions>
+</rolemap>

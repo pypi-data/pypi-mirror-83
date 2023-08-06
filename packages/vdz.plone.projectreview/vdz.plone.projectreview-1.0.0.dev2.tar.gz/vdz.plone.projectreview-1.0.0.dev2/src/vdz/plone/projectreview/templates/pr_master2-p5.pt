@@ -1,0 +1,358 @@
+<tal:ns_global define="formdata python:view.mockdata_common()">
+<metal:page
+            define-macro="master"
+            i18n:domain="vdz.projectreview">
+<!DOCTYPE html>
+<html lang="en"><tal:comment condition="python:0"><!--
+Please keep in synch (i.e. maintain "diffability") as long as we have different files:
+pr_master.pt     (review views;   Plone 4)
+pr_master-p5.pt  (review views;   Plone 5)
+pr_master2.pt    (recovery views; Plone 4)
+pr_master2-p5.pt (recovery views; Plone 5)
+--></tal:comment><head>
+    <title metal:define-slot="title">WiTraBau Verwertungs-Management</title>
+<metal:block define-slot="top_slot"
+             tal:define="dummy python:request.set('disable_border',1)" />
+
+    <!-- Meta data -->
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <meta name="description" content="WiTraBau Verwertungs-Management">
+    <meta name="author" content="visaplan GmbH">
+
+    <!-- Styles -->
+    <metal:head-insertions define-slot="head_slot">
+    <!-- [ head_slot ... [ -->
+    <link href="./lib/bootstrap/css/bootstrap.min.css" rel="stylesheet"
+          tal:replace="nothing" />
+    <link href="./css/panel.css" rel="stylesheet"
+          tal:attributes="href string:/++resource++panel.css"
+          />
+    <link href="/++resource++vdz.projectreview/projectreview.css" rel="stylesheet">
+    <link href="./lib/chosen/chosen.css" rel="stylesheet"
+          tal:attributes="href string:/++resource++vdz.projectreview/chosen.css" />
+    <link href="../static/jquery.keypad.css" rel="stylesheet"
+          tal:attributes="href string:/++resource++vdz.projectreview/jquery.keypad.css"
+          />
+    <script type="text/javascript" src="../static/jquery.plugin.min.js"
+            tal:condition="python:0"
+            tal:attributes="src string:/jquery.plugin.min.js"></script>
+    <script type="text/javascript" src="../static/jquery.keypad.min.js"
+            tal:attributes="src string:/++resource++vdz.projectreview/jquery.keypad.min.js"></script>
+    <script type="text/javascript" src="../static/jquery.keypad-de.js"
+            tal:attributes="src string:/++resource++vdz.projectreview/jquery.keypad-de.js"></script>
+
+    <script src="/++resource++vdz.projectreview/datepicker-de.js"></script>
+    <script src="/++resource++vdz.projectreview/chosen.jquery.min.js"></script>
+    <script src="/++resource++vdz.projectreview/chosen-patch.js"></script>
+    <script src="/++resource++vdz.projectreview/projectrecovery.js"></script>
+    <!-- ] ... head_slot ] -->
+    </metal:head-insertions>
+</head>
+
+<body>
+
+    <!-- page wrapper and container -->
+<metal:content define-slot="content"
+               tal:define="
+projectreview nocall:context/@@projectreview;
+template_id template/id;
+"><tal:inner
+define="
+debug_active python:0;
+redirect_to formdata/redirect | nothing;
+">
+<div metal:use-macro="context/global_statusmessage/macros/portal_message">
+Status message
+</div>
+<div class="alert alert-warning"
+     tal:define="warnings formdata/meta/warnings"
+     tal:condition="warnings"
+     tal:repeat="message warnings">
+    <button class="close" data-dismiss="alert" type="button">×</button>
+    <tal:block tal:content="message | nothing"
+              i18n:translate=""/>
+</div>
+<tal:data-complete
+tal:condition="not:redirect_to"
+><tal:perm define="
+meta formdata/meta;
+debug_active meta/debug | python:False;
+first_missing python:meta.get('first_missing');
+current_user python:formdata.get('current_user');
+current_project python:formdata.get('current_project');
+project_id current_project/project_id | nothing;
+current_result python:formdata.get('current_result');
+current_p1result python:formdata.get('current_p1result');
+project_suffix python:project_id and ('?project_id=%d' % project_id);
+help_uid request/help_uid | string:6a5c13da47bd45abac24c34963f40182;
+permission python:formdata['permission'];
+can_view python:permission['view'];
+has_activities_page python:0 and 'eigentlich obsolet';
+show_p1result_box current_p1result;
+show_p2result_box python:current_result and not show_p1result_box;
+show_project_box python:project_id and not (show_p1result_box or show_p2result_box);
+info_rows python:formdata.get('info_rows');
+on_history_page python:template_id == 'pr_history.pt';
+">
+<script tal:condition="first_missing"
+        tal:content="string:$$(document).ready(function () {$$('#$first_missing').focus()})">
+$(document).ready(function () {
+    $('#name-des-eingabefelds').focus();
+})
+</script>
+<metal:slot1 define-slot="pr-nav-pills">
+    <div class="nav-pills-block">
+    <ul class="nav nav-pills">
+        <li><a href="pr_main2"><strong tal:omit-tag="python:template_id != 'pr_main2.pt'">Verbundprojekte</strong>
+            <i class="icon-chevron-left"></i></a></li>
+        <li><a href="pr_committee"><strong tal:omit-tag="python:template_id != 'pr_committee.pt'">Gremien</strong>
+            <i class="icon-chevron-left"></i></a></li>
+        <li title="Historie der Verwertungsaktivitäten und -ergebnisse">
+            <a href="pr_history"><strong tal:omit-tag="python:not on_history_page or current_project">Historie</strong>
+            <i class="icon-chevron-left"></i></a></li>
+    </ul>
+    <ul class="nav nav-pills"
+        tal:condition="python:project_suffix or help_uid">
+        <tal:ul define="
+p2_result formdata/all_ids/p2_result;
+p2_suffix python:p2_result and '?p2_result=%s' % (p2_result,) or project_suffix;
+        ">
+        <tal:if-in-project condition="project_suffix">
+        <li tal:define="current_template python:template_id in ('pr_plan.pt', 'pr_plan_row.pt');
+                        ">
+            <a href="pr_main"
+               tal:attributes="href string:pr_plan$project_suffix">
+            <i class="icon-chevron-right"></i>
+            <strong tal:omit-tag="not:current_template">
+            Verwertungsplan
+            </strong>
+            </a>
+        </li>
+        <li tal:define="current_template python:template_id in ('pr_recovery.pt',
+                                                                'pr_activity.pt');
+                        suffix python:not current_template and p2_suffix or project_suffix;
+                        ">
+            <a href="pr_recovery.pt"
+               title="Projektergebnisse und Verwertungsaktivitäten"
+               tal:attributes="href string:pr_recovery$suffix">
+            <i class="icon-chevron-right"></i>
+            <strong tal:omit-tag="not:current_template">
+            Ergebnisse
+            </strong>
+            </a>
+        </li>
+        <li tal:define="current_template on_history_page;
+                        suffix python:not current_template and p2_suffix or project_suffix;
+                        ">
+            <a href="pr_history.pt"
+               title="Gefilterte Historie für das aktuelle Projekt bzw. Projektergebnis"
+               tal:attributes="href string:pr_history$suffix">
+            <i class="icon-chevron-right"></i>
+            <strong tal:omit-tag="not:current_template">
+            Historie
+            </strong>
+            </a>
+        </li>
+        <li tal:define="current_template python:template_id in ('pr_recovery_report.pt',
+                                                                );
+                        ">
+            <a href="pr_recovery_report.pt"
+               title="Projektergebnisse mit Verwertungsergebnissen und -aktivitäten"
+               tal:attributes="href string:pr_recovery_report$project_suffix">
+            <i class="icon-chevron-right"></i>
+            <strong tal:omit-tag="not:current_template">
+            Projektreport
+            </strong>
+            </a>
+        </li>
+        </tal:if-in-project>
+        <tal:if-has-help condition="help_uid">
+        <li tal:define="help_topic meta/help_topic;
+                        help_suffix python:help_topic and '/'+help_topic or ''">
+        <a href="/resolveuid/abc123/pr_main2"
+           tal:attributes="href string:/resolveuid/$help_uid$help_suffix">
+            <i class="icon-info-sign"></i>
+            Hilfe
+        </a>
+        </li>
+        </tal:if-has-help>
+        <metal:slot define-slot="more-pills"></metal:slot>
+    </tal:ul>
+    </ul>
+    </div><!-- .nav-pills-block -->
+    
+</metal:slot1>
+<div class="wrap">
+<h1 id="top">
+    <metal:slot2 define-slot="h1-text"
+               tal:content="formdata/meta/headline | default">
+Bitte Slot <tt>h1-text</tt> füllen!
+    </metal:slot2>
+    <metal:slot3 define-slot="h1-end"/>
+</h1>
+
+<tal:allowed condition="can_view">
+<div class="panel panel-info"
+     tal:condition="show_p1result_box">
+    <div class="panel-heading">
+        Review-Ergebnis
+    </div>
+    <div class="panel-body"
+         tal:on-error="string:Oops!">
+    <h2><a href="#" tal:content="current_p1result/p1_result_label | default"
+           tal:attributes="href string:/pr_recovery?action=view&project_id=${current_p1result/project_id}">
+    Titel des Ergebnisses aus der Review-Phase
+    </a></h2>
+    <p tal:condition="current_project | nothing">Projekt:
+        &bdquo;<span tal:content="current_project/title">Titel</span>&ldquo;
+        <tal:akuefi condition="current_project/acronym">(<tal:txt
+            content="current_project/acronym">KUERZEL</tal:txt>)
+        </tal:akuefi>
+    </p>
+    <p tal:condition="current_p1result/p1_use_level">
+    <em tal:omit-tag="">Erkenntnisstufe</em>
+    <tal:txt content="current_p1result/p1_use_level">4</tal:txt>
+    &ndash;
+    <tal:txt content="current_p1result/p1_use_level_label">
+    Anwendungsbezogene Forschung &hellip;
+    </tal:txt>
+    </p>
+    </div>
+</div>
+
+<div class="panel panel-info"
+     tal:condition="show_p2result_box">
+    <div class="panel-heading">
+        Projektergebnis
+    </div>
+    <div class="panel-body">
+    <h2 tal:content="current_result/result_label">
+    Titel des Projektergebnisses, vom VK erstellt
+    </h2>
+    <p tal:condition="current_project | nothing">Projekt:
+        &bdquo;<span tal:content="current_project/title">Titel</span>&ldquo;
+        <tal:akuefi condition="current_project/acronym">(<tal:txt
+            content="current_project/acronym">KUERZEL</tal:txt>)
+        </tal:akuefi>
+        <a tal:content="current_project/acronym"
+            tal:omit-tag="python:1"
+            tal:attributes="href string:/pr_main?id=${current_project/project_id}"
+            >Akronym</a>)
+    </p>
+    <p tal:condition="current_result/use_level">
+    <em tal:omit-tag="">Erkenntnisstufe</em>
+    <tal:txt content="current_result/use_level">4</tal:txt>
+    &ndash;
+    <tal:txt content="current_result/use_level_label">
+    Anwendungsbezogene Forschung &hellip;
+    </tal:txt>
+    </p>
+    </div>
+</div>
+
+
+<div class="panel panel-info"
+     tal:condition="show_project_box">
+    <div class="panel-heading"
+         metal:define-slot="heading-fuellmichnich">
+Verbundprojekt
+    </div>
+    <div class="panel-body">
+    <metal:slot4 define-slot="project-info">
+    <h2>Projekt
+        &bdquo;<span tal:content="current_project/title">Titel</span>&ldquo;
+        (<a tal:content="current_project/acronym"
+            tal:omit-tag="python:0"
+            tal:attributes="href string:/pr_recovery?project_id=${current_project/project_id}"
+            >Akronym</a>)
+    </h2>
+    <p tal:define="val current_project/subtitle"
+       tal:condition="val"
+       tal:content="val">Untertitel</p>
+    <p tal:define="val current_project/announcement"
+       tal:condition="val"
+       tal:on-error="current_project"
+       tal:content="current_project/announcement_option">Bekanntmachung</p>
+    <p tal:define="val current_project/termtime"
+       tal:condition="val"
+       tal:on-error="current_project"
+       tal:content="val">Laufzeit</p>
+
+    <tal:p1c-as-well condition="python:0">
+    <tal:vc-ns define="rc_id current_project/rc_partner_id">
+    <p tal:condition="rc_id"
+       title="TODO: VK verwenden (bisher stets Review-Koordinator">
+    Review-Koordinator:
+    <strong tal:content="current_project/rc_member_acronym">VDZ</strong>
+    </p>
+    <p tal:condition="not:rc_id">
+    Review-Koordinator: <em>Noch nicht zugewiesen</em>
+    </p>
+    </tal:vc-ns>
+    </tal:p1c-as-well>
+
+
+    <tal:vc-ns define="rc_id current_project/recovery_coordinator">
+    <p tal:condition="rc_id"
+       title="TODO: VK verwenden (bisher stets Review-Koordinator">
+    Verwertungskoordinator:
+    <strong tal:content="rc_id">FBSV</strong>
+    &ndash;
+    <span tal:content="current_project/recovery_coordinator_name">
+        Forschungsgesellschaft für Straßen- und Verkehrswesen E. V.
+    </span>
+    </p>
+    <p tal:condition="not:rc_id">
+    Verwertungskoordinator: <em>Noch nicht zugewiesen</em>
+    </p>
+    </tal:vc-ns>
+
+
+    </metal:slot4>
+    <table class="table table-default"
+           tal:condition="info_rows">
+        <tr tal:repeat="row info_rows">
+            <td style="width:35%">
+                <span tal:replace="row/label"
+                      tal:on-error="string:FEHLER">
+                    Projektergebnisse
+                </span>:
+            </td>
+            <td tal:content="row/number"
+                style="text-align: right">
+                42
+            </td>
+            <td style="width:60%">
+            </td>
+        </tr>
+    </table>
+    </div>
+</div><!-- .panel.panel-info -->
+<metal:slot define-slot="pr-main">
+Bitte Slot <tt>pr-main</tt> füllen!
+
+</metal:slot>
+</tal:allowed>
+<tal:disallowed condition="not:can_view">
+<div class="alert alert-warning" role="alert"
+    metal:define-slot="pr-disallowed">
+Keine Zugriffsberechtigung!
+
+</div>
+</tal:disallowed>
+</div><!-- .wrap -->
+</tal:perm>
+</tal:data-complete><tal:data-missing condition="python:redirect_to">
+<tal:nsr define="
+response request/RESPONSE;
+dummy python:response.redirect(redirect_to);
+"></tal:nsr>
+</tal:data-missing>
+</tal:inner>
+</metal:content>
+</body>
+</html><!-- vim: set ts=4 sts=4 sw=4 si et: --></metal:page>
+</tal:ns_global>

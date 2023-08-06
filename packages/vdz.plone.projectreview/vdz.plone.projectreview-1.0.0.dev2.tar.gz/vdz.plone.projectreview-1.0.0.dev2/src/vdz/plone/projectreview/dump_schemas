@@ -1,0 +1,25 @@
+#!/bin/bash
+# TODO:
+# - Aufrufe für svn status und ls -l zusammenfassen
+#   (Dateinamen in globale Liste schreiben)
+# - Fortlassen der Daten (generell oder nur für Journal)
+ME="$0"
+MYDIR="$(dirname "$ME")"
+DBNAME="$("$MYDIR"/../../../../scripts/name-of-database)"
+echo "### Datenbank $DBNAME:"
+
+function dump_and_status() {
+        # zwei getrennte local-Statements; sonst würde filename den Wert für $schema vom letzten Aufruf nehmen:
+        local schema="$1"
+        local filename="$MYDIR/sql/schema-$schema.sql"
+        pg_dump "--schema=$schema" --file "$filename" "$DBNAME" && echo "### Schema $schema exportiert" >&2
+        ls -l "$filename"
+        svn status "$filename"
+}
+
+for stem in witrabau; do
+        for schema in "$stem"; do # "${stem}_journal"; do
+        # for schema in "$stem"; do
+                dump_and_status "$schema"
+        done
+done

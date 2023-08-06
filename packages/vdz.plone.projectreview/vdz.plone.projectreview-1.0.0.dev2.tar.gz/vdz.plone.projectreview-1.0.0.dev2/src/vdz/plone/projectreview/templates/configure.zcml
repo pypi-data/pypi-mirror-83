@@ -1,0 +1,183 @@
+<configure
+    xmlns="http://namespaces.zope.org/zope"
+    xmlns:browser="http://namespaces.zope.org/browser"
+    xmlns:zcml="http://namespaces.zope.org/zcml">
+    
+    <browser:page
+             for="*"
+             name="pr_activity"
+             template="pr_activity.pt"
+             permission="vdz.plone.projectreview.View"
+             class="vdz.plone.projectreview.browser.Browser"
+             />
+
+    <browser:page
+             for="*"
+             name="pr_committee"
+             template="pr_committee.pt"
+             permission="vdz.plone.projectreview.View"
+             class="vdz.plone.projectreview.browser.Browser"
+             />
+
+    <browser:page
+             for="*"
+             name="pr_history"
+             template="pr_history.pt"
+             permission="vdz.plone.projectreview.View"
+             class="vdz.plone.projectreview.browser.Browser"
+             />
+
+    <browser:page
+             for="*"
+             name="pr_macros"
+             template="pr_macros.pt"
+             permission="vdz.plone.projectreview.View"
+             class="vdz.plone.projectreview.browser.Browser"
+             />
+
+    <browser:page
+             for="*"
+             name="pr_main"
+             template="pr_main.pt"
+             permission="vdz.plone.projectreview.View"
+             class="vdz.plone.projectreview.browser.Browser"
+             />
+
+    <browser:page
+             for="*"
+             name="pr_main2"
+             template="pr_main2.pt"
+             permission="vdz.plone.projectreview.View"
+             class="vdz.plone.projectreview.browser.Browser"
+             />
+
+    <browser:page
+             for="*"
+             name="pr_master2_pdf"
+             template="pr_master2_pdf.pt"
+             permission="zope2.View"
+             />
+
+    <browser:page
+             for="*"
+             name="pr_plan"
+             template="pr_plan.pt"
+             permission="vdz.plone.projectreview.View"
+             class="vdz.plone.projectreview.browser.Browser"
+             />
+
+    <browser:page
+             for="*"
+             name="pr_plan_row"
+             template="pr_plan_row.pt"
+             permission="vdz.plone.projectreview.View"
+             class="vdz.plone.projectreview.browser.Browser"
+             />
+
+    <browser:page
+             for="*"
+             name="pr_recovery"
+             template="pr_recovery.pt"
+             permission="vdz.plone.projectreview.View"
+             class="vdz.plone.projectreview.browser.Browser"
+             />
+
+    <browser:page
+             for="*"
+             name="pr_recovery_report"
+             template="pr_recovery_report.pt"
+             permission="vdz.plone.projectreview.View"
+             class="vdz.plone.projectreview.browser.Browser"
+             />
+
+    <browser:page
+             for="*"
+             name="pr_recovery_report_pdf"
+             template="pr_recovery_report_pdf.pt"
+             permission="vdz.plone.projectreview.View"
+             class="vdz.plone.projectreview.browser.Browser"
+             />
+
+    <browser:page
+             for="*"
+             name="pr_report"
+             template="pr_report.pt"
+             permission="vdz.plone.projectreview.View"
+             class="vdz.plone.projectreview.browser.Browser"
+             />
+
+    <browser:page
+             for="*"
+             name="pr_result"
+             template="pr_result.pt"
+             permission="vdz.plone.projectreview.View"
+             class="vdz.plone.projectreview.browser.Browser"
+             />
+
+    <browser:page
+             for="*"
+             name="pr_reviewers"
+             template="pr_reviewers.pt"
+             permission="vdz.plone.projectreview.View"
+             class="vdz.plone.projectreview.browser.Browser"
+             />
+
+    <browser:page
+             for="*"
+             name="pr_subprojects"
+             template="pr_subprojects.pt"
+             permission="vdz.plone.projectreview.View"
+             class="vdz.plone.projectreview.browser.Browser"
+             />
+
+    <!-- [ macro sources (unrestricted; mock data only) ... [ -->
+    <browser:page
+             for="*"
+             name="pr_toolbox"
+             template="pr_toolbox.pt"
+             permission="zope2.View"
+             class="vdz.plone.projectreview.browser.Browser"
+             />
+
+    <!-- due to differences in the templating engine
+         (Chameleon, z3c.pt, ...),
+         our Plone 4 versions of the pr_master* views currently don't work
+         with Plone 5; thus, we provide special versions
+         (which don't work yet, but can do so one happy day).
+         Please keep the different entities in synch, i.e.:
+         maintain "diffability", as long as different files are necessary.
+     -->
+    <browser:page
+             for="*"
+             name="pr_master"
+             template="pr_master.pt"
+             zcml:condition="not-have plone-5" 
+             permission="zope2.View"
+             class="vdz.plone.projectreview.browser.Browser"
+    /><browser:page
+             for="*"
+             name="pr_master"
+             template="pr_master-p5.pt"
+             zcml:condition="have plone-5" 
+             permission="zope2.View"
+             class="vdz.plone.projectreview.browser.Browser"
+             />
+
+    <browser:page
+             for="*"
+             name="pr_master2"
+             template="pr_master2.pt"
+             zcml:condition="not-have plone-5" 
+             permission="zope2.View"
+             class="vdz.plone.projectreview.browser.Browser"
+    /><browser:page
+             for="*"
+             name="pr_master2"
+             template="pr_master2-p5.pt"
+             zcml:condition="have plone-5" 
+             permission="zope2.View"
+             class="vdz.plone.projectreview.browser.Browser"
+             />
+    <!-- ] ... macro sources (unrestricted; mock data only) ] -->
+
+</configure>

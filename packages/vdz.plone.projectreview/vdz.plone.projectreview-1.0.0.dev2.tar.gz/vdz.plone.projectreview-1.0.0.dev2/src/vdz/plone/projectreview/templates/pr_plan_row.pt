@@ -1,0 +1,185 @@
+<tal:ns_global define="formdata python:view.formdata_plan_row();
+"><metal:page use-macro="context/pr_master2/macros/master"
+            i18n:domain="vdz.projectreview">
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>WiTraBau Verwertungs-Management</title>
+
+    <!-- Meta data -->
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <meta name="description" content="WiTraBau Verwertungs-Management">
+    <meta name="author" content="visaplan GmbH">
+
+    <!-- Styles -->
+    <link href="./lib/bootstrap/css/bootstrap.min.css" rel="stylesheet"
+          tal:replace="nothing" />
+    <link href="./css/panel.css" rel="stylesheet"
+          tal:attributes="href string:/++resource++panel.css"
+          />
+    <link href="./lib/chosen/chosen.css" rel="stylesheet"
+          tal:replace="nothing" />
+          <tal:enable condition="python:1">
+    <link href="./lib/keypad/jquery.keypad.css" rel="stylesheet"
+          tal:attributes="href string:/jquery.keypad.css"
+          />
+    <script type="text/javascript" src="../static/jquery.plugin.min.js"
+            tal:attributes="src string:/jquery.plugin.min.js"></script>
+    <script type="text/javascript" src="../static/jquery.keypad.min.js"
+            tal:attributes="src string:/jquery.keypad.min.js"></script>
+          </tal:enable>
+
+    <script src="../static/projectreview.js"></script>
+</head>
+
+<body>
+
+    <metal:txt fill-slot="h1-text">
+    Verwertung
+    </metal:txt>
+    <div class="panel-heading"
+         metal:fill-slot="heading">
+    Verwertungsplan
+    </div>
+    <!-- page wrapper and container -->
+<metal:content fill-slot="pr-main"
+><tal:ns define="
+action formdata/action;
+pool formdata/pool;
+current_partner formdata/current_partner | nothing;
+editperm python:'edit' or 'Hier keine Unterscheidung';
+may_edit python:permission[editperm];
+readonly python:not may_edit;
+ma_macros context/pr_main/macros;
+form_actions python:('edit', 'create');
+current python:current_result or {};
+form_action string:/@@projectreview/action_2plan_row;
+make_reset python:False and 'funzt nicht für Chosen-Auswahl';
+">
+
+
+<div class="panel panel-info" id="edit-plan">
+    <div class="panel-heading">
+        <q tal:condition="python:0">Steigerung der photokatalytischen Aktivität durch Eisen-dotiertes TiO2 und feinteilige Pigment-Slurrys</q>
+        <tal:if-new condition="not:current">
+        Neues Projektergebnis
+        </tal:if-new>
+        <tal:if-edit condition="current">
+        Projektergebnis bearbeiten
+        </tal:if-edit>
+    </div>
+
+    <div class="panel-body">
+<metal:form use-macro="context/formfields_div/macros/form">
+<metal:input-slot fill-slot="input">
+<tal:ns define="
+simple_field context/formfields_div/macros/simple_field;
+textarea context/formfields_div/macros/textarea;
+date_field context/formfields_div/macros/date_field;
+select_single context/formfields_div/macros/select_single;
+select_single_wkey context/formfields_div/macros/select_single_wkey;
+is_result meta/is_result;
+is_activity not:is_result;
+">
+        <tal:ns define="
+        name string:result_label;
+        formname name;
+        label string:Projektergebnis;
+        required python:True;
+        value current/result_label | current_p1result/p1_result_label | nothing;
+        "><metal:inner use-macro="simple_field"/></tal:ns>
+
+        <tal:ns define="
+        name string:result_text;
+        label string:Beschreibung;
+        value current/result_text | current_p1result/p1_result_text | nothing;
+        "><metal:inner use-macro="textarea"/></tal:ns>
+
+<tal:ns tal:on-error="string:use_level"
+define="
+name string:use_level;
+label string:Erkenntnisstufe;
+value current/use_level | current_p1result/p1_use_level | nothing;
+required python:True;
+"><metal:inner use-macro="select_single_wkey"/></tal:ns>
+
+
+
+<tal:loop define="
+select_multiple context/formfields_div/macros/select_multiple;
+readonly python:False;
+labelwidth python:8;
+allow_empty python:True;
+"
+repeat="ometa meta/recovery_options_rows">
+<tal:ro define="
+name ometa/name;
+formname ometa/formname;
+label string:${ometa/option_acronym} &ndash; ${ometa/option_label};
+label ometa/option_acronym;
+title ometa/option_label;
+">
+<metal:o use-macro="select_multiple"/>
+</tal:ro>
+</tal:loop>
+
+        
+     </tal:ns>
+     </metal:input-slot>
+        <br>
+        <div class="form-group">
+     <metal:button-slot fill-slot="buttons">
+            <button class="btn btn-primary"
+                    name="action"
+                    value="save"
+                    tal:define="edited_id known/p2_result"
+                    tal:attributes="value python:edited_id and 'save' or 'create'"
+                >
+                Speichern
+            </button>
+            <button class="btn btn-danger"
+                    name="action"
+                    value="delete"
+                    tal:condition="known/p2_result | nothing"
+                >
+                Löschen
+            </button>
+            <a href="pr_plan.pt"
+               class="btn btn-default"
+               title="Zurück zum Verwertungsplan"
+               tal:attributes="href string:/pr_plan?project_id=${known/project_id}">
+                Abbrechen
+            </a>
+     </metal:button-slot>
+        </div>
+     </metal:form>
+ </div><!-- .panel-body -->
+
+        </div>
+
+    <div class="wrap">
+    <div >
+
+    <!-- CONTENT START -->
+
+    </div><!-- /container -->
+
+    </div><!-- /wrap -->
+
+
+<tal:prototype replace="nothing">
+    <!-- JavaScript  -->
+    <script src="./lib/jquery/jquery-1.10.1.min.js"></script>
+    <script src="./lib/bootstrap/js/bootstrap.min.js"></script>
+    <!--<script src="./bootstrap-vp/js/bootstrap-sortable.js"></script>-->
+    <script src="./lib/chosen/chosen.jquery.js" type="text/javascript"></script>
+</tal:prototype>
+
+</tal:ns>
+</metal:content>
+</body>
+</html><!-- vim: set ts=4 sts=4 sw=4 si et: --></metal:page></tal:ns_global>

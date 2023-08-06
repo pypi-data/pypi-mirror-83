@@ -1,0 +1,311 @@
+<tal:ns_global define="formdata python:view.formdata_activity();
+"><metal:page use-macro="context/pr_master2/macros/master"
+            i18n:domain="vdz.projectreview">
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>WiTraBau Verwertungs-Management</title>
+
+    <!-- Meta data -->
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <meta name="description" content="WiTraBau Verwertungs-Management">
+    <meta name="author" content="visaplan GmbH">
+
+    <!-- Styles -->
+    <link href="./lib/bootstrap/css/bootstrap.min.css" rel="stylesheet"
+          tal:replace="nothing" />
+    <link href="./css/panel.css" rel="stylesheet"
+          tal:attributes="href string:/++resource++panel.css"
+          />
+    <link href="./lib/chosen/chosen.css" rel="stylesheet"
+          tal:replace="nothing" />
+          <tal:enable condition="python:1">
+    <link href="./lib/keypad/jquery.keypad.css" rel="stylesheet"
+          tal:attributes="href string:/jquery.keypad.css"
+          />
+    <script type="text/javascript" src="../static/jquery.plugin.min.js"
+            tal:attributes="src string:/jquery.plugin.min.js"></script>
+    <script type="text/javascript" src="../static/jquery.keypad.min.js"
+            tal:attributes="src string:/jquery.keypad.min.js"></script>
+          </tal:enable>
+
+    <script src="../static/projectreview.js"></script>
+</head>
+
+<body>
+
+    <metal:txt fill-slot="h1-text"
+               tal:content="formdata/meta/headline">
+    Verwertungsaktivität
+    </metal:txt>
+    <!-- page wrapper and container -->
+<metal:content fill-slot="pr-main"
+><tal:ns define="
+action formdata/action;
+pool formdata/pool;
+meta formdata/meta;
+current_partner formdata/current_partner | nothing;
+editperm python:'edit' or 'Hier keine Unterscheidung';
+may_edit python:permission[editperm];
+readonly python:action == 'view' or not may_edit;
+ma_macros context/pr_main/macros;
+form_actions python:('edit', 'create');
+">
+    <div >
+
+    <!-- CONTENT START -->
+
+    <tal:form-if condition="project_id">
+    <tal:form-ns define="
+action string:create;
+has_fileinput python:True;
+names python:['activity_id',  # primäre ID
+              'project_id',
+              'p2_result',
+              ];
+id_fieldname string:project_id;
+is_result python:1;
+formid string:edit;
+method string:post;
+form_action string:/@@projectreview/action_2activity;
+current formdata/current_activity | python:{};
+">
+
+<metal:form use-macro="context/formfields_div/macros/form">
+<metal:input-slot fill-slot="input">
+<tal:inputns define="
+simple_field context/formfields_div/macros/simple_field;
+textarea context/formfields_div/macros/textarea;
+date_field context/formfields_div/macros/date_field;
+select_single context/formfields_div/macros/select_single;
+select_single_wkey context/formfields_div/macros/select_single_wkey;
+select_multiple context/formfields_div/macros/select_multiple;
+is_result meta/is_result;
+is_activity not:is_result;
+">
+     <div>
+    <form action="@@projectreview/action_2activity"
+        id="edit" method="post"
+        class="form-horizontal">
+
+        <tal:ns define="
+        name string:p2_result;
+        label string:Projektergebnis;
+        readonly python:True;
+        pretty_value formdata/current_activity/p2_result_label | nothing;
+        "><metal:inner use-macro="select_single"/></tal:ns>
+
+        <tal:ns define="
+        name string:member_acronym;
+        label string:Verwertungsstelle;
+        required python:True;
+        "><metal:inner use-macro="select_single"/></tal:ns>
+        <tal:ns define="
+        name string:activity_title;
+        formname name;
+        label string:Titel;
+        required python:True;
+        "><metal:inner use-macro="simple_field"/></tal:ns>
+
+        <tal:if-result condition="is_result">
+        <tal:ns-result define="
+        recovery_option current/recovery_option | nothing;
+        ">
+        <input type="hidden" name="is_result" value="1">
+        <tal:ns define="
+        name string:recovery_option;
+        label string:Verwertungsoption;
+        pretty_value current/recovery_option_label | string:pretty_value;
+        "><metal:inner use-macro="select_single_wkey"/></tal:ns>
+        <tal:ns define="
+        name string:recovery_type;
+        label string:Verwertungsart;
+        pretty_value current/recovery_type_label | nothing;
+        suppress_empty not:recovery_option;
+        "><metal:inner use-macro="select_single"/></tal:ns>
+        <tal:ns define="
+        recovery_status current/recovery_status | nothing;
+        required python:True;
+        name string:recovery_status;
+        label string:Verwertungsstatus;
+        pretty_value current/recovery_status_label | nothing;
+        "><metal:inner use-macro="select_single"/></tal:ns>
+        <tal:ns define="
+        name string:publication_status;
+        label string:Status Veröffentlichung;
+        pretty_value current/publication_status_label | nothing;
+        "><metal:inner use-macro="select_single"/></tal:ns>
+        <tal:ns define="
+        name string:publication_source;
+        formname name;
+        label string:Quelle;
+        "><metal:inner use-macro="simple_field"/></tal:ns>
+        </tal:ns-result>
+        </tal:if-result>
+
+        <tal:if condition="is_activity">
+        <tal:ns define="
+        name string:activity_type;
+        label string:Aktivitätsart;
+        pretty_value formdata/current_activity/activity_type_label | nothing;
+        "><metal:inner use-macro="select_single"/></tal:ns>
+        <tal:ns define="
+        name string:activity_state;
+        label string:Aktivitätsstatus;
+        pretty_value formdata/current_activity/activity_state_label | nothing;
+        "><metal:inner use-macro="select_single"/></tal:ns>
+        </tal:if>
+
+        <tal:ns define="
+        name string:activity_date;
+        label string:Datum;
+        "><metal:inner use-macro="date_field"/></tal:ns>
+        <tal:ns define="
+        name string:activity_location;
+        formname name;
+        label string:Ort;
+        "><metal:inner use-macro="simple_field"/></tal:ns>
+        <tal:ns define="
+        name string:activity_by;
+        formname name;
+        label python:is_result and 'Verwertung durch' or 'Durchgeführt von';
+        "><metal:inner use-macro="simple_field"/></tal:ns>
+
+        <tal:ns define="
+        name string:activity_party;
+        label string:Beteiligte;
+        "><metal:inner use-macro="textarea"/></tal:ns>
+
+        <tal:ns define="
+        name string:committees;
+        label string:Gremien;
+        choice_url_mask string:/pr_committee?committee_id=%(id)d;
+        "
+        ><metal:inner use-macro="select_multiple"/></tal:ns>
+
+        <tal:ns define="
+        name string:committees_notes;
+        label string:Zusatz-Info zu Gremien;
+        required_switchable python:True;
+        oneline python:True;
+        "><metal:inner use-macro="textarea"/></tal:ns>
+
+        <tal:ns define="
+        name string:activity_notes;
+        label string:Anmerkungen;
+        required_switchable python:True;
+        "><metal:inner use-macro="textarea"/></tal:ns>
+        <tal:nofile condition="python:1">
+        <tal:ns define="
+        name string:attachment_id;
+        action_name string:attachment_action;
+        download_id known/activity_id | nothing;
+        filename_user current/filename_user | nothing;
+        download_id python:filename_user and download_id or None;
+        filefield_name string:attachment_file;
+        filename_key string:filename_user;
+        download_prefix string:/@@projectreview/download?activity_id=;
+        label string:Datei;
+        "><metal:inner use-macro="context/formfields_div/macros/file_field"/></tal:ns>
+        </tal:nofile>
+        <tal:ns define="
+        name string:activity_url;
+        formname name;
+        label string:Link;
+        "><metal:inner use-macro="context/formfields_div/macros/hyperlink_field"/></tal:ns>
+
+
+    </form>
+     </div>
+     </tal:inputns>
+     </metal:input-slot>
+        <br>
+        <div class="form-group">
+     <metal:button-slot fill-slot="buttons">
+     <tal:ns1 define="edited_id known/activity_id | nothing">
+     <tal:if1 condition="may_edit">
+            <button class="btn btn-primary"
+                    name="action"
+                    value="save"
+                    tal:condition="python:may_edit and action != 'view' and not readonly"
+                    tal:attributes="value python:edited_id and 'save' or 'create'"
+                >
+                Speichern
+            </button>
+            <a class="btn btn-primary"
+               tal:condition="python:edited_id and may_edit and readonly"
+               href="pr_activity?activity_id=42&action=edit"
+               tal:attributes="href string:/pr_activity?activity_id=$edited_id&action=edit">
+               Bearbeiten
+            </a>
+            <button class="btn btn-danger"
+                    name="action"
+                    value="delete"
+                    tal:condition="known/activity_id | nothing"
+                >
+                Löschen
+            </button>
+     </tal:if1>
+            <a href="pr_activity.pt"
+               class="btn btn-default"
+               title="Zurück zum Projektreport"
+               tal:attributes="href string:/pr_recovery_report?project_id=${known/project_id}"
+               tal:on-error="string:oops">
+                Abbrechen
+            </a>
+     </tal:ns1>
+     </metal:button-slot>
+        </div>
+     </metal:form>
+
+    <tal:if-result condition="python:is_result and action != 'create'">
+        <br>
+        <form tal:condition="not:readonly">
+
+            <metal:hidden-input define-macro="hidden-input">
+            <tal:loop define="known formdata/all_ids;
+                              names python:known.keys()"
+                      repeat="name names">
+            <input type="hidden" name="result_id"
+                   tal:define="value python:known[name]"
+                   tal:condition="python:value is not None"
+                   tal:attributes="value value; name name">
+            </tal:loop>
+            </metal:hidden-input>
+
+        <button class="btn btn-primary" type="submit" name="action" value="create_result">
+            <i class="icon-plus icon-white"></i>
+            Neue Verwertungsaktivität erstellen
+        </button>
+        </form>
+    </tal:if-result>
+
+
+
+    </tal:form-ns>
+    </tal:form-if>
+
+
+
+
+    <!-- CONTENT END -->
+
+    </div><!-- /container -->
+
+
+<tal:prototype replace="nothing">
+    <!-- JavaScript  -->
+    <script src="./lib/jquery/jquery-1.10.1.min.js"></script>
+    <script src="./lib/bootstrap/js/bootstrap.min.js"></script>
+    <!--<script src="./bootstrap-vp/js/bootstrap-sortable.js"></script>-->
+    <script src="./lib/chosen/chosen.jquery.js" type="text/javascript"></script>
+</tal:prototype>
+
+</tal:ns>
+</metal:content>
+</body>
+</html><!-- vim: set ts=4 sts=4 sw=4 si et: --></metal:page></tal:ns_global>

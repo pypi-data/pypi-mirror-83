@@ -1,0 +1,38 @@
+<configure
+    xmlns="http://namespaces.zope.org/zope"
+    xmlns:genericsetup="http://namespaces.zope.org/genericsetup"
+    i18n_domain="plone">
+
+  <genericsetup:registerProfile
+      name="default"
+      title="vdz.plone.projectreview"
+      directory="profiles/default"
+      description="VDZ-Verwertungsmanagement"
+      provides="Products.GenericSetup.interfaces.EXTENSION"
+      />
+
+  <genericsetup:registerProfile
+      name="uninstall"
+      title="Remove vdz.plone.projectreview"
+      directory="profiles/uninstall"
+      description="Entfernt das VDZ-Verwertungsmanagement aus dieser Plone-Installation"
+      provides="Products.GenericSetup.interfaces.EXTENSION"
+      />
+
+  <!-- [ Migrationsschritte (Upgrade steps) ... [
+       - Zielversion in ./profiles/default/metadata.xml aktualisieren!
+       - siehe <http://maurits.vanrees.org/weblog/archive/2009/12/catalog>
+
+    (noch haben wir keine)
+
+  <genericsetup:upgradeStep
+      source="*"
+      destination="1"
+      title="Reload GS profiles"
+      description=""
+      profile="vdz.plone.projectreview:default"
+      handler=".setuphandlers.reload_gs_profile"
+      />
+    -->
+
+</configure>

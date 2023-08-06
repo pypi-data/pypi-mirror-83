@@ -1,0 +1,211 @@
+<tal:ns_global define="formdata python:view.formdata_main2();
+"><metal:page use-macro="context/pr_master2/macros/master"
+            i18n:domain="vdz.projectreview">
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>WiTraBau Verwertungs-Management</title>
+
+<metal:block fill-slot="top_slot"
+             tal:define="dummy python:request.set('disable_border',1)" />
+
+    <!-- Meta data -->
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <meta name="description" content="WiTraBau Verwertungs-Management">
+    <meta name="author" content="visaplan GmbH">
+
+    <!-- Styles -->
+    <link href="./lib/bootstrap/css/bootstrap.min.css" rel="stylesheet"
+          tal:replace="nothing" />
+    <link href="./css/panel.css" rel="stylesheet"
+          tal:attributes="href string:/++resource++panel.css"
+          />
+    <link href="./lib/keypad/jquery.keypad.css" rel="stylesheet"
+          tal:attributes="href string:/jquery.keypad.css"
+          />
+    <script type="text/javascript" src="../static/jquery.plugin.min.js"
+            tal:attributes="src string:/jquery.plugin.min.js"></script>
+    <script type="text/javascript" src="../static/jquery.keypad.min.js"
+            tal:attributes="src string:/jquery.keypad.min.js"></script>
+
+    <script src="../static/projectreview.js"></script>
+</head>
+
+<body>
+
+
+    <metal:txt fill-slot="h1-text">
+    Verbundprojekte
+    </metal:txt>
+    <!-- page wrapper and container -->
+<metal:content fill-slot="pr-main"
+>
+<tal:ns define="
+action formdata/action | string:view;
+editperm python:current_project and 'edit' or 'create';
+may_edit python:permission[editperm];
+readonly python:action == 'view' or not may_edit;
+action python:readonly and 'view' or action;
+current_id current_project/project_id | nothing;
+make_view_links request/make_view_links | python:False;
+omit_view_links not:make_view_links;
+">
+    <div class="wrap">
+    <div >
+
+    <!-- CONTENT START -->
+
+    <tal:if-overview condition="not:current_project">
+    <div class="panel panel-info"
+         metal:use-macro="context/pr_macros/info-panel"
+         >
+    <div class="panel-heading"
+         metal:fill-slot="panel-heading">
+        Verwertbare Verbundprojekte
+    </div>
+    <div class="panel-body">
+    <metal:s1 fill-slot="panel-body">
+
+    <table class="datatb-12 table table-hover"
+           sort="3,4,5,6"
+           aaSorting="0,asc">
+        <thead>
+            <tr role="row">
+                <th>Nr</th>
+                <th>Akronym</th>
+                <th>Projekttitel</th>
+                <td tal:repeat="nr string:1234"
+                    ></td>
+            </tr>
+        </thead>
+        <tbody tal:define="action_label python:{'edit': 'Bearbeiten', 'view': 'Ansehen'}">
+        <tr tal:define="rows formdata/pool/projects"
+            tal:repeat="row rows"
+            >
+        <tal:ns-row define="id row/project_id;
+                            stem string:/pr_main2?project_id=$id;
+                            main_action row/main_action | nothing;
+                            ">
+            <td tal:content="repeat/row/number">
+              42
+            </td>
+            <td>
+                <a href="?id=42&action=view"
+                   tal:attributes="href string:${stem}"
+                   tal:content="row/acronym">
+                  OLAF
+                </a>
+            </td>
+            <td>
+                <a href="?id=42&action=view"
+                   tal:omit-tag="omit_view_links"
+                   tal:attributes="href string:${stem}&action=view"
+                   tal:content="row/title">
+                  OLAFs wortreiche Langform
+                </a>
+            </td>
+            <td>
+                <a href="pr_report.html"
+                   tal:attributes="href string:/pr_report?id=$id;
+                                   ">
+                   Review-Ergebnis
+                </a>
+            </td>
+            <td>
+                <a href="pr_plan.pt"
+                   tal:attributes="href string:/pr_plan?project_id=$id;
+                                   ">
+                   Verwertungsplan
+                </a>
+            </td>
+            <td tal:condition="python:0 and 'mutmasslich obsolet'">
+                <a href="pr_activities.pt"
+                   tal:attributes="href string:/pr_activities?id=$id;
+                                   ">
+                   Aktivitäten
+                </a>
+            </td>
+            <td>
+                <a href="pr_recovery.pt"
+                   tal:attributes="href string:/pr_recovery?project_id=$id;
+                                   ">
+                   Ergebnisverwertung
+                </a>
+            </td>
+            <td>
+                <a href="pr_recovery_report.pt"
+                   tal:attributes="href string:/pr_recovery_report?project_id=$id;
+                                   ">
+                   Projektreport
+                </a>
+            </td>
+        </tal:ns-row>
+        </tr>
+        </tbody>
+    </table>
+    </metal:s1>
+    </div><!-- .panel-body -->
+</div><!-- .panel.panel-info -->
+</tal:if-overview>
+
+
+    <div class="panel panel-info"
+         tal:condition="python:current_project and may_edit">
+         <div class="panel-heading">
+             Konfiguration für Verwertungsphase
+         </div>
+<tal:ns define="
+                current current_project;
+                form_action string:/@@projectreview/action_main2;
+                ">
+         <div class="panel-body"
+              tal:define="
+                          readonly python:0;
+                          pool formdata/pool;
+         name string:recovery_coordinator;
+                          ">
+         <metal:mac use-macro="context/formfields_div/macros/form">
+         <metal:slot fill-slot="input">
+         <tal:ns define="
+         label string:Verwertungskoordinator;
+         choices python:pool[name];
+         ">
+         <metal:mac use-macro="context/formfields_div/macros/select_single_wkey"/>
+         </tal:ns>
+         </metal:slot>
+
+         <metal:slot fill-slot="buttons">
+         <button name="action" value="save"
+                 class="btn btn-primary"
+                 tal:define="curval python:current[name]"
+                 tal:content="python:curval and 'Ändern' or 'Speichern'">
+             Speichern
+         </button>
+         </metal:slot>
+         </metal:mac>
+         </div><!-- .panel-body -->
+</tal:ns>
+     </div><!-- .panel.panel-info -->
+
+
+    <!-- CONTENT END -->
+
+    </div><!-- /container -->
+    </div><!-- /wrap -->
+
+
+<tal:prototype replace="nothing">
+    <!-- JavaScript  -->
+    <script src="./lib/jquery/jquery-1.10.1.min.js"></script>
+    <script src="./lib/bootstrap/js/bootstrap.min.js"></script>
+    <!--<script src="./bootstrap-vp/js/bootstrap-sortable.js"></script>-->
+</tal:prototype>
+
+</tal:ns>
+</metal:content>
+</body>
+</html><!-- vim: set ts=4 sts=4 sw=4 si et: --></metal:page></tal:ns_global>

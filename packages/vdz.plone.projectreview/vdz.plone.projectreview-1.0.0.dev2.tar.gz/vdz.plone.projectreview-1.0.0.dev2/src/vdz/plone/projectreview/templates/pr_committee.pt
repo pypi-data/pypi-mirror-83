@@ -1,0 +1,329 @@
+<tal:ns_global define="formdata python:view.formdata_committee();
+"><metal:page use-macro="context/pr_master2/macros/master"
+            i18n:domain="vdz.projectreview">
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>WiTraBau Verwertungs-Management</title>
+
+    <!-- Meta data -->
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <meta name="description" content="WiTraBau Verwertungs-Management">
+    <meta name="author" content="visaplan GmbH">
+
+    <!-- Styles -->
+    <link href="./lib/bootstrap/css/bootstrap.min.css" rel="stylesheet"
+          tal:replace="nothing" />
+    <link href="./css/panel.css" rel="stylesheet"
+          tal:attributes="href string:/++resource++panel.css"
+          />
+    <link href="./lib/chosen/chosen.css" rel="stylesheet"
+          tal:replace="nothing" />
+          <tal:enable condition="python:1">
+    <link href="./lib/keypad/jquery.keypad.css" rel="stylesheet"
+          tal:attributes="href string:/jquery.keypad.css"
+          />
+    <script type="text/javascript" src="../static/jquery.plugin.min.js"
+            tal:attributes="src string:/jquery.plugin.min.js"></script>
+    <script type="text/javascript" src="../static/jquery.keypad.min.js"
+            tal:attributes="src string:/jquery.keypad.min.js"></script>
+          </tal:enable>
+
+    <script src="../static/projectreview.js"></script>
+</head>
+
+<body>
+
+    <metal:txt fill-slot="h1-text">
+    Gremien
+    </metal:txt>
+    <!-- page wrapper and container -->
+<metal:content fill-slot="pr-main"
+><tal:ns define="
+action formdata/action;
+pool formdata/pool;
+current_partner formdata/current_partner | nothing;
+current_committee formdata/current_committee | nothing;
+committees formdata/committees | nothing;
+editperm python:'edit' or 'Hier keine Unterscheidung';
+may_edit python:permission[editperm];
+readonly python:action == 'view' or not may_edit;
+ma_macros context/pr_main/macros;
+form_actions python:('edit', 'create');
+list_counters request/list_counters | python:False;
+">
+    <div >
+
+
+
+    <!-- CONTENT START -->
+
+    <div class="panel panel-info"
+        id="activities"
+        tal:condition="python:current_committee or action=='create'">
+        <div class="panel-heading" tal:condition="not:current_committee">
+        Neues Gremium
+        </div>
+        <tal:if-existing
+         define="cc current_committee | nothing"
+         condition="cc">
+        <div class="panel-heading">
+        <strong tal:content="cc/institution_acronym">VDZ</strong>
+        / <span tal:content="cc/committee_acronym">Viererbande</span>
+        </div>
+        <div class="panel-body">
+            <p tal:define="txt python:cc['institution_label'] or cc['institution_acronym']">
+            Träger: <strong tal:content="txt">
+                    Forschungsgemeinschaft Transportbeton e. V.
+                    </strong>
+            </p>
+            <p tal:define="txt python:cc['committee_label'] or cc['committee_acronym']">
+                Gremium: <strong tal:content="txt"
+                                 tal:omit-tag="">
+                        Forschungsgemeinschaft Transportbeton e. V.
+                        </strong>
+            </p>
+        </div>
+
+        </tal:if-existing>
+    </div>
+
+
+    <tal:form-if condition="python:current_committee or action == 'create'">
+    <tal:form-ns define="
+action action | string:create;
+id_fieldname string:committee_id;
+formid string:edit;
+form_action string:/@@projectreview/action_committee;
+method string:post;
+current formdata/current_committee | python:{};
+has_fileinput python:True;
+names python:[id_fieldname,  # primäre ID
+              ];
+">
+
+<metal:form use-macro="context/formfields_div/macros/form">
+<metal:input-slot fill-slot="input">
+<tal:ns define="
+simple_field context/formfields_div/macros/simple_field;
+textarea context/formfields_div/macros/textarea;
+select_single context/formfields_div/macros/select_single;
+select_multiple context/formfields_div/macros/select_multiple;
+">
+
+        <tal:ns define="
+        name string:institution_acronym;
+        formname name;
+        label string:Kurztitel Träger;
+        required python:True;
+        "><metal:inner use-macro="simple_field"/></tal:ns>
+
+        <tal:ns define="
+        name string:institution_label;
+        formname name;
+        label string:Langtitel Träger;
+        "><metal:inner use-macro="simple_field"/></tal:ns>
+
+        <tal:ns define="
+        name string:committee_acronym;
+        formname name;
+        label string:Kurztitel Gremium;
+        required python:True;
+        "><metal:inner use-macro="simple_field"/></tal:ns>
+
+        <tal:ns define="
+        name string:committee_label;
+        formname name;
+        label string:Langtitel Gremium;
+        "><metal:inner use-macro="simple_field"/></tal:ns>
+
+        <tal:ns define="
+        name string:committee_description;
+        label string:Beschreibung des Gremiums;
+        "><metal:inner use-macro="textarea"/></tal:ns>
+
+        <tal:ns define="
+        name string:member_acronym;
+        formname string:partners;
+        label string:Witrabau-Partner;
+        choices pool/member_acronym;
+        oneline python:True;
+        "><metal:inner use-macro="select_multiple"/></tal:ns>
+
+     </tal:ns>
+     </metal:input-slot>
+        <div class="form-group">
+     <metal:button-slot fill-slot="buttons">
+     <tal:ns1 define="edited_id known/committee_id | nothing">
+     <tal:if1 condition="may_edit">
+            <button class="btn btn-primary"
+                    name="action"
+                    value="save"
+                    tal:condition="python:may_edit and action != 'view' and not readonly"
+                    tal:attributes="value python:edited_id and 'save' or 'create'"
+                >
+                Speichern
+            </button>
+            <a class="btn btn-primary"
+               tal:condition="python:edited_id and may_edit and readonly"
+               href="pr_committee?committee_id=42&action=edit"
+               tal:attributes="href string:/pr_committee?committee_id=$edited_id&action=edit">
+               Bearbeiten
+            </a>
+            <button class="btn btn-danger"
+                    id="delete-button"
+                    name="action"
+                    value="delete"
+                    title="Löschen nicht möglich wegen assoziierter VEs und/oder VAs"
+                    tal:define="enabled python:(edited_id
+                                           and not formdata['related']['p2_activities']
+                                           and not formdata['related']['p2_results']
+                                           );
+                                cls string:btn btn-danger"
+                    tal:attributes="disabled not:enabled;
+                                    title python:(not enabled) and default or None"
+                    tal:condition="python:edited_id"
+                >
+                Löschen
+            </button>
+            <script type="text/javascript">
+            $(document).ready(function () {
+                $('#delete-button').click(function () {
+                    return confirm('Wollen Sie dieses Gremium wirklich löschen? '+
+                                   'Die Löschung kann nicht rückgängig gemacht werden!')
+                })
+            })
+            </script>
+     </tal:if1>
+            <a href="pr_committee"
+               class="btn btn-default">
+                Abbrechen
+            </a>
+     </tal:ns1>
+     </metal:button-slot>
+        </div>
+     </metal:form>
+     </tal:form-ns>
+     </tal:form-if>
+
+
+
+
+    <tal:rem replace="nothing"><!-- [ Tabelle ... [ --></tal:rem>
+    <table class="datatb-12 table table-hover"
+           tal:condition="committees">
+        <colgroup>
+        <col style="width:15%">
+        <col style="width:30%">
+        <col style="width:45%">
+        <col style="width:10%">
+        </colgroup>
+        <thead>
+            <tr role="row">
+                <th>Träger</th>
+                <th>Gremium</th>
+                <th>Langtitel des Gremiums</th>
+                <th title="Beteiligte WitraBau-Partner">Partner</th>
+            </tr>
+        </thead>
+        <tbody tal:define="action_label python:{'edit': 'Bearbeiten', 'view': 'Ansehen'}"
+               >
+        <tr tal:repeat="row committees"
+            >
+        <tal:ns-row define="id row/committee_id;
+                            ">
+            <td tal:define="short row/institution_acronym;
+                            long_label row/institution_label"
+                tal:content="short"
+                tal:attributes="title python:(long_label and long_label != short) and long_label or None">
+              VDZ
+            </td>
+            <td>
+            <a tal:attributes="href string:/pr_committee?committee_id=$id;
+                               "
+               tal:content="row/committee_acronym">
+              Gremium 42
+            </a>
+            </td>
+            <td
+               tal:content="row/committee_label">
+              Gremium 42
+            </td>
+            <td tal:content="row/partners">
+              VDZ, FTB
+            </td>
+        </tal:ns-row>
+        </tr>
+        </tbody>
+    </table>
+    <tal:rem replace="nothing"><!-- ] ... Tabelle ] --></tal:rem>
+
+
+
+    <tal:if2 condition="current_committee">
+    <tal:ns2 define="
+    rows formdata/related/p2_results;
+    panel_id string:results;
+    panel_title string:Verwertungsergebnisse;
+    " condition="rows"
+    >
+    <div class="panel panel-info"
+         id="results"
+         metal:use-macro="context/pr_macros/macros/related-activities-inner">
+    </div>
+    </tal:ns2>
+
+    <tal:ns3 define="
+    rows formdata/related/p2_activities;
+    panel_id string:activities;
+    panel_title string:Verwertungsaktivitäten;
+    " condition="rows"
+    >
+    <div class="panel panel-info"
+         id="activities"
+         metal:use-macro="context/pr_macros/macros/related-activities-inner">
+    </div>
+    </tal:ns3>
+    </tal:if2><!-- ... if current_committee -->
+
+
+
+
+
+
+
+    <tal:if condition="python:may_edit and not current_committee and action != 'create'">
+    <div class="form-group">
+        <a class="btn btn-primary"
+            href="pr_committee?action=create">
+            Neues Gremium erstellen
+        </a>
+    </div>
+    </tal:if>
+
+
+
+
+
+
+    <!-- CONTENT END -->
+
+    </div><!-- /container -->
+
+
+<tal:prototype replace="nothing">
+    <!-- JavaScript  -->
+    <script src="./lib/jquery/jquery-1.10.1.min.js"></script>
+    <script src="./lib/bootstrap/js/bootstrap.min.js"></script>
+    <!--<script src="./bootstrap-vp/js/bootstrap-sortable.js"></script>-->
+    <script src="./lib/chosen/chosen.jquery.js" type="text/javascript"></script>
+</tal:prototype>
+
+</tal:ns>
+</metal:content>
+</body>
+</html><!-- vim: set ts=4 sts=4 sw=4 si et: --></metal:page></tal:ns_global>

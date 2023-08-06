@@ -1,0 +1,185 @@
+<tal:ns_global define="formdata python:view.formdata_activity();
+"><!DOCTYPE HTML>
+<html lang="de">
+<head>
+<title>pr_macros: Makros für WitraBau</title>
+</head>
+<body>
+<h1>pr_macros: Makros für WitraBau</h1>
+
+<div class="panel panel-info"
+     metal:define-macro="info-panel"
+     tal:attributes="id panel_id | nothing">
+    <div class="panel-heading"
+         metal:define-slot="panel-heading">
+        <tal:txt content="panel_title | default">
+        Makro <tt>info-panel</tt>:
+        Bitte <tt>panel_title</tt> definieren oder Slot <tt>panel-heading</tt> füllen!
+        </tal:txt>
+    </div><!-- .panel-heading -->
+    <div class="panel-body">
+        <metal:s1 define-slot="panel-body">
+        Makro <tt>info-panel</tt>:
+        Bitte den Slot <tt>panel-body</tt> füllen!
+        </metal:s1>
+    </div><!-- .panel-body -->
+</div><!-- .panel.panel-info -->
+
+<metal:m1 define-macro="related-activities">
+<tal:m1 define="
+rows formdata/related/va__activities | nothing;
+panel_title formdata/meta/va_headline | string:panel_title;
+" condition="rows">
+<metal:m11 define-macro="related-activities-inner">
+<tal:m11 define="
+panel_id panel_id | string:activities;
+table_classes table_classes | string:datatb-12 table table-default;
+">
+    <div class="panel panel-info"
+         id="activities"
+         metal:use-macro="context/pr_macros/macros/info-panel">
+        <metal:s1 fill-slot="panel-body">
+        <table class="datatb-12 table table-default"
+               tal:attributes="class table_classes | default;">
+            <thead><tr>
+                <th style="width: 5%">ID</th>
+                <th style="width: 10%"
+                    title="Aktivitätsart">Art</th>
+                <th>Titel</th>
+                <th style="width: 6%">Stelle</th>
+                <th style="width: 6%" title="Änderungsdatum des Datensatzes"
+                    >
+                    Datum
+                </th>
+            </tr></thead>
+            <tbody>
+            <tr tal:repeat="row rows">
+                <td tal:content="row/activity_id">2</td>
+                <td tal:content="row/activity_type_name"
+                    tal:on-error="row/type_name">Recherche</td>
+                <td>
+                    <a href="pr_activity?id=43"
+                       tal:attributes="href string:/pr_activity?activity_id=${row/activity_id}"
+                       tal:content="row/activity_title"
+                        >Patentrechtliche Analyse</a></td>
+                <td tal:content="row/member_acronym">
+                    VDZ
+                </td>
+                <td tal:content="row/formatted_timestamp"
+                    class="suppress-linebreak">
+                    21.11.2015
+                </td>
+            </tr>
+            </tbody>
+        </table>
+        </metal:s1>
+    </div>
+</tal:m11>
+</metal:m11>
+</tal:m1>
+</metal:m1>
+
+
+<metal:m2 define-macro="verwertungsplan">
+<tal:m2 define="
+panel_id panel_id | string:plan;
+rows formdata/related/recovery_plan | nothing;
+panel_title formdata/meta/vp_headline | string:panel_title;
+" condition="rows">
+    <div class="panel panel-info"
+         metal:use-macro="context/pr_macros/macros/info-panel">
+    <div class="panel panel-info"
+        id="plan">
+        <div class="panel-heading"
+             tal:content="formdata/meta/vp_headline">
+        <tal:if condition="pe_id">
+        Ergebnisspezifischer
+        </tal:if>
+        Verwertungsplan
+        </div>
+    <metal:s1 fill-slot="panel-body">
+    <table class="table table-default"
+           tal:define="
+link_to link_to | string:/pr_recovery;
+omit_links omit_links | not:link_to;
+omit_links python: omit_links or pe_id;
+prefix string:${link_to}?p2_result=;
+show_p1 python:False;
+">
+        <thead><tr>
+            <th>&nbsp;</th>
+            <th tal:condition="show_p1">
+                &nbsp;</th>
+            <th>Projektergebnisse</th>
+            <th rowspan="1"
+                title="Erkenntnisstufe">
+                E.St.
+            </th>
+            <th colspan="11">Verwertungsoptionen</th>
+        </tr><tr>
+            <th title="Projektergebnis">PE</th>
+            <th title="Review-Ergebnis"
+                tal:condition="show_p1">RE</th>
+            <th>&nbsp;</th>
+            <th>&nbsp;</th>
+            <th style="width: 6%" title="Eingang in nachfolgende Forschungsprojekte">0</th>
+            <th style="width: 6%" title="In fachspezifische Veröffentlichungen, Vorträge und Fachzeitschriften, etc., Aufnahme in Forschungsdatenbanken">1</th>
+            <th style="width: 6%" title="In Vorlesungen an Hochschulen, Fachhochschulen, u. ä.">2</th>
+            <th style="width: 6%" title="In Leitfäden und Lehrmaterialien für Industrie und Gewerbe (z. B. für die Aus- und Weiterbildung des Werkspersonals)">3</th>
+            <th style="width: 6%" title="In Sachstandberichten und Wissensdokumenten als Vorstufe zur Regelwerksetzung">4</th>
+            <th style="width: 6%" title="In Merkblättern mit Branchenbezug (Zementindustrie, Bauwirtschaft, Transportbetonindustrie)">5</th>
+            <th style="width: 6%" title="Regelwerke der Verbundpartner (Richtlinien, TL, TP, M, ZTV); Aufnahme in bestehende oder neue Regelwerke">6.1</th>
+            <th style="width: 6%" title="Allgemeine bauaufsichtliche Zulassungen (abZ)">6.2</th>
+            <th style="width: 6%" title="Einbringen in Normenausschüsse des DIN (NABau)">6.3</th>
+            <th style="width: 6%" title="Anwendungsbezogene Entwicklung">7</th>
+            <th style="width: 6%" title="Verwertungsvorschläge der Zuwendungsempfänger">8</th>
+        </tr></thead>
+        <tbody>
+            <tr tal:repeat="row formdata/related/recovery_plan">
+                <td tal:content="row/p2_result">
+                    42
+                </td>
+                <td tal:content="row/p1_result"
+                    tal:condition="show_p1">
+                    42
+                </td>
+                <td>
+                    <a href="pr_recovery?id=42"
+                       tal:attributes="href string:${link_to}?p2_result=${row/p2_result};
+                                       title link_tooltip;
+                                       "
+                       title="Aktivitäten und Verwertungsergebnisse zu diesem Projektergebnis erfassen"
+                       title="Projektergebnis bearbeiten"
+                       tal:omit-tag="omit_links"
+                       tal:content="row/result_label">
+                       Titandioxid beschichtete Dachziegel zur verbesserten solarkatalytischen Luft- und Oberflächenreinigung
+                    </a>
+                </td>
+                <td tal:content="row/use_level"
+                    tal:attributes="title row/use_level_label">
+                    1
+                </td>
+                <td tal:content="row/members_0">
+                    VDZ, IBP
+                </td>
+                <td tal:content="row/members_1"></td>
+                <td tal:content="row/members_2"></td>
+                <td tal:content="row/members_3"></td>
+                <td tal:content="row/members_4"></td>
+                <td tal:content="row/members_5"></td>
+                <td tal:content="row/members_61"></td>
+                <td tal:content="row/members_62"></td>
+                <td tal:content="row/members_63"></td>
+                <td tal:content="row/members_7"></td>
+                <td tal:content="row/members_8"></td>
+            </tr>
+        </tbody>
+    </table>
+    </metal:s1>
+    </div>
+    </div>
+</tal:m2>
+</metal:m2>
+
+</body>
+</html></tal:ns_global>

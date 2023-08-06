@@ -1,0 +1,357 @@
+<tal:ns_global define="formdata python:view.formdata_subprojects();
+"><metal:page use-macro="context/pr_master/macros/master"
+            i18n:domain="vdz.projectreview">
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>WiTraBau Review-Management</title>
+
+<metal:block fill-slot="top_slot"
+             tal:define="dummy python:request.set('disable_border',1)" />
+
+    <!-- Meta data -->
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <meta name="description" content="WiTraBau Review-Management">
+    <meta name="author" content="visaplan GmbH">
+
+    <!-- Styles -->
+    <link href="./lib/bootstrap/css/bootstrap.min.css" rel="stylesheet"
+          tal:replace="nothing" />
+    <link href="./css/panel.css" rel="stylesheet"
+          tal:attributes="href string:/++resource++panel.css"
+          />
+    <link href="./lib/keypad/jquery.keypad.css" rel="stylesheet"
+          tal:attributes="href string:/jquery.keypad.css"
+          />
+    <script type="text/javascript" src="../static/jquery.plugin.min.js"
+            tal:attributes="src string:/jquery.plugin.min.js"></script>
+    <script type="text/javascript" src="../static/jquery.keypad.min.js"
+            tal:attributes="src string:/jquery.keypad.min.js"></script>
+
+    <script src="../static/projectreview.js"></script>
+</head>
+
+<body>
+
+    <!-- page wrapper and container -->
+<metal:content fill-slot="pr-main">
+<tal:ns define="
+action formdata/action | string:view;
+pool formdata/pool;
+current_subproject formdata/current_subproject | nothing;
+editperm python:current_subproject and 'edit' or 'create';
+may_edit python:permission[editperm];
+readonly python:action == 'view' or not may_edit;
+create_form not:readonly;
+omit_form readonly;
+action python:readonly and 'view' or action;
+subproject_id current_subproject/id | nothing;
+make_view_links request/make_view_links | python:False;
+omit_view_links not:make_view_links;
+ma_macros context/pr_main/macros;
+">
+    <div class="wrap">
+    <div class="container">
+
+    <!-- CONTENT START -->
+
+    <tal:hint condition="python:0">
+    <div class="alert alert-warning" role="alert">Bearbeitung durch Review-Koordinator</div>
+
+    <br/><hr/>
+    </tal:hint>
+
+    <h1>Teilprojekte</h1>
+
+    <metal:mac1  metal:define-macro="create-form">
+    <form tal:condition="permission/create">
+    <metal:slot define-slot="hidden-input">
+    <input type="hidden" name="id" value="42"
+           tal:condition="project_id"
+           tal:attributes="value project_id">
+    </metal:slot>
+    <metal:slot1 define-slot="primary-button">
+    <button class="btn btn-primary"
+            type="submit"
+            name="action" value="create"
+            tal:define="value value | string:create"
+            tal:attributes="value value">
+        <i class="icon-plus icon-white"
+           metal:define-slot="icon"></i>
+       <metal:slot define-slot="text">
+        Neues Teilprojekt erstellen
+       </metal:slot>
+    </button>
+    </metal:slot1>
+    <metal:slot2 define-slot="more-buttons"/>
+    </form>
+    </metal:mac1>
+
+    <div class="panel panel-info"
+         metal:define-macro="info-panel">
+    <div class="panel-heading"
+         metal:define-slot="heading">Erfasste Teilprojekte</div>
+    <div class="panel-body"
+         metal:define-macro="cp-panel-body"
+         tal:condition="current_project">
+    <metal:s1 define-slot="project-info">
+    <h2>Projekt
+        &bdquo;<span tal:content="current_project/title">Titel</span>&ldquo;
+        (<a tal:content="current_project/acronym"
+            tal:omit-tag="python:1"
+            tal:attributes="href string:/pr_main?id=${current_project/project_id}"
+            >Akronym</a>)
+    </h2>
+    <p tal:define="val current_project/subtitle"
+       tal:condition="val"
+       tal:content="val">Untertitel</p>
+    <p tal:define="val current_project/announcement"
+       tal:condition="val"
+       tal:on-error="current_project"
+       tal:content="current_project/announcement_option">Bekanntmachung</p>
+    <p tal:define="val current_project/termtime"
+       tal:condition="val"
+       tal:on-error="current_project"
+       tal:content="val">Laufzeit</p>
+    <tal:has-vc condition="current_project/researcher_name">
+    <p>Verbundkoordinator:
+    <strong tal:content="current_project/researcher_name">VDZ</strong>
+    </p>
+    </tal:has-vc>
+    <tal:lacks-vc condition="not:current_project/researcher_name">
+    <p>Verbundkoordinator: <em>Noch nicht zugewiesen</em></p>
+    </tal:lacks-vc>
+
+    <tal:vc-ns define="rc_id current_project/rc_partner_id">
+    <p tal:condition="rc_id">
+    Review-Koordinator:
+    <strong tal:content="current_project/rc_member_acronym">VDZ</strong>
+    </p>
+    <p tal:condition="not:rc_id">
+    Review-Koordinator: <em>Noch nicht zugewiesen</em>
+    </p>
+    </tal:vc-ns>
+    </metal:s1>
+    <metal:s2 define-slot="info-suffix"/>
+    </div>
+
+    <table class="table table-default"
+        metal:define-slot="list"
+        >
+        <tbody>
+        <tr tal:define="vk_text string:Aktueller Verbundkoordinator;
+                        make_vk_links permission/assign;
+                        omit_vk_links not:make_vk_links;
+                        make_vk_url string:/@@projectreview/make_vk;
+                        can_edit permission/edit;
+                        edit_action python:can_edit and 'edit' or 'view';
+                        edit_label python:can_edit and 'Bearbeiten' or 'Ansehen';
+                        stem string:/pr_subprojects?id=${project_id}&action=${edit_action}&subproject_id=;
+                        "
+            tal:repeat="row pool/subprojects">
+            <td tal:content="repeat/row/number">
+              1
+            </td>
+            <td tal:content="row/fkz">Förderkennzeichen</td>
+            <td tal:content="row/title">Teilprojekt 1</td>
+            <td tal:content="row/researcher_name">Zuwendungsempfänger</td>
+            <td>
+                <a href="?id=42&action=edit"
+                   tal:attributes="href string:${stem}${row/subproject_id}#view"
+                   tal:content="edit_label">
+                   Bearbeiten
+                </a>
+            </td>
+
+            <tal:row-ns define="is_coordinator row/is_coordinator">
+            <td>
+                <a href="#"
+                   tal:omit-tag="omit_vk_links"
+                   tal:condition="python:make_vk_links or is_coordinator"
+                   tal:attributes="href string:$make_vk_url?subproject_id=${row/subproject_id}"
+                   title="Zum Verbundkoordinator machen"
+                   >Verbundkoordinator</a>
+            </td>
+            <td title="Aktueller Verbundkoordinator"
+                tal:attributes="title python:is_coordinator and vk_text or None">
+                <i class="icon-ok"
+                   tal:condition="is_coordinator"
+                   title="Aktueller Verbundkoordinator"></i>
+            </td>
+            </tal:row-ns>
+        </tr>
+        </tbody>
+    </table>
+    </div>
+
+    <tal:if-details condition="python:current_subproject or action == 'create'">
+    <br/><hr/>
+
+    <div id="view">
+    <h2 tal:condition="python:action == 'create'">
+        Teilprojekt erfassen
+    </h2>
+    <h2 tal:condition="python:action == 'edit'">
+        Teilprojekt bearbeiten
+    </h2>
+    <h2 tal:condition="python:action == 'view'">
+        Teilprojekt
+    </h2>
+    </div>
+
+    <form action="@@projectreview/action_subprojects" id="create-form" method="post"
+          tal:define="current current_subproject | nothing;
+                      simple_field ma_macros/simple-field;
+                      very_simple_field ma_macros/very-simple-field"
+          tal:omit-tag="readonly">
+        <tal:hidden-fields condition="create_form">
+        <input type="hidden" name="id" value="42"
+               tal:attributes="value project_id;
+                               name id_fieldname | string:id">
+        <input type="hidden" name="subproject_id" value="42"
+               tal:condition="subproject_id"
+               tal:attributes="value subproject_id">
+        </tal:hidden-fields>
+        <tal:ns1 define="name string:title;
+                         formname name;
+                         label string:Titel des Teilprojekts">
+        <div class="form-group"
+             metal:use-macro="simple_field">
+            <label for="title">Titel des Teilprojekts</label>
+            <input name="title" id="title"
+                   tal:attributes="value current_subproject/title | nothing"
+                   type="text" class="input-block-level" placeholder="">
+        </div>
+        </tal:ns1>
+        <tal:ns1 define="name string:fkz;
+                         label string:Förderkennzeichen">
+        <div class="form-group"
+             metal:use-macro="very_simple_field">
+            <label for="fkz">Förderkennzeichen</label>
+            <input name="fkz" id="fkz"
+                   tal:attributes="value current_subproject/fkz | nothing"
+                   type="text" class="input-block-level" placeholder="">
+        </div>
+        </tal:ns1>
+        <tal:ns1 define="name string:researcher_name;
+                         formname name;
+                         label string:Zuwendungsempfänger">
+        <div class="form-group"
+             metal:use-macro="simple_field">
+            <label for="researcher_name">Zuwendungsempfänger</label>
+            <input name="researcher_name" id="researcher_name"
+                   tal:attributes="value current_subproject/researcher_name | nothing"
+                   type="text" class="input-block-level" placeholder="">
+        </div>
+        </tal:ns1>
+        <tal:ns1 define="name string:termtime;
+                         label string:Laufzeit">
+        <div class="form-group"
+             metal:use-macro="very_simple_field">
+            <label for="termtime">Laufzeit</label>
+            <input name="termtime" id="termtime"
+                   tal:attributes="value current_subproject/termtime | nothing"
+                   type="text" class="input-block-level" placeholder="">
+        </div>
+        </tal:ns1>
+        <tal:ns1 define="name string:notes;
+                         label string:Weitere Informationen (Ansprechpartner &hellip;);
+                         ">
+        <div class="form-group"
+             metal:define-macro="textarea">
+            <tal:macrons define="value python:current and current.get(name) or None;
+                                 rows rows | string:8;
+                                 label_missing label_missing | nothing;
+                                 text_missing text_missing | nothing;
+                                 ">
+            <label for="notes"
+                   tal:attributes="for name"
+                   tal:condition="not:readonly"
+                   tal:content="label">
+                Weitere Informationen (Ansprechpartner...)
+            </label>
+            <textarea
+                name="notes" id="notes"
+                tal:condition="not:readonly"
+                tal:content="value"
+                tal:attributes="rows rows"
+                class="input-block-level" rows="8">
+                Notizen zum aktuellen Teilprojekt (Ansprechpartner etc.)
+            </textarea>
+            <tal:if-readonly condition="readonly">
+            <tal:readonly-ns define="
+            use_label python:((value or text_missing) and label
+                              or label_missing);
+                              ">
+            <label for="notes"
+                   tal:attributes="for name"
+                   tal:condition="use_label"
+                   tal:content="use_label">
+                Weitere Informationen (Ansprechpartner...)
+            </label>
+            <p class="preserve-linebreaks"
+               tal:condition="value"
+               tal:content="value">
+                Vorhandener Wert
+            </p>
+            <p class="preserve-linebreaks"
+               tal:condition="python:not value and text_missing">
+               <em tal:content="text_missing">
+               Derzeit kein Wert
+               </em>
+            </p>
+            </tal:readonly-ns>
+            </tal:if-readonly>
+            </tal:macrons>
+        </div>
+        </tal:ns1>
+
+        <tal:prototype condition="python:0">
+        <button type="submit" class="btn btn-primary">Eingabe speichern</button>
+        <button type="submit" class="btn btn-default">Datensatz löschen</button>
+        </tal:prototype>
+
+        <metal:m1 use-macro="context/pr_main/macros/detail-form-buttons">
+        <div>
+            <button class="btn btn-primary" type="submit"
+                    name="action" value="create"
+                    tal:condition="creating">
+                <i class="icon-plus icon-white"></i>
+                <tal:txt i18n:translate="">Eingabe speichern</tal:txt>
+            </button>
+            <button class="btn btn-primary" type="submit"
+                    name="action" value="save"
+                    tal:condition="python:action == 'edit'">
+                <tal:txt i18n:translate="">Eingabe speichern</tal:txt>
+            </button>
+            <button type="submit" class="btn btn-default"
+                    tal:condition="not:creating"
+                    name="action" value="delete">
+                Datensatz löschen
+            </button>
+        </div>
+        </metal:m1>
+    </form>
+    </tal:if-details>
+
+    <!-- CONTENT END -->
+
+    </div><!-- /container -->
+    </div><!-- /wrap -->
+
+
+<tal:prototype replace="nothing">
+    <!-- JavaScript  -->
+    <script src="./lib/jquery/jquery-1.10.1.min.js"></script>
+    <script src="./lib/bootstrap/js/bootstrap.min.js"></script>
+    <!--<script src="./bootstrap-vp/js/bootstrap-sortable.js"></script>-->
+</tal:prototype>
+
+</tal:ns>
+</metal:content>
+</body>
+</html><!-- vim: set ts=4 sts=4 sw=4 si noet: --></metal:page></tal:ns_global>

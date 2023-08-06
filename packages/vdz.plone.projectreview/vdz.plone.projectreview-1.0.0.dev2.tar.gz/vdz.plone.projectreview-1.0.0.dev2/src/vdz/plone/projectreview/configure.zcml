@@ -1,0 +1,44 @@
+<configure xmlns="http://namespaces.zope.org/zope"
+           xmlns:browser="http://namespaces.zope.org/browser"
+           xmlns:i18n="http://namespaces.zope.org/i18n"
+           xmlns:plone="http://namespaces.plone.org/plone"
+           xmlns:zcml="http://namespaces.zope.org/zcml">
+
+    <permission
+        id="vdz.plone.projectreview.review_administration"
+        title="vdz.plone.projectreview: Review administation"
+        />
+    <permission
+        id="vdz.plone.projectreview.View"
+        title="vdz.plone.projectreview: View"
+        />
+
+    <i18n:registerTranslations directory="locales" />
+
+    <browser:page
+        for="*"
+        name="projectreview"
+        class=".browser.Browser"
+        permission="vdz.plone.projectreview.View"
+        allowed_interface=".interfaces.IProjectReviewBrowser"
+        />
+    <include package=".templates" />
+    <plone:static
+        zcml:condition="have plone-5"
+        name="vdz.projectreview"
+        type="plone"
+        directory="static"
+        />
+
+    <include package="plone.resource" file="meta.zcml"/>
+    <browser:resourceDirectory
+        name="vdz.projectreview"
+        directory="static"
+        />
+    <include file="profiles.zcml" />
+
+    <include package=".oldcrumbs"
+        zcml:condition="have VisaplanTentativeBreadcrumbs"
+        />
+
+</configure>

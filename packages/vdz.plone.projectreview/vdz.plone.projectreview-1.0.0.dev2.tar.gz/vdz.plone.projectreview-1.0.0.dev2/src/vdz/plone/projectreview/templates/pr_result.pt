@@ -1,0 +1,735 @@
+<tal:ns_global define="formdata python:view.formdata_result();
+"><metal:page use-macro="context/pr_master/macros/master"
+            i18n:domain="vdz.projectreview">
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>WiTraBau Review-Management</title>
+
+    <!-- Meta data -->
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <meta name="description" content="WiTraBau Review-Management">
+    <meta name="author" content="visaplan GmbH">
+
+    <!-- Styles -->
+    <link href="./lib/bootstrap/css/bootstrap.min.css" rel="stylesheet"
+          tal:replace="nothing" />
+    <link href="./css/panel.css" rel="stylesheet"
+          tal:attributes="href string:/++resource++panel.css"
+          />
+    <link href="./lib/chosen/chosen.css" rel="stylesheet"
+          tal:replace="nothing" />
+          <tal:enable condition="python:1">
+    <link href="./lib/keypad/jquery.keypad.css" rel="stylesheet"
+          tal:attributes="href string:/jquery.keypad.css"
+          />
+    <script type="text/javascript" src="../static/jquery.plugin.min.js"
+            tal:attributes="src string:/jquery.plugin.min.js"></script>
+    <script type="text/javascript" src="../static/jquery.keypad.min.js"
+            tal:attributes="src string:/jquery.keypad.min.js"></script>
+          </tal:enable>
+
+    <script src="../static/projectreview.js"></script>
+</head>
+
+<body>
+
+    <!-- page wrapper and container -->
+<metal:content fill-slot="pr-main"
+><tal:ns define="
+action formdata/action;
+any_action python:action['review'] or action['result'] or 'view';
+pool formdata/pool;
+current_partner formdata/current_partner | nothing;
+current_reviewers formdata/current_reviewers | nothing;
+current_review formdata/current_review | nothing;
+is_submitted current_review/is_submitted | nothing;
+review_id current_review/review_id | nothing;
+editperm python:'edit' or 'Hier keine Unterscheidung';
+may_edit python:permission[editperm];
+readonly python:is_submitted or not may_edit;
+current_result formdata/current_result | nothing;
+partner_id current_partner/partner_id | nothing;
+make_view_links request/make_view_links | python:False;
+omit_view_links not:make_view_links;
+sp_macros context/pr_subprojects/macros;
+ma_macros context/pr_main/macros;
+form_actions python:('edit', 'create');
+review_action action/review;
+show_review_form python:review_action in form_actions;
+result_action action/result;
+show_submit_form python:(review_id
+                         and not is_submitted
+                         and review_action == 'submit'
+                         and permission['submit']
+                         );
+">
+    <div class="wrap">
+    <div >
+
+    <!-- CONTENT START -->
+
+    <h1>Analyse und Review: Projektergebnisse
+        <span tal:condition="current_partner"
+              tal:define="is_final formdata/all_ids/is_final"
+              class="muted">
+              (<span tal:condition="is_final">Review-Koordinator</span><span tal:condition="not:is_final">Review-Stelle</span>:
+              <span tal:replace="current_partner/member_acronym">VDZ</span>)
+        </span>
+    </h1>
+
+    <tal:form-if condition="project_id">
+    <tal:form-ns define="action string:create;
+                         id_fieldname string:project_id">
+
+    <tal:if-submitted condition="is_submitted">
+    <div class="alert alert-success" role="alert">
+        Die Review-Ergebnisse wurden an den Review-Koordinator eingereicht.
+    </div>
+
+    <hr/>
+    </tal:if-submitted>
+
+    <form tal:condition="not:readonly">
+
+        <metal:hidden-input define-macro="hidden-input">
+        <tal:loop define="known formdata/all_ids;
+                          names python:['review_id', 'partner_id', 'result_id', 'is_final']"
+                  repeat="name names">
+        <input type="hidden" name="review_id"
+               tal:define="value python:known[name]"
+               tal:condition="python:value is not None"
+               tal:attributes="value value; name name">
+        </tal:loop>
+        </metal:hidden-input>
+
+    <button class="btn btn-primary" type="submit" name="action" value="create_result">
+        <i class="icon-plus icon-white"></i>
+        Neues Projektergebnis erstellen
+    </button>
+
+    <button class="btn btn-primary" type="submit" name="action" value="create_review">
+        <i class="icon-pencil icon-white"></i>
+       Projektzusammenfassung bearbeiten
+    </button>
+    </form>
+
+
+
+    <tal:old replace="nothing">
+    <form metal:use-macro="sp_macros/create-form">
+    <metal:slot fill-slot="hidden-input">
+    <tal:old replace="nothing"><!--
+    <input type="hidden" name="project_id"
+           tal:define="value formdata/all_ids/project_id"
+           tal:condition="value"
+           tal:attributes="value value"/>
+    <input type="hidden" name="partner_id"
+           tal:define="value formdata/all_ids/partner_id"
+           tal:condition="value"
+           tal:attributes="value value"/>
+    --></tal:old>
+    </metal:slot>
+    <button class="btn btn-primary">
+        <metal:slot fill-slot="text">
+        Neues Projektergebnis erstellen
+        </metal:slot>
+    </button>
+    <metal:slot2 fill-slot="more-buttons">
+    <tal:slot2-ns define="
+    review_id formdata/all_ids/review_id;
+    review_action python:review_id and 'edit_review' or 'create_review';
+    review_icon python:review_id and 'icon-pencil' or 'icon-plus';
+    review_text python:(review_id and 'Projektzusammenfassung bearbeiten'
+                                  or  'Projektzusammenfassung erstellen')
+    ">
+    <input type="hidden" name="review_id" value="42"
+           tal:condition="review_id"
+           tal:attributes="value review_id"/>
+    <button class="btn btn-primary"
+            type="submit"
+            name="action" value="create"
+            tal:attributes="value review_action">
+        <i class="icon-pencil icon-white"
+           tal:attributes="class string:$review_icon icon-white"></i>
+       <span tal:replace="review_text">
+           Projektzusammenfassung bearbeiten
+       </span>
+    </button>
+    </tal:slot2-ns>
+    </metal:slot2>
+    </form>
+    </tal:old>
+    </tal:form-ns>
+    </tal:form-if>
+
+    <div class="panel panel-info"
+         metal:use-macro="sp_macros/info-panel">
+    <div class="panel-heading"
+         metal:fill-slot="heading">Erfasste Ergebnisse</div>
+    <div class="panel-body">
+    <h2>Projekt Akronym Titel</h2>
+    <p>Untertitel</p>
+    <p>Bekanntmachung</p>
+    <p>Laufzeit</p>
+    <p>Verbundkoordinator</p>
+    <metal:review-slot fill-slot="info-suffix"
+                     tal:define="has_review formdata/all_ids/review_id">
+    <tal:if-has-review condition="has_review">
+    <p><b>Projektzusammenfassung</b></p>
+    <p tal:content="formdata/current_review/review_text | nothing"
+       class="preserve-linebreaks">
+    Lorem ipsum ...
+    </p>
+    </tal:if-has-review>
+    <p tal:condition="not:has_review">
+    <b>Projektzusammenfassung noch nicht erstellt.</b>
+    </p>
+    </metal:review-slot>
+    </div>
+
+    <metal:list-slot fill-slot="list">
+
+    <table class="table table-default">
+        <tbody tal:define="rows pool/results;
+                           may_edit python:not readonly and path('permission/edit');
+                           edit_action python:may_edit and 'edit' or 'view';
+                           edit_label python:(may_edit
+                                              and 'Eintrag bearbeiten'
+                                              or  'Eintrag ansehen');
+                           common string:/pr_result?action=${edit_action};
+                           "
+               tal:on-error="string:results_list">
+            <tr tal:repeat="row rows">
+                <td tal:content="row/result_label">
+                    Titel Ergebnis 1
+                </td>
+                <td>
+                    <a href=""
+                       tal:attributes="href string:$common&result_id=${row/result_id}"
+                       tal:content="edit_label">
+                        Eintrag bearbeiten
+                    </a>
+                </td>
+            </tr>
+        </tbody>
+        <tbody tal:replace="nothing">
+        <tr><td>Titel Ergebnis 2</td><td><a href="">Eintrag bearbeiten</a></td></tr>
+        <tr><td>Titel Ergebnis 3</td><td><a href="">Eintrag bearbeiten</a></td></tr>
+        <tr><td>Titel Ergebnis 4</td><td><a href="">Eintrag bearbeiten</a></td></tr>
+        </tbody>
+    </table>
+    </metal:list-slot>
+    </div>
+
+    <tal:if-details
+    define="review_id given/review_id | nothing;
+            review_action action/review;
+            "
+    condition="python:review_action">
+    <div tal:condition="show_review_form">
+    <h2 tal:condition="python:review_action == 'create'">
+        Projektzusammenfassung erfassen
+    </h2>
+    <h2 tal:condition="python:review_action == 'edit'">
+        Projektzusammenfassung bearbeiten
+    </h2>
+
+    <form action="@@projectreview/action_result" method="post"
+          tal:define="given formdata/given;
+                      review_id formdata/current_review/review_id | nothing;
+                      button_action python:review_id and 'save' or 'create_result';
+                      current current_review | nothing"
+          >
+        <metal:hidden-input use-macro="template/macros/hidden-input">
+        <input type="hidden" name="review_id"
+               tal:condition="review_id"
+               tal:attributes="value review_id"/>
+        </metal:hidden-input>
+        <tal:old replace="nothing"><!--
+        <input type="hidden" name="review_id"
+               tal:condition="review_id"
+               tal:attributes="value review_id"/>
+        <input type="hidden" name="partner_id"
+               tal:condition="partner_id"
+               tal:attributes="value partner_id"/>
+        <input type="hidden" name="project_id"
+               tal:condition="project_id"
+               tal:attributes="value project_id"/>
+        <input type="hidden-" name="is_final"
+               tal:define="value formdata/all_ids/is_final"
+               tal:attributes="value value"
+               value="False">
+        --></tal:old>
+        <tal:ns1 define="name string:review_text;
+                         formname string:review.$name:record;
+                         label string:Kurzfassung;
+                         maxlength python:2000;
+                         tolerance python:100;
+                         ">
+        <div class="form-group" metal:define-macro="textarea">
+        <tal:ns-inner define="maxlength maxlength | nothing;
+                              maxlength python:maxlength and int(maxlength);
+                              tolerance tolerance | python:maxlength and (maxlength // 20) or None;
+                              text_missing text_missing | nothing;
+                              is_limited python:maxlength is not None;
+                              readonly readonly | python:False;
+                              counter_id python:is_limited and (name+'-left') or None;
+                              value python:current and current.get(name) or '';
+                              charsleft python:is_limited and (max(0, maxlength - len(value)));
+                              ">
+            <label for="review-text"
+                   tal:condition="python:value or not readonly"
+                   tal:attributes="for name">
+                <tal:txt1 content="label">
+                Kurzfassung
+                </tal:txt1>
+                <tal:if-limited condition="python:is_limited and not readonly">
+                (noch <span id="review-text-left"
+                            tal:attributes="id counter_id"
+                            tal:content="charsleft">2000</span> Zeichen verfügbar)
+                </tal:if-limited>
+            </label>
+            <tal:if-form condition="not:readonly">
+            <textarea class="input-block-level"
+                      id="review-text" name="review.review_text:record"
+                      data-counter="#review-text-left"
+                      tal:define="tolerance python:(None if not maxlength
+                                                    else tolerance or 0);
+                                  cls string:input-block-level;
+                                  "
+                      tal:attributes="id name;
+                                      name formname | name;
+                                      class python:(is_limited and cls + ' limited-length'
+                                                               or  cls);
+                                      data-maxlength maxlength;
+                                      data-tolerance tolerance;
+                                      data-counter python:counter_id and ('#'+counter_id)"
+                      tal:content="value"
+                      rows="10"></textarea>
+            </tal:if-form>
+            <tal:if-readonly condition="readonly">
+            <p class="preserve-linebreaks"
+               tal:condition="value"
+               tal:content="value">
+            Die Projektzusammenfassung
+            </p>
+            <p tal:condition="python:text_missing and not value">
+            <em tal:content="text_missing">Noch keine Ergebnisbeschreibung</em>
+            </p>
+            </tal:if-readonly>
+        </tal:ns-inner>
+        </div>
+        </tal:ns1>
+
+        <button type="submit" class="btn btn-primary"
+                tal:attributes="value button_action"
+                name="action">Eingabe speichern</button>
+        <button type="submit" class="btn btn-default"
+                tal:condition="review_id"
+                name="action" value="delete">
+            Datensatz löschen
+        </button>
+    </form>
+    </div><!-- Ende Projektzusammenfassung -->
+    </tal:if-details>
+
+
+
+    <div tal:define="create_form python:not readonly and result_action in form_actions;
+                     omit_form not:create_form;
+                     button_action python:'save' if (result_action == 'edit') else result_action;
+                     "
+         tal:condition="python:current_result or (result_action in form_actions)">
+
+    <tal:if-form condition="create_form">
+    <h2 tal:condition="python:result_action == 'create'">
+        Ergebnis erstellen
+    </h2>
+    <h2 tal:condition="python:result_action == 'edit'">
+        Ergebnis bearbeiten
+    </h2>
+    </tal:if-form>
+    <h2 tal:condition="omit_form">
+        Ergebnis
+    </h2>
+
+    <form action="@@projectreview/action_result" method="post"
+          enctype="multipart/form-data"
+          tal:omit-tag="omit_form"
+          tal:define="current formdata/current_result | nothing;
+                      is_submitted current/is_submitted | nothing;
+                      action python:current and 'edit' or 'create';
+                      ">
+        <metal:hidden-input use-macro="template/macros/hidden-input">
+        <input type="hidden" name="partner_id" value="42"
+               tal:condition="partner_id"
+               tal:attributes="value partner_id"/>
+        <input type="hidden" name="result.id:record"
+               value="42"
+               tal:condition="current"
+               tal:attributes="value current/result_id"/>
+        </metal:hidden-input>
+        <tal:ns1 define="name string:result_label;
+                         formname string:result.$name:record;
+                         label string:Titel;
+                         ">
+        <div class="form-group"
+             metal:use-macro="ma_macros/simple-field">
+            <label for="result-label">Titel</label>
+            <input type="text" class="input-block-level text" id="result-label"
+                   name="result.result_label:record"
+                   tal:attributes="value current/result_label | nothing;
+                                   readonly readonly">
+        </div>
+        </tal:ns1>
+
+        <tal:ns2 define="name string:result_text;
+                         formname string:result.$name:record;
+                         label string:Beschreibung des Ergebnisses;
+                         maxlength python:2000;
+                         tolerance python:100;
+                         text_missing string:Noch keine Ergebnisbeschreibung">
+        <div class="form-group"
+             metal:use-macro="template/macros/textarea">
+             <label for="result-text">Beschreibung des Ergebnisses (noch <span id="result-text-left">2000</span> Zeichen)</label>
+            <textarea class="input-block-level" id="result-text" rows="8"
+                      tal:condition="create_form"
+                      maxlength="2000"
+                      data-counter="#result-text-left"
+                      tal:content="value"
+                      name="result.result_text:record"></textarea>
+            <tal:if-no-form condition="omit_form">
+            <p class="preserve-linebreaks"
+               tal:condition="value"
+               tal:content="value">
+            Die Projektzusammenfassung
+            </p>
+            <p tal:condition="not:value"><em>Noch keine Ergebnisbeschreibung</em></p>
+            </tal:if-no-form>
+        </div>
+        </tal:ns2>
+
+        <div class="form-group"
+             tal:define="current_selection pool/current_source_subproject_choices">
+            <label for="from-sp">Zuordnung zu Teilprojekt</label>
+            <tal:if-create-form condition="python:1 or create_form">
+            <select data-placeholder="Choose one ..."
+                    i18n:attributes="data-placeholder"
+                    class="chosen-select input-block-level" multiple="multiple"
+                    name="from_subprojects:list" id="from-sp"
+                    tal:attributes="disabled python:omit_form or None"
+                    tal:define="options pool/subprojects;
+                                ">
+                <tal:options-loop repeat="row options">
+                <option value="1"
+                        tal:define="value row/subproject_id;
+                                    selected python:value in current_selection;
+                                    "
+                        tal:attributes="value value; selected selected"
+                        tal:content="string:${row/fkz}, &bdquo;${row/title}&ldquo;">
+                Teilprojekt 1
+                </option>
+                </tal:options-loop>
+            </select>
+            </tal:if-create-form>
+            <tal:if-omit-form condition="python:0 and omit_form"
+                              tal:on-error="string:current_selection">
+            <tal:sp-loop repeat="row current_selection">
+                <span tal:content="string:${row/fkz}, &bdquo;${row/title}&ldquo;">
+                FKZ, &bdquo;Langtitel&lduo;
+                </span><tal:unless-last condition="repeat/row/last">;</tal:unless-last>
+            </tal:sp-loop>
+            </tal:if-omit-form>
+        </div>
+        <div class="form-group"
+             tal:on-error="string:FORM 2.1">
+            <label for="use-level">Erkenntnisstufe</label>
+            <select data-placeholder="Choose one ..." class="chosen-select input-block-level"
+                    i18n:attributes="data-placeholder"
+                    name="result.use_level:record" id="use-level"
+                    tal:attributes="disabled python:omit_form or None"
+                    tal:define="values pool/use_levels;
+                                curval current/use_level | nothing">
+                <option value="">Erkenntnisstufe wählen</option>
+                <tal:loop condition="values"
+                          repeat="row values">
+                <option tal:define="val row/use_level"
+                        tal:attributes="selected python:val == curval;
+                                        value val;"
+                        tal:content="string:$val &ndash; ${row/level_label}">
+                    1 &ndash; Bla
+                </option>
+                </tal:loop>
+            </select>
+        </div>
+
+        <tal:ns3 define="name string:use_level_text;
+                         formname string:result.$name:record;
+                         label string:Begründung der Erkenntnisstufe;
+                         maxlength python:1000;
+                         text_missing string:Noch keine $label;
+                         ">
+        <div class="form-group"
+             metal:use-macro="template/macros/textarea">
+            <label for="use_level_text">Begründung für Erkenntnisstufe</label>
+            <textarea class="input-block-level"
+                      id="use_level_text" name="result.use_level_text:record"
+                      rows="8"
+                      tal:condition="create_form"
+                      tal:content="value"
+                      ></textarea>
+            <tal:if-no-form condition="omit_form">
+            <p class="preserve-linebreaks"
+               tal:condition="value"
+               id="use_level_text"
+               tal:content="value">
+            Die Begründung der Erkenntnisstufe
+            </p>
+            <p tal:condition="not:value"
+               id="use_level_text"><em>Noch keine Begründung der Erkenntnisstufe</em></p>
+            </tal:if-no-form>
+        </div>
+        </tal:ns3>
+
+        <div class="form-group">
+            <label for="a1">Verwertungsoptionen und zugeordnete Verwertungsstellen</label>
+            <table class="table table-default">
+                <tal:recovery-options-loop
+                define="options pool/recovery_partners"
+                repeat="row pool/current_recovery_choices">
+                <tr tal:define="curval row/member_id | nothing;
+                                cls python:not curval and 'warning' or None"
+                    tal:condition="python:create_form or curval"
+                    tal:attributes="class cls">
+                    <td tal:content="row/option_acronym">6.1</td>
+                    <td tal:content="row/option_label">Regelwerke der Verbundpartner ...</td>
+                    <td>
+                        <tal:if-form condition="create_form">
+                        <input type="hidden" name="recovery.option_acronym:records"
+                               value="6.1"
+                               tal:attributes="value row/option_acronym"/>
+                        <select data-placeholder="Choose one ..." class="chosen-select"
+                                i18n:attributes="data-placeholder"
+                                name="recovery.member_id:records">
+                            <option value=""
+                                    tal:condition="python:1">Keine Verwertungsoption</option>
+                            <tal:options-loop repeat="row options">
+                            <option value="1"
+                                    tal:define="value row/group_id;
+                                                selected python:value == curval"
+                                    tal:attributes="value value;
+                                                    selected selected"
+                                    tal:content="row/acronym">
+                                DAfStb
+                            </option>
+                            </tal:options-loop>
+                            <tal:prototype replace="nothing">
+                            <option value="2">VDZ</option>
+                            <option value="3">DBV</option>
+                            <option value="4">BTB</option>
+                            <option value="5">FGSV</option>
+                            <option value="6">IBP</option>
+                            <option value="7">IRB</option>
+                            </tal:prototype>
+                        </select>
+                        </tal:if-form>
+                        <tal:else-form condition="omit_form">
+                        <span tal:content="python:curval and curval[9:]">
+                            VDZ
+                        </span>
+                        </tal:else-form>
+                    </td>
+                </tr>
+                </tal:recovery-options-loop>
+                <tal:recovery-options-prototype replace="nothing">
+                <tr class="warning">
+                    <td>Verwertungsoption 1</td>
+                    <td>
+                        <select data-placeholder="Choose one ..." class="chosen-select"
+                                i18n:attributes="data-placeholder">
+                            <option value="0">Keine Verwertungsoption</option>
+                            <option value="1">DAfStb</option>
+                            <option value="2">VDZ</option>
+                            <option value="3">DBV</option>
+                            <option value="4">BTB</option>
+                            <option value="5">FGSV</option>
+                            <option value="6">IBP</option>
+                            <option value="7">IRB</option>
+                        </select>
+                    </td>
+                </tr>
+                <tr>
+                    <td>Verwertungsoption 2</td>
+                    <td>
+                        <select data-placeholder="Choose one ..." class="chosen-select"
+                                i18n:attributes="data-placeholder">
+                            <option value="0">Keine Verwertungsoption</option>
+                            <option value="1">DAfStb</option>
+                            <option value="2">VDZ</option>
+                            <option value="3">DBV</option>
+                            <option value="4">BTB</option>
+                            <option value="5">FGSV</option>
+                            <option value="6">IBP</option>
+                            <option value="7">IRB</option>
+                        </select>
+                    </td>
+                </tr>
+                </tal:recovery-options-prototype>
+            </table>
+
+        </div>
+
+        <tal:ns4 define="name string:recovery_text;
+                         formname string:result.$name:record;
+                         label string:Begründung für Verwertungsoptionen und zugeordnete Verwertungsstelle;
+                         maxlength python:1000;
+                         text_missing string:Noch keine Begründung der Verwertungsoptionen">
+        <div class="form-group"
+             metal:use-macro="template/macros/textarea">
+            <label for="recovery-text">Begründung für Verwertungsoptionen und zugeordnete Verwertungsstelle</label>
+            <textarea class="input-block-level"
+                      id="recovery-text" name="result.recovery_text:record"
+                      maxlength="2000"
+                      tal:condition="create_form"
+                      tal:content="value"
+                      rows="8"></textarea>
+            <tal:if-no-form condition="omit_form">
+            <p class="preserve-linebreaks"
+               tal:condition="value"
+               id="recovery-text"
+               tal:content="value">
+            Die Begründung der Verwertungsoptionen
+            </p>
+            <p tal:condition="not:value"
+               id="recovery-text">
+               <em>Noch keine Begründung der Verwertungsoptionen</em>
+            </p>
+            </tal:if-no-form>
+        </div>
+        </tal:ns4>
+
+        <div class="form-group"
+             tal:define="attachment_id current/attachment_id | nothing">
+            <tal:if-create-form condition="create_form">
+            <p>Anlage zum Ergebnis</p>
+
+            <tal:if-has-attachment condition="attachment_id">
+            <input type="hidden" value="4711"
+                   tal:attributes="value attachment_id"
+                   name="result.attachment_id:record"/>
+            <label class="radio">
+                <input type="radio" name="attachment_action" value="keep"
+                       checked="checked">
+                Aktuelle Datei beibehalten:
+                <a href="#"
+                   tal:define="rid current/result_id"
+                   tal:attributes="href string:/@@projectreview/download?result_id=${rid}"
+                   metal:define-macro="download-link"
+                   target="_blank"
+                   tal:content="current/filename_user">
+                Anlage zum Ergebnis.doc
+                </a>
+            </label>
+            <label class="radio">
+                <input type="radio" name="attachment_action" value="remove">
+                Aktuelle Datei entfernen
+            </label>
+            </tal:if-has-attachment>
+
+            <label class="radio">
+                <input type="radio" name="attachment_action" value="upload" />
+                Neue Datei hochladen
+                <input type="file" class="input-block-level"
+                       name="result_appendix" />
+            </label>
+            <p class="help-block">Datei mit zusätzlichen Informationen hochladen</p>
+            </tal:if-create-form>
+            <tal:if-omit-form condition="omit_form">
+            <p tal:condition="attachment_id">
+            Anlage zum Ergebnis:
+            <a href="#" metal:use-macro="template/macros/download-link">Anlage zum Ergebnis.doc</a>
+            </p>
+            <p tal:condition="not:attachment_id">
+            <em>Keine Anlage zum Ergebnis</em>
+            </p>
+
+            </tal:if-omit-form>
+        </div>
+
+        <tal:ns5 define="name string:notes;
+                         formname string:result.$name:record;
+                         label string:Notizen des Autors;
+                         text_missing nothing;
+                         ">
+        <div class="form-group"
+             metal:use-macro="template/macros/textarea">
+            <label for="notes">Notizen des Autors</label>
+            <textarea class="input-block-level"
+                      id="notes" name="result.notes:record"
+                      maxlength="1000"
+                      tal:content="current/notes | nothing"
+                      rows="8">
+            Notizen des Autors
+            </textarea>
+        </div>
+        </tal:ns5>
+
+        <tal:if-form-active condition="create_form">
+        <metal:buttons use-macro="ma_macros/detail-form-buttons">
+        <button type="submit" class="btn btn-primary">Eingabe speichern</button>
+        <button type="submit" class="btn btn-default">Datensatz löschen</button>
+        </metal:buttons>
+        </tal:if-form-active>
+    </form>
+    </div>
+
+    <tal:if-no-other-form
+    on-error="string:FORM 3"
+    condition="python:show_submit_form">
+    <hr/>
+
+    <form action="@@projectreview/action_result" method="post"
+          data-confirm="Nach Einreichung können Sie nichts mehr ändern."
+          onsubmit="return confirm($(this).data('confirm'))"
+          tal:define="review_id current_review/review_id">
+        <input type="hidden" name="partner_id"
+               value="41"
+               tal:condition="partner_id"
+               tal:attributes="value partner_id"/>
+        <input type="hidden" name="review_id"
+               value="42"
+               tal:condition="review_id"
+               tal:attributes="value review_id"/>
+    <button type="submit"
+            id="submit-review-button"
+            class="btn btn-success"
+            name="action"
+            value="submit">
+     Review-Ergebnisse an den Review-Koordinator einreichen
+    </button>
+    </form>
+    </tal:if-no-other-form>
+
+    <!-- CONTENT END -->
+
+    </div><!-- /container -->
+    </div><!-- /wrap -->
+
+
+<tal:prototype replace="nothing">
+    <!-- JavaScript  -->
+    <script src="./lib/jquery/jquery-1.10.1.min.js"></script>
+    <script src="./lib/bootstrap/js/bootstrap.min.js"></script>
+    <!--<script src="./bootstrap-vp/js/bootstrap-sortable.js"></script>-->
+    <script src="./lib/chosen/chosen.jquery.js" type="text/javascript"></script>
+</tal:prototype>
+
+</tal:ns>
+</metal:content>
+</body>
+</html><!-- vim: set ts=4 sts=4 sw=4 si et: --></metal:page></tal:ns_global>

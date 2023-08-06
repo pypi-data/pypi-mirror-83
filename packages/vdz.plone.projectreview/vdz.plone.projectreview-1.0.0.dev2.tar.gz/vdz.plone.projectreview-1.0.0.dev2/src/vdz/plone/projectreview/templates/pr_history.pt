@@ -1,0 +1,158 @@
+<tal:ns_global define="formdata python:view.formdata_history();
+"><metal:page use-macro="context/pr_master2/macros/master"
+            i18n:domain="vdz.projectreview">
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>WiTraBau Verwertungs-Management</title>
+
+    <!-- Meta data -->
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <meta name="description" content="WiTraBau Verwertungs-Management">
+    <meta name="author" content="visaplan GmbH">
+
+    <!-- Styles -->
+    <link href="./lib/bootstrap/css/bootstrap.min.css" rel="stylesheet"
+          tal:replace="nothing" />
+    <link href="./css/panel.css" rel="stylesheet"
+          tal:attributes="href string:/++resource++panel.css"
+          />
+    <link href="./lib/chosen/chosen.css" rel="stylesheet"
+          tal:replace="nothing" />
+          <tal:enable condition="python:1">
+    <link href="./lib/keypad/jquery.keypad.css" rel="stylesheet"
+          tal:attributes="href string:/jquery.keypad.css"
+          />
+    <script type="text/javascript" src="../static/jquery.plugin.min.js"
+            tal:attributes="src string:/jquery.plugin.min.js"></script>
+    <script type="text/javascript" src="../static/jquery.keypad.min.js"
+            tal:attributes="src string:/jquery.keypad.min.js"></script>
+          </tal:enable>
+
+    <script src="../static/projectreview.js"></script>
+</head>
+
+<body>
+
+    <metal:txt fill-slot="h1-text">
+    Verwertungshistorie
+    </metal:txt>
+    <!-- page wrapper and container -->
+<metal:content fill-slot="pr-main"
+><tal:ns define="
+action formdata/action;
+pool formdata/pool;
+current_partner formdata/current_partner | nothing;
+editperm python:'edit' or 'Hier keine Unterscheidung';
+may_edit python:permission[editperm];
+readonly python:not may_edit;
+ma_macros context/pr_main/macros;
+form_actions python:('edit', 'create');
+">
+    <div >
+
+    <!-- CONTENT START -->
+
+    <div class="panel panel-info"
+        id="activities">
+        <div class="panel-heading">
+        Historie der Verwertungsaktivitäten und -ergebnisse
+        </div><!-- .panel-heading -->
+
+    <table class="datatb-12 table table-hover"
+           aaSorting="6,desc">
+        <thead>
+            <tr role="row">
+                <th title="ID der Aktivität oder des Ergebnisses">Id</th>
+                <th>Projekt</th>
+                <th title="Ergebnis oder Aktivität?">E/A</th>
+                <th>Titel</th>
+                <th>
+                    geändert&nbsp;von
+                </th>
+                <th>neu?</th>
+                <th>Datum</th>
+            </tr>
+        </thead>
+        <tbody tal:define="action_label python:{'edit': 'Bearbeiten', 'view': 'Ansehen'}"
+               >
+        <tr tal:define="rows formdata/activities_history"
+            tal:repeat="row rows"
+            >
+        <tal:ns-row define="id row/project_id;
+                            project_title row/project_title;
+                            ">
+            <td>
+            <a tal:define="activity_id row/activity_id"
+               tal:attributes="href string:/pr_activity?activity_id=$activity_id"
+               tal:content="activity_id">
+              42
+            </a>
+            </td>
+            <td title="Langname des Projekts"
+                tal:attributes="title project_title">
+                <a href="?id=42&action=view"
+                   tal:attributes="href string:/pr_recovery?project_id=${row/project_id}"
+                   tal:content="row/project_acronym">
+                  OLAF
+                </a>
+            </td>
+            <td tal:content="row/ea_type"
+                >
+                Aktivität
+            </td>
+            <td>
+            <a tal:define="activity_id row/activity_id"
+               tal:attributes="href string:/pr_activity?activity_id=$activity_id"
+               tal:content="row/activity_title">
+              Wortreiche Bezeichnung der Aktivität
+            </a>
+            </td>
+            <td tal:content="row/username"
+                >
+                therp
+            </td>
+            <td
+                tal:content="row/changetype"
+                >
+                geändert
+            </td>
+            <td
+                tal:content="row/timestamp"
+                >
+                17.06.2016 13:20
+            </td>
+        </tal:ns-row>
+        </tr>
+        </tbody>
+    </table>
+
+    </div><!-- .panel-info -->
+
+
+
+
+
+
+
+    <!-- CONTENT END -->
+
+    </div><!-- /container -->
+
+
+<tal:prototype replace="nothing">
+    <!-- JavaScript  -->
+    <script src="./lib/jquery/jquery-1.10.1.min.js"></script>
+    <script src="./lib/bootstrap/js/bootstrap.min.js"></script>
+    <!--<script src="./bootstrap-vp/js/bootstrap-sortable.js"></script>-->
+    <script src="./lib/chosen/chosen.jquery.js" type="text/javascript"></script>
+</tal:prototype>
+
+</tal:ns>
+</metal:content>
+</body>
+</html><!-- vim: set ts=4 sts=4 sw=4 si et: --></metal:page></tal:ns_global>

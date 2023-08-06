@@ -1,0 +1,306 @@
+<tal:ns_global define="formdata python:view.formdata_plan();
+"><metal:page use-macro="context/pr_master2/macros/master"
+            i18n:domain="vdz.projectreview">
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>WiTraBau Verwertungs-Management</title>
+
+    <!-- Meta data -->
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <meta name="description" content="WiTraBau Verwertungs-Management">
+    <meta name="author" content="visaplan GmbH">
+
+    <!-- Styles -->
+    <link href="./lib/bootstrap/css/bootstrap.min.css" rel="stylesheet"
+          tal:replace="nothing" />
+    <link href="./css/panel.css" rel="stylesheet"
+          tal:attributes="href string:/++resource++panel.css"
+          />
+    <link href="./lib/chosen/chosen.css" rel="stylesheet"
+          tal:replace="nothing" />
+          <tal:enable condition="python:1">
+    <link href="./lib/keypad/jquery.keypad.css" rel="stylesheet"
+          tal:attributes="href string:/jquery.keypad.css"
+          />
+    <script type="text/javascript" src="../static/jquery.plugin.min.js"
+            tal:attributes="src string:/jquery.plugin.min.js"></script>
+    <script type="text/javascript" src="../static/jquery.keypad.min.js"
+            tal:attributes="src string:/jquery.keypad.min.js"></script>
+          </tal:enable>
+
+    <script src="../static/projectreview.js"></script>
+</head>
+
+<body>
+
+    <metal:txt fill-slot="h1-text">
+    Verwertungsplan
+    </metal:txt>
+    <div class="panel-heading"
+         metal:fill-slot="heading">
+    Verwertungsplan
+    </div>
+    <!-- page wrapper and container -->
+<metal:content fill-slot="pr-main"
+><tal:ns define="
+action formdata/action;
+pool formdata/pool;
+current_partner formdata/current_partner | nothing;
+editperm python:'edit' or 'Hier keine Unterscheidung';
+may_edit python:permission[editperm];
+readonly python:not may_edit;
+ma_macros context/pr_main/macros;
+form_actions python:('edit', 'create');
+pe_id nothing;
+recovery_plan formdata/related/recovery_plan;
+p2_result formdata/all_ids/p2_result;
+show_msg request/msg | python:0;
+"><tal:rem replace="nothing"><!--
+vorläufige Variablen:
+pe_id - Angegebene Projektergebnis-ID
+--></tal:rem>
+<table tal:condition="python:0">
+    <tr>
+        <td>editperm</td>
+        <td><tt tal:content="editperm">edit</tt></td>
+    </tr>
+    <tr>
+        <td>permission</td>
+    </tr>
+    <tr>
+        <td>may_edit</td>
+        <td><tt tal:content="may_edit">edit</tt></td>
+    </tr>
+    <tr>
+        <td>readonly</td>
+        <td><tt tal:content="readonly">edit</tt></td>
+    </tr>
+</table>
+    <div class="wrap">
+    <div >
+
+    <!-- CONTENT START -->
+
+<tal:m1 define="
+review_result formdata/related/review_result | nothing;
+panel_id string:review-results;
+panel_title string:Abgestimmtes Review-Ergebnis;
+" condition="review_result">
+<div class="panel panel-info" id="review-results"
+     metal:use-macro="context/pr_macros/macros/info-panel"
+     >
+    <div class="panel-heading">Abgestimmtes Review-Ergebnis
+    </div>
+    <metal:s1 fill-slot="panel-body">
+
+    <table class="datatb-12 table table-bordered table-hover table-sorted"
+           >
+        <thead><tr>
+            <th>&nbsp;</th>
+            <th>Ergebnisse</th>
+            <th title="Erkenntnisstufe">E.St.</th>
+            <th colspan="11">Verwertungsoptionen</th>
+        </tr><tr>
+            <th title="Review-Ergebnis">RE</th>
+            <th>&nbsp;</th>
+            <th>&nbsp;</th>
+            <th style="width: 6%" title="Eingang in nachfolgende Forschungsprojekte">0</th>
+            <th style="width: 6%" title="In fachspezifische Veröffentlichungen, Vorträge und Fachzeitschriften, etc., Aufnahme in Forschungsdatenbanken">1</th>
+            <th style="width: 6%" title="In Vorlesungen an Hochschulen, Fachhochschulen, u. ä.">2</th>
+            <th style="width: 6%" title="In Leitfäden und Lehrmaterialien für Industrie und Gewerbe (z. B. für die Aus- und Weiterbildung des Werkspersonals)">3</th>
+            <th style="width: 6%" title="In Sachstandberichten und Wissensdokumenten als Vorstufe zur Regelwerksetzung">4</th>
+            <th style="width: 6%" title="In Merkblättern mit Branchenbezug (Zementindustrie, Bauwirtschaft, Transportbetonindustrie)">5</th>
+            <th style="width: 6%" title="Regelwerke der Verbundpartner (Richtlinien, TL, TP, M, ZTV); Aufnahme in bestehende oder neue Regelwerke">6.1</th>
+            <th style="width: 6%" title="Allgemeine bauaufsichtliche Zulassungen (abZ)">6.2</th>
+            <th style="width: 6%" title="Einbringen in Normenausschüsse des DIN (NABau)">6.3</th>
+            <th style="width: 6%" title="Anwendungsbezogene Entwicklung">7</th>
+            <th style="width: 6%" title="Verwertungsvorschläge der Zuwendungsempfänger">8</th>
+
+        </tr></thead>
+        <tbody><tr tal:repeat="row review_result">
+           <td tal:content="row/p1_result">
+               42
+           </td>
+            <td tal:content="row/result_label">
+                Titandioxid beschichtete Dachziegel zur verbesserten solarkatalytischen Luft- und Oberflächenreinigung</td>
+           <td tal:content="row/use_level"
+               tal:attributes="title row/use_level_label">
+               1
+           </td>
+           <td tal:content="row/member_0">
+               VDZ
+           </td>
+           <td tal:content="row/member_1"></td>
+           <td tal:content="row/member_2"></td>
+           <td tal:content="row/member_3"></td>
+           <td tal:content="row/member_4"></td>
+           <td tal:content="row/member_5"></td>
+           <td tal:content="row/member_61"></td>
+           <td tal:content="row/member_62"></td>
+           <td tal:content="row/member_63"></td>
+           <td tal:content="row/member_7"></td>
+           <td tal:content="row/member_8"></td>
+        </tr></tbody>
+    </table>
+    </metal:s1>
+</div>
+</tal:m1>
+
+<tal:ns define="link_to string:/pr_plan_row;
+                link_tooltip string:Projektergebnis bearbeiten;
+                "
+        condition="not:p2_result">
+<div class="panel panel-info"
+     id="der-plan"
+     metal:use-macro="context/pr_macros/macros/verwertungsplan">
+        <div class="panel-heading">
+        <tal:if condition="pe_id">
+        Ergebnisspezifischer
+        </tal:if>
+        Verwertungsplan
+        </div>
+    <table class="table table-default">
+        <thead>
+            <tr><th>Projektergebnisse</th>
+                <th colspan="11">Verwertungsoptionen</th>
+            </tr><tr><th>&nbsp;</th>
+                <th style="width: 6%" title="Eingang in nachfolgende Forschungsprojekte">0</th>
+                <th style="width: 6%" title="In fachspezifische Veröffentlichungen, Vorträge und Fachzeitschriften, etc., Aufnahme in Forschungsdatenbanken">1</th>
+                <th style="width: 6%" title="In Vorlesungen an Hochschulen, Fachhochschulen, u. ä.">2</th>
+                <th style="width: 6%" title="In Leitfäden und Lehrmaterialien für Industrie und Gewerbe (z. B. für die Aus- und Weiterbildung des Werkspersonals)">3</th>
+                <th style="width: 6%" title="In Sachstandberichten und Wissensdokumenten als Vorstufe zur Regelwerksetzung">4</th>
+                <th style="width: 6%" title="In Merkblättern mit Branchenbezug (Zementindustrie, Bauwirtschaft, Transportbetonindustrie)">5</th>
+                <th style="width: 6%" title="Regelwerke der Verbundpartner (Richtlinien, TL, TP, M, ZTV); Aufnahme in bestehende oder neue Regelwerke">6.1</th>
+                <th style="width: 6%" title="Allgemeine bauaufsichtliche Zulassungen (abZ)">6.2</th>
+                <th style="width: 6%" title="Einbringen in Normenausschüsse des DIN (NABau)">6.3</th>
+                <th style="width: 6%" title="Anwendungsbezogene Entwicklung">7</th>
+                <th style="width: 6%" title="Verwertungsvorschläge der Zuwendungsempfänger">8</th>
+
+        </tr></thead>
+        <tbody><tr>
+            <td>
+              <a href="pr_plan_row?id=43">Titandioxid beschichtete Dachziegel zur verbesserten solarkatalytischen Luft- und Oberflächenreinigung</a>
+            </td>
+            <td title="Eingang in nachfolgende Forschungsprojekte">DBV</td>
+            <td title="In fachspezifische Veröffentlichungen, Vorträge und Fachzeitschriften, etc., Aufnahme in Forschungsdatenbanken">IRB</td>
+            <td title="In Vorlesungen an Hochschulen, Fachhochschulen, u. ä.">VDZ</td>
+            <td title="In Leitfäden und Lehrmaterialien für Industrie und Gewerbe (z. B. für die Aus- und Weiterbildung des Werkspersonals)">VDZ</td>
+            <td></td>
+            <td title="In Merkblättern mit Branchenbezug (Zementindustrie, Bauwirtschaft, Transportbetonindustrie)">DAfStb</td>
+            <td title="Regelwerke der Verbundpartner (Richtlinien, TL, TP, M, ZTV); Aufnahme in bestehende oder neue Regelwerke">DAfStb</td>
+            <td title="Allgemeine bauaufsichtliche Zulassungen (abZ)">DAfStb</td>
+            <td></td>
+            <td></td>
+            <td></td>
+        </tr>
+    </tbody></table>
+</div></tal:ns>
+
+    <tal:if-writable condition="not:readonly"
+    on-error="string:Oops! (0)"
+    ><br>
+    <tal:forms-ns define="
+    layouted python:False;
+
+    protoform context/formfields_div/macros/form;
+    names python:['project_id', 'p2_result'];
+    ">
+
+    <tal:no-result condition="not:p2_result">
+    <tal:add-form-ns define="
+layouted python:True;
+make_reset python:False;
+action string:/pr_plan_row;
+method string:get;
+current formdata/current_result | python:{};
+select_single_grouped context/formfields_div/macros/select_single_grouped;
+">
+    <metal:form use-macro="protoform">
+        <metal:input-slot fill-slot="input">
+        <tal:ns define="
+        name string:p1_result;
+        label string:Ergebnis aus Review-Phase;
+        required python:True;
+        "><metal:inner use-macro="select_single_grouped"/></tal:ns>
+        </metal:input-slot>
+
+        <metal:slot fill-slot="buttons">
+            <button class="btn btn-primary" type="submit" name="action" value="create"
+                    >
+                <i class="icon-plus icon-white"></i>
+               Projektergebnis hinzufügen 
+            </button>
+        </metal:slot>
+    </metal:form>
+    </tal:add-form-ns>
+
+    <tal:form1-ns define="
+    action string:/@@projectreview/action_2plan;
+    " on-error="string:form1-ns"
+    ><metal:mac1 use-macro="protoform"
+    tal:on-error="string:Oops! (1)"
+    >
+    <metal:slot fill-slot="buttons">
+    <button class="btn btn-primary" type="submit" name="action" value="init"
+            >
+        <i class="icon-plus icon-white"></i>
+        Alle abgestimmten Reviewergebnisse übernehmen
+    </button>
+    </metal:slot>
+    </metal:mac1>
+    </tal:form1-ns>
+
+    <tal:edit-form-ns define="
+layouted python:True;
+make_reset python:False;
+action string:/@@projectreview/action_2plan;
+method string:post;
+current formdata/current_project | python:{};
+textarea context/formfields_div/macros/textarea;
+">
+    <metal:form use-macro="protoform">
+        <metal:input-slot fill-slot="input">
+        <tal:ns define="
+        name string:recovery_notes;
+        label string:Notizen zur Verwertung;
+        oneline python:True;
+        required python:False;
+        "><metal:inner use-macro="textarea"/></tal:ns>
+        </metal:input-slot>
+
+        <metal:slot fill-slot="buttons">
+            <button class="btn btn-primary" type="submit" name="action" value="save"
+                    >
+               Speichern 
+            </button>
+        </metal:slot>
+    </metal:form>
+    </tal:edit-form-ns>
+    </tal:no-result>
+    </tal:forms-ns>
+
+    </tal:if-writable>
+
+    <!-- CONTENT END -->
+
+    </div><!-- /container -->
+    </div><!-- /wrap -->
+
+
+<tal:prototype replace="nothing">
+    <!-- JavaScript  -->
+    <script src="./lib/jquery/jquery-1.10.1.min.js"></script>
+    <script src="./lib/bootstrap/js/bootstrap.min.js"></script>
+    <!--<script src="./bootstrap-vp/js/bootstrap-sortable.js"></script>-->
+    <script src="./lib/chosen/chosen.jquery.js" type="text/javascript"></script>
+</tal:prototype>
+
+</tal:ns>
+</metal:content>
+</body>
+</html><!-- vim: set ts=4 sts=4 sw=4 si et: --></metal:page></tal:ns_global>

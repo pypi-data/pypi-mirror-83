@@ -1,0 +1,51 @@
+# -*- coding: utf-8 -*- äöü vim: sw=2 sts=2 si et
+
+LIESMICH.TXT
+============
+
+Hinweise zum Browser projectreview.
+
+Allgemeines
+~~~~~~~~~~~
+
+- Am Ende der Browser-Datei browser.py steht das Mapping, das von Templates
+  auf die entsprechenden Daten-Methoden verweist; das ist ein guter
+  Einstiegspunkt.
+
+- In der Phase 2, Verwertung, wurde auf den Erfahrungen der Phase 1 (Review)
+  aufgebaut
+
+Relationale Datenbank
+~~~~~~~~~~~~~~~~~~~~~
+
+- Es hat sich als sinnvoll erwiesen, Primärschlüsselfelder nicht einfach "id"
+  zu nennen, sondern den Namen der Tabelle voranzustellen (Beispiel:
+  committee_id); das erleichtert die generische Verarbeitung, z. B. mit den
+  execute_db-Funktionen.
+  Ausnahme: bei reinen Verknüpfungstabellen, deren Datensatz-IDs nie benötigt
+  werden, ergibt das keinen Sinn (z. B. witrabau.p2_activities_and_committees)
+
+- Es erscheint sinnvoll und dringlich, eine Namenskonvention für Sichten zu
+  etablieren:
+  - <topic>_details_view für Bearbeitungsansichten:
+    - alle Felder der primären Tabelle
+    - um für Lesemodus auch die verknüpften Werte textuell auflösen zu können,
+      die entsprechenden Verknüpfungen auflösen
+  - <topic>_table_view für tabellarische Übersichten:
+    - nur ausgewählte Felder und Verknüpfungen
+  - <topic>_pool_view:
+    - reduzierte Sicht auf das schlüsselfeld und eine textuelle Darstellung
+    - das Backend ergänzt das Ergebnis um die Information, ob der jeweilige
+      Datensatz ausgewählt (verknüpft) ist
+
+Formulare
+~~~~~~~~~
+- Formulare und ihre Elemente werden erzeugt mit Hilfe von Makros aus
+  ../../../unitracc/skins/unitracc_templates/formfields_div.pt,
+  angesprochen über die Variable "toolbox" (bzw. meta/toolbox/macros)
+  - dieses Makro-Template ist direkt aufrufbar, mit Beispieldaten
+  - das Schwester-Template ../../../unitracc/skins/unitracc_templates/formfields_div.pt
+    ist etwas hintendran, da bislang nicht benötigt
+- es empfiehlt sich, action=='view' als Leseansicht zu behandeln und für die
+  Bearbeitung einen Extra-Klick auf einen Button "Bearbeiten" zu erfordern
+- jüngstes Beispiel: templates/pr_committee.pt

@@ -1,0 +1,112 @@
+<tal:ns_global define="formdata python:view.mockdata_common()">
+<metal:page extend-macro="context/main_template/macros/master"
+            define-macro="master"
+            i18n:domain="vdz.projectreview">
+<!DOCTYPE html>
+<html lang="en"><tal:comment condition="python:0"><!--
+Please keep in synch (i.e. maintain "diffability") as long as we have different files:
+pr_master.pt     (review views;   Plone 4)
+pr_master-p5.pt  (review views;   Plone 5)
+pr_master2.pt    (recovery views; Plone 4)
+pr_master2-p5.pt (recovery views; Plone 5)
+--></tal:comment><head>
+    <title metal:define-slot="title">WiTraBau Review-Management</title>
+<metal:block fill-slot="top_slot"
+             tal:define="dummy python:request.set('disable_border',1)" />
+
+    <!-- Meta data -->
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <meta name="description" content="WiTraBau Review-Management">
+    <meta name="author" content="visaplan GmbH">
+
+    <!-- Styles -->
+    <metal:head-insertions fill-slot="head_slot">
+    <!-- [ head_slot ... [ -->
+
+    <script src="/++resource++vdz.projectreview/chosen-patch.js"></script>
+    <script src="/++resource++vdz.projectreview/jq.datatables.bootstrap.ext.js"></script>
+    <script src="/++resource++vdz.projectreview/projectreview.js"></script>
+    <!-- ] ... head_slot ] -->
+    </metal:head-insertions>
+</head>
+
+<body>
+
+    <!-- page wrapper and container -->
+<metal:content fill-slot="content"
+               tal:define="
+projectreview nocall:context/@@projectreview;
+template_id template/id;
+redirect_to formdata/redirect | nothing;
+">
+<div metal:use-macro="context/global_statusmessage/macros/portal_message">
+Status message
+</div>
+<tal:data-complete
+tal:condition="not:redirect_to"
+><tal:perm define="
+current_user python:formdata.get('current_user');
+current_project python:formdata.get('current_project');
+project_id current_project/project_id | nothing;
+permission python:formdata['permission'];
+can_view python:permission['view'];
+">
+<metal:slot1 define-slot="pr-nav-pills">
+    <ul class="nav nav-pills">
+        <li><a href="pr_main"><i class="icon-chevron-left"></i> Verbundprojekte</a></li>
+        <tal:if-cupr condition="python:(current_user['is_project_member']
+                                        or (current_project
+                                            and current_user['is_admin'])
+                                        )">
+        <li tal:define="current_template python:template_id == 'pr_reviewers.pt'"
+            tal:condition="not:current_template"
+            >
+            <a href="pr_main"
+               tal:attributes="href string:pr_reviewers?id=$project_id">
+            <i class="icon-chevron-left"></i> Review-Stellen</a>
+        </li>
+        <li tal:define="current_template python:template_id == 'pr_subprojects.pt'"
+            tal:condition="not:current_template"
+            >
+            <a href="pr_main"
+               tal:attributes="href string:pr_subprojects?id=$project_id">
+            <i class="icon-chevron-left"></i> Teilprojekte</a>
+        </li>
+        <li tal:define="current_template python:template_id == 'pr_report.pt'"
+            tal:condition="not:current_template"
+            >
+            <a href="pr_main"
+               tal:attributes="href string:pr_report?id=$project_id">
+            <i class="icon-chevron-left"></i> Bericht</a>
+        </li>
+        </tal:if-cupr>
+        <metal:slot define-slot="more-pills"></metal:slot>
+    </ul>
+    
+</metal:slot1>
+<tal:allowed condition="can_view">
+<metal:slot define-slot="pr-main">
+Bitte Slot <tt>pr-main</tt> füllen!
+</metal:slot>
+</tal:allowed>
+<tal:disallowed condition="not:can_view">
+<div class="alert alert-warning" role="alert"
+    metal:define-slot="pr-disallowed">
+Keine Zugriffsberechtigung!
+
+</div>
+</tal:disallowed>
+</tal:perm>
+</tal:data-complete><tal:data-missing condition="python:redirect_to">
+<tal:nsr define="
+response request/RESPONSE;
+dummy python:response.redirect(redirect_to);
+"></tal:nsr>
+</tal:data-missing>
+</metal:content>
+</body>
+</html><!-- vim: set ts=4 sts=4 sw=4 si et: --></metal:page>
+</tal:ns_global>

@@ -1,0 +1,362 @@
+.. This README is meant for consumption by humans and pypi. Pypi can render rst files so please do not use Sphinx features.
+   If you want to learn more about writing documentation, please check out: http://docs.plone.org/about/documentation_styleguide.html
+   This text does not appear on pypi or github. It is a comment.
+
+.. image::
+   https://img.shields.io/badge/%20imports-isort-%231674b1?style=flat&labelColor=ef8336
+       :target: https://pycqa.github.io/isort/
+
+=======================
+vdz.plone.projectreview
+=======================
+
+This Plone_ add-on has been developed by `visaplan GmbH`_, Bochum, Germany
+for `VDZ Technology gGmbH`_, Düsseldorf, Germany, to evaluate projects.
+
+
+Examples
+========
+
+This add-on is currently under development and not yet used on public internet
+sites.
+
+
+Documentation
+=============
+
+Sorry, we don't have real user documentation yet.
+
+
+Installation
+============
+
+These instructions assume you have shell access to the server which will run
+the your Plone instance and moderate shell using skills.
+
+
+Install Plone
+-------------
+
+The vdz.plone.projectreview package is an add-on for the open-source content
+management system Plone_, which in turn is based on the web application server
+Zope_.
+
+Currently, vdz.plone.projectreview still needs Plone 4.3;
+see `Issue 1, "Plone 5 support"`.
+
+If you don't have a suitable Plone installation yet,
+you can use the `Unified Installer`_.
+Install a recent 4.3 version.
+
+At the time of this writing, the latest release
+provided via UnifiedInstaller is 4.3.19,
+but 4.3.20 is `soft released`_ and ready for production use.
+
+We need to apply a few little changes to your buildout script, typically named
+``buildout.cfg``; thus, don't run ``buildout`` immediately
+(unless you want to do it twice).
+
+*Please note:*
+
+A vanilla Plone 4.3.19 most likely *won't work* because of the broken
+``main_template.pt`` it contains.  So, if you get an ugly little error text
+about a compilation error when trying to access the web interface
+*(or just to have the most recent version)*,
+please update to Plone 4.3.20 (which is expected to be the last 4.3 release),
+by replacing e.g.::
+
+    [buildout]
+    ...
+    extends =
+        ...
+        versions.cfg
+
+by::
+
+    [buildout]
+    ...
+    extends =
+        ...
+        https://dist.plone.org/release/4.3.20/versions.cfg
+
+If you already have a running Plone 4.3.19, you probably use an alternative
+``main_template.pt`` already (as we'll do as well, using plonetheme.bootstrap_),
+and may continue to do so.
+
+You are encouraged to update, of course, but there is not technical requirement
+to do so for vdz.plone.projectreview.
+
+
+Use an existing Plone 4 installation
+------------------------------------
+
+If you have an existing Plone 4 installation, you might be able to use it.
+There are a few things to consider:
+
+- Since we use plonetheme.bootstrap_, the global `main_template` is overridden.
+  If you rely on another `main_template`, this probably won't work.
+
+- We use Bootstrap 3 styles.
+
+- We use jQuery_ 1.11 (or higher).  If you have incompatible custom Javascript
+  which needs an older version (e.g. using the old ``.live`` and ``.die`` API
+  which was removed in jQuery 1.9+), you'll need to install a compatibility
+  layer or `update your scripts`_.
+
+The rule is:
+
+- If you are fine with the product activations needed for
+  vdz.plone.projectreview `and` with the package versions, you can use your
+  existing Plone instance.
+
+- If our product activations don't match your needs,
+  but the package versions do
+  (e.g. you can live with plone.app.jquery_ being v1.11.2
+  and a 4.3.* Products.CMFPlone_ version),
+  you should be able to use your existing Zope_ installation
+  and create a new Plone site in it, with an id of your choice.
+
+*Please test* the coexistence of your current site with vdz.plone.projectreview
+in a dedicated test environment!
+
+
+Add vdz.plone.projectreview
+---------------------------
+
+First, the vdz.plone.projectreview package must be added to the ``eggs`` value;
+the Unified Installer puts this in the ``[buildout]`` section::
+
+    [buildout]
+
+    ...
+
+    eggs =
+        Plone
+        vdz.plone.projectreview
+
+Since we use a relational database, you'll need a database driver as well.
+Our package pulls in SQLAlchemy_ (via zope.sqlalchemy_) itself,
+but you'll need a specific driver for your database.
+For PostgreSQL, this might be psycopg2_::
+
+    eggs =
+        ...
+        vdz.plone.projectreview
+        psycopg2
+
+
+Version pinnings
+----------------
+
+Since we use Bootstrap 3, we need jQuery 1.11+.
+Plone 4.3 by default still uses jQuery 1.7, for historical reasons.
+
+Your ``buildout.cfg`` script `extends` other scripts, containing version
+pinnings. Find or create the ``[versions]`` section in ``buildout.cfg`` and
+override the 1.7.* value::
+
+    [versions]
+    ...
+    plone.app.jquery_ = 1.11.2
+
+
+Product configuration
+---------------------
+
+There are two configuration settings which are done in the buildout:
+
+1. the `data source name`_, specifying the relational database;
+2. a directory path for file attachments.
+
+For these, we'll create additional text for the ``zope.conf``
+file(s) of your Zope instance part(s).
+
+You might want to put these settings in a dedicated ``settings.cfg`` file and
+add this to the `extends` list.
+The Unified Installer uses the ``[buildout]`` section::
+
+    [buildout]
+    zope-conf-additional =
+        <product-config projectreview>
+        data-dir ${buildout:directory}/var/myattachmentsdir
+        </product-config>
+        <product-config reldb>
+        dsn      postgresql+psycopg2://localhost/mydb
+        </product-config>
+
+In this case, you'll need to make sure this value is used for your instance
+parts, e.g. in ``base.cfg``::
+
+    [instance_base]
+    ...
+    zope-conf-additional = ${buildout:zope-conf-additional}
+
+
+Build and start
+---------------
+
+With everything in place, run ``bin/buildout``.
+
+If you didn't specify an own administration password, be sure you have it in
+the buildout, or to write it down;
+you'll need it to login to your fresh Zope instance and create the "real"
+users.
+
+Start up the instance (depending on the type of your installation), e.g.::
+
+     bin/instance fg
+
+
+Database initialization
+-----------------------
+
+(TODO; script needed)
+
+
+Product installations
+---------------------
+
+In the `prefs_install_products_form` view of your instance, we'll activate the
+following extensions (if not already done):
+
+- vdz.plone.projectreview
+- Bootstrap Theme
+- jQuery DataTables
+- jQuery UI
+
+We'll deactivate:
+
+- Classic Plone design
+
+
+Update to Plone 5
+-----------------
+
+Finally, a few remarks considering Plone 5.
+
+Most of the parts are Plone-5- and Python-3-ready already,
+so there might be an update soon.
+
+However, all `projects data` is held in a relational database anyway, so
+it should be possible to use this in a fresh installation without any necessary
+data migration, just using the same `data source name`_.
+
+The only thing which would need to be migrated (in the standard case) is the
+user and groups information; this is beyond the scope of this documentation.
+In most cases, this involves so few user accounts and groups
+that it can be done by hand easily.
+
+
+Dependencies
+============
+
+- Products.CMFPlone_:
+
+  This is "the Plone" we use.
+
+  - Currently we require a 4.3 version.
+
+  - Version 4.3.19 is `broken`
+    regarding the contained ``main_template.pt`` skin layer template;
+    thus, a vanilla Plone 4.3.19 (e.g. for fresh installations)
+    most likely won't work.
+    Since this template is frequently overridden, this is not a hard
+    requirement;
+    in case of problems, please follow the instructions above
+    to upgrade to release 4.3.20.
+
+- Python 2.7:
+
+  Because Plone 4.3 requires Python 2.7, so do we (for the moment).
+  Our Python code should support Python 3 already, using the six_ library.
+
+
+Used software
+-------------
+
+General purpose
+~~~~~~~~~~~~~~~
+
+- Plone_
+- Zope_
+- Python_
+- SQLAlchemy_, via zope.sqlalchemy_
+- Bootstrap_ 3.3.7, via collective.js.bootstrap_ and plonetheme.bootstrap_
+- jQuery_ 1.11.2+, via plone.app.jquery_
+
+More specific, or developed for this project
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- visaplan.zope.reldb_, to configure the `data source name`_ and provide some
+  SQL generating functions
+- visaplan.zope.inputmacros_
+  (TAL templates for generation of form and output fields)
+- visaplan.plone.infohubs_ (a mini language to access sevaral Plone features)
+- visaplan.plone.tools_
+- visaplan.tools_  (non-Plone-specific Python utilites)
+
+
+Included Software
+-----------------
+
+This package includes the following Javascript libraries
+we didn't find a ready Plone integration to use:
+
+- Chosen_ 1.8.7
+- `jQuery Keypad`_
+
+
+Contribute
+==========
+
+- Issue Tracker: https://github.com/visaplan/vdz.plone.projectreview/issues
+- Source Code: https://github.com/visaplan/vdz.plone.projectreview
+
+
+Support
+=======
+
+If you are having issues, please let us know;
+please use the `issue tracker`_ mentioned above.
+
+
+License
+=======
+
+- The project is licensed under the GPLv2.
+
+- The following components are licensed under the MIT license:
+
+  - Chosen_
+  - `jQuery Keypad`_
+
+.. _Bootstrap: https://getbootstrap.com
+.. _Chosen: https://harvesthq.github.io/chosen/
+.. _`issue tracker`: https://github.com/visaplan/vdz.plone.projectreview/issues
+.. _`Issue 1, "Plone 5 support`: https://github.com/visaplan/vdz.plone.projectreview/issues/1
+.. _`visaplan GmbH`: http://visaplan.com
+.. _`VDZ Technology gGmbH`: https://www.vdz-online.de
+.. _`jQuery Keypad`: http://keith-wood.name/keypad.html
+.. _`soft released`: https://community.plone.org/t/plone-4-3-20-soft-released/12750/11
+.. _`data source name`: https://docs.sqlalchemy.org/en/13/core/engines.html#database-urls
+.. _`update your scripts`: https://jquery.com/upgrade-guide/1.9/
+.. _jQuery: https://jquery.com
+.. _Plone: https://plone.org/
+.. _Products.CMFPlone: https://pypi.org/project/Products.CMFPlone
+.. _psycopg2: https://pypi.org/project/psycopg2
+.. _Python: https://www.python.org
+.. _SQLAlchemy: https://www.sqlalchemy.org
+.. _Zope: https://www.zope.org/
+.. _zope.sqlalchemy: https://pypi.org/project/zope.sqlalchemy
+.. _plone.app.jquery: https://pypi.org/project/plone.app.jquery
+.. _plonetheme.bootstrap: https://pypi.org/project/plonetheme.bootstrap
+.. _collective.js.bootstrap: https://pypi.org/project/collective.js.bootstrap
+.. _six: https://pypi.org/project/six
+.. _`Unified Installer`: https://github.com/plone/Installers-UnifiedInstaller/blob/master/README.rst
+.. _visaplan.plone.infohubs: https://pypi.org/project/visaplan.plone.infohubs
+.. _visaplan.plone.tools: https://pypi.org/project/visaplan.plone.tools
+.. _visaplan.tools: https://pypi.org/project/visaplan.tools
+.. _visaplan.zope.inputmacros: https://pypi.org/project/visaplan.zope.inputmacros
+.. _visaplan.zope.reldb: https://pypi.org/project/visaplan.zope.reldb
+
+.. vim: tw=79 cc=+1 sw=4 sts=4 si et

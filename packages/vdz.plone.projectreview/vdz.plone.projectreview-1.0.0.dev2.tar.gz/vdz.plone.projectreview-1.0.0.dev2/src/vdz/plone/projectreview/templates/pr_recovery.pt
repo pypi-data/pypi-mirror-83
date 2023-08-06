@@ -1,0 +1,296 @@
+<tal:ns_global define="formdata python:view.formdata_recovery();
+"><metal:page use-macro="context/pr_master2/macros/master"
+            i18n:domain="vdz.projectreview">
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>WiTraBau Verwertungs-Management</title>
+
+    <!-- Meta data -->
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <meta name="description" content="WiTraBau Verwertungs-Management">
+    <meta name="author" content="visaplan GmbH">
+
+    <!-- Styles -->
+    <link href="./lib/bootstrap/css/bootstrap.min.css" rel="stylesheet"
+          tal:replace="nothing" />
+    <link href="./css/panel.css" rel="stylesheet"
+          tal:attributes="href string:/++resource++panel.css"
+          />
+    <link href="./lib/chosen/chosen.css" rel="stylesheet"
+          tal:replace="nothing" />
+          <tal:enable condition="python:1">
+    <link href="./lib/keypad/jquery.keypad.css" rel="stylesheet"
+          tal:attributes="href string:/jquery.keypad.css"
+          />
+    <script type="text/javascript" src="../static/jquery.plugin.min.js"
+            tal:attributes="src string:/jquery.plugin.min.js"></script>
+    <script type="text/javascript" src="../static/jquery.keypad.min.js"
+            tal:attributes="src string:/jquery.keypad.min.js"></script>
+          </tal:enable>
+
+    <script src="../static/projectreview.js"></script>
+</head>
+
+<body>
+
+    <metal:txt fill-slot="h1-text">
+    Verwertung
+    </metal:txt>
+    <div class="panel-heading"
+         metal:fill-slot="heading">
+     Verwertung
+     </div>
+    <!-- page wrapper and container -->
+<metal:content fill-slot="pr-main"
+><tal:ns define="
+action formdata/action;
+pool formdata/pool;
+current_partner formdata/current_partner | nothing;
+editperm python:'edit' or 'Hier keine Unterscheidung';
+may_edit python:permission[editperm];
+readonly python:not may_edit;
+ma_macros context/pr_main/macros;
+form_actions python:('edit', 'create');
+pe_id formdata/all_ids/p2_result;
+link_tooltip string:Aktivitäten und Verwertungsergebnisse zu diesem Projektergebnis erfassen;
+">
+    <div class="wrap">
+    <div >
+
+    <!-- CONTENT START -->
+
+    <div class="panel panel-info"
+         id="plan"
+         metal:use-macro="context/pr_macros/macros/verwertungsplan">
+        <div class="panel-heading"
+             tal:content="formdata/meta/vp_headline">
+        Ergebnisspezifischer
+        Verwertungsplan
+        </div>
+        ...
+    </div>
+
+    <div class="panel panel-info"
+         id="activities"
+         metal:use-macro="context/pr_macros/macros/related-activities">
+        <div class="panel-heading"
+             tal:content="formdata/meta/va_headline">
+        <tal:if condition="pe_id">
+        Ergebnisspezifische
+        </tal:if>
+        <tal:else condition="not:pe_id">
+        Projektbezogene
+        </tal:else>
+        Verwertungsaktivitäten
+        </div>
+        <table class="table table-default">
+            <thead><tr>
+                <th style="width: 5%">ID</th>
+                <th style="width: 10%"
+                    title="Aktivitätsart">Art</th>
+                <th>Titel</th>
+                <th style="width: 6%">Stelle</th>
+                <th style="width: 6%" title="Änderungsdatum des Datensatzes"
+                    >
+                    Datum
+                </th>
+            </tr></thead>
+            <tbody
+                   tal:on-error="string:HOPPLA!">
+            <tr tal:repeat="row formdata/related/va__activities">
+                <td tal:content="row/activity_id">2</td>
+                <td tal:content="row/activity_type_name">Recherche</td>
+                <td>
+                    <a href="pr_activity?id=43"
+                       tal:attributes="href string:/pr_activity?activity_id=${row/activity_id}"
+                       tal:content="row/activity_title"
+                        >Patentrechtliche Analyse</a></td>
+                <td tal:content="row/member_acronym">
+                    VDZ
+                </td>
+                <td tal:content="row/formatted_timestamp"
+                    class="suppress-linebreak">
+                    21.11.2015
+                </td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <tal:form-if condition="project_id">
+    <tal:form-ns define="action string:create;
+                         id_fieldname string:project_id">
+    <form tal:condition="not:readonly"
+          action="/pr_activity"
+          method="get">
+
+        <input type="hidden" name="action" value="create">
+        <metal:hidden-input define-macro="hidden-input">
+        <tal:loop define="known formdata/all_ids;
+                          names python:['project_id',
+                                        'p2_result',
+                                        'member_acronym',
+                                        ]"
+                  repeat="name names">
+        <input type="hidden" name="result_id"
+               tal:define="value python:known[name]"
+               tal:condition="python:value is not None"
+               tal:attributes="value value; name name">
+        </tal:loop>
+        </metal:hidden-input>
+
+        <button class="btn btn-primary" type="submit">
+            <i class="icon-plus icon-white"></i>
+            Neue Verwertungsaktivität erstellen
+        </button>
+    </form>
+    </tal:form-ns>
+    </tal:form-if>
+
+    <tal:ns3 define="
+    rows formdata/related/ve__results | nothing;
+    headline_text formdata/meta/ve_headline;
+    ">
+    <div class="panel panel-info"
+         tal:condition="rows"
+         metal:define-macro="recovery-results"
+         id="results">
+        <div class="panel-heading"
+             tal:content="headline_text">
+        Verwertungsergebnisse
+        </div>
+        <table class="table table-default HONK">
+            <thead><tr>
+                <th style="width: 5%">ID</th>
+                <th style="width: 5%"
+                    title="Verwertungsoption">Option</th>
+                <th style="width: 10%"
+                    title="Verwertungsart">Art</th>
+                <th>Titel</th>
+                <th>Status</th>
+                <th style="width: 6%">Stelle</th>
+                <th style="width: 6%"
+                    title="Änderungsdatum des Datensatzes"
+                    >
+                    Datum
+                </th>
+            </tr></thead>
+            <tbody>
+            <tr tal:repeat="row rows">
+                <td tal:content="row/activity_id">2</td>
+                <td tal:content="row/recovery_option"
+                    tal:attributes="title row/recovery_option_label"
+                    >3</td>
+                <td tal:content="row/recovery_type_name">Recherche</td>
+                <td>
+                    <a href="pr_activity?id=43"
+                       tal:attributes="href string:/pr_activity?activity_id=${row/activity_id}"
+                       tal:content="row/activity_title"
+                        >VDZ-Seminar Mahlung 2015</a></td>
+                <td tal:content="row/recovery_status_name">abgeschlossen</td>
+                <td tal:content="row/member_acronym">
+                    VDZ
+                </td>
+                <td tal:content="row/formatted_timestamp"
+                    class="suppress-linebreak">
+                    10.02.2016, 10:39:55
+                </td>
+            </tr>
+            </tbody>
+            <tbody tal:replace="nothing">
+            <tr>
+                <td>4</td>
+                <td>Datenbank</td>
+                <td>
+                    <a href="pr_result2?id=43">BauFoLit</a>
+                </td>
+                <td>begonnen</td>
+                <td>1</td>
+                <td>
+                    IRB
+                </td>
+                <td>
+                    23.11.2016
+                </td>
+            </tr>
+            <tr>
+                <td>1</td>
+                <td>Sonstige</td>
+                <td>
+                    <a href="pr_result2?id=43">Verwertung eines obsoleten Review-Ergebnisses</a>
+                </td>
+                <td>keine weitere Aktion</td>
+                <td>7</td>
+                <td>
+                    VDZ
+                </td>
+                <td>
+                    22.11.2015
+                </td>
+            </tr>
+            </tbody>
+        </table>
+    </div><!-- .panel.panel-info -->
+    </tal:ns3>
+
+    <tal:form-if condition="project_id">
+    <tal:form-ns define="action string:create;
+                         id_fieldname string:project_id">
+    <form tal:condition="not:readonly"
+          action="/pr_activity"
+          method="get">
+
+        <input type="hidden" name="action" value="create">
+        <tal:loop define="known formdata/all_ids;
+                          names python:['project_id',
+                                        'p2_result',
+                                        'member_acronym',
+                                        ]"
+                  repeat="name names">
+        <input type="hidden" name="result_id"
+               tal:define="value python:known[name]"
+               tal:condition="python:value is not None"
+               tal:attributes="value value; name name">
+        </tal:loop>
+
+        <button class="btn btn-primary" type="submit"
+                name="is_result"
+                tal:condition="current_result"
+                value="1">
+            <i class="icon-plus icon-white"></i>
+            Neues Verwertungsergebnis erstellen
+        </button>
+    </form>
+    </tal:form-ns>
+    </tal:form-if>
+
+    <tal:if-no-other-form
+    on-error="string:FORM 3"
+    condition="python:0">
+    <hr/>
+
+    </tal:if-no-other-form>
+
+    <!-- CONTENT END -->
+
+    </div><!-- /container -->
+    </div><!-- /wrap -->
+
+
+<tal:prototype replace="nothing">
+    <!-- JavaScript  -->
+    <script src="./lib/jquery/jquery-1.10.1.min.js"></script>
+    <script src="./lib/bootstrap/js/bootstrap.min.js"></script>
+    <!--<script src="./bootstrap-vp/js/bootstrap-sortable.js"></script>-->
+    <script src="./lib/chosen/chosen.jquery.js" type="text/javascript"></script>
+</tal:prototype>
+
+</tal:ns>
+</metal:content>
+</body>
+</html><!-- vim: set ts=4 sts=4 sw=4 si et: --></metal:page></tal:ns_global>

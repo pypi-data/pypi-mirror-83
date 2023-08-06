@@ -1,0 +1,285 @@
+<tal:ns_global define="formdata python:view.formdata_recovery_report();
+"><metal:page use-macro="context/pr_master2/macros/master"
+            i18n:domain="vdz.projectreview">
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>WiTraBau Verwertungs-Management</title>
+
+    <!-- Meta data -->
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <meta name="description" content="WiTraBau Verwertungs-Management">
+    <meta name="author" content="visaplan GmbH">
+
+    <!-- Styles -->
+    <link href="./lib/bootstrap/css/bootstrap.min.css" rel="stylesheet"
+          tal:replace="nothing" />
+    <link href="./css/panel.css" rel="stylesheet"
+          tal:attributes="href string:/++resource++panel.css"
+          />
+    <link href="./lib/chosen/chosen.css" rel="stylesheet"
+          tal:replace="nothing" />
+          <tal:enable condition="python:1">
+    <link href="./lib/keypad/jquery.keypad.css" rel="stylesheet"
+          tal:attributes="href string:/jquery.keypad.css"
+          />
+    <script type="text/javascript" src="../static/jquery.plugin.min.js"
+            tal:attributes="src string:/jquery.plugin.min.js"></script>
+    <script type="text/javascript" src="../static/jquery.keypad.min.js"
+            tal:attributes="src string:/jquery.keypad.min.js"></script>
+          </tal:enable>
+
+    <script src="../static/projectreview.js"></script>
+</head>
+
+<body>
+
+    <metal:txt fill-slot="h1-text">
+    Projektreport
+    </metal:txt>
+    <!-- page wrapper and container -->
+<metal:content fill-slot="pr-main"
+><tal:ns define="
+action formdata/action;
+pool formdata/pool;
+current_partner formdata/current_partner | nothing;
+editperm python:'edit' or 'Hier keine Unterscheidung';
+may_edit python:permission[editperm];
+readonly python:not may_edit;
+ma_macros context/pr_main/macros;
+form_actions python:('edit', 'create');
+pe_id formdata/all_ids/p2_result;
+link_tooltip string:Aktivitäten und Verwertungsergebnisse zu diesem Projektergebnis erfassen;
+">
+    <div class="wrap">
+    <div >
+
+    <!-- CONTENT START -->
+
+    <tal:ns1 define="
+pr_macros context/pr_macros/macros;
+table_classes string:table table-default;
+    ">
+
+    <tal:callframe>
+    <div class="panel panel-info"
+         id="plan"
+         metal:use-macro="pr_macros/verwertungsplan">
+        <div class="panel-heading"
+             tal:content="formdata/meta/vp_headline">
+        Ergebnisspezifischer
+        Verwertungsplan
+        </div>
+        ...
+    </div>
+    </tal:callframe>
+
+    <div class="panel panel-info"
+         id="summary"
+         tal:define="
+             counter formdata/counter | nothing;
+         " tal:condition="counter"
+         >
+        <div class="panel-heading">
+        Überblick
+        </div>
+        <div class="panel-body"
+             tal:define="
+             rows python:[
+             {'key': 'project_results',
+              'label': 'Projektergebnisse',
+              },
+             {'key': 'project_activities',
+              'label': 'Projektbezogene Verwertungsaktivitäten',
+              },
+             {'key': 'result_results',
+              'label': 'Verwertungsergebnisse',
+              },
+             {'key': 'result_activities',
+              'label': 'Ergebnisbezogene Verwertungsaktivitäten',
+              },
+              ]">
+             <table class="table table-default">
+                 <tr tal:repeat="row rows">
+                     <td style="text-align: right; width: 3%"
+                         tal:define="key row/key"
+                         tal:content="python:counter[key]">
+                         42
+                     </td>
+                     <td tal:content="row/label">
+                         Verwertungsergebnisse
+                     </td>
+                 </tr>
+             </table>
+         </div>
+    </div>
+
+    <tal:ns2 define="
+    rows formdata/p2_activities;
+    cnt python:len(rows);
+    panel_title string:Projektbezogene Verwertungsaktivitäten ($cnt);
+    " condition="not:pe_id">
+    <div class="panel panel-info"
+         id="activities"
+         metal:use-macro="context/pr_macros/macros/related-activities-inner">
+        <div class="panel-heading"
+             tal:content="formdata/meta/va_headline">
+        <tal:if condition="pe_id">
+        Ergebnisspezifische
+        </tal:if>
+        <tal:else condition="not:pe_id">
+        Projektbezogene
+        </tal:else>
+        Verwertungsaktivitäten
+        </div><!-- .panel-heading -->
+        <table class="table table-default">
+            <thead><tr>
+                <th style="width: 5%">ID</th>
+                <th style="width: 10%"
+                    title="Aktivitätsart">Art</th>
+                <th>Titel</th>
+                <th style="width: 6%">Stelle</th>
+                <th style="width: 6%" title="Änderungsdatum des Datensatzes"
+                    >
+                    Datum
+                </th>
+            </tr></thead>
+            <tbody>
+            <tr tal:repeat="row formdata/related/va__activities">
+                <td tal:content="row/activity_id">2</td>
+                <td tal:content="row/activity_type_name">Recherche</td>
+                <td>
+                    <a href="pr_activity?id=43"
+                       tal:attributes="href string:/pr_activity?activity_id=${row/activity_id}"
+                       tal:content="row/activity_title"
+                        >Patentrechtliche Analyse</a></td>
+                <td tal:content="row/member_acronym">
+                    VDZ
+                </td>
+                <td tal:content="row/formatted_timestamp"
+                    class="suppress-linebreak">
+                    21.11.2015
+                </td>
+            </tr>
+            </tbody>
+        </table>
+    </div><!-- .panel.panel-info -->
+    </tal:ns2>
+
+    <tal:rloop define="
+    results formdata/p2_results;
+    pr_macros context/pr_macros/macros;
+    recovery_macros context/pr_recovery/macros;
+    panel nocall:pr_macros/info-panel;
+    rresults nocall:recovery_macros/recovery-results;
+    ractivities nocall:pr_macros/related-activities-inner;
+    "
+    condition="results"
+    repeat="result results">
+    <tal:ns5 define="
+    counter result/counter;
+    ">
+    <metal:panel use-macro="panel"
+                 tal:define="panel_id string:result-${result/p2_result}">
+    <div class="panel-heading"
+         metal:fill-slot="panel-heading">
+        <h2 tal:content="result/result_label">
+        Abgestimmtes Testergebnis 1, Verwertungsphase (als Projektergebnis)
+        </h2>
+    </div>
+    <div metal:fill-slot="panel-body">
+        <table class="table table-default">
+            <tr>
+                <th>Erkenntnisstufe</th>
+                <td tal:define="use_level result/use_level">
+                <tal:if condition="use_level"
+                        content="structure string:${use_level} &ndash; ${result/use_level_label}">
+                    3 &ndash;
+                    Beispielhafte anwendungsbezogene Forschung &hellip;
+                </tal:if>
+                </td>
+            </tr>
+            <tr tal:define="p1_result result/p1_result"
+                tal:condition="p1_result">
+                <th>Review-Ergebnis</th>
+                <td>
+                    <a href=""
+                       tal:omit-tag=""
+                       tal:content="result/p1_result_label">
+                    Titel des Ergebnisses aus der Review-Phase, auf das sich dieses
+                    Projektergebnis bezieht (optional)
+                    </a>
+                </td>
+            </tr>
+        </table>
+    </div><!-- .panel#result-NN -->
+    </metal:panel>
+
+    <tal:ns3 define="
+    rows result/recovery_results;
+    headline_text string:Verwertungsergebnisse (${counter/results});
+    ">
+    <metal:m3 use-macro="rresults">
+    </metal:m3>
+    </tal:ns3>
+
+    <tal:ns4 define="
+    rows result/recovery_activities;
+    panel_title string:Ergebnisbezogene Verwertungsaktivitäten (${counter/activities});
+    ">
+    <metal:m4 use-macro="ractivities">
+    </metal:m4>
+    </tal:ns4>
+    </tal:ns5>
+    </tal:rloop>
+
+
+
+    <div class="form-group"
+         tal:define="theid formdata/all_ids/project_id | nothing"
+         tal:condition="theid">
+    <form action="@@projectreview/pdf_view">
+    <input type="hidden"
+           name="use_template"
+           value="pr_recovery_report_pdf">
+    <input type="hidden"
+           name="debug"
+           tal:condition="request/debug | nothing"
+           value="X">
+    <input type="hidden"
+           name="project_id"
+           value="42"
+           tal:attributes="value theid">
+
+    <button class="btn btn-primary">
+    Export
+    </button>
+    </form>
+    </div>
+
+
+
+    </tal:ns1>
+
+    <!-- CONTENT END -->
+
+    </div><!-- /container -->
+    </div><!-- /wrap -->
+
+
+<tal:prototype replace="nothing">
+    <!-- JavaScript  -->
+    <script src="./lib/jquery/jquery-1.10.1.min.js"></script>
+    <script src="./lib/bootstrap/js/bootstrap.min.js"></script>
+    <!--<script src="./bootstrap-vp/js/bootstrap-sortable.js"></script>-->
+    <script src="./lib/chosen/chosen.jquery.js" type="text/javascript"></script>
+</tal:prototype>
+
+</tal:ns>
+</metal:content>
+</body>
+</html><!-- vim: set ts=4 sts=4 sw=4 si et: --></metal:page></tal:ns_global>
