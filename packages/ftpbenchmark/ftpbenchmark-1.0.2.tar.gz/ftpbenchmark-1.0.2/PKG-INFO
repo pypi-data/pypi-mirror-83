@@ -1,0 +1,110 @@
+Metadata-Version: 1.1
+Name: ftpbenchmark
+Version: 1.0.2
+Summary: Benchmark for ftp servers
+Home-page: http://github.com/imjoseangel/ftpbenchmark
+Author: Jose Angel Munoz
+Author-email: josea.munoz@gmail.com
+License: MIT
+Description: .. -*- mode: rst -*-
+        
+        What is ``ftpbenchmark``?
+        -------------------------
+        
+        It's benchmark for load testing FTP servers.
+        
+        
+        Feature
+        -------
+        
+        * login benchmark
+        * upload benchmark (STOR command)
+        * download benchmark (RETR command)
+        * run test for multiple servers
+        * auto-detection for dns round-robin records
+        * save result to cvs file
+        
+        
+        Requires
+        --------
+        
+        * gevent (http://www.gevent.org/)
+        * dnspython (http://www.dnspython.org/)
+        * Timecard (https://github.com/selectel/timecard)
+        
+        
+        Installation
+        ------------
+        
+        Simple from pypi::
+        
+            $ pip install ftpbenchmark
+        
+        From source::
+        
+            $ git clone https://github.com/imjoseangel/ftpbenchmark
+            $ cd ftpbenchmark/
+            $ python setup.py install  # auto install all requires
+        
+        
+        Standalone for debian::
+        
+            $ apt-get install python-gevent python-dnspython
+            $ git clone https://github.com/imjoseangel/ftpbenchmark
+            $ cd ftpbenchmark/ftpbenchmark/
+            $ wget https://raw.githubusercontent.com/selectel/timecard/master/timecard/timecard.py
+            $ python ftpbenchmark.py --help
+        
+        
+        Usage
+        -----
+        
+        Run::
+        
+            $ ftpbenchmark --help
+        
+            FTP benchmark.
+        
+            Usage:
+                ftpbenchmark --help
+                ftpbenchmark -n <host> -u <user> -p <password> [options] --login
+                ftpbenchmark -n <host> -u <user> -p <password> [options] --upload -w <workdir> [-s <size>]
+                ftpbenchmark -n <host> -u <user> -p <password> [options] --download -w <workdir> [-s <size>] [--files <count>]
+        
+            Connection options:
+                -n <host>, --host=<host>              FTP host [default: 127.0.0.1:21]
+                                                      You can list multiple servers, separated by commas,
+                                                      e.g.: -h 10.0.0.1,10.0.0.2,10.0.0.3.
+                                                      Auto-detection of dns round-robin records is supported.
+                -u <user>, --user <user>              FTP user
+                -p <password>, --password <password>  FTP password
+        
+            Timing options:
+                -t <sec>, --timeout <sec>             Timeout for operation [default: 10]
+                -m <minutes>, --maxrun <minutes>      Duration of benchmarking in minutes [default: 5]
+                -x <sec>, --fixevery <sec>            Recording period for stat values [default: 5]
+        
+            Benchmark options:
+                -c <count>, --concurrent <count>      Concurrent operations [default: 10]
+                -v <file>, --csv <file>               Save result to csv file
+                -w <workdir>, --workdir <workdir>     Base ftp dir to store test files
+                -s <size>, --size <size>              Size of test files in MB [default: 10]
+                -f <count>, --files <count>           Number of files generated for download test [default: 10]
+        
+Platform: UNKNOWN
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Console
+Classifier: Environment :: Console :: Framebuffer
+Classifier: Intended Audience :: System Administrators
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Natural Language :: English
+Classifier: Operating System :: OS Independent
+Classifier: Operating System :: POSIX
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: Software Development
+Classifier: Topic :: Software Development :: Testing
+Classifier: Topic :: Software Development :: Testing :: Traffic Generation
+Classifier: Topic :: System :: Benchmark
+Classifier: Topic :: Utilities
