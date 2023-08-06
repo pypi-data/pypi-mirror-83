@@ -1,0 +1,300 @@
+Metadata-Version: 2.1
+Name: idem-aws
+Version: 0.5
+Summary: Idem language provider for AWS
+Home-page: https://gitlab.com/saltstack/pop/idem-aws
+Author: EITR Technologies, LLC
+Author-email: devops@eitr.tech
+License: UNKNOWN
+Platform: UNKNOWN
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Development Status :: 5 - Production/Stable
+Requires-Python: >=3.6
+Description-Content-Type: text/x-rst
+Requires-Dist: acct (>=2.3)
+Requires-Dist: aioboto3
+Requires-Dist: configparser
+Requires-Dist: dict-toolbox (>=1.12)
+Requires-Dist: pop (>=13.2)
+Requires-Dist: pop-config (>=6.10)
+Requires-Dist: idem (>=7.4)
+Provides-Extra: aioboto3
+Requires-Dist: aioboto3 ; extra == 'aioboto3'
+Provides-Extra: boto3
+Requires-Dist: boto3 ; extra == 'boto3'
+Provides-Extra: full
+Requires-Dist: msgpack ; extra == 'full'
+Requires-Dist: pycryptodomex ; extra == 'full'
+Requires-Dist: boto3 ; extra == 'full'
+Requires-Dist: aws-google-auth (>=0.0.35) ; extra == 'full'
+Requires-Dist: pytest-salt-factories (<=0.13.0,>=0.10.7) ; extra == 'full'
+Requires-Dist: aioboto3 ; extra == 'full'
+Requires-Dist: localstack-ext ; extra == 'full'
+Requires-Dist: asynctest ; extra == 'full'
+Requires-Dist: pytest-pop (>=6.2) ; extra == 'full'
+Requires-Dist: localstack-client ; extra == 'full'
+Requires-Dist: localstack ; extra == 'full'
+Provides-Extra: google_auth
+Requires-Dist: aws-google-auth (>=0.0.35) ; extra == 'google_auth'
+Requires-Dist: msgpack ; extra == 'google_auth'
+Provides-Extra: localstack
+Requires-Dist: localstack ; extra == 'localstack'
+Requires-Dist: localstack-ext ; extra == 'localstack'
+Requires-Dist: localstack-client ; extra == 'localstack'
+Provides-Extra: test
+Requires-Dist: pytest-pop (>=6.2) ; extra == 'test'
+Requires-Dist: pycryptodomex ; extra == 'test'
+Requires-Dist: asynctest ; extra == 'test'
+Requires-Dist: pytest-salt-factories (<=0.13.0,>=0.10.7) ; extra == 'test'
+
+========
+IDEM_AWS
+========
+AWS Cloud Provider for Idem
+
+INSTALLATION
+============
+
+The aws idem provider can be installed via pip::
+
+    pip install "idem-aws [full]"
+
+DEVELOPMENT
+===========
+
+Clone the `idem-aws` repository and install with pip.
+Install extra requirements by specifying aioboto3, boto3, google_auth, localstack, test, or full
+in brackets (in ZSH you will have to escape the brackets).
+
+.. code:: bash
+
+    git clone git@gitlab.com:saltstack/pop/idem-aws.git
+    pip install -e idem_aws[full] # [aioboto3,boto3,google_auth,localstack,test,full]
+
+Set UP
+======
+After installation the AWS Idem Provider execution and state modules will be accessible to the pop `hub`.
+In order to use them we need to set up our credentials.
+
+Create a new file called `credentials.yaml` and populate it with credentials.
+If you are using localstack, then the `id` and `key` can be bogus values.
+The `default` profile will be picked up automatically by `idem`.
+
+There are many ways aws providers/profiles can be stored. See `acct backends <https://gitlab.com/Akm0d/acct-backends>`_
+for more information.
+
+There are multiple authentication backends for `idem-aws` which each have their own unique set of parameters.
+The following examples show some of the parameters that can be used in these backends to define profiles.
+All backends end up creating a boto3 session under the hood and storing it in the `ctx` variable that gets passed
+to all idem `exec` and `state` functions.
+
+All authentication backends support two optional parameters, `endpoint_url` and `provider_tag_key`.  The `endpoint url`
+is used to specify an alternate destination for boto3 calls, such as a localstack server or custom dynamodb server.
+The `provider_tag_key` is used when creating new resources.  `idem-aws` will only interact with resources that are tagged
+with the the customizable `provider_tag_key` key.
+
+credentials.yaml:
+
+..  code:: sls
+
+    aws.boto:
+      default:
+        endpoint_url: localhost:4566
+        provider_tag_key: Name
+        id: localstack
+        key: localstack
+        location: us-east-1
+
+You can also authenticate with `aws-google-auth` if it is installed.
+
+.. code:: sls
+
+    aws.gsuite:
+      my-staging-env:
+        username: user@gmail.com
+        password: this_is_available_but_avoid_it
+        role_arn: arn:aws:iam::999999999999999:role/xacct/developer
+        idp_id: 9999999
+        sp_id: 999999999999
+        region: us-east-1
+        duration: 36000
+        account: developer
+
+The google profile example is not named `default`. To use it, it will need to be specified explicitly in an idem state.
+
+.. code:: sls
+
+    ensure_resource_exists:
+      aws.ec2.vpc.present:
+        - acct_profile: my-staging-env
+        - name: idem_aws_vpc
+        - cidr_block: 10.0.0.0/24
+
+It can also be specified from the command line when executing states.
+
+.. code:: bash
+
+    idem state --acct-profile my-staging-env my_state.sls
+
+It can also be specified from the command line when calling an exec module directly.
+
+.. code:: bash
+
+    idem exec --acct-profile my-staging-env aws.ec2.vpc.list
+
+
+The last step to get up and running is to encrypt the credentials file and add the encryption key and encrypted file
+path to the ENVIRONMENT.
+
+The `acct` command should be available as `acct` is a requisite of `idem` and `idem-aws`.
+Encrypt the the credential file.
+
+.. code:: bash
+
+    acct credentials.yaml
+
+output::
+
+    New encrypted file created at: credentials.yaml.fernet
+    The file was encrypted with this key:
+    -A9ZkiCSOjWYG_lbGmmkVh4jKLFDyOFH4e4S1HNtNwI=
+
+Add these to your environment:
+
+.. code:: bash
+
+    export ACCT_KEY="-A9ZkiCSOjWYG_lbGmmkVh4jKLFDyOFH4e4S1HNtNwI="
+    export ACCT_FILE=$PWD/credentials.yaml.fernet
+
+
+You are ready to use idem-aws!!!
+
+LOCALSTACK
+==========
+Localstack can be used to test idem-aws on your local machine without needing legitimate aws credentials.
+It can be used for running the idem-aws tests or for testing your states locally.
+
+Install localstack with pip:
+
+.. code:: bash
+
+    pip install "localstack [full]"
+
+Start the localstack infrastructure:
+
+.. code:: bash
+
+    localstack infra start
+
+When you make calls to `idem exec` and `idem state`, you can specify `localstack` as a session backend.
+It can also be specified in an environment variable:
+
+.. code:: bash
+
+    export IDEM_AWS_SESSION_BACKEND=localstack
+
+Or it can be set via the command line:
+
+.. code:: bash
+
+    idem exec --session-backend localstack aws.ec2.vpc.list
+    idem state --session-backend localstack my_state.sls
+
+
+TESTING
+=======
+In order to run the tests you must have a profile called "test_development_idem_aws" in your `acct` provider
+information. This can use localstack (recommended) or valid production aws credentials (at your own risk).
+
+.. code:: sls
+
+    aws.boto:
+        test_development_idem_aws:
+            id: localstack
+            key: localstack
+            endpoint_url: localhost:4566
+            location: east-us-1
+
+The tests use localstack by default, but you can specify a different backend such as aioboto3, boto3, or localstack:
+
+.. code:: bash
+
+    pytest --session-backend localstack idem-aws/tests
+
+EXECUTION MODULES
+=================
+Once everything has been set up properly, execution modules can be called directly by `idem`.
+Execution modules can be accessed by reference relative to their location in the `exec` directory in `idem-aws/idem_aws`
+For example, `idem-aws/idem_aws/exec/aws/ec2/vpc.py` contains a function called `list_()` which has been aliased to
+`list`.
+This function can be accessed from the command line with:
+
+.. code:: bash
+
+    idem exec aws.ec2.vpc.list
+
+Filters can be used when calling `idem-aws` list functions from the command line so that the output isn't so verbose:
+
+.. code:: bash
+
+    idem exec aws.ec2.vpc.list --filter vpc_id
+
+The same file contains a function called `create()`. This function can be called and passed parameters like so:
+
+.. code:: bash
+
+    idem exec aws.ec2.vpc.create name=idem_aws_vpc cidr_block=10.0.0.0/24
+
+STATES
+======
+States are also accessed by their relative location in `idem-aws/idem_aws/states`.
+For example, `idem-aws/idem_aws/states/aws/ec2/vpc.py` contains a function `absent()`.
+In my state file I can create a state that uses the `absent` function like so.
+
+my_state.sls:
+
+.. code:: sls
+
+    idem_aws_test_vpc:
+      aws.ec2.vpc.absent:
+        - name: "idem_aws_test_vpc"
+
+I can execute this state with:
+
+.. code:: bash
+
+    idem state my_state.sls
+
+`idem state` also has some flags that can significantly boost the scalability and performance of the run.
+Let's use this new state which verifies that 100 vpcs are absent:
+
+.. code:: sls
+
+    {% for i in range(100) %}
+    idem_aws_test_vpc_{{i}}:
+      aws.ec2.vpc.absent:
+        - name: "idem_aws_test_vpc_{{i}}"
+    {% endfor -%}
+
+I can execute this state with `--runtime parallel` to make full use of idem's async execution calls:
+
+.. code:: bash
+
+    idem state --runtime parallel my_state.sls
+
+`aioboto3` is the default for `idem-aws`, but if I am using a serial boto3 library such as `boto3` or `localstack`
+as my session backend, I can add the `--wrap-serial-calls` flag so that those states can be run asynchrously as well:
+
+.. code:: bash
+
+    idem state --wrap-serial-calls --runtime parallel --session-backend localstack my_state.sls
+
+Wrapped serial calls from boto3 are sometimes faster than aioboto3, but aioboto3 uses aiohttp under the hood and is
+fully tested.  For that reason, `aioboto3` is the default and supported way to run `idem-aws`;   Everything else
+is best effort.
+
+
