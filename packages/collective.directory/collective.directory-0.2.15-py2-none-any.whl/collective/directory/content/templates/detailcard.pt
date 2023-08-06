@@ -1,0 +1,62 @@
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xml:lang="en"
+      xmlns:tal="http://xml.zope.org/namespaces/tal"
+      xmlns:metal="http://xml.zope.org/namespaces/metal"
+      xmlns:i18n="http://xml.zope.org/namespaces/i18n"
+      lang="en"
+      metal:use-macro="context/main_template/macros/master"
+      i18n:domain="collective.directory">
+  <body>
+    <metal:main fill-slot="content-core">
+      <tal:main-macro metal:define-macro="content-core">
+
+        <div class="card-detail">
+          <h3 tal:content="structure context/subtitle" class="card-subtitle" />
+
+          <img tal:define="scales context/@@images;
+                           thumbnail python: scales.scale('photo', width=125, height=125);"
+              tal:condition="thumbnail"
+              tal:attributes="src thumbnail/url;
+                              width thumbnail/width;
+                              height thumbnail/height"
+              class="card-image" />
+
+          <div class="card-coord-bloc">
+            <p tal:content="structure context/address" class="card-address" />
+
+            <p tal:content="structure context/zip_code" class="card-zip-code" />
+
+            <p tal:content="structure context/city" class="card-city" />
+
+            <p tal:content="structure context/phone" class="card-phone" />
+
+            <p tal:content="structure context/mobile_phone" class="card-mobile-phone" />
+
+            <p tal:content="structure context/fax" class="card-fax" />
+
+            <p class="card-email">
+              <a tal:attributes="href string:mailto:${context/email}"
+                 tal:content="context/email" />
+            </p>
+
+            <p class="card-website">
+              <a tal:attributes="href context/website"
+                 tal:content="context/website" target="_blank" />
+            </p>
+
+            <p tal:content="structure context/description" class="card-description" />
+
+            <p tal:condition="context/content"
+               tal:content="structure context/content/output"
+               class="card-content" />
+          </div>
+
+          <div class="card-schedule-bloc">
+            <p tal:content="structure view/w/schedule/render" class="card-schedule" />
+          </div>
+
+        </div>
+      </tal:main-macro>
+    </metal:main>
+  </body>
+</html>

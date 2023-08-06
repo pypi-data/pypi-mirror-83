@@ -1,0 +1,36 @@
+<configure
+    xmlns="http://namespaces.zope.org/zope"
+    xmlns:browser="http://namespaces.zope.org/browser"
+    i18n_domain="collective.directory">
+
+    <!-- this is our custom view -->
+    <browser:page
+        name="collective_directory_import_view"
+        for="collective.directory.content.directory.IDirectory"
+        permission="zope2.View"
+        class=".collective_directory_import_view.CollectiveDirectoryImportForm"
+        />
+
+    <browser:page
+        name="collective_directory_export_view"
+        for="collective.directory.content.directory.IDirectory"
+        permission="zope2.View"
+        class=".collective_directory_export_view.CollectiveDirectoryExportForm"
+        />
+
+    <browser:page
+        name="collective_directory_assign_geolocation"
+        for="collective.directory.content.directory.IDirectory"
+        permission="zope2.View"
+        class=".collective_directory_assign_geolocation.CollectiveDirectoryAssignGeolocation"
+        />
+
+    <browser:page
+      for="collective.directory.content.directory.IDirectory"
+      name="json.js"
+      class=".jsonview.JsonDirectory"
+      layer = "collective.geo.json.interfaces.IGeoJsonLayer"
+      permission="zope2.View"
+      />
+
+</configure>
