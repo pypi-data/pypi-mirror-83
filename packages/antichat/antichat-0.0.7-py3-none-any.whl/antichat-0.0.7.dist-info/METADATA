@@ -1,0 +1,63 @@
+Metadata-Version: 2.1
+Name: antichat
+Version: 0.0.7
+Summary: Simple forum.antichat.ru wrapper
+Home-page: https://github.com/drygdryg/antichat_python
+Author: drygdryg
+Author-email: drygdryg2014@yandex.com
+License: MIT
+Download-URL: https://github.com/drygdryg/antichat_python/archive/v0.0.7.zip
+Keywords: wrapper scraper antichat
+Platform: UNKNOWN
+Classifier: Development Status :: 3 - Alpha
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Topic :: Internet :: WWW/HTTP
+Classifier: Intended Audience :: Developers
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown
+Requires-Dist: requests
+Requires-Dist: beautifulsoup4
+Requires-Dist: lxml
+
+# Python wrapper for https://forum.antichat.ru/
+[![PyPI pyversions](https://img.shields.io/pypi/pyversions/antichat.svg)](https://pypi.python.org/pypi/antichat/)
+[![PyPI license](https://img.shields.io/pypi/l/antichat.svg)](https://pypi.python.org/pypi/antichat/)
+![PyPI - Downloads](https://img.shields.io/pypi/dm/antichat)
+## Installation
+```
+pip install antichat
+```
+Or you can install from source with:
+```
+git clone https://github.com/drygdryg/antichat_python.git
+cd antichat_python
+python setup.py install
+```
+## Usage
+### Posting
+```python
+import antichat
+
+client = antichat.Client(username='myusername', password='mypassword')
+client.auth()
+
+post_id = client.make_post(thread=12345, message='Hi there!')
+client.delete_post(post_id=post_id, reason='No hello')
+```
+### Reading threads
+```python
+reader = client.get_reader(thread=12345)
+
+all_posts = reader.read()   # Read all posts sequentially
+first_posts = reader.read(limit=20)   # Get only first 20 posts
+last_posts = reader.read(offset=400)   # Skip first 400 posts
+posts = reader.read(start_post=6789)   # Read from post ID 6789
+
+page = reader.read_page(page=5)   # Read page #5
+```
+
+
