@@ -1,0 +1,101 @@
+{% extends 'base.html' %}
+{% load custom_links %}
+{% load static %}
+{% load helpers %}
+{% block title %}VM WorkLog-Detail{% endblock %}
+{% block header %}
+    <div class="row noprint">
+        <div class="col-sm-12 col-md-12">
+            <ol class="breadcrumb">
+                <li><a href="{{ vmworklog.vm.get_absolute_url }}">{{ vmworklog.vm }}</a></li>
+                <li>{{ vmworklog.subject }}</li>
+            </ol>
+        </div>
+        {% comment %} <div class="col-sm-4 col-md-3">
+            <form>
+                <div class="input-group">
+                    <input type="text" name="q" class="form-control" placeholder="Search VM work logs"/>
+                    <span class="input-group-btn">
+                        <button type="submit" class="btn btn-primary">
+                            <span class="fa fa-search"></span>
+                        </button>
+                    </span>
+                </div>
+            </form>
+        </div> {% endcomment %}
+    </div>
+    <div class="pull-right noprint">
+        <a href="{% url 'plugins:netbox_work_logs:vmworklog_edit' pk=vmworklog.pk %}" class="btn btn-warning">
+            <span class="fa fa-pencil" aria-hidden="true"></span> Edit
+        </a>
+        <a href="{% url 'plugins:netbox_work_logs:vmworklog_delete' pk=vmworklog.pk%}" class="btn btn-danger">
+            <span class="fa fa-trash" aria-hidden="true"></span> Delete
+        </a>
+    </div>
+    <h1>Virtual Machine Work Log</h1>
+    <p>
+        <small class="text-muted">
+        {{ vmworklog.vm }} - {{ vmworklog.subject }}
+        </small>
+    </p>
+    <div class="pull-right noprint">
+    </div>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-6">
+        <div class="panel panel-default">
+            <div class="panel-heading">
+                <strong>Log content</strong>
+            </div>
+            <div class="panel-body">
+                <div class="col-sm-12 col-md-12">
+                    <textarea class="form-control" style="height:400px">{{vmworklog.content}}</textarea>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="panel panel-default">
+            <div class="panel-heading">
+                <strong>Work Log Details</strong>
+            </div>
+            <table class="table table-hover panel-body attr-table">
+                <tr>
+                    <td>Time</td>
+                    <td>{{ vmworklog.time }}</td>
+                </tr>
+                <tr>
+                    <td>Author</td>
+                    <td>{{ vmworklog.user }}</td>
+                </tr>
+                <tr>
+                    <td>Subject</td>
+                    <td>{{vmworklog.subject}}</td>
+                </tr>
+                <tr>
+                    <td>Category</td>
+                    <td><span class="label label-success">{{ vmworklog.category.category}}</span></td>
+                </tr>
+                <tr>
+                    <td>Internal_only</td>
+                    <td>{% if vmworklog.internal_only %}
+                            <span class="label label-success"><i class="fa fa-check"></i></span>
+                        {% endif %}
+                    </td>
+                </tr>
+                <tr>
+                    <td>Virtual Machine</td>
+                    <td>{{vmworklog.vm}}</td>
+                </tr>
+                <tr>
+                    <td>Ticket ID</td>
+                    <td><span class="label label-primary">{{vmworklog.ticket_id}}</span></td>
+                </tr>
+                
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
