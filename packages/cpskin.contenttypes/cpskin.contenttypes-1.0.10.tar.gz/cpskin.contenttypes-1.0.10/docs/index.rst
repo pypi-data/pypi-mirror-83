@@ -1,0 +1,5 @@
+===================
+cpskin.contenttypes
+===================
+
+User documentation

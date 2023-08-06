@@ -1,0 +1,74 @@
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en"
+      xmlns:tal="http://xml.zope.org/namespaces/tal"
+      xmlns:metal="http://xml.zope.org/namespaces/metal"
+      xmlns:i18n="http://xml.zope.org/namespaces/i18n"
+      lang="en"
+      metal:use-macro="context/main_template/macros/master"
+      i18n:domain="cpskin">
+<body>
+
+<metal:main fill-slot="content-core">
+
+  <script type="text/javascript">
+      jQuery(document).ready(function($) {
+          if (typeof $('.product-leadImage a').fancybox === "function") { 
+              $('.product-leadImage a').fancybox();
+          }
+      });
+  </script>
+
+  <div class="field"
+       tal:condition="context/price">
+    <label class="horizontal price"
+           for="form-widgets-price"
+           i18n:translate="">Price</label>
+    <span class="text-widget textline-field"
+          id="form-widgets-price"
+          tal:content="context/price"></span>
+  </div>
+
+  <div class="field"
+       tal:condition="context/color">
+    <label class="horizontal colors"
+           for="form-widgets-color"
+           i18n:translate="">Color(s)</label>
+    <span class="textarea-widget text-field"
+          id="form-widgets-color"
+          tal:content="context/color"></span>
+  </div>
+
+  <div class="field"
+       tal:condition="context/size">
+    <label class="horizontal sizes"
+           for="form-widgets-size"
+           i18n:translate="">Size(s)</label>
+    <span class="textarea-widget text-field"
+          id="form-widgets-size"
+          tal:content="context/size"></span>
+  </div>
+
+  <div class="field"
+       tal:condition="context/informations">
+    <label class="horizontal informations"
+           for="form-widgets-informations"
+           i18n:translate="">Informations</label>
+    <span class="richTextWidget richtext-field"
+          id="form-widgets-informations"
+          tal:content="structure context/informations/output"></span>
+  </div>
+
+  <div class="product-leadImage" tal:condition="view/available">
+    <a href="" title=""
+       tal:define="has_img context/image|nothing;
+                   scales context/@@images|nothing;"
+       tal:condition="python:has_img and scales"
+       tal:attributes="href python: scales.scale('image').url;
+                       title context/Title">
+      <img tal:replace="structure python: scales.scale('image', scale='preview').tag()" />
+    </a>
+  </div>
+
+</metal:main>
+
+</body>
+</html>

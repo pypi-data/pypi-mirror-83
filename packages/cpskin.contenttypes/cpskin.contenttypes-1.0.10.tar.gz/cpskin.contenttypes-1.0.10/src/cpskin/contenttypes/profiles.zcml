@@ -1,0 +1,26 @@
+<configure xmlns="http://namespaces.zope.org/zope"
+           xmlns:genericsetup="http://namespaces.zope.org/genericsetup"
+           xmlns:i18n="http://namespaces.zope.org/i18n"
+           i18n_domain="cpskin">
+
+    <!-- Upgrade profiles -->
+
+    <genericsetup:upgradeStep
+        title="CPSKIN contenttypes: upgrade to 1002"
+        description="Apply procedure_view on all Procedures objects"
+        handler=".upgradehandlers.apply_new_default_view"
+        source="1001"
+        destination="1002"
+        profile="cpskin.contenttypes:default"
+        />
+
+    <genericsetup:upgradeStep
+        title="CPSKIN contenttypes: upgrade to 1003"
+        description="Remove procedure_view. Override default view on all Procedures objects"
+        handler=".upgradehandlers.no_more_procedure_view"
+        source="1002"
+        destination="1003"
+        profile="cpskin.contenttypes:default"
+        />
+
+</configure>
