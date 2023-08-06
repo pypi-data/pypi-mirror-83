@@ -1,0 +1,84 @@
+Metadata-Version: 2.1
+Name: bhoonidhi
+Version: 0.1.0
+Summary: Useful tools to work with Bhoonidhi (ISRO's open data access portal) in Python
+Home-page: https://github.com/RohitGandikota/bhoonidhi
+Author: Rohit Gandikota
+Author-email: grohit3107@gmail.com
+License: MIT
+Download-URL: https://pypi.org/project/bhoonidhi/
+Keywords: bhoonidhi,SmartSearch,NLP,AI
+Platform: UNKNOWN
+Description-Content-Type: text/markdown
+Requires-Dist: nltk
+Requires-Dist: dateparser
+Requires-Dist: quantulum3
+Requires-Dist: word2number
+Requires-Dist: numpy
+Requires-Dist: requests
+Requires-Dist: datetime
+Requires-Dist: stemming
+
+# bhoonidhi
+A Python library for Bhoonidhi, ISRO's Open data access portal (https:/bhoonidhi.nrsc.gov.in). The current version contains AI helper called "smart search" using NLP. The functionality can enable the power of searching in bhoonidhi using common search sentences and fetch the bhoonidhi results.
+
+## Installation (https://pypi.org/project/bhoonidhi/0.1.0/)
+```
+pip install bhoonidhi
+```
+
+## Importing and using the module
+```
+from bhoonidhi.SmartSearch import bhoonidhiSmartSearch
+
+user_query = "Get me Landsat 8 data from the region of hyderabad and Guntur from the last 1 month"
+bhoonidhiResponse = bhoonidhiSmartSearch(user_query)
+```
+
+## Smart search for Event Based
+```
+from bhoonidhi.SmartSearch import bhoonidhiSmartSearch
+
+user_query = "Get me available data from siachen avalanche and kerala floods 2020"
+bhoonidhiResponse = bhoonidhiSmartSearch(user_query)
+```
+
+## Multiple query parameters
+```
+from bhoonidhi.SmartSearch import bhoonidhiSmartSearch
+
+user_query = "I want Landsat8 and Sentinel 2A data from the region of Guntur over the radius of 20 km and cloud threshold of 35%"
+bhoonidhiResponse = bhoonidhiSmartSearch(user_query)
+```
+Downloading a product requires a valid login from bhoonidhi or uops. For free registration visit https://uops.nrsc.gov.in/ImgeosUops/FinalImgeosUops/OdapUserRegister.html 
+## Download a single product from the searched products
+```
+from bhoonidhi.SmartSearch import bhoonidhiSmartSearch
+from bhoonidhi.SmartSearch import bhoonidhiDownload
+
+user_query = "I want Landsat8 and Sentinel 2A data from the region of Guntur over the radius of 20 km and cloud threshold of 35%"
+bhoonidhiProducts = bhoonidhiSmartSearch(user_query)
+# Want to download the 12th product from the response, pass the 12th response product object
+bhoonidhiDownload(bhoonidhiProducts[12],user_id='bhoonidhi_user', password='password', output_path='D:\\bhoonidhiDownloads')
+```
+
+## Bulk Download searched products (Batch downloading with custom number of concurrent/parallel downloads [maximum limit of 5 by https:/bhoonidhi.nrsc.gov.in])
+```
+from bhoonidhi.SmartSearch import bhoonidhiSmartSearch
+from bhoonidhi.SmartSearch import bhoonidhiBatchDownload
+
+user_query = "I want Landsat8 and Sentinel 2A data from the region of Guntur over the radius of 20 km and cloud threshold of 35%"
+bhoonidhiProducts = bhoonidhiSmartSearch(user_query)
+# Want to download all (maximum downloads allowed by website is 5)
+bhoonidhiBatchDownload(bhoonidhiProducts,user_id='bhoonidhi_user', password='password', parallelDownloads=5, output_path='D:\\bhoonidhiDownloads')
+```
+
+The module fetches the results seperately and concatenates the results in a list format. 
+
+One can download products easily from this library.
+This module shall be enabled for bhoondihiAPI which is currently under construction. Thematic based search, on-demand-LULC classification module libraries shall be released soon. 
+
+
+
+
+
