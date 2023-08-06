@@ -1,0 +1,299 @@
+{% load i18n static admin_urls static admin_list common_utils %}
+
+<!DOCTYPE html>
+{% get_current_language as LANGUAGE_CODE %}{% get_current_language_bidi as LANGUAGE_BIDI %}
+<html lang="{{ LANGUAGE_CODE|default:"en-us" }}" {% if LANGUAGE_BIDI %}dir="rtl"{% endif %}>
+<head>
+    <title>{% block title %}{{ site_title }} :: {% if title %}{{ title }}{% endif %}{% endblock %}</title>
+
+    {% block defaul_head %}
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+        {% block favicons %}
+            <link rel="apple-touch-icon" sizes="180x180" href="{% static 'favicons/apple-touch-icon.png' %}">
+            <link rel="icon" type="image/png" sizes="32x32" href="{% static 'favicons/favicon-32x32.png' %}">
+            <link rel="icon" type="image/png" sizes="16x16" href="{% static 'favicons/favicon-16x16.png' %}">
+            <link rel="manifest" href="{% static 'favicons/site.webmanifest' %}">
+            <link rel="mask-icon" href="{% static 'favicons/safari-pinned-tab.svg' %}" color="#5bbad5">
+            <meta name="apple-mobile-web-app-title" content="SUAP-EaD">
+            <meta name="application-name" content="SUAP-EaD">
+            <meta name="msapplication-TileColor" content="#da532c">
+            <meta name="theme-color" content="#ffffff">
+        {% endblock favicons %}
+        {% block blockbots %}<meta name="robots" content="NONE,NOARCHIVE">{% endblock blockbots %}
+    {% endblock defaul_head %}
+    
+    {% block default_styles %}
+        <link rel="stylesheet" href="//fonts.googleapis.com/css?family=Roboto:300,400,500,700,400italic|Material+Icons">
+        <link rel="stylesheet" href="//fonts.googleapis.com/css?family=Open+Sans">
+        <link rel="stylesheet" href="//fonts.googleapis.com/icon?family=Material+Icons">
+        <link rel="stylesheet" href="//unpkg.com/vue-material@beta/dist/theme/default.css">
+        <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/vuetify@2.x/dist/vuetify.min.css">
+        <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">        
+        <link rel="stylesheet" href="{% static 'css/forms.css' %}">
+        <link rel="stylesheet" href="{% static 'css/general.css' %}">
+        {% block responsive %}
+            <meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1.0, maximum-scale=1.0">
+            <link rel="stylesheet" href="{% static 'css/responsive.css' %}">
+            {% if LANGUAGE_BIDI %}<link rel="stylesheet" href="{% static 'css/responsive_rtl.css' %}">{% endif %}
+        {% endblock responsive %}
+
+        {% if LANGUAGE_BIDI %}<link rel="stylesheet" href="{% block stylesheet_rtl %}{% static 'css/rtl.css' %}{% endblock %}">{% endif %}
+    {% endblock default_styles %}
+    {% block extrastyle %}{% endblock extrastyle %}
+
+    {% block default_javascripts %}
+        <script src="//code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>
+        <script src="//cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
+        <script src="//maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
+        <script src="//cdnjs.cloudflare.com/ajax/libs/sweetalert/2.1.2/sweetalert.min.js" integrity="sha256-KsRuvuRtUVvobe66OFtOQfjP8WA2SzYsmm4VPfMnxms=" crossorigin="anonymous"></script>
+        <script src="//cdnjs.cloudflare.com/ajax/libs/vue/2.6.11/vue.min.js" integrity="sha256-ngFW3UnAN0Tnm76mDuu7uUtYEcG3G5H1+zioJw3t+68=" crossorigin="anonymous"></script>
+        <script src="//cdnjs.cloudflare.com/ajax/libs/vue-resource/1.5.1/vue-resource.min.js" integrity="sha256-e9WxLR4DOP5XKMT4mflXVovZS4mVdiMkAFSDHF+6q80=" crossorigin="anonymous"></script>
+        <script src="//cdnjs.cloudflare.com/ajax/libs/vue-material/1.0.0-beta-11/vue-material.min.js" integrity="sha256-O7zjyHbgUHr68cJKsRoTJXFFqgvDggmIRhtnVz8c+SE=" crossorigin="anonymous"></script>
+        <script src="//cdnjs.cloudflare.com/ajax/libs/vuetify/2.2.14/vuetify.min.js" integrity="sha256-kLVV2vwC76ZJF/qsYy2DfyMrElTsm5MWp+uFynUK2zI=" crossorigin="anonymous"></script>
+        <script src="//cdnjs.cloudflare.com/ajax/libs/axios/0.19.2/axios.min.js" integrity="sha256-T/f7Sju1ZfNNfBh7skWn0idlCBcI3RwdLSS4/I7NQKQ=" crossorigin="anonymous"></script>
+        <script>Vue.use(VueMaterial.default)</script>
+    {% endblock default_javascripts %}
+    {% block extra_javascripts %}{% endblock extra_javascripts %}
+
+    {% block extrahead %}{% endblock %}
+
+    <style>
+        #topbar {
+            padding: 10px 20px;
+            background: rgb(36, 112, 198);
+            display: table;
+            width: 100%;
+        }
+        #topbar_logo {
+            width: 178px; 
+            display: table-cell;
+            margin: -18px 20px 0 0;
+        }
+        #topbar_logo img {
+            height: 40px;
+            width: 138px;
+            margin-top: -15px;
+        }
+        #topbar_page_title {
+            display: table-cell;
+            font-family: inherit;
+            font-weight: 500;
+            font-size: 2rem;
+            color: #fff;
+            text-align: center;
+            width: auto;
+        }
+        #topbar_page_title a {
+            max-height: 40px;
+            overflow: hidden;
+            display: inline-block;
+        }
+        #topbar_user_menu {
+            background: rgb(51, 88, 142);
+            display: table-cell;
+            width: 48px; 
+            height: 20px;
+            border-radius: 50%;
+            color: #fff;
+            text-align: center;
+            vertical-align: middle;
+            font-weight: 900;
+            margin-left: 20px;
+        }
+    </style>
+
+</head>
+
+<body class="{% if is_popup %}popup {% endif %}{% block bodyclass %}{% endblock %}" data-admin-utc-offset="{% now "Z" %}">
+{% block top_javascripts %}{% endblock top_javascripts %}
+
+<!-- BEGIN Container -->
+<div id="container">
+
+    <!-- BEGIN branding -->
+    {% if not is_popup %}{% block branding %}
+
+
+    <div id="branding" class="h-100">
+        <!-- BEGIN topbar -->
+        {% block topbar %}
+        <div id="topbar">
+            <div id="topbar_logo" ><a href="#"><img style="" src="/sead/dashboard/static/img/sead_branco.svg" alt="Educação a Distância"></a></div>
+            <div id="topbar_page_title">{% block page-title %}<a href="{% url 'admin:index' %}">Ecossistema de Gestão em Educação</a>{% endblock %}</div>
+            <div id="topbar_user_menu" @click="r_menu_toogle" ><span><a href="#" class="text-white">{{ suap_ead.user.sigla }}</a></span></div>
+        </div>
+<!--
+        <br>
+
+        <div id="topbar" class="page-container">
+            <div class="md-app" name="reveal">
+                <div id="vuejs_menu" class="md-app-toolbar md-primary menu w-100 text-white" :style="top_menu_style">
+                    <div style="width: 192px;">
+                        <button id="btn-menu" class="md-button md-icon-button f-left d-md-none" @click="l_menu_toogle">
+                            <span class="md-icon text-white">menu</span>
+                        </button>
+                        <div class="d-none d-md-flex flex-row justify-content-left logo">
+                            <img class="w-50 ml-4" src="{% static 'img/sead_branco.svg' %}" alt="Ecossistema de Gestão em Educação">
+                        </div>
+                    </div>
+                    <div style="width: calc(100% - 192px);">
+                        <div class="text-center w-100">
+                            <h2 class="text-white text-center col-10 m-0"><a href="{% url 'admin:index' %}">Ecossistema de Gestão em Educação</a></h2>
+                            <div id="icons-top" class="pr-md-5 h-100 col">
+                                <div class="d-flex flex-row justify-end align-items-center h-100">
+                                    <div class="md-avatar md-avatar-icon d-flex flex-row justify-content-end mr-lg-3" v-if="countNotificationSeen" style="border-radius: 0">
+                                        <span class="md-icon"><a href="#" class="text-white">notifications</a></span>
+                                        <span class="position-absolute" style="top: 5px"><a href="#" class="text-white d-flex justify-content-center align-items-center" style="font-size: 12px; background: red; border-radius: 50%; width: 12px; height: 12px;">${countNotification}</a></span>
+                                    </div>
+                                    <div class="md-avatar md-avatar-icon d-flex flex-row justify-content-end ml-lg-3" v-if="countChatSeen" style="border-radius: 0">
+                                        <span class="md-icon" style="left: 12px;"><a href="#" class="text-white">chat</a></span>
+                                        <span class="position-absolute" style="top: 5px"><a href="#" class="text-white d-flex justify-content-center align-items-center" style="font-size: 12px; background: red; border-radius: 50%; width: 12px; height: 12px;">${countChat}</a></span>
+                                    </div>
+                                    <div id="top-user" class="top-perfil ml-3 ml-md-0" @click="r_menu_toogle" :style="top_perfil_style">
+                                        <span><a href="#" class="text-white">{{ suap_ead.user.sigla }}</a></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    -->
+        {% endblock topbar %}
+        <!-- END topbar -->
+
+        <!-- BEGIN user_menu -->
+        {% block user_menu %}
+        <transition :duration="{ enter: 500, leave: 100 }">
+            <div id="rightmenu" class="right-menu text-white triangle" v-show="r_menu_seen" :style="rightmenu_style">
+                <div id="user-tools" class="d-flex flex-column align-items-center mb-3">
+                    {% block user_menu_options %}
+                        <div class="text-center mt-4">
+                            <span class="md-icon"><a href="#" class="text-white">account_circle</a></span>
+                        </div>
+                        <h5 class="p-4 text-center">
+                            {% trans 'Bem vindo, ' %}<span class="text-bold">{% firstof suap_ead.user.social_name user.get_username %}!</span>
+                        </h5>
+
+                        <select id="select" v-model="selected" class="custom-select select-theme mb-4 w-75" @change="change_color">
+                            <option value="0">${ select_option_default }</option>
+                            <option value="1">Green</option>
+                            <option value="2">Purple</option>
+                        </select>
+                    {% endblock user_menu_options %}
+
+                    {% if user.is_active and user.is_staff %}
+                        {% url 'django-admindocs-docroot' as docsroot %}
+                        {% if docsroot %}
+                            <a href="{{ docsroot }}" class="text-white">{% trans 'Documentation' %}</a>
+                        {% endif %}
+                    {% endif %}
+                    {% if site_url %}
+                        <a href="{{ site_url }}" class="text-center p-2 text-white">{% trans 'View site' %}</a></h5>
+                    {% endif %}
+                    {% if user.has_usable_password %}
+                        <a href="{% url 'admin:password_change' %}" class="text-center p-2 text-white">{% trans 'Change password' %}</a>
+                    {% endif %}
+                    <a href="{% url 'logout' %}" class="text-right p-4 text-white"><span class="material-icons">highlight_off</span>{% trans 'Log out' %}</a>
+                </div>
+            </div>
+        </transition>
+        {% endblock user_menu %}
+        <!-- END user_menu -->
+
+        <!-- BEGIN chat -->{% block chat %}{% endblock chat %}<!-- END chat -->
+    </div>
+    {% endblock branding%}{% endif %}
+    <!-- END branding -->
+
+    <!-- BEGIN content-main -->
+    {% block content_main %}
+    <div id="content-main" class="d-flex w-100">
+        <div id="content-adm" class="w-100" :style="content_style">
+            <!-- BEGIN breadcrumbs -->{% block breadcrumbs %}{% endblock %}<!-- END breadcrumbs -->
+            <div class="d-flex flex-column align-items-center">
+                <!-- BEGIN content -->
+                <div id="content" class="col-12 col-md-11 mt-3">
+                    <!-- BEGIN pretitle -->{% block pretitle %}{% endblock pretitle%}<!-- END pretitle -->
+                    <!-- BEGIN content_title -->{% block content_title %}{% if title %}<h1>{{ title }}</h1>{% endif %}{% endblock content_title%}<!-- END content_title -->
+                    <!-- BEGIN object-tools -->{% block object-tools %}{% endblock object-tools%}<!-- END object-tools -->
+                    <!-- BEGIN content -->{% block content %}{% endblock content %}<!-- END content -->
+                    <!-- BEGIN sidebar -->{% block sidebar %}{% endblock sidebar %}<!-- END sidebar -->
+                    <br class="clear">
+                </div>
+                <!-- END content -->
+            </div>
+        </div>
+    </div>
+    {% endblock content_main %}
+    <!-- END content-main -->
+
+
+    <!-- BEGIN left_menu -->
+    {% if not is_popup %}{% block left_menu %}
+        <div class="d-flex w-100 h-100">
+            {% if all_app_list %}
+                <div id="leftmenu" class="left-menu pt-5 shadow d-none d-md-block" :style="left_menu_style" v-show="l_menu_seen">
+                    <ul class="pt-lg-3">
+                        {% for app in all_app_list %}
+                            <li class="title-menu d-flex flex-column justify-content-center" style="min-height: 4em">
+                                <h5 class="text-left m-0 mb-2" @click="submenu_toogle">
+                                    <a href="#" class="section d-flex align-items-center justify-content-between" title="{% blocktrans with name=app.name %}Models in the {{ name }} application{% endblocktrans %}">
+                                        {% if app.models %}
+                                            <i class="material-icons arrow-right col-1 p-0" v-show="arrow_right_seen">arrow_right</i>
+                                            <i class="material-icons arrow-down col-1 p-0" v-show="arrow_down_seen">arrow_drop_down</i>
+                                        {% endif %}
+                                        <span class="col-1 p-0 m-2 mr-3"><i class="material-icons">cast_for_education</i></span>
+                                        <span class="col-10 p-0 ml-3 font-weight-bold">{{ app.name }}</span>
+                                    </a>
+                                </h5>
+                                <ul class="" v-show="sub_menu_seen">
+                                    {% for model in app.models %}
+                                        <div class="menuLeftModel col-11">
+                                            {% if model.admin_url %}
+                                                <a href="{{ model.admin_url }}" class="text-left"><li style="margin-left: 20%"><h5 class="mt-2 mb-2">{{ model.name }}</h5></li></a>
+                                            {% else %}
+                                                <li><h5 class="text-left ml-4">{{ model.name }}</h5></li>
+                                            {% endif %}
+                                        </div>
+                                    {% endfor %}
+                                </ul>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            {% else %}
+                <div id="leftmenu"></div>
+            {% endif %}
+        </div>
+    {% endblock left_menu %}{% endif %}
+    <!-- END left_menu -->
+   
+        
+    <!-- BEGIN modal -->{% block modal %}<div id="modal" class="modal-back" v-if="modal_seen"></div>{% endblock modal %}<!-- END modal -->
+
+
+    <!-- BEGIN messagelist -->
+    {% if messages %}{% block messages %}
+    <ul class="messages">
+    {% for message in messages %}
+        <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message|capfirst }}</li>
+    {% endfor %}
+    </ul>
+    {% endblock messages %}{% endif %}
+    <!-- END messagelist -->
+
+
+    <!-- BEGIN footer --><div id="footer">{% block footer %}{% endblock %}</div><!-- END footer -->
+
+</div>
+<!-- END Container -->
+
+
+<script src="{% static 'js/general.js' %}"></script>
+{% block bottom_javascripts %}{% endblock bottom_javascripts %}
+
+</body>
+</html>
