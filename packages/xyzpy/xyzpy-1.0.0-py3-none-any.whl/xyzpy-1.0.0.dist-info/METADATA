@@ -1,0 +1,92 @@
+Metadata-Version: 2.1
+Name: xyzpy
+Version: 1.0.0
+Summary: Easily generate large parameter space data
+Home-page: http://xyzpy.readthedocs.io
+Author: Johnnie Gray
+Author-email: johnniemcgray@gmail.com
+License: MIT
+Platform: UNKNOWN
+Classifier: Development Status :: 3 - Alpha
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Requires-Python: >=3.5
+Requires-Dist: numpy (>=1.10.0)
+Requires-Dist: dask (>=0.11.1)
+Requires-Dist: xarray (>=0.9.0)
+Requires-Dist: pandas (>=0.20)
+Requires-Dist: h5py (>=2.6.0)
+Requires-Dist: h5netcdf (>=0.2.2)
+Requires-Dist: joblib (>=0.12)
+Requires-Dist: tqdm (>=4.7.6)
+Provides-Extra: docs
+Requires-Dist: matplotlib ; extra == 'docs'
+Requires-Dist: bokeh ; extra == 'docs'
+Requires-Dist: sphinx ; extra == 'docs'
+Requires-Dist: pydata-sphinx-theme ; extra == 'docs'
+Requires-Dist: nbsphinx ; extra == 'docs'
+Requires-Dist: ipython ; extra == 'docs'
+Provides-Extra: plotting
+Requires-Dist: matplotlib ; extra == 'plotting'
+Requires-Dist: bokeh ; extra == 'plotting'
+Provides-Extra: tests
+Requires-Dist: coverage ; extra == 'tests'
+Requires-Dist: pytest ; extra == 'tests'
+Requires-Dist: pytest-cov ; extra == 'tests'
+
+.. image:: https://dev.azure.com/xyzpy-org/xyzpy/_apis/build/status/jcmgray.xyzpy?branchName=develop
+  :target: https://dev.azure.com/xyzpy-org/xyzpy
+  :alt: Azure CI
+.. image:: https://codecov.io/gh/jcmgray/xyzpy/branch/master/graph/badge.svg
+  :target: https://codecov.io/gh/jcmgray/xyzpy
+  :alt: Code Coverage
+.. image:: https://img.shields.io/lgtm/grade/python/g/jcmgray/xyzpy.svg
+  :target: https://lgtm.com/projects/g/jcmgray/xyzpy/
+  :alt: LGTM Grade
+.. image:: https://readthedocs.org/projects/xyzpy/badge/?version=latest
+  :target: http://xyzpy.readthedocs.io/en/latest/?badge=latest
+  :alt: Documentation Status
+
+-------------------------------------------------------------------------------
+
+`xyzpy <https://github.com/jcmgray/xyzpy>`__ is python library for efficiently
+generating, manipulating and plotting data with a lot of dimensions, of the
+type that often occurs in numerical simulations. It stands wholly atop the
+labelled N-dimensional array library `xarray <http://xarray.pydata.org/en/stable/>`__.
+The project's documentation is hosted on `readthedocs <http://xyzpy.readthedocs.io/>`__.
+
+The aim is to take the pain and errors out of generating and exploring data
+with a high number of possible parameters. This means:
+
+- you don't have to write super nested for loops
+- you don't have to remember which arrays/dimensions belong to which variables/parameters
+- you don't have to parallelize over or distribute runs yourself
+- you don't have to worry about loading, saving and merging disjoint data
+- you don't have to guess when a set of runs is going to finish
+- you don't have to write batch submission scripts or leave the notebook to use SGE, PBS or SLURM
+
+As well as the ability to automatically parallelize over runs, ``xyzpy``
+provides the ``Crop`` object that allows runs and results to be written to disk,
+these can then be run by any process with access to the files - e.g. a batch system
+such as SGE, PBS or SLURM - or just serve as a convenient persistent progress mechanism.
+
+Once your data has been aggregated into a ``xarray.Dataset`` or ``pandas.DataFrame``
+there exists many powerful visualization tools such as
+`seaborn <https://seaborn.pydata.org/>`_, `altair <https://altair-viz.github.io/>`_, and
+`holoviews <https://holoviews.org/#>`_ / `hvplot <https://hvplot.holoviz.org/>`_.
+To these ``xyzpy`` adds also a simple 'oneliner' interface for interactively plotting the data
+using `bokeh <https://bokeh.pydata.org/en/latest/>`__, or for static, publication ready figures
+using `matplotlib <https://matplotlib.org/>`__, whilst being able to see the dependence on
+up to 4 dimensions at once.
+
+.. image:: docs/ex_simple.png
+
+Please see the `docs <http://xyzpy.readthedocs.io/>`__ for more information.
+
+
+
