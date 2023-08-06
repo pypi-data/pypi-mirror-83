@@ -1,0 +1,45 @@
+<configure
+    xmlns="http://namespaces.zope.org/zope"
+    xmlns:browser="http://namespaces.zope.org/browser"
+    xmlns:plone="http://namespaces.plone.org/plone"
+    i18n_domain="imio.gdpr">
+
+  <!-- Set overrides folder for Just-a-Bunch-Of-Templates product -->
+  <include package="z3c.jbot" file="meta.zcml" />
+  <browser:jbot
+      directory="overrides"
+      layer="imio.gdpr.interfaces.IImioGdprLayer"
+      />
+
+  <!-- Publish static files -->
+  <browser:resourceDirectory
+      name="imio.gdpr"
+      layer="imio.gdpr.interfaces.IImioGdprLayer"
+      directory="static"
+      />
+
+  <browser:view
+      for="*"
+      name="gdpr-view"
+      permission="zope2.Public"
+      layer="imio.gdpr.interfaces.IImioGdprLayer"
+      class=".views.GDPRView"
+      />
+
+  <browser:page
+      for="*"
+      name="default_gdpr_text"
+      permission="zope2.Public"
+      class=".views.DefaultPage"
+      />
+
+
+  <browser:page
+      name="gdpr-settings"
+      for="Products.CMFPlone.interfaces.IPloneSiteRoot"
+      class="imio.gdpr.browser.controlpanel.GDPRSettingsControlPanel"
+      layer="imio.gdpr.interfaces.IImioGdprLayer"
+      permission="cmf.ManagePortal"
+      />
+
+</configure>
