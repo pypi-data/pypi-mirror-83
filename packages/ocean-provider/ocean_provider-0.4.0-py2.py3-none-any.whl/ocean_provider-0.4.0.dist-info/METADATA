@@ -1,0 +1,150 @@
+Metadata-Version: 2.1
+Name: ocean-provider
+Version: 0.4.0
+Summary: 🐳 Ocean Provider.
+Home-page: https://github.com/oceanprotocol/provider-py
+Author: leucothia
+Author-email: devops@oceanprotocol.com
+License: Apache Software License 2.0
+Keywords: ocean-provider
+Platform: UNKNOWN
+Classifier: Development Status :: 2 - Pre-Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Natural Language :: English
+Classifier: Programming Language :: Python :: 3.6
+Description-Content-Type: text/markdown
+Requires-Dist: Flask (==1.1.2)
+Requires-Dist: Flask-Cors (==3.0.8)
+Requires-Dist: Flask-RESTful (==0.3.8)
+Requires-Dist: flask-swagger (==0.2.14)
+Requires-Dist: flask-swagger-ui (==3.25.0)
+Requires-Dist: Jinja2 (>=2.10.1)
+Requires-Dist: gunicorn (==20.0.4)
+Requires-Dist: osmosis-azure-driver (==0.1.0)
+Requires-Dist: osmosis-aws-driver (==0.1.0)
+Requires-Dist: osmosis-driver-interface (==0.1.0)
+Requires-Dist: osmosis-on-premise-driver (==0.1.0)
+Requires-Dist: osmosis-ipfs-driver (==0.1.0)
+Requires-Dist: Werkzeug (>=0.15.3)
+Requires-Dist: ocean-lib (>=0.5.0)
+Requires-Dist: requests-testadapter
+Requires-Dist: eciespy
+Provides-Extra: dev
+Requires-Dist: bumpversion ; extra == 'dev'
+Requires-Dist: pkginfo ; extra == 'dev'
+Requires-Dist: twine ; extra == 'dev'
+Requires-Dist: watchdog ; extra == 'dev'
+Requires-Dist: codacy-coverage ; extra == 'dev'
+Requires-Dist: coverage ; extra == 'dev'
+Requires-Dist: docker ; extra == 'dev'
+Requires-Dist: mccabe ; extra == 'dev'
+Requires-Dist: pylint ; extra == 'dev'
+Requires-Dist: pytest ; extra == 'dev'
+Requires-Dist: pytest-watch ; extra == 'dev'
+Requires-Dist: tox ; extra == 'dev'
+Requires-Dist: plecos ; extra == 'dev'
+Provides-Extra: test
+Requires-Dist: codacy-coverage ; extra == 'test'
+Requires-Dist: coverage ; extra == 'test'
+Requires-Dist: docker ; extra == 'test'
+Requires-Dist: mccabe ; extra == 'test'
+Requires-Dist: pylint ; extra == 'test'
+Requires-Dist: pytest ; extra == 'test'
+Requires-Dist: pytest-watch ; extra == 'test'
+Requires-Dist: tox ; extra == 'test'
+Requires-Dist: plecos ; extra == 'test'
+
+# provider-py
+REST API for provider of data services
+
+This is part of the Ocean Protocol V3 tools.
+
+This is feature complete and is a BETA version.  
+
+## Starting the server locally
+
+### Quick start
+Uses the rinkeby network with a remote metadatastore instance running at https://aquarius.marketplace.dev-ocean.com 
+
+```bash
+git clone git@github.com:oceanprotocol/provider-py.git
+cd provider-py/
+
+virtualenv venv -p python3.6
+source venv/bin/activate 
+
+pip install -r requirements_dev.txt
+export FLASK_APP=ocean_provider/run.py
+export CONFIG_FILE=config.ini
+export PROVIDER_ADDRESS="068ed00cf0441e4829d9784fcbe7b9e26d4bd8d0"
+export PROVIDER_PASSWORD="secret"
+export PROVIDER_KEYFILE="tests/resources/provider_key_file.json"
+export AQUARIUS_URL="https://aquarius.marketplace.dev-ocean.com"
+
+export PARITY_ADDRESS1="0x00bd138abd70e2f00903268f3db08f2d25677c9e"
+export PARITY_PASSWORD1="node0"
+export PARITY_KEYFILE1="tests/resources/consumer_key_file.json"
+
+flask run --port=8030
+
+```
+
+### Detailed steps
+
+#### 1. Clone the repo
+```bash
+git clone git@github.com:oceanprotocol/provider-py.git
+cd provider-py/
+```
+
+#### 2. Virtual env (optional)
+Before running it locally we recommend to set up virtual environment:
+
+```bash
+virtualenv venv -p python3.6
+# OR: python -m venv venv
+source venv/bin/activate 
+```
+
+#### 3. Requirements
+
+Install all the requirements:
+
+```
+pip install -r requirements_dev.txt
+```
+
+#### 4. Dependencies
+
+*Metadata store (Aquarius).* Do one of the following:
+* Run Aquarius locally, see https://github.com/oceanprotocol/aquarius
+* Point to a remote instance such as `https://aquarius.marketplace.dev-ocean.com`. 
+In this case replace the `aquarius.url` option in the `config.ini` file with the appropriate URL.
+
+
+*Ethereum network.* Do one of the following:
+* Run ganache-cli
+* Point to rinkeby testnet or any other ethereum network
+
+Make sure that ocean contracts (https://github.com/oceanprotocol/contracts) are deployed to the your network of choice. 
+Update the `network` option in the `config.ini` file with the proper network URL. For now it must be a URL, a simple network name (e.g. mainnet) will be supported in the future.
+
+#### 5. Start the provider server
+```bash
+export FLASK_APP=ocean_provider/run.py
+export CONFIG_FILE=config.ini
+export PROVIDER_ADDRESS="your ethereum address goes here"
+# Set one of the following
+export PROVIDER_KEY="the private key"
+export PROVIDER_ENCRYPTED_KEY="The encrypted key json from the keyfile"
+export PROVIDER_KEYFILE="path to the keyfile which has the encrypted key"
+# and set the password if using either PROVIDER_KEYFILE or PROVIDER_ENCRYPTED_KEY
+export PROVIDER_PASSWORD="password to allow decrypting the encrypted key"
+
+flask run --port=8030
+```
+
+Refer to the [API.md](API.md) file for endpoints and payloads.
+
+
