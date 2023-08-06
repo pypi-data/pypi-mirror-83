@@ -1,0 +1,12 @@
+gdh_mappings = dict(DSI_GDA_BIGDATA_MOE_DEV="dsi_moe_dev_bigdata",
+                    DSI_GDA_BIGDATA_MOE_PREPROD="dsi_moe_bigdata_preprod",
+                    DSI_GDA_BIGDATA_MOE_ANALYSTE_PROD="dsi_moe_analyste_bigdata_prod",
+                    DSI_GDA_BIGDATA_MOE_PROD="dsi_moe_bigdata_prod",
+                    DCSI_GDA_METIER_CONSULTANT_OCRFS_BIGDATA="dcsi_gda_metier_consultant_ocrfs_bigdata",
+                    DCSI_GDA_METIER_EXPLOITANT_OCRFS="dcsi_gda_metier_exploitant_ocrfs",
+                    DCSI_GDA_SOCLE_CONSULTANT_BIGDATA="dcsi_gda_socle_consultant_bigdata",
+                    DSI_GDA_BIGDATA_DATAS_ANALYSTE_PROD="dsi_datas_analyste_bigdata_prod",
+                    DSI_GDA_BIGDATA_DATAS_PROD="dsi_datas_bigdata_prod",
+                    DSI_GDA_BIGDATA_DATAS_ANALYSTE_PROJET="dsi_gda_bigdata_datas_analyste_projet",
+                    DCSI_GDA_METIER_EXPLOITANT_SECURITE="dcsi_gda_metier_exploitant_securite",
+                    DSI_GDA_BIGDATA_DATAS_PREPROD="dsi_datas_bigdata_preprod")
