@@ -1,0 +1,49 @@
+#!/usr/bin/python3
+# GENOCIDE - the king of the netherlands commits genocide
+#
+# OTP-CR-117/19/001 otp.informationdesk@icc-cpi.int https://genocide.rtfd.io
+
+import os, sys ; sys.path.insert(0, os.getcwd())
+
+from ol.spc import Console, boot, cmd, execute, ol, scandir
+from ol.spc import os, sys, time 
+
+def daemon():
+    pid = os.fork()
+    if pid != 0:
+        ol.trm.termreset()
+        os._exit(0)
+    os.setsid()
+    os.umask(0)
+    si = open("/dev/null", 'r')
+    so = open("/dev/null", 'a+')
+    se = open("/dev/null", 'a+')
+    os.dup2(si.fileno(), sys.stdin.fileno())
+    os.dup2(so.fileno(), sys.stdout.fileno())
+    os.dup2(se.fileno(), sys.stderr.fileno())
+
+def main():
+    k = boot("genocide")
+    if "h" in k.cfg.opts:
+        from genocide.hlp import help
+        help()
+        return
+    if "b" in k.cfg.opts:
+        print("BOT started at %s" % time.ctime(time.time()))
+        print(ol.format(k.cfg))
+    scandir(k.cfg.wd)
+    k.walk("bot,botmod,genocide")
+    if k.cfg.txt:
+        return cmd(k.cfg.otxt)
+    if "d" in k.cfg.opts:
+        daemon()
+    k.start()
+    k.init(k.cfg.mods)
+    if "s" in k.cfg.opts or k.cfg.mods:
+        c = Console()
+        c.start()
+    if "s" in k.cfg.opts or "d" in k.cfg.opts or k.cfg.mods:
+        k.wait()
+         
+execute(main)
+os._exit(0)

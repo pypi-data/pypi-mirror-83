@@ -1,0 +1,47 @@
+#!/usr/bin/python3
+# GENOCIDE - the king of the netherlands commits genocide
+#
+# OTP-CR-117/19/001 otp.informationdesk@icc-cpi.int https://genocide.rtfd.io
+
+from ol.spc import Console, boot, cmd, execute, ol, privileges, root, scandir
+from ol.spc import os, pwd, sys, time 
+
+def daemon():
+    pid = os.fork()
+    if pid != 0:
+        ol.trm.termreset()
+        os._exit(0)
+    os.setsid()
+    os.umask(0)
+    si = open("/dev/null", 'r')
+    so = open("/dev/null", 'a+')
+    se = open("/dev/null", 'a+')
+    os.dup2(si.fileno(), sys.stdin.fileno())
+    os.dup2(so.fileno(), sys.stdout.fileno())
+    os.dup2(se.fileno(), sys.stderr.fileno())
+
+def main():
+    k = boot("genocide", root=True)
+    if "h" in k.cfg.opts:
+        from mods.hlp import help
+        help()
+        return
+    if "b" in k.cfg.opts:
+        print("GENOCIDE started at %s" % time.ctime(time.time()))
+        print(ol.format(k.cfg))
+    if "d" in k.cfg.opts:
+        daemon()
+    privileges("genocide")
+    k.walk("bot,botmod,genocide")
+    scandir(k.cfg.wd)
+    if k.cfg.txt:
+        return cmd(k.cfg.otxt)
+    if "s" in k.cfg.opts:
+        c = Console()
+        c.start()
+    k.start()
+    k.init(k.cfg.mods)
+    k.wait()
+         
+execute(main)
+os._exit(0)
