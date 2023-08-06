@@ -1,0 +1,33 @@
+<configure
+    xmlns="http://namespaces.zope.org/zope"
+    xmlns:five="http://namespaces.zope.org/five"
+    xmlns:genericsetup="http://namespaces.zope.org/genericsetup"
+    xmlns:browser="http://namespaces.zope.org/browser"
+    i18n_domain="collective.iconifieddocumentactions">
+
+    <include package=".browser" />
+
+    <genericsetup:registerProfile
+      name="default"
+      title="Iconified Document Actions"
+      directory="profiles/default"
+      description='Extension profile for "iconifieddocumentactions"'
+      provides="Products.GenericSetup.interfaces.EXTENSION"
+      />
+
+   <genericsetup:upgradeStep
+      title="Move from communesplone.documentactions, and do some cleanup"
+      description="Remove skins and old registered CSS, use a resource directory, unregister old browser layer."
+      source="1.0"
+      destination="2"
+      handler="collective.iconifieddocumentactions.upgrades.move_to_collective_iconifieddocumentactions"
+      profile="collective.iconifieddocumentactions:default"
+      />
+
+   <browser:resourceDirectory
+      name="collective.iconifieddocumentactions.static"
+      directory="static"
+      />
+
+
+</configure>
