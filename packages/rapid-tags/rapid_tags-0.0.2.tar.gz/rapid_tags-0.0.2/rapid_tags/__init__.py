@@ -1,0 +1,1 @@
+from .rapid_tags import RapidTags
