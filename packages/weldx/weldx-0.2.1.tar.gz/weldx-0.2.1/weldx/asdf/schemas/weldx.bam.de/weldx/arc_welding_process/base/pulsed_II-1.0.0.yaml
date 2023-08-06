@@ -1,0 +1,33 @@
+%YAML 1.1
+---
+$schema: "http://stsci.edu/schemas/yaml-schema/draft-01"
+id: "http://weldx.bam.de/schemas/weldx/arc_welding_process/base/pulsed_II-1.0.0"
+
+title: |
+  GMAW pulsed process - II.
+
+description: |
+  Base schema describing a default II modulated pulsed GMAW processes.
+
+type: object
+properties:
+  modulation:
+    type: string
+    enum: [II]
+  wire_feedrate:
+    $ref: "http://weldx.bam.de/schemas/weldx/arc_welding_process/base/pulsed_parameters-1.0.0#/definitions/wire_feedrate"
+
+  pulse_current:
+    $ref: "http://weldx.bam.de/schemas/weldx/arc_welding_process/base/pulsed_parameters-1.0.0#/definitions/pulse_current"
+
+  pulse_duration:
+    $ref: "http://weldx.bam.de/schemas/weldx/arc_welding_process/base/pulsed_parameters-1.0.0#/definitions/pulse_duration"
+
+  pulse_frequency:
+    $ref: "http://weldx.bam.de/schemas/weldx/arc_welding_process/base/pulsed_parameters-1.0.0#/definitions/pulse_frequency"
+
+  base_current:
+    $ref: "http://weldx.bam.de/schemas/weldx/arc_welding_process/base/pulsed_parameters-1.0.0#/definitions/base_current"
+
+required: [modulation, wire_feedrate, pulse_current, pulse_duration, pulse_frequency, base_current]
+...
