@@ -1,0 +1,39 @@
+<div class="fac-info">
+  <div class="info-content" *ngIf="facility">
+      <ng-container *ngIf="facility.properties as props">
+      <div class="header">
+          <h1 class="info-header">{{ props.name }}</h1>
+          <p class="type">Type: {{ props.props_type }}</p>
+          <p class="desc" *ngIf="props.description">{{ props.description }}</p>
+          <p class="location">{{ (props.lat_max + props.lat_min) / 2 }}, {{ (props.lon_max + props.lon_min) / 2 }}
+      </div>
+
+      <div class="fragility">
+          <h2>Fagility</h2>
+          <p>Metric: {{ props.metric }}</p>
+          <table class="colors-table" style="width:100%;text-align:center">
+              <tr>
+                  <th *ngIf="props.green" style="background-color:green;">
+                      {{ props.green }}
+                  </th>
+                  <th *ngIf="props.yellow" style="background-color:gold;">
+                      {{ props.yellow }}
+                  </th>
+                  <th *ngIf="props.orange" style="background-color:orange;">
+                      {{ props.orange }}
+                  </th>
+                  <th *ngIf="props.red" style="background-color:red;">
+                      {{ props.red }}
+                  </th>
+              </tr>
+          </table>
+      </div>
+
+      <h2 class="info-header">Shaking History</h2>
+
+      <div class="eq-list">
+          <earthquake-list></earthquake-list>
+      </div>
+    </ng-container>
+  </div>
+</div>

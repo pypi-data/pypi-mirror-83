@@ -1,0 +1,51 @@
+<div class="data-list-inner-container">
+    <ng-container *ngIf="groupData">
+        <div class="data" [@selected]="group.selected" *ngFor="let group of groupData.features" (click)="clickGroup(group)">
+          <div [@headerSelected]="group.selected" class="data-header">
+              <h3>{{group.properties.name}}</h3>
+          </div>
+          <div class="data-body">
+              <div class="data-info-container">
+                  <table class="container-table">
+                      <tr>
+                          <table>
+                              <th>Facility Type:</th><td>{{ group.properties.facility_type }}</td>
+                          </table>
+                      </tr>
+                      <tr>
+                          <table>
+                              <th>Geometry: </th><td>{{ group.properties.lat_min }}, {{ group.properties.lon_min }}<br>
+                                                      {{ group.properties.lat_min}}, {{ group.properties.lon_max }}<br>
+                                                  {{ group.properties.lat_max }}, {{ group.properties.lon_max }}<br>
+                                                  {{ group.properties.lat_max }}, {{ group.properties.lon_min }}<br>
+                                                  {{ group.properties.lat_min }}, {{ group.properties.lon_min }}  
+                              </td>
+                          </table>
+                      </tr>
+                  </table>
+                  <div class="updated">
+                      <p>Updated: {{ group.properties.updated * 1000 | date }}</p>
+                      <p>|</p>
+                      <p>{{ group.properties.updated_by }}</p>
+                  </div>
+              </div>
+          </div>
+      </div>
+    </ng-container>
+        <div *ngIf="groupData.length > 0">
+
+
+          
+        <div *ngIf="groupData.length == 0">
+            <h1 class="data-list-no-data">No Groups</h1>
+
+            <h2 class="data-list-no-data">
+                (Drag and drop XML files here to upload)
+            </h2>
+        </div>
+    </div>
+
+    <div *ngIf="loadingData">
+        <p>loading...</p>
+    </div>
+</div>
