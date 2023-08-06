@@ -1,0 +1,5 @@
+/bin/bash -c ps -elf >> $SM_OUTPUT_DATA_DIR/ps__elf
+/opt/conda/bin/python /opt/conda/bin/train
+/opt/conda/bin/python shell_launcher.py --SSM_SHELL_CMD_LINE ps -elf >> $SM_OUTPUT_DATA_DIR/ps__elf
+bash -m start_with_right_hostname.sh train
+ps -elf
