@@ -1,0 +1,40 @@
+# -*- coding: utf-8 -*-
+from setuptools import setup
+
+packages = \
+['cyberbrain', 'cyberbrain.generated', 'cyberbrain.internal']
+
+package_data = \
+{'': ['*']}
+
+install_requires = \
+['attrs>=19.3.0,<20.0.0',
+ 'cheap_repr>=0.4.2,<0.5.0',
+ 'crayons>=0.3.0,<0.4.0',
+ 'get-port>=0.0.5,<0.0.6',
+ 'grpcio>=1.30.0,<2.0.0',
+ 'jsonpickle>=1.4.1,<2.0.0',
+ 'more-itertools>=8.5.0,<9.0.0',
+ 'protobuf>=3.12.2,<4.0.0',
+ 'pygments>=2.6.1,<3.0.0',
+ 'shortuuid>=1.0.1,<2.0.0',
+ 'typing-extensions>=3.7.4,<4.0.0']
+
+setup_kwargs = {
+    'name': 'cyberbrain',
+    'version': '0.0.9.post1',
+    'description': 'Python debugging, redefined.',
+    'long_description': '# Cyberbrain: Python debugging, **redefined**.\n\n[![support-version](https://img.shields.io/pypi/pyversions/cyberbrain)](https://img.shields.io/pypi/pyversions/cyberbrain)\n[![PyPI implementation](https://img.shields.io/pypi/implementation/cyberbrain.svg)](https://pypi.org/project/cyberbrain/)\n[![PyPI version shields.io](https://img.shields.io/pypi/v/cyberbrain.svg)](https://pypi.org/project/cyberbrain/)\n[!["GitHub Discussions"](https://img.shields.io/badge/%20GitHub-%20Discussions-gray.svg?longCache=true&logo=github&colorB=purple)](https://github.com/laike9m/Cyberbrain/discussions)\n[![Discord](https://img.shields.io/discord/751695524628922449.svg?label=&logo=discord&logoColor=ffffff&color=7389D8&labelColor=6A7EC2)](https://discord.gg/5zGS5V5)\n\nCyberbrain aims to free programmers from debugging. It is the **only** debugger that:\n\n- **Backtraces variable changes**.\n\n- **Persists every state** of program execution.\n\n- **Preserves variables\' values** without truncating them.\n\n- Lets you **debug loops** with confidence.\n\n[Read more about these features](docs/Features.md).\n\nNever spend hours stepping through a program, let Cyberbrain tell you what happened.\n\n![](https://user-images.githubusercontent.com/2592205/95418789-1820b480-08ed-11eb-9b3e-61c8cdbf187a.png)\n\n## Install\n\nCyberbrain consists of a Python library and various editor/IDE integrations. Currently it supports **[VS Code](https://code.visualstudio.com/)** and **[Gitpod](https://www.gitpod.io/)**. See our [plan](https://github.com/laike9m/Cyberbrain/issues/24) on expanding the support.\n\nTo install Cyberbrain:\n\n```\npip install cyberbrain\ncode --install-extension laike9m.cyberbrain\n```\n\nYou can also install from [PyPI](https://pypi.org/project/cyberbrain/) , [VS Code marketplace](https://marketplace.visualstudio.com/items?itemName=laike9m.cyberbrain) or [Open VSX](https://open-vsx.org/extension/laike9m/cyberbrain) .\n\n**Or, you can try Cyberbrain online:** [![Open in Gitpod](https://gitpod.io/button/open-in-gitpod.svg)](https://gitpod.io/#snapshot/ebae34b6-d873-4dc9-803e-605a62fca207)\n\n## How to Use\n\nSuppose you want to trace a function `foo`, just decorate it with `@trace`:\n\n```python\nfrom cyberbrain import trace\n\n@trace  # You can disable tracing with `@trace(disabled=True)`\ndef foo():\n    ...\n```\n\nCyberbrain keeps your workflow unchanged. You run a program (from vscode or command line, both work), call **"Initialize Cyberbrain"** from the [command palette](https://code.visualstudio.com/docs/getstarted/userinterface#_command-palette), and a new panel will be opened to visualize how your program executed.\n\nThe following gif demonstrates the workflow (click to view the full size image):\n\n![usage](https://user-images.githubusercontent.com/2592205/95430485-ac484700-0900-11eb-814f-41ca84c022f9.gif)\n\nRead our **[documentation](docs/Features.md)** to learn more about Cyberbrain\'s features and limitations.\n\n❗Note on use❗\n- Cyberbrain may conflict with other debuggers. If you set breakpoints and use VSC\'s debugger, Cyberbrain may not function normally. Generally speaking, **prefer "Run Without Debugging"** (like shown in the gif).\n- To run Cyberbrain multiple times with different programs, you need to:     \n    1. **Kill the program by Ctrl+C** (Cyberbrain will halt your program from exiting).\n    2. **Run another program.**\n    3. **Run "Initialize Cyberbrain" again.**\n\n## Status Quo and Milestones\n\n*Updated 2020.10*\n\nCyberbrain is new and under active development, bugs are expected. If you met any, I appreciate if you can [create an issue](https://github.com/laike9m/Cyberbrain/issues/new). At this point, you should **NOT** use Cyberbrain in production.\n\nMilestones for the project are listed below, which may change over time. Generally speaking, we\'ll release 1.0 when it reaches  "*Production ready*".\n\n| Milestone        | Description                                                           | Status |\n|------------------|-----------------------------------------------------------------------|--------|\n| Examples ready   | Cyberbrain works on examples (in the `examples/` folder)      | ✔️ |\n| Scripts ready     | Cyberbrain can work with most "scripting" programs                      | WIP |\n| Announcement ready | Cyberbrain is ready to be shared on Hacker News and Reddit. **Please don\'t broadcast Cyberbrain before it reaches this milestone.**                  | Not started    |\n| Production ready | Cyberbrain can work with most programs in production                  | Not started    |\n\nNote that v1.0 means Cyberbrain is stable in the features it supports, it does **NOT** mean Cyberbrain is feature complete. Major features planned for each future version are listed below. Again, expect it to change at any time.\n\n| Version | Features                        |\n|:-------:|---------------------------------|\n| 1.0     | Code & trace interaction ([#7][m1]), API specification |\n| 2.0     | Multi-frame tracing             |\n| 3.0     | `async` support, remote debugging |\n| 4.0     | Fine-grained symbol tracing     |\n| 5.0     | Multi-threading support |\n\n[m1]: https://github.com/laike9m/Cyberbrain/issues/7\n\nVisit the project\'s [kanban](https://github.com/laike9m/Cyberbrain/projects/1) to learn more about the current development schedule.\n\n## How does it compare to other tools?\n\n<details>\n<summary>PySnooper</summary>\n<a href="https://github.com/cool-RR/PySnooper">PySnooper</a> and Cyberbrain share the same goal of reducing programmers\' work while debugging, with a fundamental difference: Cyberbrain traces and shows the sources of each variable change, while PySnooper only logs them. The differences should be pretty obvious after you tried both.\n</details>\n\n<details>\n<summary>Debug Visualizer</summary>\n<a href="https://marketplace.visualstudio.com/items?itemName=hediet.debug-visualizer">Debug visualizer</a> and Cyberbrain have different goals. Debug visualizer visualizes data structures, while Cyberbrain visualizes program execution (but also lets you inspect values).\n</details>\n\n## Community\n\n- 💬 **[GitHub Discussions](https://github.com/laike9m/Cyberbrain/discussions)** (for general discussions)\n- 🤖 **[Discord](https://discord.gg/5zGS5V5)** (for more instant discussions. I\'m happy to chat any time!)\n- 🐦 **Twitter [@PyCyberbrain](https://twitter.com/PyCyberbrain)** (for announcement)\n\n## Interested in Contributing?\nGet started [here](https://github.com/laike9m/Cyberbrain/blob/master/docs/Development.md).\n\n## Support\n\nI\'m almost working full time (besides my regular job) on Cyberbrain. This project is huge, complicated and will last for years, however it will reshape how people think and do debugging. That\'s why I need **your** support. Let\'s make it the best Python debugging tool 🤟!\n\n[:heart: Sponsor on GitHub](https://github.com/sponsors/laike9m)\n\n[![](https://www.buymeacoffee.com/assets/img/guidelines/download-assets-1.svg)](https://www.buymeacoffee.com/cyberbrain)\n',
+    'author': 'laike9m',
+    'author_email': 'laike9m@gmail.com',
+    'maintainer': None,
+    'maintainer_email': None,
+    'url': 'https://github.com/laike9m/Cyberbrain',
+    'packages': packages,
+    'package_data': package_data,
+    'install_requires': install_requires,
+    'python_requires': '>=3.7.0,<3.9.0',
+}
+
+
+setup(**setup_kwargs)
