@@ -1,0 +1,62 @@
+dist: xenial
+os:
+  - linux
+services:
+  - xvfb
+language: python
+sudo: false
+addons:
+  apt:
+    packages:
+      - gfortran
+      - gcc
+      - libgrib-api-dev
+notifications:
+  email: false
+
+jobs:
+  include:
+    - name: "Testing geopathfinder for Python 3.6"
+      install:
+        - wget http://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh;
+        - bash miniconda.sh -b -p $HOME/miniconda
+        - export PATH="$HOME/miniconda/bin:$PATH"
+        - hash -r
+        - conda config --set always_yes yes --set changeps1 no
+        - conda update -q conda
+        # Useful for debugging any issues with conda
+        - conda info -a
+        - conda env create -f conda_env_py36.yml
+        - source activate geopathfinder
+        - python setup.py install
+        - python setup.py test
+        - pip list
+        - conda list
+        - which pip
+        - which python
+    - name: "Testing geopathfinder for Python 3.7"
+      after_success:
+        # report coverage results to coveralls.io
+        - pip install coveralls
+        - coveralls
+      install:
+        - wget http://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh;
+        - bash miniconda.sh -b -p $HOME/miniconda
+        - export PATH="$HOME/miniconda/bin:$PATH"
+        - hash -r
+        - conda config --set always_yes yes --set changeps1 no
+        - conda update -q conda
+        # Useful for debugging any issues with conda
+        - conda info -a
+        - conda env create -f conda_env_py37.yml
+        - source activate geopathfinder
+        - python setup.py install
+        - python setup.py test
+        - pip list
+        - conda list
+        - which pip
+        - which python
+
+
+script: python setup.py test
+
