@@ -1,0 +1,1 @@
+This package is useful for application of k-NN, PLM (Partial Linear Model) and Sieves approches for the estimation of ATE.
