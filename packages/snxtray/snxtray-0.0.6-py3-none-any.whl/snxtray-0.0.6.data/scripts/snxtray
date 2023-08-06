@@ -1,0 +1,212 @@
+#!python
+import os
+import sys
+from string import Template
+from subprocess import TimeoutExpired
+from subprocess import Popen, PIPE
+
+import logging
+import psutil
+import wx.adv
+import argparse
+import shutil
+
+from utils import config
+
+TRAY_TOOLTIP = 'SNX System Tray'
+
+
+
+def create_menu_item(menu, label, func):
+    item = wx.MenuItem(menu, -1, label)
+    menu.Bind(wx.EVT_MENU, func, id=item.GetId())
+    menu.Append(item)
+    return item
+
+
+class TaskBarIcon(wx.adv.TaskBarIcon):
+    def __init__(self, frame):
+        self.frame = frame
+        super(TaskBarIcon, self).__init__()
+        self.set_icon(config.TRAY_ICON)
+        self.Bind(wx.adv.EVT_TASKBAR_LEFT_DOWN, self.on_connect)
+        if self.check_if_snx_is_running():
+            self.set_icon(config.TRAY_ICON_OK)
+        self.password = None
+
+    def CreatePopupMenu(self):
+        menu = wx.Menu()
+        create_menu_item(menu, 'Connect', self.on_connect)
+        create_menu_item(menu, 'Reconnect', self.on_reconnect)
+        create_menu_item(menu, 'Disconnect', self.on_disconnect)
+        create_menu_item(menu, 'Check if SNX is running', self.on_check_if_snx_is_running)
+        menu.AppendSeparator()
+        create_menu_item(menu, 'Exit', self.on_exit)
+        return menu
+
+    def on_reconnect(self, event):
+        self.snx_disconnect()
+        self.on_connect(event)
+
+    def on_connect(self, event):
+        if not self.password:
+            window = wx.PasswordEntryDialog(self.frame, "Password")
+            window.ShowModal()
+            self.password = window.GetValue()
+        if self.snx_connect(passwd=self.password):
+            self.set_icon(config.TRAY_ICON_OK)
+        else:
+            self.set_icon(config.TRAY_ICON_ERROR)
+            self.password = None
+        if not config.keep_passwd:
+            self.password = None
+        for command in config.USER_POST_UP:
+            p = Popen(command, stdin=PIPE, stdout=PIPE, stderr=PIPE)
+            p.communicate(timeout=25)
+
+
+    def on_disconnect(self, event):
+        if self.snx_disconnect():
+            self.set_icon(config.TRAY_ICON)
+        else:
+            self.set_icon(config.TRAY_ICON_ERROR)
+        for command in config.USER_POST_DOWN:
+            p = Popen(command, stdin=PIPE, stdout=PIPE, stderr=PIPE)
+            p.communicate(timeout=25)
+
+    def snx_connect(self, passwd):
+        passwd = passwd + "\n"
+        try:
+            command = ['snx', '-s', config.server, '-c', config.cert]
+            if config.elevate:
+                command.insert(0, config.elevate)
+                if config.elevate == 'hooks':
+                    command = ['pkexec', '/etc/snxtray/up']
+            snx = Popen(command, stdin=PIPE, stdout=PIPE, stderr=PIPE)
+            out, _ = snx.communicate(input=bytes(passwd, "utf-8"), timeout=25)
+            if b"SNX - connected." in out:
+                return True
+            else:
+                logging.error(out)
+                return False
+        except FileNotFoundError:
+            error = wx.MessageDialog(self.frame, "snx not in PATH")
+            error.ShowModal()
+            return False
+
+    def snx_disconnect(self):
+        no_snx = b"no snx process running."
+        ok = b"done."
+        try:
+            command = ['snx', '-d']
+            if config.elevate:
+                command.insert(0, config.elevate)
+                if config.elevate == 'hooks':
+                    command = ['pkexec', '/etc/snxtray/down']
+            snx = Popen(command, stdin=PIPE, stdout=PIPE, stderr=PIPE)
+            out, _ = snx.communicate()
+            if no_snx in out or ok in out:
+                return True
+        except FileNotFoundError:
+            error = wx.MessageDialog(self.frame, "snx not in PATH")
+            error.ShowModal()
+            return False
+        return False
+
+    def on_check_if_snx_is_running(self, event):
+        if self.check_if_snx_is_running():
+            self.set_icon(config.TRAY_ICON_OK)
+        else:
+            self.set_icon(config.TRAY_ICON)
+
+    def check_if_snx_is_running(self, name="snx"):
+        for proc in psutil.process_iter():
+            try:
+                if name.lower() == proc.name().lower():
+                    return True
+            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                pass
+        return False
+
+    def set_icon(self, path):
+        icon = wx.Icon(wx.Bitmap(path))
+        self.SetIcon(icon, TRAY_TOOLTIP)
+
+    def on_left_down(self, event):
+        self.on_connect(event)
+
+    def on_exit(self, event):
+        wx.CallAfter(self.Destroy)
+        self.frame.Close()
+
+
+class App(wx.App):
+    Init = True
+
+    def OnInit(self):
+        frame = wx.Frame(None)
+        self.SetTopWindow(frame)
+        TaskBarIcon(frame)
+        return True
+
+def inithooks():
+    if os.geteuid() == 0:
+        if not os.path.exists('/etc/snxtray'):
+            os.makedirs('/etc/snxtray')
+        shutil.copy(config.UP, '/usr/share/polkit-1/actions/')
+        shutil.copy(config.DOWN, '/usr/share/polkit-1/actions/')
+        shutil.copy(config.POST_UP, '/usr/share/polkit-1/actions/')
+        shutil.copy(config.POST_DOWN, '/usr/share/polkit-1/actions/')
+        with open('/etc/snxtray/up','w') as up:
+            up.write('#!/bin/bash\n')
+            up.write(Template('snx -s $server -c $cert\n').substitute({'server': config.server, 'cert': config.cert}))
+            up.write('/etc/snxtray/post-up')
+        with open('/etc/snxtray/down','w') as up:
+            up.write('#!/bin/bash\n')
+            up.write('snx -d\n')
+            up.write('/etc/snxtray/post-down')
+        with open('/etc/snxtray/post-up','w') as up:
+            up.write('#!/bin/bash')
+        with open('/etc/snxtray/post-down','w') as up:
+            up.write('#!/bin/bash')
+        os.chmod('/etc/snxtray/up', 0o0555)
+        os.chmod('/etc/snxtray/down', 0o0555)
+        os.chmod('/etc/snxtray/post-up', 0o0555)
+        os.chmod('/etc/snxtray/post-down', 0o0555)
+        return True
+    else:
+        print('root required')
+        return False
+
+
+def main():
+
+    parser = argparse.ArgumentParser(prog='snxtry', description='manage your snx from your systemtry')
+    parser.add_argument('--init-hooks', action='store_true', dest='inithooks', default=False,
+                        help='install hook with pkexec needs sudo')
+    parser.add_argument('-d', action='store_true', dest='daemon', default=False,
+                        help='fork to background')
+    results = vars(parser.parse_args())
+
+    if results['inithooks'] == True:
+        config.init()
+        if inithooks():
+            sys.exit(0)
+        else:
+            sys.exit(1)
+
+    if results['daemon'] == True:
+        if os.fork():
+            sys.exit()
+
+    config.init()
+
+
+
+    app = App(False)
+
+    app.MainLoop()
+
+
+if __name__ == '__main__':
+    main()
