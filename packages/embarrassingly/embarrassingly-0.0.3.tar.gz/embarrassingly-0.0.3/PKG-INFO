@@ -1,0 +1,31 @@
+Metadata-Version: 2.1
+Name: embarrassingly
+Version: 0.0.3
+Summary: Does one thing
+Home-page: https://github.com/microprediction/embarrassingly
+Author: microprediction
+Author-email: pcotton@intechinvestments.com
+License: MIT
+Description: # embarrassingly
+        parallel
+        
+        ### Example
+        
+            from embarrassingly.parallel import Parallel
+            import optuna
+        
+            def pre_objective(worker, trial):
+                print('Hi this is worker ' + str(worker))
+                x = [trial.suggest_float('x' + str(i), 0, 1) for i in range(3)]
+                return x[0] + x[1] * x[2]
+            
+            def test_optuna():
+                objective = Parallel(pre_objective, num_workers=7)
+                study = optuna.create_study()
+                study.optimize(objective, n_trials=15)
+        
+Platform: UNKNOWN
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.7
+Description-Content-Type: text/markdown
