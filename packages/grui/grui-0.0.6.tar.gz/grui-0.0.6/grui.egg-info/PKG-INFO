@@ -1,0 +1,47 @@
+Metadata-Version: 2.1
+Name: grui
+Version: 0.0.6
+Summary: An ready to use exposer from services oriented code
+Home-page: https://gitlab.com/olive007/grui
+Author: SECRET Olivier
+Author-email: pypi-package-grui@devo.live
+License: UNKNOWN
+Description: # Grui
+        
+        Generated Rest User Interface
+        
+        This package allow developer to expose function to the web. GRUI will generate a Rest API from the class.
+        An HTTP page will also be generated. The main idea is to focus the code on the functionality. 
+        
+        ## Code examples 
+        ```python
+        from typing import *
+        
+        from grui import AbstractGruiService
+        from grui.decorator import *
+        
+        class MySuperService(AbstractGruiService):
+            """The documentation will be available to end user.
+        
+            Longer description will be display into the help page of the service.
+            """
+        
+            @Get("my-super-path")
+            @NotFoundIfEmpty  # Set the http return code to 404 if it return None. 
+            def get_all(self) -> Optional[List[int]]:
+                """The method documentation is display to the user as well"""
+                return self.whatever
+        ```
+        
+        ## Issues/Bug report or improvement ideas
+        https://gitlab.com/olive007/grui/-/issues
+        
+        ## License
+        GNU Lesser General Public License v3 or later (LGPLv3+)
+        
+Platform: UNKNOWN
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
