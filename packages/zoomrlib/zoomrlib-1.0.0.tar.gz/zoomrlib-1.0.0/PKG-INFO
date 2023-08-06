@@ -1,0 +1,123 @@
+Metadata-Version: 2.1
+Name: zoomrlib
+Version: 1.0.0
+Summary: Library to read and write a ZoomR16 project file
+Home-page: https://gitlab.com/remytms/zoomrlib
+License: GPL-3.0-or-later
+Keywords: zoomr16,audio,recorder
+Author: Rémy Taymans
+Author-email: remytms@tsmail.eu
+Requires-Python: >=3.6,<4.0
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: POSIX
+Classifier: Operating System :: Unix
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Topic :: Multimedia :: Sound/Audio
+Classifier: Topic :: Software Development :: Libraries
+Project-URL: Repository, https://gitlab.com/remytms/zoomrlib
+Description-Content-Type: text/markdown
+
+[![pipeline status](https://gitlab.com/remytms/zoomrlib/badges/master/pipeline.svg)](https://gitlab.com/remytms/zoomrlib/pipelines)
+[![coverage report](https://gitlab.com/remytms/zoomrlib/badges/master/coverage.svg)](https://gitlab.com/remytms/zoomrlib/pipelines)
+
+zoomrlib
+========
+
+zoomrlib is a library that let you read and write a Zoom R16 project
+file and export it into a JSON file. It provide also a little cli to
+show content of a Zoom R16 project as text.
+
+
+Installation
+------------
+
+Python >= 3.6 is needed (older python version may work, but it's not
+tested).
+
+```shell
+pip install zoomrlib
+```
+
+
+Usage
+-----
+
+Most important information form a project file can be read and write:
+
+For the hole **project**:
+- name
+- header
+- bitlength
+- protected
+- insert_effect_on
+- tracks
+- master
+
+For a **track**:
+- file
+- status
+- stereo_on
+- invert_on
+- pan
+- fader
+- chorus_on
+- chorus_gain
+- reverb_on
+- reverb_gain
+- eqhigh_on
+- eqhigh_freq
+- eqhigh_gain
+- eqmid_on
+- eqmid_freq
+- eqmid_qfactor
+- eqmid_gain
+- eqlow_on
+- eqlow_freq
+- eqlow_gain
+
+For the **master track**:
+- file
+- fader
+
+In a python program, use it like this:
+
+```python
+import zoomrlib
+
+with zoomrlib.open("PRJDATA.ZDT", "r") as file:
+    prjdata = zoomrlib.load(file)
+
+print(prjdata.name)
+for track in prjdata.tracks:
+    print(track.file)
+print(prjdata.master.file)
+```
+
+The package brings a small binary that let you export ZDT file to json:
+
+```sh
+zoomrlib PRJDATA.ZDT > prjdata.json
+```
+
+Or directly from the library:
+```sh
+python -m zoomrlib PRJDATA.ZDT > prjdata.json
+```
+
+
+Thanks
+------
+
+This library can't exist without the huge work and help of
+Leonhard Schneider (http://www.audiolooper.de/zoom/home_english.shtml).
+Thanks for his help. If you are looking to a GUI to manage your Zoom R16
+take a look at his project.
+
