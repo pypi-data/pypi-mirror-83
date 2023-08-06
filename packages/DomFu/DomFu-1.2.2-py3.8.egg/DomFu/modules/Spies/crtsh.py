@@ -1,0 +1,33 @@
+#!/usr/bin/env python3
+'''
+Copyright (C) 2020, DomFu Contributors.
+See the LICENSE.txt file for copying permission.
+'''
+
+import requests
+from fake_useragent import UserAgent
+
+
+def fetchCrtSh(domain):
+    '''
+    string -> list
+
+    This function queries crt.sh to look for domain names in SSL cert issued by the organization.
+
+    Input  : fetchCrtSh("tropyl.com")
+    Output : ['tropyl.com', 'www.tropyl.com']
+    '''
+    subdomains = []
+    headers = {'User-Agent': UserAgent().random}
+
+    fetchURL = requests.get(
+        "https://crt.sh/?q=%.{d}&output=json".format(d=domain), headers=headers)
+
+    if fetchURL.status_code == 200:
+        for (key, value) in enumerate(fetchURL.json()):
+            if '@' not in value['name_value']:
+                subdomains.append(value['name_value'])
+
+        subdomains = sorted(set(subdomains))
+
+        return(subdomains)
