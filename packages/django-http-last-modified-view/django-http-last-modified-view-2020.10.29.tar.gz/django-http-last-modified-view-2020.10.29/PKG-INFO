@@ -1,0 +1,48 @@
+Metadata-Version: 2.1
+Name: django-http-last-modified-view
+Version: 2020.10.29
+Summary: Django http Last-Modified header view mixin
+Home-page: https://github.com/andrewp-as-is/django-http-last-modified-view.py
+License: Unlicense
+Description: <!--
+        https://readme42.com
+        -->
+        
+        
+        [![](https://img.shields.io/pypi/v/django-http-last-modified-view.svg?maxAge=3600)](https://pypi.org/project/django-http-last-modified-view/)
+        [![](https://img.shields.io/badge/License-Unlicense-blue.svg?longCache=True)](https://unlicense.org/)
+        
+        ### Installation
+        ```bash
+        $ [sudo] pip install django-http-last-modified-view
+        ```
+        
+        ##### `views.py`
+        `get_http_last_modified`
+        ```python
+        from django_http_last_modified_view.views import HttpLastModifiedMixin
+        
+        class MyView(HttpLastModifiedMixin,...):
+        
+            def get_http_last_modified(self):
+                return self.obj.http_last_modified
+        ```
+        
+        `dispatch`, `self.http_last_modified`:
+        ```python
+        class MyView(HttpLastModifiedMixin,...):
+            def dispatch(self, *args, **kwargs):
+                self.http_last_modified = obj.last_modified_at
+                return super().dispatch(*args, **kwargs)
+        ```
+        
+        <p align="center">
+            <a href="https://readme42.com/">readme42.com</a>
+        </p>
+Keywords: django Last-Modified header view
+Platform: UNKNOWN
+Classifier: Framework :: Django
+Classifier: License :: Public Domain
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Description-Content-Type: text/markdown
