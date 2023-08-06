@@ -1,0 +1,129 @@
+.. This README is meant for consumption by humans and pypi. Pypi can render rst files so please do not use Sphinx features.
+   If you want to learn more about writing documentation, please check out: http://docs.plone.org/about/documentation_styleguide_addons.html
+   This text does not appear on pypi or github. It is a comment.
+
+==============================================================================
+collective.printrss
+==============================================================================
+
+Tell me what your product does
+
+Features
+--------
+
+- Can be bullet points
+
+
+Examples
+--------
+
+This add-on can be seen in action at the following sites:
+- Is there a page on the internet where everybody can see the features?
+
+
+Documentation
+-------------
+
+Full documentation for end users can be found in the "docs" folder, and is also available online at http://docs.plone.org/foo/bar
+
+
+Translations
+------------
+
+This product has been translated into
+
+- Klingon (thanks, K'Plai)
+
+
+Installation
+------------
+
+Install collective.printrss by adding it to your buildout::
+
+    [buildout]
+
+    ...
+
+    eggs =
+        collective.printrss
+
+
+and then running ``bin/buildout``
+
+
+Contribute
+----------
+
+- Issue Tracker: https://github.com/collective/collective.printrss/issues
+- Source Code: https://github.com/collective/collective.printrss
+- Documentation: https://docs.plone.org/foo/bar
+
+
+Support
+-------
+
+If you are having issues, please let us know.
+We have a mailing list located at: project@example.com
+
+
+License
+-------
+
+The project is licensed under the GPLv2.
+
+Contributors
+============
+
+- boulch, christophe.boulanger@imio.be
+
+Changelog
+=========
+
+
+1.0.5 (2020-01-22)
+------------------
+
+- Add ul
+  [boulch]
+
+
+1.0.4 (2020-01-22)
+------------------
+
+- Remove field to customize img style.
+  [boulch]
+
+
+1.0.3 (2019-08-07)
+------------------
+
+- Get pictures from rss feed.
+  [boulch]
+
+
+1.0.2 (2019-03-13)
+------------------
+
+- Remove date below links.
+
+
+1.0.1 (2019-03-11)
+------------------
+
+- Open each link in new tab.
+
+
+1.0.0 (2019-02-21)
+------------------
+
+- Add new url field (usage in index view)
+
+
+1.0a1 (2018-09-10)
+------------------
+
+- Initial release.
+  [bsuttor, boulch]
+
+
+
