@@ -1,0 +1,1 @@
+from .pyxmp import read, inject
