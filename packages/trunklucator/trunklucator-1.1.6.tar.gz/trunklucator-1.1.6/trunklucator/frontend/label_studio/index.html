@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <title>{{ context.title }}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta charset="utf-8"/>
+
+    <!-- Include Label Studio stylesheet -->
+    <link href="/static/css/main.d06f037e.css" rel="stylesheet">
+    <!-- Include the Label Studio library -->
+    <script src="/static/js/main.54a3f9cb.js"></script>
+</head>
+
+<body>
+<!-- Editor -->
+<div class="content">
+    <div id="label-studio"></div>
+</div>
+
+
+<script type="module">
+    const self = window
+
+    window.onload = function () {
+            // Label stream mode
+            self.ls = new LabelStudio(document.getElementById("label-studio"), {
+                config: `{{ context.label_studio.config | safe }}`,
+                //expert: {"pk": 1, "firstName": "Label", "lastName": "Expert"},
+                explore: true, // label stream mode (task by task)
+                project: { id: 1 },
+                supports: {{ (( context.label_studio and context.label_studio.supports) or ["predictions", "check-empty", "next:load"]) | safe }},
+                interfaces: {{ (( context.label_studio and context.label_studio.interfaces) or ["basic", "load", "controls", "submit", "completions"]) | safe }},
+                //"side-column", // entity
+                apiCalls: true
+            });
+    }
+</script>
+</body>
+</html>
