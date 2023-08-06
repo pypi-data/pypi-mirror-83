@@ -1,0 +1,50 @@
+Metadata-Version: 2.1
+Name: edgify
+Version: 0.0.1
+Summary: Personalize DL models on the edge.
+Home-page: https://github.com/scale-lab/edgify
+Author: Abdelrahman Hosny
+Author-email: abdelrahman_hosny@brown.edu
+License: BSD-3 License
+Download-URL: https://github.com/scale-lab/archive/v_0.0.1.tar.gz
+Description: # Model Personalization on Edge
+        
+        Improving the performance of DL models for individual users by re-training on a user's data on the edge.
+        
+        
+        ## QMNIST Dataset
+        
+        Divide the datset by the writer ID.
+        
+        ```Python
+        python preprocess/filter_by_user.py --download --dataset=train
+        python preprocess/filter_by_user.py --download --dataset=test
+        ```
+        
+        The resulting user-specific datasets will be under `data/QMNIST/train` and `data/QMNIST/test`. 
+        The file naming convention is `w-<witer_id>.pth`.
+        
+        To load the dataset of a specific writer:
+        
+        ```Python
+        import torch
+        from torch.utils.data import DataLoader
+        
+        dataset = torch.load('data/QMNIST/train/w-<writer_id>.pth')
+        dataloader = DataLoader(dataset)
+        ```
+        
+        
+        ## License
+        BSD 3-Clause License.
+Keywords: Edge,Computing,Deep Learning
+Platform: UNKNOWN
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.4
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
+Description-Content-Type: text/markdown
