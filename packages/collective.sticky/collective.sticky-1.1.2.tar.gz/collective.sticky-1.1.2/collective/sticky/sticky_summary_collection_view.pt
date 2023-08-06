@@ -1,0 +1,33 @@
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en"
+      xmlns:tal="http://xml.zope.org/namespaces/tal"
+      xmlns:metal="http://xml.zope.org/namespaces/metal"
+      xmlns:i18n="http://xml.zope.org/namespaces/i18n"
+      lang="en"
+      metal:use-macro="context/main_template/macros/master"
+      i18n:domain="collective.sticky">
+
+<body>
+
+    <metal:content-core fill-slot="content-core"
+                        tal:define="results view/results">
+
+      <div class="sticky-items"
+           tal:define="folderContents results/sticky_results"
+           tal:condition="folderContents">
+        <h2 i18n:translate="featured_items">Featured <span tal:content="context/Title" i18n:name="items" /></h2>
+        <metal:block use-macro="context/folder_summary_view/macros/listing" />
+        <p>&nbsp;</p>
+      </div>
+
+      <div class="items"
+           tal:define="folderContents results/standard_results"
+           tal:condition="folderContents">
+        <h2 i18n:translate="other_items">Recent <span tal:content="context/Title" i18n:name="items" /></h2>
+        <metal:block use-macro="context/folder_summary_view/macros/listing" />
+        <p>&nbsp;</p>
+      </div>
+
+    </metal:content-core>
+
+</body>
+</html>

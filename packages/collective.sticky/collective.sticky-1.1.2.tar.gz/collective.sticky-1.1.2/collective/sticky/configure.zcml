@@ -1,0 +1,133 @@
+<configure
+    xmlns="http://namespaces.zope.org/zope"
+    xmlns:gs="http://namespaces.zope.org/genericsetup"
+    xmlns:browser="http://namespaces.zope.org/browser"
+    xmlns:i18n="http://namespaces.zope.org/i18n"
+    xmlns:plone="http://namespaces.plone.org/plone"
+    xmlns:zcml="http://namespaces.zope.org/zcml"
+    i18n_domain="collective.sticky">
+
+  <!-- Include configuration for dependencies listed in setup.py -->
+  <includeDependencies package="." />
+
+  <include package="plone.app.contentmenu" />
+
+  <!-- Translations -->
+  <i18n:registerTranslations directory="locales" />
+
+  <!-- Topics -->
+  <browser:page
+     for="Products.ATContentTypes.interfaces.IATTopic"
+     name="sticky_summary_view"
+     template="sticky_summary_topic_view.pt"
+     permission="zope2.View"
+     layer=".interfaces.IBrowserLayer"
+     />
+
+  <browser:menuItem
+     for="Products.ATContentTypes.interfaces.IATTopic"
+     menu="plone_displayviews"
+     title="Sticky summary view"
+     action="@@sticky_summary_view"
+     description=""
+     i18n:attributes="title"
+     layer=".interfaces.IBrowserLayer"
+    />
+
+  <!-- Collections -->
+  <browser:page
+     for="plone.app.collection.interfaces.ICollection"
+     name="sticky_summary_view"
+     class=".collection.StickyCollectionView"
+     template="sticky_summary_collection_view.pt"
+     permission="zope2.View"
+     layer=".interfaces.IBrowserLayer"
+     />
+
+  <browser:menuItem
+     for="plone.app.collection.interfaces.ICollection"
+     menu="plone_displayviews"
+     title="Sticky summary view"
+     action="@@sticky_summary_view"
+     description=""
+     i18n:attributes="title"
+     layer=".interfaces.IBrowserLayer"
+    />
+
+  <!-- Dexterity -->
+
+  <configure zcml:condition="installed plone.app.contenttypes">
+
+    <browser:page
+       for="plone.app.contenttypes.interfaces.ICollection"
+       name="sticky_summary_view"
+       class=".collection.StickyCollectionView"
+       template="sticky_summary_collection_view.pt"
+       permission="zope2.View"
+       layer=".interfaces.IBrowserLayer"
+         />
+
+      <browser:menuItem
+         for="plone.app.contenttypes.interfaces.ICollection"
+         menu="plone_displayviews"
+         title="Sticky summary view"
+         action="@@sticky_summary_view"
+         description=""
+         i18n:attributes="title"
+         layer=".interfaces.IBrowserLayer"
+        />
+
+      <include package="plone.behavior" file="meta.zcml" />
+      <plone:behavior
+          title="Sticky Behavior"
+          description="Adds a sticky field"
+          provides=".behavior.ISticky"
+          />
+      <adapter factory=".behavior.sticky_sort_news" name="sticky_sort" />
+      <adapter factory=".behavior.sticky_sort_event" name="sticky_sort" />
+      <adapter factory=".behavior.is_sticky_news" name="is_sticky" />
+      <adapter factory=".behavior.is_sticky_event" name="is_sticky" />
+  </configure>
+
+  <!-- Profile -->
+  <gs:registerProfile
+      name="default"
+      title="collective.sticky"
+      directory="profiles/default"
+      description="Allows news items to be marked as 'sticky' so they appear at the top of collections."
+      provides="Products.GenericSetup.interfaces.EXTENSION"
+      />
+
+  <gs:registerProfile
+    name="uninstall"
+    title="collective.sticky.uninstall"
+    directory="profiles/uninstall"
+    description="Uninstall 'sticky' params."
+    provides="Products.GenericSetup.interfaces.EXTENSION"
+    />
+
+  <!-- Upgrades -->
+  <gs:upgradeStep
+      title="collective.sticky: upgrade to v2"
+      description="Add sort criteria on new-style collection"
+      handler=".upgrades.upgrade_to_two"
+      source="1"
+      destination="2"
+      profile="collective.sticky:default"
+      />
+
+  <!-- Extender -->
+  <adapter
+    factory=".extender.StickyNewsSchemaExtender"
+    provides="archetypes.schemaextender.interfaces.ISchemaExtender" />
+  <adapter
+    factory=".extender.StickyEventSchemaExtender"
+    provides="archetypes.schemaextender.interfaces.ISchemaExtender" />
+  <adapter factory=".extender.sticky_sort_news" name="sticky_sort" />
+  <adapter factory=".extender.sticky_sort_event" name="sticky_sort" />
+  <adapter factory=".extender.is_sticky_news" name="is_sticky" />
+  <adapter factory=".extender.is_sticky_event" name="is_sticky" />
+
+
+
+</configure>
