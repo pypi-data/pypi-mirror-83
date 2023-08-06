@@ -1,0 +1,12 @@
+{% load helpers %}
+
+<tr>
+    {# Time #}
+    <td style="width:20%">{{ log.time|date:"SHORT_DATETIME_FORMAT" }}</td>
+    {# Subject #}
+    <td style="width:15%"><a href="{% url 'plugins:netbox_work_logs:vmworklog_detail' pk=log.id%}">{{ log.subject|truncatechars:10 }}</a></td>
+    {# Category #}
+    <td style="width:15%"><span class="label label-{{ log.category.category_label }}">{{ log.category.category|truncatechars:10 }}</span></td>
+    {# Content #}
+    <td style="width:50%">{{ log.content|truncatechars:40 }}</td>
+</tr>
