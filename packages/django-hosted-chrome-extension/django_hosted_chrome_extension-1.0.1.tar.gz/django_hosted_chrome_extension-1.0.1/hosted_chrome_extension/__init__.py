@@ -1,0 +1,1 @@
+default_app_config = 'hosted_chrome_extension.apps.HostedChromeExtensionConfig'
