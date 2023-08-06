@@ -1,0 +1,73 @@
+#  Copyright (C) 2020 Jakub Smetana <jakub/AT/smetana/DOT/ml>
+#  =========
+#  SPDX-License-Identifier: MPL-2.0
+#  ---------
+#  This Source Code Form is subject to the terms of the Mozilla Public
+#  License, v. 2.0. If a copy of the MPL was not distributed with this
+#  file, You can obtain one at https://mozilla.org/MPL/2.0/.
+#  =========
+
+from mcdbot.mcdbot import Mcdbot
+from mcdbot.errors.object_errors import BadMcPlayerError, McPlayerAlreadyRegisteredError, McPlayerNameExistsError
+from discord import Member, User
+from typing import Union
+from loguru import logger
+
+
+BANNED_PASSWORDS = [
+    '123456',
+    'password',
+    'qwerty',
+    '12345',
+    '54321',
+    '123456789',
+    'help'
+]
+
+
+def str_is_ascii(s):
+    # str.isascii() is available only python 3.7+
+    try:
+        s.encode("ascii")
+    except UnicodeEncodeError:
+        return False
+    else:
+        return True
+
+
+def check_user(main: Mcdbot, user: Union[Member, User]):
+    logger.debug(f"Checking {user} of type {type(user)}...")
+    if isinstance(user, Member):
+        logger.debug(f"Member {user} is a member.")
+        return True
+
+    member = main.get_main_guild().get_member(user.id)
+    logger.debug(f"User {user} is Member {member}.")
+    if member is not None:
+        return True
+    return False
+
+
+async def check_mc_player_available(main: Mcdbot, user: Union[Member, User], player: str):
+    check_mc_player_name_correctness(player)
+    if await main.redis.player_exists(player):
+        raise McPlayerNameExistsError
+    db_player = await main.redis.get_player_by_user(user)
+    if db_player is not None:
+        raise McPlayerAlreadyRegisteredError(db_player)
+
+
+def check_mc_player_name_correctness(player: str):
+    player = player.replace('_', 'Q')
+
+    if len(player) > 16 or not (str_is_ascii(player) and player.isalnum() and ' ' not in player):
+        raise BadMcPlayerError
+
+
+def check_mc_password_validity_under_policy(password: str):
+    from mcdbot.errors.password_errors import McPasswordInvalidUnderPolicyError
+
+    content_policy = (str_is_ascii(password) and password.isprintable() and
+                      ' ' not in password and password.lower() not in BANNED_PASSWORDS)
+    if len(password) < 6 or len(password) > 30 or not content_policy:
+        raise McPasswordInvalidUnderPolicyError
