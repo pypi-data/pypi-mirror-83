@@ -1,0 +1,521 @@
+#!python
+"""
+regview
+"""
+
+import argparse
+import base64
+import fnmatch
+import json
+import logging
+import os
+import re
+import sys
+
+from concurrent.futures import ThreadPoolExecutor
+from datetime import timezone
+from getpass import getpass
+from shutil import get_terminal_size
+from urllib.parse import urlparse
+
+import dateutil.parser
+import requests
+from requests.exceptions import RequestException
+from requests_toolbelt import GuessAuth
+from requests_toolbelt.utils import dump
+from urllib3 import disable_warnings
+
+
+__version__ = "0.9.0"
+
+
+class _Mixin:  # pylint: disable=too-few-public-methods
+    @staticmethod
+    def _print_response(got, *args, **kwargs):  # pylint: disable=unused-argument
+        """
+        Print response to aid in debugging
+        """
+        got.hook_called = True
+        data = dump.dump_all(got)
+        print(data.decode('utf-8'))
+        return got
+
+
+class GuessAuth2(GuessAuth, _Mixin):  # pylint: disable=too-few-public-methods
+    """
+    Support Token authentication as specified by https://docs.docker.com/registry/spec/auth/token/
+    """
+    def __init__(self, *args, debug=False, headers=None, verify=True, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.session = requests.Session()
+        self.debug = debug
+        if debug:
+            self.session.hooks['response'].append(self._print_response)
+        self.session.auth = (self.username, self.password)
+        if headers:
+            self.session.headers.update(headers)
+        self.session.verify = verify
+        self.session.mount("https://", requests.adapters.HTTPAdapter(pool_maxsize=100))
+
+    def _get_token(self, url, params):
+        try:
+            got = self.session.post(url, params=params)
+            got.raise_for_status()
+        except RequestException as err:
+            logging.error("%s", err)
+            sys.exit(1)
+        data = got.json()
+        return data.get('token', data.get('access_token'))
+
+    def _handle_token_auth_401(self, req, kwargs):
+        params = requests.utils.parse_dict_header(req.headers['www-authenticate'])
+        url = params['Bearer realm']
+        del params['Bearer realm']
+
+        if self.pos is not None:
+            req.request.body.seek(self.pos)
+        # Consume content and release the original connection
+        # to allow our new request to reuse the same one.
+        _ = req.content
+        req.raw.release_conn()
+        prep = req.request.copy()
+
+        if self.debug:
+            self._print_response(req)
+
+        prep.headers['Authorization'] = "Bearer " + self._get_token(url, params)
+        _r = req.connection.send(prep, **kwargs)
+        # _r.history.append(req)
+        _r.request = prep
+        return _r
+
+    def handle_401(self, r, **kwargs):
+        """
+        Override this GuessAuth method to support token authentication
+        """
+        www_authenticate = r.headers.get('www-authenticate', '').lower()
+        if 'basic' in www_authenticate:
+            return self._handle_basic_auth_401(r, kwargs)
+        if 'digest' in www_authenticate:
+            return self._handle_digest_auth_401(r, kwargs)
+        if 'bearer' in www_authenticate:
+            return self._handle_token_auth_401(r, kwargs)
+        return None
+
+
+class DockerRegistry(_Mixin):
+    """
+    Class to implement Docker Registry methods
+    """
+    _token_cache = {}
+
+    def __init__(self, registry, auth=None, cert=None, headers=None, verify=True, debug=False):  # pylint: disable=too-many-arguments
+        self.session = requests.Session()
+        self.session.mount("http://", requests.adapters.HTTPAdapter(pool_maxsize=100))
+        self.session.mount("https://", requests.adapters.HTTPAdapter(pool_maxsize=100))
+        logging.basicConfig(format='%(levelname)s: %(message)s')
+        if debug:
+            self._enable_debug()
+        auth = auth or self._get_creds(registry)
+        if auth:
+            auth = GuessAuth2(*auth, headers=headers, verify=verify, debug=debug)
+        self.session.auth = auth
+        self.session.cert = cert
+        if headers:
+            self.session.headers.update(headers)
+        self.session.verify = verify
+        self._fix_registry(registry)
+        disable_warnings()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.session.close()
+
+    def _enable_debug(self):
+        logging.getLogger().setLevel(logging.DEBUG)
+        requests_log = logging.getLogger("urllib3")
+        requests_log.setLevel(logging.DEBUG)
+        requests_log.propagate = True
+        self.session.hooks['response'].append(self._print_response)
+
+    def _fix_registry(self, registry):
+        """
+        Check if registry starts with a scheme and adjust accordingly
+        """
+        if registry.startswith(("http://", "https://")):
+            try:
+                got = self.session.get(registry + "/v2/")
+                got.raise_for_status()
+            except RequestException as err:
+                logging.error("%s", err)
+                sys.exit(1)
+            self.registry = registry
+        else:
+            try:
+                got = self.session.get("https://%s/v2/" % registry)
+                got.raise_for_status()
+                self.registry = "https://" + registry
+            except RequestException:
+                try:
+                    got = self.session.get("http://%s/v2/" % registry)
+                    got.raise_for_status()
+                    self.registry = "http://" + registry
+                except RequestException as err:
+                    logging.error("%s", err)
+                    sys.exit(1)
+        if got.headers.get('docker-distribution-api-version') != 'registry/2.0':
+            logging.error("Invalid registry: %s", registry)
+            sys.exit(1)
+
+    @staticmethod
+    def _get_creds(registry):
+        """
+        Gets the credentials from ~/.docker/config.json
+        """
+        config_file = os.path.join(
+            os.getenv("DOCKER_CONFIG", os.path.expanduser(os.path.join("~", ".docker"))),
+            "config.json")
+        try:
+            with open(config_file) as file:
+                config = json.load(file)
+        except OSError:
+            return None
+        registry = re.sub("^https?://", "", registry)
+        for try_registry in ("https://" + registry, "http://" + registry, registry):
+            try:
+                auth = config['auths'][try_registry]['auth']
+                return tuple(base64.b64decode(auth).decode('utf-8').split(':', 1))
+            except KeyError:
+                pass
+        return None
+
+    def _get(self, url, headers=None, **kwargs):
+        """
+        Cache tokens for repository URL's to avoid so many 401's
+        and calling the auth server that many times
+        """
+        path = urlparse(url).path
+        repo = None
+        headers = headers or {}
+        if not path.startswith("/v2/_"):
+            repo = "/".join(path.split("/")[2:-2])
+            if repo in self._token_cache:
+                headers.update({"Authorization": self._token_cache[repo]})
+        got = self.session.get(url, headers=headers, **kwargs)
+        got.raise_for_status()
+        if repo:
+            token = got.request.headers.get('Authorization')
+            if token and token.startswith("Bearer "):
+                self._token_cache[repo] = token
+        return got
+
+    def _get_paginated(self, url, string):
+        """
+        Get paginated results
+        """
+        items = []
+        while True:
+            try:
+                got = self._get(url)
+            except RequestException:
+                logging.error("%s: %s", url, got.reason)
+                return None
+            items.extend(got.json()[string])
+            if 'Link' in got.headers:
+                url = requests.utils.parse_header_links(got.headers['Link'])[0]['url']
+                if url.startswith("/v2/"):
+                    url = self.registry + url
+            else:
+                break
+        return items
+
+    def get_repos(self, pattern=None):
+        """
+        Get repositories
+        """
+        repos = self._get_paginated(self.registry + "/v2/_catalog", "repositories")
+        if repos and pattern:
+            return fnmatch.filter(repos, pattern)
+        return repos
+
+    def get_tags(self, repo, pattern):
+        """
+        Get tags for specified repo
+        """
+        tags = self._get_paginated("%s/v2/%s/tags/list" % (self.registry, repo), "tags")
+        if tags and pattern:
+            tags = fnmatch.filter(tags, pattern)
+        return tags
+
+    def get_manifest(self, repo, tag, fat=False):
+        """
+        Get the manifest
+        """
+        url = "%s/v2/%s/manifests/%s" % (self.registry, repo, tag)
+        content_type = "application/vnd.docker.distribution.manifest.v2+json"
+        if fat:
+            content_type = "application/vnd.docker.distribution.manifest.list.v2+json"
+        try:
+            got = self._get(url, headers={"Accept": content_type})
+        except RequestException:
+            fmt = "%s@%s: %s" if tag.startswith("sha256:") else "%s:%s: %s"
+            logging.error(fmt, repo, tag, got.reason)
+            return None
+        manifest = got.json()
+        if not fat:
+            manifest['docker-content-digest'] = got.headers['docker-content-digest']
+        return manifest
+
+    def get_blob(self, repo, digest):
+        """
+        Get blob for repo
+        """
+        try:
+            got = self._get("%s/v2/%s/blobs/%s" % (self.registry, repo, digest))
+        except RequestException:
+            logging.error("%s@%s: %s", repo, digest, got.reason)
+            return None
+        return got
+
+
+class DockerRegistryInfo(DockerRegistry):
+    """
+    Subclass of DockerRegistry
+    """
+    def get_info(self, repo, tag):
+        """
+        Get info from manifest v2
+        """
+        manifest = self.get_manifest(repo, tag)
+        if not manifest:
+            return None
+        info = {
+            'Digest': tag if tag.startswith("sha256:") else manifest['docker-content-digest'],
+            'CompressedSize': sum([_['size'] for _ in manifest['layers']]),
+            'ID': manifest['config']['digest']}
+        return info
+
+    def print_fat(self, repo, tag="latest"):
+        """
+        Print fat manifest
+        """
+        fat_manifest = self.get_manifest(repo, tag, fat=True)
+        if fat_manifest is None:
+            sys.exit(1)
+        elif fat_manifest['schemaVersion'] == 1:
+            # Docker distribution may send a v1 when asked for a fat v2 that doesn't exist
+            self.print_fullinfo(repo, tag)
+            return
+        for item in fat_manifest['manifests']:
+            info = self.get_info(repo, tag)
+            keys = ('architecture', 'os', 'variant')
+            info.update({key: item['platform'][key] for key in keys if key in item['platform']})
+            keys = ('features', 'os.features')
+            info.update({key: ",".join(info[key]) for key in keys if key in info})
+            for key, value in sorted(info.items()):
+                print("%-20s\t%s" % (key, value))
+            print()
+
+    def print_fullinfo(self, repo, tag="latest"):
+        """
+        Print full info about image
+        """
+        info = self.get_info(repo, tag)
+        if info is None:
+            return
+        info.update(self.get_blob(repo, info['ID']).json())
+        if 'created' in info:
+            info['created'] = pretty_date(info['created'])
+        info['CompressedSize'] = pretty_size(info['CompressedSize'])
+        keys = (
+            'architecture', 'author', 'created', 'docker_version', 'os',
+            'CompressedSize', 'ID', 'Digest')
+        data = {key: info[key] for key in keys if info.get(key)}
+        keys = (
+            'Cmd', 'Entrypoint', 'Env', 'ExposedPorts',
+            'Healthcheck', 'Labels', 'OnBuild', 'Shell',
+            'StopSignal', 'User', 'Volumes', 'WorkingDir')
+        if opts.verbose:
+            data.update({key: info['config'][key] for key in keys if info['config'].get(key)})
+        for key in sorted(data, key=str.casefold):
+            print("%-20s\t%s" % (key, data[key]))
+        if opts.verbose > 1:
+            self.print_history(info['history'])
+
+    @staticmethod
+    def print_history(history):
+        """
+        Print image history
+        """
+        for i, item in enumerate(history):
+            print("History[{%d}]\t\t%s" % (i, item['created_by']))
+
+    @staticmethod
+    def print_info(repo, tag, info, fmt):
+        """
+        Print info about image
+        """
+        docker_id = info['ID']
+        if not opts.no_trunc:
+            docker_id = docker_id[len("sha256:"):len("sha256:") + 12]
+        values = ["%s:%s" % (repo, tag), docker_id]
+        if opts.digests:
+            values.insert(1, info['Digest'])
+        if opts.verbose:
+            values.append(pretty_date(info['created']))
+        print(fmt % tuple(values))
+
+    def get_images(self, repos, pattern_tag=None):
+        """
+        Get images"
+        """
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            yield from executor.map(lambda r: (r, self.get_tags(r, pattern_tag)), repos)
+
+    def print_all(self, glob_repo, glob_tag):
+        """
+        Print all
+        """
+        repos = self.get_repos(glob_repo)
+        if not repos:
+            sys.exit(0)
+        keys = ["REPOSITORY:TAG", "IMAGE ID"]
+        if opts.digests:
+            keys.insert(1, "DIGEST")
+        if opts.verbose:
+            keys.append("CREATED ON")
+        image_width = min(
+            int(get_terminal_size().columns / 2),
+            max(len(repo) for repo in repos) + 20)
+        fmt = "%%-%ds" % image_width
+        if opts.digests:
+            fmt += "  %-72s"
+        fmt += "  %-72s" if opts.no_trunc else "  %-12s"
+        if opts.verbose:
+            fmt += "  %s"
+        print(fmt % tuple(keys))
+        if not repos:
+            sys.exit(1)
+        with ThreadPoolExecutor() as executor:
+            for repo, tags in self.get_images(repos, glob_tag):
+                if tags is None:
+                    continue
+                infos = list(executor.map(lambda t, r=repo: self.get_info(r, t), tags))
+                if opts.verbose:
+                    digests = dict(
+                        executor.map(
+                            lambda d, r=repo: (d, self.get_blob(r, d).json()),
+                            {_['ID'] for _ in infos if _}))
+                for tag, info in zip(tags, infos):
+                    if info is None:
+                        continue
+                    if opts.verbose:
+                        info.update(digests[info['ID']])
+                    self.print_info(repo, tag, info, fmt)
+
+
+def pretty_size(size):
+    """
+    Converts a size in bytes to a string in KB, MB, GB or TB
+    """
+    if opts.raw:
+        return size
+    units = (' ', 'K', 'M', 'G', 'T')
+    for i in range(4, -1, -1):
+        if size > 1024**i:
+            return "%.2f%cB" % (float(size) / 1024**i, units[i])
+    return None
+
+
+def pretty_date(string):
+    """
+    Converts date/time string in ISO-8601 format to date(1)
+    """
+    if opts.raw:
+        return string
+    # utc_date = datetime.fromisoformat(re.sub(r"\.\d+Z$", "+00:00", string))  # Python 3.7+ only
+    utc_date = dateutil.parser.isoparse(string).replace(tzinfo=timezone.utc)
+    return utc_date.astimezone().strftime("%a %b %d %H:%M:%S %Z %Y")
+
+
+def parse_opts():
+    """
+    Parse options and arguments
+    """
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '-a', '--all', action='store_true',
+        help="Print information for all architectures")
+    parser.add_argument(
+        '-c', '--cert',
+        help="Client certificate filename (may contain unencrypted key)")
+    parser.add_argument(
+        '-k', '--key',
+        help="Client private key filename (unencrypted)")
+    parser.add_argument(
+        '-C', '--cacert',
+        help="CA certificate for server")
+    parser.add_argument(
+        '--debug', action='store_true',
+        help="Enable debug")
+    parser.add_argument(
+        '--digests', action='store_true',
+        help="Show digests")
+    parser.add_argument(
+        '--insecure', action='store_true',
+        help="Allow insecure server connections")
+    parser.add_argument(
+        '--no-trunc', action='store_true',
+        help="Don't truncate output")
+    parser.add_argument(
+        '--raw', action='store_true',
+        help="Raw values for date and size")
+    parser.add_argument(
+        '-u', '--username',
+        help="Username for authentication")
+    parser.add_argument(
+        '-p', '--password',
+        help="Password for authentication")
+    parser.add_argument(
+        '-v', '--verbose', action='count', default=0,
+        help="Be verbose. May be specified multiple times")
+    parser.add_argument('image')
+    return parser.parse_args()
+
+
+def main():
+    """
+    Main function
+    """
+    if opts.username and not opts.password:
+        opts.password = getpass("Password: ")
+    match = re.match(r'((?:https?://)?[^:/]+(?::[0-9]+)?)/*(.*)', opts.image)
+    registry, image = match.group(1), match.group(2)
+    glob_repo = glob_tag = None
+    if '@' not in image and re.search(r"\*|\?|\[", image):
+        glob_repo, glob_tag = image.split(':', 1) if ':' in image else (image, None)
+    with DockerRegistryInfo(
+            registry,
+            auth=(opts.username, opts.password) if opts.username else None,
+            cert=(opts.cert, opts.key) if opts.cert and opts.key else opts.cert,
+            headers={'User-Agent': "regview/" + __version__},
+            verify=opts.cacert if opts.cacert else not opts.insecure,
+            debug=opts.debug) as reg:
+        if image and not glob_repo:
+            sep = '@' if '@' in image else ':'
+            if opts.all and sep != '@':
+                reg.print_fat(*image.split(sep, 1))
+            else:
+                reg.print_fullinfo(*image.split(sep, 1))
+            return
+        reg.print_all(glob_repo, glob_tag)
+
+
+if __name__ == "__main__":
+    try:
+        opts = parse_opts()
+        main()
+    except KeyboardInterrupt:
+        sys.exit(1)
