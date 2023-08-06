@@ -1,0 +1,40 @@
+stages:
+  - test
+  - deploy
+
+test:tox:
+  stage: test
+  image: python:3.7-slim
+  before_script:
+    - apt-get update
+    - apt-get install -y git
+    - pip install --no-cache tox
+  script:
+    - tox
+  artifacts:
+    paths:
+      - htmlcov/
+    reports:
+      cobertura: coverage.xml
+  only:
+    - branches
+    - tags
+
+pypi:push:
+  stage: deploy
+  image: python:3.7-slim
+  before_script:
+    - env
+    - apt-get update
+    - apt-get install -y git
+    - pip install --no-cache twine
+  script:
+    # Build the package
+    - python setup.py sdist bdist_wheel
+    # Check the distribution
+    - twine check dist/*
+    # Upload to PyPI
+    - twine upload --username "__token__" --password "$PYPI_TOKEN" dist/*
+  # Only upload tags
+  only:
+    - tags
