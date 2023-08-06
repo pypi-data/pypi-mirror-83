@@ -1,0 +1,65 @@
+Metadata-Version: 2.1
+Name: inst-api
+Version: 0.2.0
+Summary: InstAPI - comfortable and easy to use Python's library for interaction with Instagram
+Home-page: https://github.com/uriyyo/instapi
+License: MIT
+Author: Yurii Karabas
+Author-email: 1998uriyyo@gmail.com
+Requires-Python: >=3.7,<4.0
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Requires-Dist: instagram-private-api (>=1.6.0,<2.0.0)
+Requires-Dist: pillow (>=7.2.0,<8.0.0)
+Requires-Dist: requests (>=2.24.0,<3.0.0)
+Project-URL: Repository, https://github.com/uriyyo/instapi
+Description-Content-Type: text/markdown
+
+InstAPI
+=============
+
+[![Code Style](https://img.shields.io/badge/Code%20Style-PEP%208-blueviolet)](https://www.python.org/dev/peps/pep-0008/) 
+![Contributions](https://img.shields.io/badge/Contributions-Welcome-brightgreen)
+[![License](https://img.shields.io/badge/License-MIT-lightgrey)](/LICENSE) 
+[![Build Status](https://travis-ci.com/uriyyo/instapi.svg?branch=develop)](https://travis-ci.com/uriyyo/instapi)
+[![codecov](https://codecov.io/gh/uriyyo/instapi/branch/develop/graph/badge.svg)](https://codecov.io/gh/uriyyo/instapi)
+
+<h1 align="center">
+  <img src="/logo.svg" alt="Instapi" width="256" height="256">
+</h1>
+
+InstAPI - comfortable and easy to use Python's library for interaction with Instagram.
+
+Installation
+------------
+```bash
+pip install inst-api
+```
+
+Usage
+-----
+Example how to like all feeds for user
+```python
+from instapi import bind
+from instapi import User
+
+bind('your_username_here', 'your_password_here')
+
+# Get user profile by username
+instagram_profile = User.from_username('username')
+
+# Like all posts
+for feed in instagram_profile.iter_feeds():
+  feed.like()
+```
+
+Contribute
+----------
+Contributions are always welcome!
+
