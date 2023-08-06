@@ -1,0 +1,45 @@
+{%- if document.ng_sections %}
+  <div class="toc_toggle"></div>
+
+  <div class="toc_container">
+    <a class="link-back-to-index" href="{{document.meta.get_root_path_prefix()}}/index.html">Back to Index</a>
+
+    <div class="toc_header">Table of Contents</div>
+
+
+    <ul class="toc_list">
+    {%- for section in document_iterator.table_of_contents() -%}
+      <li>
+        <a href="#{{ string_to_anchor_id(section.title) }}">
+          <span class="section-number">{{ section.export_title }}</span>
+          {%- if section.is_requirement -%}
+            {{ section.title if section.title else (section.uid if section.uid else '(NO TITLE)') }}
+          {%- else -%}
+            {{ section.title if section.title else '(NO TITLE)' }}
+          {%- endif -%}
+        </a>
+
+      {%- if not loop.last -%}
+        {%- if loop.nextitem.ng_level > section.ng_level -%}
+          <ul>
+        {%- elif loop.nextitem.ng_level < section.ng_level -%}
+            </li>
+          {%- for x in range(0, section.ng_level - loop.nextitem.ng_level) -%}
+            </ul>
+            </li>
+          {%- endfor -%}
+        {%- else -%}
+          </li>
+        {%- endif -%}
+      {%- else -%}
+        </li>
+        {%- for x in range(0, section.ng_level - 1) -%}
+            </ul>
+            </li>
+          {%- endfor -%}
+        </ul>
+      {%- endif -%}
+    {%- endfor %}
+
+  </div>
+{%- endif %}
