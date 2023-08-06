@@ -1,0 +1,128 @@
+Metadata-Version: 2.1
+Name: metanetx-sdk
+Version: 4.1.0
+Summary: Parse and clean up information from MetaNetX (https://metanetx.org).
+Home-page: https://github.com/Midnighter/metanetx-sdk
+Author: Moritz E. Beber
+Author-email: midnighter@posteo.net
+License: Apache-2.0
+Download-URL: https://pypi.org/project/metanetx-sdk/
+Project-URL: Source Code, https://github.com/Midnighter/metanetx-sdk
+Project-URL: Bug Tracker, https://github.com/Midnighter/metanetx-sdk/issues
+Keywords: MetaNetX,SDK,MIRIAM,Identifiers.org
+Platform: UNKNOWN
+Classifier: Development Status :: 4 - Beta
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Natural Language :: English
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Topic :: Scientific/Engineering :: Bio-Informatics
+Classifier: Typing :: Typed
+Requires-Python: >=3.8
+Description-Content-Type: text/x-rst
+Requires-Dist: aioftp (~=0.18)
+Requires-Dist: click (~=7.0)
+Requires-Dist: click-log (~=0.3)
+Requires-Dist: depinfo (~=1.5)
+Requires-Dist: pandas (~=1.0)
+Requires-Dist: pydantic (~=1.6)
+Requires-Dist: python-dateutil (~=2.8)
+Requires-Dist: pytz
+Requires-Dist: toml (~=0.10)
+Provides-Extra: development
+Requires-Dist: black ; extra == 'development'
+Requires-Dist: isort ; extra == 'development'
+Requires-Dist: pep517 ; extra == 'development'
+Requires-Dist: tox ; extra == 'development'
+Requires-Dist: twine ; extra == 'development'
+Provides-Extra: reporting
+Requires-Dist: humanize ; extra == 'reporting'
+Requires-Dist: ipywidgets ; extra == 'reporting'
+Requires-Dist: jupyterlab ; extra == 'reporting'
+Requires-Dist: plotly ; extra == 'reporting'
+
+============
+MetaNetX SDK
+============
+
+.. image:: https://img.shields.io/pypi/v/metanetx-sdk.svg
+   :target: https://pypi.org/project/metanetx-sdk/
+   :alt: Current PyPI Version
+
+.. image:: https://img.shields.io/pypi/pyversions/metanetx-sdk.svg
+   :target: https://pypi.org/project/metanetx-sdk/
+   :alt: Supported Python Versions
+
+.. image:: https://img.shields.io/pypi/l/metanetx-sdk.svg
+   :target: https://www.apache.org/licenses/LICENSE-2.0
+   :alt: Apache Software License Version 2.0
+
+.. image:: https://img.shields.io/badge/Contributor%20Covenant-v1.4%20adopted-ff69b4.svg
+   :target: https://github.com/Midnighter/metanetx-sdk/blob/stable/.github/CODE_OF_CONDUCT.md
+   :alt: Code of Conduct
+
+.. image:: https://github.com/Midnighter/metanetx-sdk/workflows/CI-CD/badge.svg
+   :target: https://github.com/Midnighter/metanetx-sdk/workflows/CI-CD
+   :alt: GitHub Actions
+
+.. image:: https://codecov.io/gh/Midnighter/metanetx-sdk/branch/stable/graph/badge.svg
+   :target: https://codecov.io/gh/Midnighter/metanetx-sdk
+   :alt: Codecov
+
+.. image:: https://img.shields.io/badge/code%20style-black-000000.svg
+   :target: https://github.com/ambv/black
+   :alt: Code Style Black
+
+.. summary-start
+
+Parse and process information from `MetaNetX <https://metanetx.org>`_ for
+`MIRIAM <http://co.mbine.org/standards/miriam>`_ compatibility using the
+`Identifiers.org <http://identifiers.org/>`_ namespaces.
+
+Install
+=======
+
+It's as simple as:
+
+.. code-block:: console
+
+    pip install metanetx-sdk
+
+Usage
+=====
+
+The authoritative source on how to use the various commands is always accessible via
+the commands' help.
+
+.. code-block:: console
+
+    mnx-sdk -h
+
+Normally you would start by loading the files from the MetaNetX FTP server
+
+.. code-block:: console
+
+    mnx-sdk pull ./data
+
+and then transforming each data table.
+
+.. code-block:: console
+
+    mnx-sdk etl chem-prop ./data/chem_prop.tsv.gz ./data/transformed_chem_prop.tsv.gz
+
+You can also directly use the functions from the ``metanetx_sdk.api`` module.
+
+Copyright
+=========
+
+* Copyright © 2019-2020, Moritz E. Beber.
+* Free software distributed under the `Apache Software License 2.0 
+  <https://www.apache.org/licenses/LICENSE-2.0>`_.
+
+.. summary-end
+
+
