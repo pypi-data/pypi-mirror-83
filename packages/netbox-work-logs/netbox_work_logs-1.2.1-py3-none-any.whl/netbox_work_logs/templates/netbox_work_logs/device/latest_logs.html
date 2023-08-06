@@ -1,0 +1,138 @@
+{% load static %}
+
+<div class="panel panel-default">
+    <div class="panel-heading">
+        <strong>Device Work Logs</strong>
+    </div>
+    <table id="dwl_table" class="table table-hover table-headings panel-body component-list">
+        <thead>
+            <tr>
+                <th>Date/Time</th>
+                <th>Subject</th>
+                <th>Category</th>
+                <th>Content</th>
+            </tr>
+        </thead>
+        <tbody>
+
+        {% for log in work_logs %}
+            {% include 'netbox_work_logs/device/inc/logs.html' %}
+        {% empty %}
+            <tr>
+                <td colspan="3" class="text-center text-muted">&mdash; No Worked Logs &mdash;</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    <form action method="POST" enctype="multipart/form-data" class="form form-horizontal">
+    {% csrf_token %}
+        <div class="panel-body">
+                <div class="form-group">
+                    <label class="col-md-3 control-label" for="dwl_category"> Category</label>
+                    <div class="col-md-9">
+                        <select id="dwl_category" name="dwl_category" 
+                            class="netbox-select2-api form-control select2-hidden-accessible" 
+                            data-url="/api/plugins/work-logs/categories/"
+                            display-field="category">
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="col-md-3 control-label" for="dwl_subject"> Subject</label>
+                    <div class="col-md-9">
+                        <input type="text" name="dwl_subject" id="dwl_subject" class="form-control" placeholder="Subject" maxlength="64"/>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="col-md-3 control-label" for="dwl_content"> Work Log Content</label>
+                    <div class="col-md-9">
+                        <textarea name="dwl_content" id="dwl_content"  style="height: 100px;" class="form-control" placeholder="Work Log Content" ></textarea>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="col-md-9 col-md-offset-3">
+                        <div class="checkbox">
+                            <label for="dwl_internal_only">
+                                <input type="checkbox" name="dwl_internal_only" id="dwl_internal_only" /> Internal Only
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="col-md-3 control-label" for="dwl_ticket_id"> Ticket ID</label>
+                    <div class="col-md-9">
+                        <input type="text" name="dwl_ticket_id" id="dwl_ticket_id" class="form-control" placeholder="Ticket ID" maxlength="64"/>
+                    </div>
+                </div>
+                <input type="hidden" id="device" name="device" value="{{ object.id }}">
+                <input type="hidden" id="user" name="user" value="{{ request.user.id }}">
+        </div>
+        <div class="panel-footer text-right noprint">
+            <button type="button" class="btn btn-xs btn-primary" id="btn_dwl" name="btn_dwl">
+                <span class="glyphicon glyphicon-plus" aria-hidden="true"></span> Submit Log
+            </button>
+        </div>
+    </form>
+    
+</div>
+
+<script src="{% static 'jquery/jquery-3.5.1.min.js' %}"></script>
+<script type="text/javascript">
+$(document).ready(function(){
+    $("#btn_dwl").click(function(){
+            var url = netbox_api_path + "plugins/work-logs/device-logs/";
+
+            if ($('#dwl_category').val() == "") {
+                alert ("Category field is a required field")
+                return false;
+            } else {
+                var dwl_category = $('#dwl_category').val();
+            }
+            
+            if ($('#dwl_subject').val() == "") {
+                alert ("Subject field is a required field");
+                return false;
+            } else {
+                var dwl_subject = $('#dwl_subject').val();
+            }
+            
+            var dwl_content = $('#dwl_content').val();
+            var dwl_internal_only = $('#dwl_internal_only').val();
+            var device = $('#device').val();
+            var author = $('#user').val();
+            var dwl_ticket_id = $('#dwl_ticket_id').val();
+            var csrf_token = $('input[name=csrfmiddlewaretoken]').val();
+            $.ajax({
+                url: url,
+                method: 'POST',
+                dataType: 'json',
+                data: {
+                    'device': device,
+                    'user': author,
+                    'category': dwl_category,
+                    'subject': dwl_subject,
+                    'content': dwl_content,
+                    'internal_only': dwl_internal_only,
+                    'ticket_id':dwl_ticket_id,
+                },
+                beforeSend: function(xhr, settings) {
+                    xhr.setRequestHeader("X-CSRFToken", csrf_token);
+                },
+                success: function(result) {
+                    alert("Worked Logs saved successfully!")
+                    window.location.reload(false);
+                },
+                error: function (xhr, ajaxOptions, thrownError) {
+                    if (xhr.status == 403) {
+                        alert("Permission denied");
+                    } else {
+                        alert(xhr.responseText)
+                    }
+                }
+            })
+
+            
+        //})
+    })
+})
+</script>
