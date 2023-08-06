@@ -1,0 +1,46 @@
+#!python
+
+import sys
+import logging
+import spotty
+from spotty.cli import get_parser
+from spotty.commands.writers.output_writrer import OutputWriter
+
+
+parser = get_parser()
+
+args = sys.argv[1:]
+output = OutputWriter()
+
+# display the version
+if '-V' in args:
+    output.write(spotty.__version__)
+    sys.exit(0)
+
+# separate Spotty arguments from custom arguments
+custom_args = []
+if '--' in args:
+    dd_idx = args.index('--')
+    custom_args = args[(dd_idx + 1):]
+    args = args[:dd_idx]
+
+# parse arguments
+args = parser.parse_args(args)
+args.custom_args = custom_args
+
+# logging
+logging_level = logging.DEBUG if 'debug' in args and args.debug else logging.WARNING
+logging.basicConfig(level=logging_level, format='[%(levelname)s] %(message)s')
+
+if 'command' not in args:
+    parser.print_help()
+    sys.exit(1)
+
+# run a command
+try:
+    args.command.run(args, output)
+except Exception as e:
+    output.write('Error:\n'
+                 '------\n'
+                 '%s' % str(e))
+    sys.exit(1)
