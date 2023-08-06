@@ -1,0 +1,96 @@
+Metadata-Version: 1.1
+Name: zenfilter
+Version: 0.6.0
+Summary: Filter stdin to avoid excessive output
+Home-page: https://github.com/shlomif/zenfilter
+Author: Shlomi Fish
+Author-email: shlomif@cpan.org
+License: 3-clause BSD
+Description: ==============================================================================
+        zenfilter.  Filter stdin to avoid excessive output
+        ==============================================================================
+        :Info: This is the README file for zenfilter.
+        :Author: Shlomi Fish <shlomif@cpan.org>
+        :Copyright: © 2016, Shlomi Fish.
+        :Date: 2020-10-28
+        :Version: 0.6.0
+        
+        .. index: README
+        .. image:: https://travis-ci.org/shlomif/zenfilter.svg?branch=master
+           :target: https://travis-ci.org/shlomif/zenfilter
+        
+        PURPOSE
+        -------
+        
+        This small script filters long STDIN output, performing several functions
+        to keep track of the important parts and progresses, which will be hard to
+        do with a shell script.
+        
+        It is useful for filtering the output of verbose
+        Travis-CI ( https://travis-ci.org/ ) commands, but may be useful in other
+        contexts where there is a limit to the amount of kept output.
+        
+        All arguments are optional:
+        
+        * `--count-step=n`: displays `COUNT <tab> <step>` every n lines.
+        * `--last=n`: displays the last n lines prefixed with "LAST\t"
+        * `--filter=<regex pattern>`: displays matching lines with a "FOUND\t" prefix.
+        * `--suppress-last-on=<regex>`: suppress the last lines if their concatenated output matches the regex.
+        
+        Examples:
+        
+        ::
+        
+            python zenfilter.py --count-step=10 --last=200 --filter="[0-9]+"
+            python zenfilter.py --last=20
+            python zenfilter.py --last=25 --count-step=15
+        
+        A use case scenario:
+        
+        ::
+        
+            make 2>&1 | python zenfilter.py [args]
+        
+        
+        COPYRIGHT
+        ---------
+        Copyright © 2016, Shlomi Fish.
+        All rights reserved.
+        
+        Redistribution and use in source and binary forms, with or without
+        modification, are permitted provided that the following conditions are
+        met:
+        
+        1. Redistributions of source code must retain the above copyright
+           notice, this list of conditions, and the following disclaimer.
+        
+        2. Redistributions in binary form must reproduce the above copyright
+           notice, this list of conditions, and the following disclaimer in the
+           documentation and/or other materials provided with the distribution.
+        
+        3. Neither the name of the author of this software nor the names of
+           contributors to this software may be used to endorse or promote
+           products derived from this software without specific prior written
+           consent.
+        
+        THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+        "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+        LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+        A PARTICULAR PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT
+        OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+        SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+        LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+        DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+        THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+        (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+        OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+        
+Keywords: zenfilter
+Platform: any
+Classifier: Development Status :: 1 - Planning
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
