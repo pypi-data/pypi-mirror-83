@@ -1,0 +1,96 @@
+Metadata-Version: 2.1
+Name: django-async-email
+Version: 0.1.2
+Summary: An async Django email backend using celery
+Home-page: https://github.com/eltonplima/django-async-email
+Author: Elton Lima
+Author-email: me@eltonplima.dev
+License: Mozilla Public License 2.0
+Project-URL: Changelog, https://github.com/ionelmc/python-nameless/blob/master/CHANGELOG.rst
+Project-URL: Issue Tracker, https://github.com/ionelmc/python-nameless/issues
+Platform: any
+Classifier: Development Status :: 1 - Planning
+Classifier: Framework :: Django
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Operating System :: POSIX
+Classifier: Topic :: Communications
+Classifier: Topic :: Communications :: Email
+Classifier: Topic :: System :: Distributed Computing
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.7
+Description-Content-Type: text/markdown
+Requires-Dist: django (>=1.11)
+Requires-Dist: celery (<5.0,>=4.2.2)
+Requires-Dist: kombu (<5.0)
+Requires-Dist: django-appconf
+Requires-Dist: dnspython (<2.0.0,>=1.15.0)
+Requires-Dist: eventlet
+Provides-Extra: dev
+Requires-Dist: pytest ; extra == 'dev'
+Requires-Dist: pytest-pep8 ; extra == 'dev'
+Requires-Dist: pytest-cov ; extra == 'dev'
+Requires-Dist: pytest-mock ; extra == 'dev'
+Requires-Dist: pytest-django ; extra == 'dev'
+Requires-Dist: pytest-celery ; extra == 'dev'
+Requires-Dist: pytest-xdist[psutil] ; extra == 'dev'
+Requires-Dist: flake8 ; extra == 'dev'
+Requires-Dist: black ; extra == 'dev'
+Requires-Dist: isort ; extra == 'dev'
+Requires-Dist: tox ; extra == 'dev'
+Requires-Dist: tox-asdf ; extra == 'dev'
+Requires-Dist: freezegun ; extra == 'dev'
+Requires-Dist: wheel ; extra == 'dev'
+
+# TODO
+
+* Enviar todas as mensagens que levantem TemplateDoesNotExist para uma fila apropriada
+
+# django-async-email
+
+[![Actions Status](https://github.com/eltonplima/django-async-email/workflows/tox/badge.svg)](https://github.com/eltonplima/django-async-email/actions)
+[![Actions Status](https://github.com/eltonplima/django-async-email/workflows/flake8/badge.svg)](https://github.com/eltonplima/django-async-email/actions)
+
+```python
+EMAILS_TEMPLATES = {
+    "welcome": {
+        "subject": "welcome/subject.txt",
+        "body_html": "welcome/body.html",
+        "body_txt": "welcome/body.txt",
+    }
+}
+
+# Customize the max_retries for one specific email category task
+ASYNC_EMAIL_TASKS = {"async_email.tasks.welcome": {"max_retries": 20}}
+
+# Customize the max_retries for all the tasks
+# Default is 20
+ASYNC_EMAIL_TASKS_MAX_RETRIES = 10
+ASYNC_EMAIL_TASKS_MAX_RETRIES = 10
+```
+
+# Important notes
+
+python setup.py sdist bdist_wheel && pip uninstall -y django_async_email && python -m pip install dist/django_async_email-0.1.0-py2.py3-none-any.whl
+
+## Demo project
+
+```shell script
+cd demo_project
+# Build and run the docker image
+docker-compose build && docker-compose up -d demo_project
+# Run migrations
+docker-compose exec demo_project python manage.py migrate
+# Create the superuser
+docker-compose exec demo_project python manage.py createsuperuser
+```
+
+```shell script
+celery worker --app=demo_project.celery -l info --pool=eventlet
+```
+
+
