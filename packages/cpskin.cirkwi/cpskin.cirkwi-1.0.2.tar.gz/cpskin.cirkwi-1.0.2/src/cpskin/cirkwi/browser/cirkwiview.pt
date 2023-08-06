@@ -1,0 +1,18 @@
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en"
+      lang="en"
+      metal:use-macro="here/main_template/macros/master"
+      i18n:domain="plone">
+<body>
+
+    <div id="cirkwi-container" metal:fill-slot="main" tal:define="myurl context/absolute_url;
+                                            cdf_parametres_client_sans_url view/cdf_parametres;
+                                            cdf_parametres_client python:'cdf_url:%s,%s'%(myurl,cdf_parametres_client_sans_url);
+                                            page_name string:cdf_module_cirkwi.php">
+        <metal:main-macro define-macro="main">
+          <div id="circuits">
+            <p tal:replace="structure python:view.getpage(cdf_parametres_client=cdf_parametres_client, em_name=page_name)"/>
+          </div>
+        </metal:main-macro>
+    </div>
+</body>
+</html>
