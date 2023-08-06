@@ -1,0 +1,36 @@
+# OpenSSL root CA configuration file
+
+
+[ req ]
+# Options for the `req` tool (`man req`).
+default_bits        = 2048
+distinguished_name  = req_distinguished_name
+string_mask         = utf8only
+prompt              = no
+encrypt_key         = yes
+# SHA-1 is deprecated, so use SHA-2 instead.
+default_md          = sha256
+# Extension to add when the -x509 option is used.
+req_extensions = v3_req
+
+[ req_distinguished_name ]
+# See <https://en.wikipedia.org/wiki/Certificate_signing_request>.
+O                   = Volunteer Computing
+0.O                 = CERN # Adapt here to your institue
+CN                  = MrBoincHost
+
+
+[ v3_req ]
+# Extensions for a typical CA (`man x509v3_config`).
+keyUsage = critical, digitalSignature, keyEncipherment
+extendedKeyUsage = serverAuth,clientAuth
+subjectKeyIdentifier = hash
+subjectAltName = @alt_names
+
+
+
+
+
+[ alt_names ]
+DNS.1 = MrBoincHost
+DNS.2 = localhost
