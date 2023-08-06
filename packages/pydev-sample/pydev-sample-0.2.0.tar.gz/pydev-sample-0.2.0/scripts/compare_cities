@@ -1,0 +1,38 @@
+#!/usr/bin/env python
+#
+# Compare a reference city to a list of other cities.
+
+import os
+import argparse
+from pydev import cities
+
+
+def main(reference_city, comparison_cities, model_version='standard'):
+    """Compare a reference city to other cities."""
+
+    # disable tensorflow warnings
+    os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+
+    print(f"Loading USE model ({model_version})...")
+    model = cities.load_use_model(model_version)
+
+    print("Calculating city vectors...")
+    results = cities.compare_cities(reference_city, comparison_cities,
+                                    model=model)
+    print(results)
+
+
+if __name__ == '__main__':
+
+    parser = argparse.ArgumentParser(
+        description='Compare cities based on Wikipedia summaries.')
+    parser.add_argument('reference_city', help='Reference city name')
+    parser.add_argument('comparison_cities',
+                        help="Comma-separated list of city names")
+    parser.add_argument(
+        '--version', '-v', default='standard',
+        help='Universal Sentence Encoder model to use {standard, lite}')
+    args = parser.parse_args()
+
+    city_list = args.comparison_cities.split(',')
+    main(args.reference_city, city_list, args.version)
