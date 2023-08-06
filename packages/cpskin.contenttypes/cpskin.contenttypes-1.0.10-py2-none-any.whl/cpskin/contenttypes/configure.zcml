@@ -1,0 +1,31 @@
+<configure
+    xmlns="http://namespaces.zope.org/zope"
+    xmlns:genericsetup="http://namespaces.zope.org/genericsetup"
+    xmlns:i18n="http://namespaces.zope.org/i18n"
+    xmlns:plone="http://namespaces.plone.org/plone"
+    i18n_domain="cpskin">
+
+  <include package="cpskin.locales" />
+  <include package=".browser" />
+
+  <include file="permissions.zcml" />
+  <include file="profiles.zcml" />
+
+  <genericsetup:registerProfile
+      name="default"
+      title="cpskin.contenttypes"
+      directory="profiles/default"
+      description="Installs CPSkin content types"
+      provides="Products.GenericSetup.interfaces.EXTENSION"
+      post_handler=".setuphandlers.post_install"
+      />
+
+  <genericsetup:upgradeStep
+      title="Migrate to 'procedure'"
+      description="Migrate old document tagged 'demarche...' and TTW dexterity 'demarche' to new content-type 'procedure'"
+      handler=".setuphandlers.migrate_procedures"
+      source="1000"
+      destination="1001"
+      profile="cpskin.contenttypes:default"
+      />
+</configure>

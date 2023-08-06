@@ -1,0 +1,57 @@
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en"
+      xmlns:tal="http://xml.zope.org/namespaces/tal"
+      xmlns:metal="http://xml.zope.org/namespaces/metal"
+      xmlns:i18n="http://xml.zope.org/namespaces/i18n"
+      lang="en"
+      metal:use-macro="context/main_template/macros/master"
+      i18n:domain="cpskin">
+<body>
+
+<metal:main fill-slot="content-core">
+
+    <script type="text/javascript">
+        jQuery(document).ready(function($) {
+            if (typeof $('.product-leadImage a').fancybox === "function") {
+                $('.product-leadImage a').fancybox();
+            }
+        });
+    </script>
+
+  <div class="field"
+       tal:condition="view/print_basic_e_guichet_field">
+    <span class="text-widget textline-field"
+        id="form-widgets-e_guichet"
+        tal:content="context/e_guichet"></span>
+  </div>
+
+  <div class="field"
+       tal:condition="view/has_procedures">
+    <button class="btn link-e-guichet"
+        id="form-widgets-procedure"
+        i18n:translate=""
+        tal:attributes="onclick python:'window.open(\'{}\',\'_blank\')'.format(context.procedures)">
+        Perform this procedure on e-guichet</button>
+  </div>
+
+  <div class="field"
+       tal:condition="context/text">
+    <p class="text-widget textline-field"
+        id="form-widgets-text" tal:content="structure context/text/output"></p>
+  </div>
+
+  <div class="product-leadImage" tal:condition="view/available">
+    <a href="" title=""
+       tal:define="has_img context/image|nothing;
+                   scales context/@@images|nothing;"
+       tal:condition="python:has_img and scales"
+       tal:attributes="href python: scales.scale('image').url;
+                       title context/image_caption;
+                       ">
+      <img
+          tal:replace="structure python: scales.scale('image', scale='preview').tag()" />
+    </a>
+  </div>
+</metal:main>
+
+</body>
+</html>
