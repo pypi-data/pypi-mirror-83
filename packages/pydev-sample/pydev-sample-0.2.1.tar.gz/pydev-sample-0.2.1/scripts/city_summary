@@ -1,0 +1,28 @@
+#!/usr/bin/env python
+#
+# Display a text summary of a city from Wikipedia.
+
+
+import argparse
+from pydev import cities
+
+
+def main(city_name, sentences=3):
+    """Display the summary of a city using Wikipedia."""
+
+    page_title = cities.get_city_title(city_name)
+    summary = cities.city_summary(page_title, sentences)
+    print(summary)
+
+
+if __name__ == '__main__':
+
+    parser = argparse.ArgumentParser(
+        description='Compare cities based on Wikipedia summaries.')
+    parser.add_argument('city_name', help='Short city name')
+    parser.add_argument(
+        '--sentences', '-n', default=3,
+        help='Number of sentences to include in summary.')
+    args = parser.parse_args()
+
+    main(args.city_name, args.sentences)
