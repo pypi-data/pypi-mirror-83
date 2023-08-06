@@ -1,0 +1,2 @@
+(window.webpackJsonp=window.webpackJsonp||[]).push([[2],{127:function(e,t,n){"use strict";n.r(t),n.d(t,"getReverse",(function(){return a})),n.d(t,"patchReverse",(function(){return o}));var r=n(9);function a(){return r.apiCall({method:"GET",path:"/reverse"})}function o(e,t,n,a,o,p){let u={enabled:e,scheme:t,host:n,port:a,path:o,timeout:p};return r.apiCall({method:"PATCH",path:"/reverse",data:u})}}}]);
+//# sourceMappingURL=2.js.map
