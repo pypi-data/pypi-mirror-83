@@ -1,0 +1,84 @@
+Metadata-Version: 2.1
+Name: python-comrak
+Version: 0.4.0
+Summary: Markdown HTML converters for Python made in Rust
+Home-page: http://gitlab.merchise.org/mercurio-2018/python-comrak
+Author: Merchise Autrement
+Author-email: info@merchise.org
+License: Unlicense
+Keywords: markdown
+Platform: UNKNOWN
+Classifier: Development Status :: 3 - Alpha
+Classifier: License :: Public Domain
+Classifier: Natural Language :: English
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Text Processing :: Filters
+Classifier: Topic :: Text Processing :: Markup :: HTML
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+
+# Markdown HTML converters for Python made in Rust
+
+Exposes two Rust crates which parse markdown to Python using
+[PyO3](https://pyo3.rs/).
+
+## Using Comrak
+
+The first crate exposed is [comrak](https://docs.rs/comrak/) from which we
+inherited the name:
+
+Example:
+
+```python
+  >>> from python_comrak import markdown_to_html
+  >>> markdown_to_html("\tfoo\tbaz\t\tbim\n")
+  "<pre><code>foo\tbaz\t\tbim\n</code></pre>\n"
+```
+
+`markdown_to_html` activates the extensions:
+
+- [strikethrough](https://docs.rs/comrak/0.8.0/comrak/struct.ComrakExtensionOptions.html#structfield.strikethrough)
+- [tagfilter](https://docs.rs/comrak/0.8.0/comrak/struct.ComrakExtensionOptions.html#structfield.tagfilter)
+- [autolink](https://docs.rs/comrak/0.8.0/comrak/struct.ComrakExtensionOptions.html#structfield.autolink)
+
+
+## Using pulldown-cmark
+
+The second crate is [pulldown-cmark](https://crates.io/crates/pulldown-cmark).  Example:
+
+```python
+  >>> from python_comrak import commonmark_to_html
+  >>> commonmark_to_html("\tfoo\tbaz\t\tbim\n")
+  "<pre><code>foo\tbaz\t\tbim\n</code></pre>\n"
+```
+
+`commonmark_to_html` activates the extensions:
+
+- [STRIKETHROUGH](https://docs.rs/pulldown-cmark/0.7.2/pulldown_cmark/struct.Options.html#associatedconstant.ENABLE_STRIKETHROUGH)
+
+
+*Notice* that `pulldown-cmark` doesn't implement 100% of CommonMark yet.  Also
+ it doesn't have the same set of extensions we use with `comrak`.
+
+
+## Benchmarks
+
+This implementation is quite simple and doesn't allow much of the underlying
+crates.  The extensions and options are fixed.  The following is just a
+micro-benchmark parsing the text of this README file:
+
+
+```python
+>>> with open('README.md', 'r') as f:
+...     contents = f.read()
+
+>>> from python_comrak import markdown_to_html, commonmark_to_html
+
+>>> %timeit markdown_to_html(contents)
+54.4 µs ± 1.24 µs per loop (mean ± std. dev. of 7 runs, 10000 loops each)
+
+>>> %timeit commonmark_to_html(contents)
+12.5 µs ± 97.3 ns per loop (mean ± std. dev. of 7 runs, 100000 loops each)
+```
+
+
