@@ -1,0 +1,1 @@
+from logreporter.report.discordwhreporter import DiscordWHReporter
