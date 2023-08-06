@@ -1,0 +1,95 @@
+<configure
+    xmlns="http://namespaces.zope.org/zope"
+    xmlns:five="http://namespaces.zope.org/five"
+    xmlns:i18n="http://namespaces.zope.org/i18n"
+    xmlns:genericsetup="http://namespaces.zope.org/genericsetup"
+    xmlns:browser="http://namespaces.zope.org/browser"
+    i18n_domain="cpskin">
+
+  <include package="z3c.jbot" file="meta.zcml" />
+  <five:registerPackage package="." initialize=".initialize" />
+  <include package=".browser"/>
+  <include file="subscribers.zcml"/>
+  <utility provides="affinitic.caching.interfaces.IMemcachedDefaultNameSpace"
+           component=".cache.getPloneSiteMemcachedDefaultNameSpace"/>
+
+  <genericsetup:registerProfile
+      name="default"
+      title="cpskin.menu"
+      directory="profiles/default"
+      description="Installs the cpskin.menu package"
+      provides="Products.GenericSetup.interfaces.EXTENSION"
+      />
+
+  <genericsetup:registerProfile
+      name="uninstall"
+      title="cpskin.menu: uninstall"
+      directory="profiles/uninstall"
+      description="Uninstalls the cpskin.menu package"
+      provides="Products.GenericSetup.interfaces.EXTENSION"
+      />
+
+  <interface interface="cpskin.menu.interfaces.IFourthLevelNavigation" />
+  <interface interface="cpskin.menu.interfaces.IDirectAccess" />
+
+  <browser:jbot
+      directory="overrides"
+      layer=".interfaces.ICpskinMenuLayer" />
+
+  <utility component=".vocabulary.LastLevelMenuVocabularyFactory"
+           name="cpskin.menu.vocabularies.lastlevelnavigation" />
+
+  <genericsetup:registerProfile
+      name="to1005"
+      title="cpskin.menu: migrate to 1005"
+      directory="upgrades/to1005"
+      description="CPSKIN Menu: upgrade to v1005"
+      for="Products.CMFPlone.interfaces.IPloneSiteRoot"
+      provides="Products.GenericSetup.interfaces.EXTENSION"
+      />
+
+  <genericsetup:upgradeStep
+      title="Upgrade cpskin.menu from 1000 to 1001"
+      source="1000"
+      destination="1001"
+      handler="cpskin.menu.upgrades.upgrade_1000_to_1001"
+      profile="cpskin.menu:default"/>
+
+  <genericsetup:upgradeStep
+      title="Upgrade cpskin.menu from 1001 to 1002"
+      description="Add cpskin_menu.js"
+      source="1001"
+      destination="1002"
+      handler="cpskin.menu.upgrades.upgrade_1001_to_1002"
+      profile="cpskin.menu:default"/>
+
+  <genericsetup:upgradeStep
+      title="Upgrade cpskin.menu from 1002 to 1003"
+      description="Add cpskin_menu.js"
+      source="1002"
+      destination="1003"
+      handler="cpskin.menu.upgrades.upgrade_1002_to_1003"
+      profile="cpskin.menu:default"/>
+
+  <genericsetup:upgradeSteps
+      source="1003"
+      destination="1004"
+      profile="cpskin.menu:default">
+
+      <genericsetup:upgradeDepends
+          title="Remove cpskin_submenu.js"
+          import_steps="jsregistry"
+          />
+      
+  </genericsetup:upgradeSteps>
+
+  <genericsetup:upgradeStep
+      title="Upgrade cpskin.menu from 1004 to 1005"
+      description="Upgrade step for moving CPSkin actions to new menu"
+      source="1004"
+      destination="1005"
+      handler="cpskin.menu.upgrades.move_cpskin_actions"
+      profile="cpskin.menu:default"/>
+
+
+</configure>

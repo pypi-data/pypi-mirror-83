@@ -1,0 +1,51 @@
+<configure xmlns="http://namespaces.zope.org/zope"
+           xmlns:genericsetup="http://namespaces.zope.org/genericsetup"
+           i18n_domain="plone">
+   <include file="meta.zcml"/>
+   <include file="overrides.zcml"/>
+   <include package="cpskin.core" file="testing.zcml"/>
+   <include package="cpskin.theme" file="testing.zcml"/>
+   <include package="cpskin.workflow" file="testing.zcml"/>
+   <include package="affinitic.caching" />
+   <include package="affinitic.caching" file="views.zcml"/>
+   <include package="plone.app.contenttypes"/>
+
+  <genericsetup:registerProfile
+      name="testing"
+      title="cpskin.menu"
+      directory="profiles/testing"
+      description="Installs the cpskin.menu package"
+      provides="Products.GenericSetup.interfaces.EXTENSION"
+      />
+
+  <genericsetup:registerProfile
+      name="testing_persistence"
+      title="cpskin.menu persistence"
+      directory="profiles/testing-persistence"
+      description="Installs the cpskin.menu package"
+      provides="Products.GenericSetup.interfaces.EXTENSION"
+      />
+
+  <genericsetup:registerProfile
+      name="testing_no_persistence"
+      title="cpskin.menu no persistence"
+      directory="profiles/testing-no-persistence"
+      description="Installs the cpskin.menu package"
+      provides="Products.GenericSetup.interfaces.EXTENSION"
+      />
+
+  <genericsetup:registerProfile
+      name="testing_load_page"
+      title="cpskin.menu load page"
+      directory="profiles/testing-load-page"
+      description="Installs the cpskin.menu package"
+      provides="Products.GenericSetup.interfaces.EXTENSION"
+      />
+
+  <!--genericsetup:importStep
+      name="cpskin.menu.content"
+      title="Add content"
+      description="to test cpskin.menu with robot"
+      handler=".testing_robot.setupContent" /-->
+
+</configure>
