@@ -1,0 +1,57 @@
+notifications:
+  slack:
+    secure: fF5IEFsg+x9GU2JFv+Pnm+XMjBbocIv1sm0eWqo5kYeb4yZ8WAkrYHSx7QH5HM1fPRvpKT320JaSx/ZJC/u66xeQ6lkpF4vyrncmOjfoILr2vRERYbGHeMMcwaKgenL4+qyt4Xm6QKH7jq8qNad9n1F+ZDJ8K39OgWsl3pkplN8f3d+nUupZwfbQE1OlhoyySKBokC2JqIRJbXJGFQQgeO3xEuNIiHRrFAQbNoXGMv5FyooOluQdYBntAupwH5Q7Uc4V2eGIelpHNduU2RD8wbfQ+zJ48vTOSj5kYHi8LvkfvxkjsJ5PnHkBCjd/z0fUYmstEKvZxdfM9GnCk5ppGDCE+DcsnDRwODcj9+gbEjRjaV/qdf45ZwGjZ/m2/gHRImDnGfyfB13wJupE0DELk7HwHZcoqdBitoplc6MzEYOQzldvaVHIaiZKe/RNCDJCHOetIJjETZPWy1yjqyv5ngoCEAooWbE4zYKi8WVoAHUQAtMJHqgJTmRirkA83VXyl7J2dv75AZDzsYDbMa/NFq/BgofJXEzWsubKW9WKf58+9EeUq1P7si2QuIRch1dJrFxW9IlResGMwfZyEk+alPJju8TDGOTzcis/ER+GCzeS9jrY2gnEmJwhqlvZ9D+NhHSQJB1NToNVlwaIZ8nAUGFKC/7M0XxWUHCdUTFBexo=
+  email: false
+language: python
+dist: xenial
+cache: false
+env:
+  global:
+  - LD_PRELOAD=/lib/x86_64-linux-gnu/libSegFault.so
+  - SEGFAULT_SIGNALS=all
+matrix:
+  include:
+  - python: '3.6'
+    env:
+    - TOXENV=check
+  - python: '3.6'
+    env:
+    - TOXENV=docs
+  - env:
+    - TOXENV=py35,codecov
+    python: '3.5'
+  - env:
+    - TOXENV=py36,codecov
+    python: '3.6'
+#  - os: osx
+#    language: generic
+#    env:
+#    - TOXENV=py38
+  - env:
+    - TOXENV=py37,codecov
+    python: '3.7'
+  - env:
+    - TOXENV=py38,codecov
+    python: '3.8'
+before_install:
+- python --version
+- uname -a
+- lsb_release -a || true
+- |
+  if [[ $TRAVIS_OS_NAME == 'osx' ]]; then
+    [[ $TOXENV =~ py3 ]] && brew upgrade python
+    [[ $TOXENV =~ py2 ]] && brew install python@2
+    export PATH="/usr/local/opt/python/libexec/bin:${PATH}"
+  fi
+- python --version
+install:
+- python -mpip install --progress-bar=off tox -rci/requirements.txt
+- virtualenv --version
+- easy_install --version
+- pip --version
+- tox --version
+script:
+- tox -v
+after_failure:
+- more .tox/log/* | cat
+- more .tox/*/log/* | cat
