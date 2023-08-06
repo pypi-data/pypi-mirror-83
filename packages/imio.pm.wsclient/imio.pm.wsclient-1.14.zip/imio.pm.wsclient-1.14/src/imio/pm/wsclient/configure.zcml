@@ -1,0 +1,31 @@
+<configure
+    xmlns="http://namespaces.zope.org/zope"
+    xmlns:five="http://namespaces.zope.org/five"
+    xmlns:genericsetup="http://namespaces.zope.org/genericsetup"
+    xmlns:zcml="http://namespaces.zope.org/zcml"
+    xmlns:i18n="http://namespaces.zope.org/i18n"
+    i18n_domain="imio.pm.wsclient">
+
+    <i18n:registerTranslations directory="locales" />
+    <five:registerPackage package="." initialize=".initialize" />
+
+    <permission
+      id="zope2.SOAPClientAccess"
+      title="SOAP Client Access"/>
+
+    <permission
+      id="zope2.SOAPClientSend"
+      title="SOAP Client Send"/>
+
+    <include package=".browser" />
+    <include file="subscribers.zcml" />
+
+    <genericsetup:registerProfile
+      name="default"
+      title="Webservices Client for PloneMeeting"
+      directory="profiles/default"
+      description="Registration of the Webservices Client for PloneMeeting"
+      provides="Products.GenericSetup.interfaces.EXTENSION"
+    />
+
+</configure>
