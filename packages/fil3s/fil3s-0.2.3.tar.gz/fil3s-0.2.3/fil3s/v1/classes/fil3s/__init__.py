@@ -1,0 +1,1352 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+# imports.
+from fil3s.v1.classes.config import *
+from fil3s.v1.classes import utils
+
+# the files class.
+class Files():
+    
+    # the file object class.
+    class File(object):
+        def __init__(self, path=None, data=None, load=False, default=None, check_existance=False):
+        	# init.
+            if path == False: self.file_path = False # used in local memory (not fysical)
+            else: self.file_path = Formats.FilePath(path, check_existance=check_existance)
+            self.data = data
+            if default != None and not os.path.exists(self.file_path.path):
+                self.save(data=default)
+            if load: self.load()
+            # can be filled with executing [self.x = x()]:
+        def load(self, default=None):
+            utils.__check_memory_only__(self.file_path.path)
+            if not os.path.exists(self.file_path.path) and default != None: 
+                self.save(str(default), self.file_path.path)
+            file = open(self.file_path.path,mode='rb')
+            data = file.read().decode()
+            file.close()
+            self.data = data
+            return data
+        def load_line(self, line_number, default=None):
+            utils.__check_memory_only__(self.file_path.path)
+            if not os.path.exists(self.file_path.path) and default != None: 
+                self.save(str(default), self.file_path.path)
+            file = open(self.file_path.path,mode='rb')
+            data = file.read()
+            file.close()
+            return data.decode().split('\n')[line_number]
+        def save(self, data=None, path=None, overwrite_duplicates=True):
+            if path == None: path = self.file_path.path
+            utils.__check_memory_only__(path)
+            if data != None: a=1 
+            else: data = self.data
+            file_name, original_path = Formats.FilePath(path).name(), path
+            if overwrite_duplicates:
+                file = open(path, "w+") 
+                file.write(data)
+                file.close()
+            else:
+                extension = file_name.split('.')[file_name.count('.')]
+                file_name_without_extension = file_name.replace(extension, '')
+                while True:
+                    if not os.path.exists(path): break
+                    else: path = original_path.replace(file_name, file_name_without_extension+'-'+str(index)+extension)
+                file = open(path, "w+") 
+                file.write(data)
+                file.close()
+            self.data = data
+
+    # the shell script object class.
+    class ShellScript(object):
+        def __init__(self, path=None, data=None, load=False, default=None):
+            # init.
+            if path == False: self.file_path = False # used in local memory (not fysical)
+            else: self.file_path = Formats.FilePath(path)
+            self.data = data
+            if default != None and Formats.check(strings={"default":default}) and not os.path.exists(self.file_path.path): self.save(data=default)
+            if load: self.load()
+            # can be filled with executing [self.x = x()]:
+        def load(self, default=None):
+            utils.__check_memory_only__(self.file_path.path)
+            if not os.path.exists(self.file_path.path) and default != None: 
+                self.save(str(default), self.file_path.path)
+            file = open(self.file_path.path,mode='rb')
+            data = file.read().decode()
+            file.close()
+            self.data = data
+            return data
+        def loadLine(self, line_number, default=None):
+            utils.__check_memory_only__(self.file_path.path)
+            if not os.path.exists(self.file_path.path) and default != None: 
+                self.save(str(default), self.file_path.path)
+            file = open(self.file_path.path,mode='rb')
+            data = file.read()
+            file.close()
+            return data.decode().split('\n')[line_number]
+        def save(self, data=None, overwrite_duplicates=True):
+            utils.__check_memory_only__(self.file_path.path)
+            if data != None: a=1 
+            else: data = self.data
+            file_name, original_path = Formats.FilePath(self.file_path.path).name(), self.file_path.path
+            if overwrite_duplicates:
+                file = open(self.file_path.path, "wb") 
+                file.write(data.encode())
+                file.close()
+            else:
+                extension = file_name.split('.')[file_name.count('.')]
+                file_name_without_extension = file_name.replace(extension, '')
+                while True:
+                    if not os.path.exists(self.file_path.path): break
+                    else: self.file_path.path = original_path.replace(file_name, file_name_without_extension+'-'+str(index)+extension)
+                file = open(self.file_path.path, "wb") 
+                file.write(data.encode())
+                file.close()
+            self.data = data
+        def execute(self, sudo=False, output_append=False, new_terminal=False): # only for executable files.
+            if OS == "linux":
+                if new_terminal: 
+                    if sudo: os.system("sudo gnome-terminal -e 'sh -c {}'".format(self.file_path.path))
+                    else: os.system("gnome-terminal -e 'sh -c {}'".format(self.file_path.path))
+                else: 
+                    if sudo: os.system("sudo "+self.file_path.path)
+                    else: os.system(self.file_path.path)
+            elif OS == "osx":
+                if new_terminal: 
+                    if sudo: appscript.app("Terminal").do_script("sudo "+self.file_path.path)
+                    else: appscript.app("Terminal").do_script(self.file_path.path)
+                else: 
+                    if sudo: os.system("sudo "+self.file_path.path)
+                    else: os.system(self.file_path.path)
+
+    # the array object class.
+    class Array(object):
+        def __init__(self, 
+            path=None, 
+            array=None, 
+            # load the data on initialization.
+            load=False, 
+            # the default array (will be created if file path does not exist).
+            default=None,
+            check_existance=False,
+        ):
+            # init.
+            if path == False: self.file_path = False # used in local memory (not fysical)
+            else: self.file_path = Formats.FilePath(path, check_existance=check_existance)
+            self.array = array
+            if default != None and not os.path.exists(self.file_path.path): self.save(array=default)
+            if load: self.load()
+        def save(self, array=None, ensure_ascii=False, indent=4):
+            utils.__check_memory_only__(self.file_path.path)
+            if array != None: Formats.check(arrays={"array":array})
+            else: array = self.array
+            with open(self.file_path.path, 'w+') as json_file:
+                json.dump(array, json_file, ensure_ascii=ensure_ascii, indent=indent)
+            self.array = array
+        def load(self, default=None):
+            utils.__check_memory_only__(self.file_path.path)
+            Formats.check(nones={"path":self.file_path.path}) # noneCheck is faster then stringCheck
+            if not os.path.exists(self.file_path.path) and default != None: 
+                Formats.check(arrays={"default":default})
+                self.save(default)
+            array = None
+            try: 
+                with open(self.file_path.path, 'r+') as json_file:
+                    array = json.load(json_file)
+            except PermissionError:
+                with open(self.file_path.path, 'r') as json_file:
+                    array = json.load(json_file)
+            self.array = array
+            return array
+        def string(self, sum_char=' '):
+            string = ''
+            for x in self.array:
+                if string == '': string = str(x)
+                else: string += sum_char + str(x)
+            return str(string)
+        def removeItems(self, items=[]):
+            Formats.check(arrays={"items:":items})
+            y = []
+            for x in self.array:
+                if x not in items: y.append(x)
+            self.array = y
+        def divide(self, into):
+            avg = len(self.array) / float(into)
+            out = []
+            last = 0.0
+
+            while last < len(self.array):
+                out.append(self.array[int(last):int(last + avg)])
+                last += avg
+
+            return out
+
+    # the dictionary object class.
+    class Dictionary(object):
+        def __init__(self, 
+            # Required:
+            path=None, # string or False
+            dictionary=None, # None or input dictionary
+            load=False, # load the file path dictionary on init.
+            check_existance=False, # throw error if it does not exist.
+            default=None, # specify default to check & create the dict.
+        ):
+
+            # arguments.
+            self.dictionary = dictionary
+            self.path = path
+            self.default = default
+
+            # check path. 
+            if path == False: self.file_path = False # used in local memory (not fysical)
+            else: 
+               
+                # check/create fysical.
+                if not os.path.exists(self.path) and self.default != None:
+                    self.file_path = Formats.FilePath(path, check_existance=False)
+                    self.save(dictionary=default)
+                    self.dictionary = default
+                else: self.file_path = Formats.FilePath(path, check_existance=check_existance)
+            
+            # load.
+            if load: self.load()
+            if self.default != None:
+                if self.dictionary == None: 
+                    self.load(default=self.default)
+                self.check(default=self.default, save=True)
+
+            #
+            # can be filled with executing [self.x = x()]:
+        def save(self, dictionary=None, path=None, ensure_ascii=False, indent=4):
+            utils.__check_memory_only__(self.file_path.path)
+            if dictionary == None: dictionary = self.dictionary
+            if path == None: path = self.file_path.path
+            self.dictionary = dictionary
+            # save.
+            try:
+                with open(path, 'w+') as json_file:
+                    json.dump(dictionary, json_file, ensure_ascii=ensure_ascii, indent=indent)
+            except PermissionError:
+                with open(path, 'w') as json_file:
+                    json.dump(dictionary, json_file, ensure_ascii=ensure_ascii, indent=indent)
+        def load(self, default=None):
+            utils.__check_memory_only__(self.file_path.path)
+            if not os.path.exists(self.file_path.path) and default != None: 
+                self.save(default)
+            dictionary = None
+
+            # load.
+            try: 
+                with open(self.file_path.path, 'r+') as json_file:
+                    dictionary = json.load(json_file)
+            except PermissionError:
+                with open(self.file_path.path, 'r') as json_file:
+                    dictionary = json.load(json_file)
+
+            self.dictionary = dictionary
+            return dictionary
+        def load_line(self, line_number):
+            utils.__check_memory_only__(self.file_path.path)
+            file = open(self.file_path.path,mode='rb')
+            data = file.read()
+            file.close()
+            return data.decode().split('\n')[line_number]
+        def check(self, 
+            #   Option 1:
+            key=None, # check a certain key, it appends if not present
+            value=None, # check a certain key, append the value if not present (no format check)
+            #   Option 2:
+            default=None, # check based on a default dictionary, it appends it not present.
+            #   Optionals:
+            dictionary=None, # overwrite the start dictionary, leave None to use self.dictionary.
+            save=False, # saves the output & and sets the output to self.dictionary.
+        ):  
+            def __iterate_dict__(dictionary, default):
+                #print("\niterating new dictionary: [{}] & default [{}]\n".format(dictionary, default))
+                for identifier, item in default.items():
+                    if isinstance(item, dict):
+                        try: dictionary[identifier] = __iterate_dict__(dictionary[identifier], item)
+                        except KeyError: dictionary[identifier] = item
+                    elif isinstance(item, list):
+                        try: dictionary[identifier]
+                        except KeyError: dictionary[identifier] = item
+                    else:
+                        try: dictionary[identifier]
+                        except KeyError: dictionary[identifier] = item
+                return dictionary
+
+            # init.
+            if dictionary == None: dictionary = self.dictionary
+            
+            #   -   option 1:
+            if key == None and value != None: raise ValueError("Define both parameters: [key & value].")
+            elif value == None and key != None: raise ValueError("Define both parameters: [key & value].")
+            if key != None and value != None:   
+                try: dictionary[key]
+                except KeyError: dictionary[key] = value
+                return dictionary
+            Formats.check(booleans={"save":save})
+            
+            #   -   option 2:
+            if default == None: default = self.default
+            if default == None: raise ValueError("Define both parameters: [key & value] or parameter [default].")
+            dictionary = __iterate_dict__(dictionary, default)
+            if save:
+                self.dictionary = dictionary
+                self.save()
+            return dictionary
+        def divide(self, into=2):
+            "Splits dict by keys. Returns a list of dictionaries."
+            return_list = [dict() for idx in range(into)]
+            idx = 0
+            for k,v in self.dictionary.items():
+                return_list[idx][k] = v
+                if idx < into-1:  # indexes start at 0
+                    idx += 1
+                else:
+                    idx = 0
+            return return_list
+
+    # the directory object class.
+    class Directory(object):
+        def __init__(self, path=None, check_existance=False, hierarchy={}):
+            # init.
+            if path == False: self.file_path = False # used in local memory (not fysical)
+            else: 
+                if path[len(path)-1] != "/": path += "/"
+                self.file_path = Formats.FilePath(path, check_existance=check_existance)
+            self.hierarchy = hierarchy
+            if self.hierarchy != None:
+                self.check(hierarchy=hierarchy)
+
+            # can be filled with executing [self.x = x()]:
+            # executable functions.
+        # actions.
+        def create(self, file_paths=[], path=None, sudo=False, owner=None, group=None, permission=None):
+
+            #   -   init:
+            if path == None: path = self.file_path.path
+            Formats.check(arrays={"file_paths":file_paths})
+
+            #   -   create dir:
+            if not os.path.exists(path): 
+                if sudo: os.system('sudo mkdir '+path)
+                else: os.system('mkdir '+path)
+
+            #   -   copy files:
+            commands = []
+            for l_path in file_paths: 
+                if sudo:
+                    command = None
+                    if os.path.isdir(l_path): command = 'sudo cp -r {0} {1} '.format(l_path, path+Formats.FilePath(l_path).name())
+                    else: command = 'sudo cp {0} {1}'.format(l_path, path+Formats.FilePath(l_path).name())
+                    commands.append(command)
+                else:
+                    command = None
+                    if os.path.isdir(l_path): command = 'cp -r {0} {1} '.format(l_path, path+Formats.FilePath(l_path).name())
+                    else: command = 'cp {0} {1}'.format(l_path, path+Formats.FilePath(l_path).name())
+                    commands.append(command)
+            if len(commands) > 0:
+                if sudo:
+                    script = Files.ShellScript(
+                        data=command, 
+                        path='/tmp/shell_script-'+str(random.randrange(23984792,23427687323))+'.sh'
+                    )
+                    script.save()
+                    script.setPermission(755)
+                    script.execute(sudo=sudo)
+                    script.delete()
+                else: os.system(Files.Array(array=commands,path=False).string(sum_char=" \n "))
+
+            if owner != None or group!=None: self.file_path.ownership.set(owner=owner, group=group, sudo=sudo)
+            if permission != None: self.file_path.permission.set(permission=permission, sudo=sudo)
+        def delete(self, forced=False):
+            if forced: os.system('rm -fr {}'.format(self.file_path.path))
+            else: os.system('rm -r {}'.format(self.file_path.path))
+        def check(self, 
+            #   Required:
+            #   -   dictionary format:
+            hierarchy=None, 
+            #   Optionals:
+            #   -   string format:
+            owner=None, 
+            group=None, 
+            #   -   boolean format:
+            sudo=False,
+            #   -   integer format:
+            permission=None, # (octal format)
+            recursive=False, # for permission/ownership
+            silent=False,
+        ):
+            format = {
+                "my_directory_name":{
+                    # Required:
+                    "path":"my_directory_name/",
+                    # Optionals:
+                    "permission":755,
+                    "owner":"daanvandenbergh",
+                    "group":None,
+                    "sudo":False,
+                    "directory":True,
+                    "recursive":False, # for permission & ownership (directories).
+                    "default_data":None, # makes it a file
+                    "default":None, # makes it a dictionary
+                }
+            }
+            def checkPermissionOwnership(file_path, dictionary, silent=False, recursive=False):
+                if dictionary["permission"] != None and dictionary["permission"] != file_path.permission.permission:
+                    #print("editing file [{}] permission [{}] to [{}]...".format(file_path.path, file_path.permission.permission, dictionary["permission"]))
+                    file_path.permission.set(permission=dictionary["permission"], sudo=dictionary["sudo"], recursive=recursive, silent=silent)
+                if dictionary["owner"] != None and dictionary["owner"] != file_path.ownership.owner:
+                    #print("editing file [{}] owner [{}] to [{}]...".format(file_path.path, file_path.ownership.owner, dictionary["owner"]))
+                    file_path.ownership.set(owner=dictionary["owner"], group=file_path.ownership.group, sudo=dictionary["sudo"], recursive=recursive, silent=silent)
+                #print("file [{}] current group [{}] wanted group [{}]".format(file_path.path, file_path.ownership.group, dictionary["group"]))
+                if dictionary["group"] != None and dictionary["group"] != file_path.ownership.group:
+                    #print("editing file [{}] group [{}] to [{}]...".format(file_path.path, file_path.ownership.group, dictionary["group"]))
+                    file_path.ownership.set(owner=file_path.ownership.owner, group=dictionary["group"], sudo=dictionary["sudo"], recursive=recursive, silent=silent)
+            if hierarchy == None: hierarchy = self.hierarchy
+            #if owner == None: owner = self.owner
+            #if group == None: group = self.group
+            #if permission == None: permission = self.permission
+            file_path = Formats.FilePath(self.file_path.path)
+            if file_path.exists() == False:
+                file_path.create(
+                    directory=True, 
+                    permission=permission, 
+                    group=group, 
+                    owner=owner,
+                    sudo=sudo)
+            elif group != None or owner != None or permission != None: 
+                file_path.permission.permission = file_path.permission.get()
+                try: get = file_path.ownership.get()
+                except KeyError: return False
+                file_path.ownership.group = get["group"]
+                file_path.ownership.owner = get["owner"]
+                checkPermissionOwnership(file_path, {"sudo":sudo, "owner":owner, "group":group, "permission":permission}, recursive=recursive, silent=silent)
+
+
+            if hierarchy == None: raise ValueError("Define dictionary parameter: hierarchy")
+            for identifier, dictionary in hierarchy.items():
+
+                #   -   check:
+                try: dictionary["path"] = self.file_path.path + dictionary["path"]
+                except: raise ValueError("Invalid hierarchy item [{} : {}]. Specify the [path].".format(identifier, "?"))
+                try: dictionary["permission"]
+                except KeyError: dictionary["permission"] = None
+                try: dictionary["owner"]
+                except KeyError: dictionary["owner"] = None
+                try: dictionary["group"]
+                except KeyError: dictionary["group"] = None
+                try: dictionary["directory"]
+                except KeyError: dictionary["directory"] = False
+                try: dictionary["sudo"]
+                except KeyError: dictionary["sudo"] = False
+                try: dictionary["default_data"]
+                except KeyError: dictionary["default_data"] = None
+                try: dictionary["default"]
+                except KeyError: dictionary["default"] = None
+                try: dictionary["recursive"]
+                except KeyError: dictionary["recursive"] = False
+
+                #   -   directory:
+                if dictionary["directory"]:
+                    file_path = Formats.FilePath(dictionary["path"])
+                    if file_path.exists() == False:
+                        file_path.create(
+                            directory=True, 
+                            permission=dictionary["permission"], 
+                            group=dictionary["group"], 
+                            owner=dictionary["owner"],
+                            sudo=dictionary["sudo"],)
+                    else: 
+                        file_path.permission.permission = file_path.permission.get()
+                        get = file_path.ownership.get()
+                        file_path.ownership.group = get["group"]
+                        file_path.ownership.owner = get["owner"]
+                        #if 'back_up_requests/requests' in file_path.path: 
+                        #   print("file: {}, owner: {}, group: {}, permission: {}".format(file_path.path, file_path.ownership.owner, file_path.ownership.group, file_path.permission.permission))
+                        checkPermissionOwnership(file_path, dictionary, silent=silent, recursive=dictionary["recursive"])
+
+                #   -   file:
+                elif dictionary["default_data"] != None:
+                    file = Files.File(path=dictionary["path"], check_existance=False)
+                    if file.file_path.exists() == False:
+                        file.file_path.create(
+                            data=dictionary["default_data"], 
+                            permission=dictionary["permission"], 
+                            group=dictionary["group"], 
+                            owner=dictionary["owner"],
+                            sudo=dictionary["sudo"])
+                    else: 
+                        file.file_path.permission.permission = file_path.permission.get()
+                        get = file.file_path.ownership.get()
+                        file.file_path.ownership.group = get["group"]
+                        file.file_path.ownership.owner = get["owner"]
+                        checkPermissionOwnership(file.file_path, dictionary, silent=silent)
+
+                #   -   dictionary:
+                elif dictionary["default"] != None:
+                    file = Files.Dictionary(path=dictionary["path"], check_existance=False)
+                    if file.file_path.exists() == False:
+                        file.save(dictionary["default"])
+                        file.file_path.permission.check(
+                            permission=dictionary["permission"], 
+                            sudo=dictionary["sudo"])
+                        file.file_path.ownership.check(
+                            group=dictionary["group"], 
+                            owner=dictionary["owner"],
+                            sudo=dictionary["sudo"])
+                    else: 
+                        file.file_path.permission.permission = file_path.permission.get()
+                        get = file.file_path.ownership.get()
+                        file.file_path.ownership.group = get["group"]
+                        file.file_path.ownership.owner = get["owner"]
+                        checkPermissionOwnership(file.file_path, dictionary, silent=silent)
+                        file.check(default=default, save=True)
+                else:
+                    raise ValueError("Invalid hierarchy item [{} : {}]. Either [directory] must be enabled, or [default_data / default] must be specified.".format(identifier, dictionary["path"]))
+
+                #
+        # returnable functions.
+        def paths(self, recursive=False, select_random=False, path=None, banned=[]):
+            if path == None: path = self.file_path.path
+            if len(banned) > 0:
+                l_banned = []
+                for i in banned:
+                    l_banned.append(os.path.join(path, i))
+                banned = l_banned
+            if recursive:
+                paths = []
+                for root, dirs, files in os.walk(path):
+                    for name in files:
+                        l_path = os.path.join(root, name)
+                        if l_path not in banned and l_path+"/" not in banned:
+                            paths.append(l_path)
+                    for name in dirs:
+                        l_path = os.path.join(root, name)
+                        #print("{} vs {} = {}".format(l_path, banned, l_path not in banned and l_path+"/" not in banned))
+                        if l_path not in banned and l_path+"/" not in banned:
+                            paths += self.paths(recursive=True, path=l_path)
+                return paths
+            else:
+                paths = glob.glob(path+"/*")
+                if select_random:
+                    if len(paths) == 0: return False
+                    return paths[random.randrange(0, len(paths))]
+                else: 
+                    if len(banned) > 0:
+                        l_paths = []
+                        for l_path in paths:
+                            if l_path not in banned and l_path+"/" not in banned:
+                                l_paths.append(l_path)
+                        paths = l_paths
+                    return paths
+        def oldest_path(self):
+            files = os.listdir(self.file_path.path)
+            if len(files) == 0: return False
+            return min(files, key=os.path.getctime)
+        def random_path(self):
+            files = glob.glob("{}/*".format(self.file_path.path))
+            if len(files) == 0: return False
+            return files[random.randrange(0, len(files))]
+        def generate_path(self, characters=24, type="/"):
+            path, paths = None, self.paths()
+            for x in range(1000):
+                path = self.join(generate.shell_string(characters=characters), type)
+                if path not in paths:
+                    break
+            if path == None: __error__("Failed to generate a new random path inside directory [{}].".format(self.file_path.path))
+            return path
+        def structured_join(self, name, type="", structure="alphabetical", create_base=False, sudo=False, owner=None, group=None, permission=None):
+            if type not in ["/", ""]:
+                type = "."+type
+            if structure == "alphabetical":
+                alphabetical = None
+                try: alphabetical = name[0].upper()
+                except: alphabetical = "SPECIAL"
+                if str(alphabetical) not in ["A","B","C","D","E","F","G","H","I","J","K","L","M","N","O","P","Q","R","S","T","U","V","W","X","Z","0","1","2","3","4","5","6","7","8","9"]: aplhabetical = "SPECIAL"
+                base = self.file_path.path + "/" + alphabetical + "/"
+                if create_base and os.path.exists(base) == False:
+                    self.create(path=base, sudo=sudo, owner=owner, group=group, permission=permission)
+                alph_dir = base + name + type
+                return alph_dir
+            else: raise ValueError("Invalid usage, parameter structure [{}], valid options: {}".format(structure, ["alphabetical"]))
+        def join(self, name=None, type="/"):
+            if type not in ["", "/"] and "." not in type:
+                type = "." + type
+            return "{}{}{}".format(self.file_path.path, name, type)
+        def contains(self, name=None, type="/", recursive=False):
+            return self.join(name, type) in self.paths(recursive=recursive)
+            #
+
+    # the image object class.
+    class Image(object):
+        def __init__(self, path=None, image=None, load=False):
+            # init.
+            if path == False: self.file_path = False # used in local memory (not fysical)
+            else: self.file_path = Formats.FilePath(path)
+            self.image = image
+            if load: self.load()
+        def load(self, path=None):
+            if path == None: path = self.file_path.path
+            self.image = Image.open(path)
+        def edit_pixel(self, pixel=[0, 0], new_pixel_tuple=None):
+            pixel = self.image.load()
+            pix[15, 15] = value
+            self.image.save(self.file_path.path)
+
+    # the zzip object class.
+    class Zip(object):
+        def __init__(self, path=None, file_paths=[]):
+            # init.
+            Formats.check(nones={"path":path})
+            self.file_path = Formats.FilePath(path)
+        def create(self, file_paths=None, overwrite_duplicates=False, sudo=False, excluded_file_paths=[], source=None):
+            if (file_paths != None) or (source != None and sudo): 
+                if file_paths == None and (source != None and sudo): file_paths = [source]
+                Formats.check(arrays={"file_paths":file_paths})
+                if os.path.exists(self.file_path.path):
+                    if overwrite_duplicates:
+                        if sudo: os.system('sudo rm -f '+self.file_path.path)
+                        else: os.system('rm -f '+self.file_path.path)
+                    else:sys.tracebacklimit=0;print(color.red,end='\r');raise ValueError(color.orange+"Zip archive [{}] already exists.".format(color.grey+str(self.file_path.path)+color.orange)+color.end)
+            
+                #   -   check duplicates:
+                y = []
+                for x in file_paths:
+                    if x not in excluded_file_paths: y.append(x)
+                file_paths = y
+                self.file_paths = file_paths
+                destination = self.file_path.path
+
+                #   -   create temp dir:
+                temp_dir = destination.replace('.zip', "-"+basic_api.Generate().shellString(characters=15)+'/')
+                if os.path.exists(temp_dir): os.system('rm -r '+temp_dir)
+                os.system('mkdir {}'.format(temp_dir))
+                Files.Directory(path=temp_dir, check_existance=False).create(file_paths=file_paths, sudo=sudo)
+                if sudo: 
+                    file_path = Formats.FilePath(temp_dir)
+                    file_path.permission.set(permission=777, sudo=True, recursive=True)
+                    file_path.ownership.set(owner=os.environ.get("USER"), group=None, sudo=True, recursive=True)
+
+                #   -   archive temp dir:
+                source = temp_dir[:-1]
+                base = os.path.basename(destination)
+                name = base.replace(base.split('.')[len(base.split('.'))-1], '')[:-1] # last edit was without [:-1]
+                format = base.split('.')[len(base.split('.'))-1]
+                archive_from = os.path.dirname(source)
+                archive_to = os.path.basename(source.strip(os.sep))
+                # print("name: {}, format: {}, archive_from: {}, archive_to: {}".format(name, format, archive_from, archive_to))
+                zip_path = shutil.make_archive(name, format, archive_from, archive_to)
+                os.system('mv '+zip_path+" "+destination)
+                os.system('rm -fr {}'.format(temp_dir))
+                
+            elif source != None: 
+                destination = self.file_path.path
+                if source[len(source)-1] == "/": source = source[:-1]
+                base = os.path.basename(destination)
+                name = base.replace(base.split('.')[len(base.split('.'))-1], '')[:-1] # last edit was without [:-1]
+                format = base.split('.')[len(base.split('.'))-1]
+                archive_from = os.path.dirname(source)
+                archive_to = os.path.basename(source.strip(os.sep))
+                # print("name: {}, format: {}, archive_from: {}, archive_to: {}".format(name, format, archive_from, archive_to))
+                zip_path = shutil.make_archive(name, format, archive_from, archive_to)
+                os.system('mv '+zip_path+" "+destination)
+
+            else: raise ValueError("Define one of the two following parameters: file_paths (Array) / source (String)")
+
+            #dir_path = self.file_path.path
+            #with zipfile.ZipFile(dir_path, 'w') as zip_object:
+            #   for path in file_paths: 
+            #       zip_object.write(path)
+        def unpackIntoDirectory(self, directory_target=None, archive_target=None, remove=False):
+            
+            #   -   init:
+            if archive_target == None: archive_target = self.file_path.path
+            Formats.check(strings={"directory_target":directory_target, "archive_target":archive_target})
+            if directory_target[len(directory_target)-1] != "/": directory_target += "/"
+            if Formats.FilePath(archive_target).extension() != 'zip': raise ValueError("target path [{}] is not a zip file.".format(archive_target))
+
+            #   new:
+            old_paths = glob.glob(directory_target+"*")
+            with zipfile.ZipFile(archive_target, 'r') as zip_ref:
+                zip_ref.extractall(directory_target)
+            for path in glob.glob(directory_target+"*"):
+                if path not in old_paths and path in [directory_target+"__osxX"]: 
+                    if os.path.isdir(path): os.system('rm -r {}'.format(path))
+                    else: os.system('rm {}'.format(path))
+            return True
+            """
+            #   old:
+            #   -   create temp dir to safeley extract:
+            if os.path.exists(directory_target) == False: os.system('mkdir '+directory_target) # creates the target directory
+            temp_directory = directory_target+'archive_extraction-temp_directory/'
+            if os.path.exists(temp_directory): os.system('rm -r '+temp_directory) ; os.system('mkdir '+temp_directory) # creates the temp directory
+            else: os.system('mkdir '+temp_directory) # creates the temp directory
+            new_archive_path = temp_directory+Formats.FilePath(archive_target).name()
+            #       do:
+            if remove: os.system("mv {} {}".format(archive_target, new_archive_path))
+            else: os.system("cp {} {}".format(archive_target, new_archive_path))
+            os.system('open '+new_archive_path + ' && rm '+new_archive_path) # remove the archive inside the temp directory
+            while True:
+                if os.path.exists(new_archive_path) == False: break
+                else: time.sleep(1) ; print("waiting for archive to unpack...")
+            for path in glob.glob(temp_directory+'*'):  # move the files inside the temp directory to the directory_target
+                os.system("mv {} {}".format(path, directory_target+Formats.FilePath(path).name()))
+                #
+            quit()"""
+            #
+        def extract(self, remove=False):
+            
+            #   -   init:
+            directory_target, new = self.file_path.path.replace(".zip", ""), None
+            for x in range(1000):
+                if x == 0: new = str(directory_target)
+                else: new = directory_target + "-"+x
+                if os.path.exists(new) == False: break
+            directory_target = new
+            archive_target = self.file_path.path
+            if directory_target[len(directory_target)-1] != "/": directory_target += "/"
+            if Formats.FilePath(archive_target).extension() != 'zip': raise ValueError("target path [{}] is not a zip file.".format(archive_target))
+
+            #   new:
+            old_paths = glob.glob(directory_target+"*")
+            with zipfile.ZipFile(archive_target, 'r') as zip_ref:
+                zip_ref.extractall(directory_target)
+            for path in glob.glob(directory_target+"*"):
+                if path not in old_paths and path in [directory_target+"__osxX"]: 
+                    if os.path.isdir(path): os.system('rm -r {}'.format(path))
+                    else: os.system('rm {}'.format(path))
+            return True
+            """
+            #   old:
+            #   -   create temp dir to safeley extract:
+            if os.path.exists(directory_target) == False: os.system('mkdir '+directory_target) # creates the target directory
+            temp_directory = directory_target+'archive_extraction-temp_directory/'
+            if os.path.exists(temp_directory): os.system('rm -r '+temp_directory) ; os.system('mkdir '+temp_directory) # creates the temp directory
+            else: os.system('mkdir '+temp_directory) # creates the temp directory
+            new_archive_path = temp_directory+Formats.FilePath(archive_target).name()
+            #       do:
+            if remove: os.system("mv {} {}".format(archive_target, new_archive_path))
+            else: os.system("cp {} {}".format(archive_target, new_archive_path))
+            os.system('open '+new_archive_path + ' && rm '+new_archive_path) # remove the archive inside the temp directory
+            while True:
+                if os.path.exists(new_archive_path) == False: break
+                else: time.sleep(1) ; print("waiting for archive to unpack...")
+            for path in glob.glob(temp_directory+'*'):  # move the files inside the temp directory to the directory_target
+                os.system("mv {} {}".format(path, directory_target+Formats.FilePath(path).name()))
+                #
+            quit()"""
+            #
+        def bytes(self):
+            with open(self.file_path.path, 'rb') as file_data:
+                bytes = file_data.read()
+            return bytes
+    #
+
+# the format classes.
+class Formats():
+    def check(
+        nones=None,
+        booleans=None,
+        none_allowed_booleans=None,
+        strings=None,
+        none_allowed_strings=None,
+        integers=None,
+        none_allowed_integers=None,
+        bytes_=None,
+        none_allowed_bytes=None,
+        arrays=None,
+        none_allowed_arrays=None,
+        dictionaries=None,
+        none_allowed_dictionaries=None,
+    ):
+        if nones != None:
+            for key,value in nones.items():
+                if value == None: raise ValueError(f"Invalid [{key}] format [{value}], required format is [!null].")
+        if booleans != None:
+            for key,value in booleans.items():
+                if not isinstance(value, bool): raise ValueError(f"Invalid [{key}] format [{value}], required format is [bool].")
+        if none_allowed_booleans != None:
+            for key,value in none_allowed_booleans.items():
+                if not isinstance(value, bool) and value != None: raise ValueError(f"Invalid [{key}] format [{value}], required format is [bool].")
+        if strings != None:
+            for key,value in strings.items():
+                if not isinstance(value, str): raise ValueError(f"Invalid [{key}] format [{value}], required format is [str].")
+        if none_allowed_strings != None:
+            for key,value in none_allowed_strings.items():
+                if not isinstance(value, str) and value != None: raise ValueError(f"Invalid [{key}] format [{value}], required format is [str].")
+        if integers != None:
+            for key,value in integers.items():
+                if not isinstance(value, int): raise ValueError(f"Invalid [{key}] format [{value}], required format is [int].")
+        if none_allowed_integers != None:
+            for key,value in none_allowed_integers.items():
+                if not isinstance(value, int) and value != None: raise ValueError(f"Invalid [{key}] format [{value}], required format is [int].")
+        if bytes_ != None:
+            for key,value in bytes_.items():
+                if not isinstance(value, bytes): raise ValueError(f"Invalid [{key}] format [{value}], required format is [bytes].")
+        if none_allowed_bytes != None:
+            for key,value in none_allowed_bytes.items():
+                if not isinstance(value, bytes) and value != None: raise ValueError(f"Invalid [{key}] format [{value}], required format is [bytes].")
+        if arrays != None:
+            for key,value in arrays.items():
+                if not isinstance(value, list): raise ValueError(f"Invalid [{key}] format [{value}], required format is [list].")
+        if none_allowed_arrays != None:
+            for key,value in none_allowed_arrays.items():
+                if not isinstance(value, list) and value != None: raise ValueError(f"Invalid [{key}] format [{value}], required format is [list].")
+        if dictionaries != None:
+            for key,value in dictionaries.items():
+                if not isinstance(value, dict): raise ValueError(f"Invalid [{key}] format [{value}], required format is [dict].")
+        if none_allowed_dictionaries != None:
+            for key,value in none_allowed_dictionaries.items():
+                if not isinstance(value, dict) and value != None: raise ValueError(f"Invalid [{key}] format [{value}], required format is [dict].")
+    def get_format(value):
+        if value == None: return None
+        elif isinstance(value, bool): return bool
+        elif isinstance(value, str): return str
+        elif isinstance(value, int): return int
+        elif isinstance(value, bytes): return bytes
+        elif isinstance(value, list): return list
+        elif isinstance(value, dict): return dict
+        else: raise ValueError(f"Unknown format [{value}].")
+
+    # the file path object class.
+    class FilePath(object):
+        def __init__(self, path, empty=False, check_existance=False, load=False):
+            # init.
+            self.path = path
+            if check_existance == False and empty == False and path != False:
+                Formats.check(strings={"path":self.path})
+                if os.path.isdir(self.path) and self.path[len(self.path)-1] != '/': self.path += '/'
+            if check_existance and os.path.exists(self.path) == False: raise FileNotFoundError("Path [{}] does not exist.".format(self.path))
+            self.ownership = self.Ownership(path=self.path, load=load)
+            self.permission = self.Permission(path=self.path, load=load)
+
+            #
+        #   -   objects:
+        class Ownership(object):
+            def __init__(self, path=None, load=False):
+                # init.
+                self.path = path
+                self.owner = None
+                self.group = None
+                if load: 
+                    get = self.get()
+                    self.owner = get["owner"]
+                    self.group = get["permission"]
+
+            #   -   info:
+            def get(self):
+                owner = pwd.getpwuid(os.stat(self.path).st_uid).pw_name
+                group = grp.getgrgid(os.stat(self.path).st_gid).gr_name
+                ownership = str(owner) + ":" + str(group)
+                return {"owner":owner, "group":group, "ownership":ownership}
+            def set(self, owner=None, group=None, sudo=False, recursive=False, silent=False):
+                if group == None:
+                    if OS in ["osx"]: group = "wheel"
+                    elif OS in ["linux"]: group = "root"
+                    else: raise ValueError("Unsupported operating system [{}].".format(OS))
+                Formats.check(strings={"owner":owner, "group":group})
+                silent_option = ""
+                if silent: silent_option = ' 2> /dev/null'
+                if recursive:
+                    if sudo: os.system("sudo chown -R {} {} {}".format(owner+":"+group, self.path, silent_option))
+                    else: os.system("chown -R {} {}".format(owner+":"+group, self.path))
+                else:
+                    if sudo: os.system("sudo chown {} {} {}".format(owner+":"+group, self.path, silent_option))
+                    else: os.system("chown {} {} {}".format(owner+":"+group, self.path, silent_option))
+            def check(self, owner=None, group=None, sudo=False, silent=False, iterate=False, recursive=False): # combine [recursive] and [iterate] to walk all set all files in an directory and check it with the given permission.
+                if group == None:
+                    if OS in ["osx"]: group = "wheel"
+                    elif OS in ["linux"]: group = "root"
+                    else: raise ValueError("Unsupported operating system [{}].".format(OS))
+                Formats.check(strings={"owner":owner, "group":group})
+                get = self.get()
+                if get["owner"] != owner or get["group"] != group:
+                    self.set(owner=owner, group=group, sudo=sudo, silent=silent, recursive=recursive)
+                if recursive and iterate and os.path.isdir(self.path):
+                    for dirpath, subdirs, files in os.walk(self.path):
+                        for path in subdirs: 
+                            #print("DIRECTORY:",path)
+                            #print("> FULL PATH NAME:",dirpath+"/"+path)
+                            if path not in ["lost+found"]:
+                                file_path = Formats.FilePath(dirpath+"/"+path)
+                                file_path.ownership.check(owner=owner, group=group, sudo=sudo, silent=silent)
+                        for path in files: 
+                            #print("FILE NAME:",path)
+                            #print("> FULL PATH:",dirpath+"/"+path)
+                            file_path = Formats.FilePath(dirpath+"/"+path)
+                            file_path.ownership.check(owner=owner, group=group, sudo=sudo, silent=silent)                           
+        class Permission(object):
+            def __init__(self, path=None, load=False):
+               # init.
+                self.path = path
+                self.permission = None
+                if load: self.permission = self.get()
+
+            #   -   info:
+            def get(self):
+                status = os.stat(self.path) 
+                permission = oct(status.st_mode)[-3:]
+                return permission
+            def set(self, permission=None, sudo=False, recursive=False, silent=False):
+                Formats.check(nones={"permission":permission})
+                silent_option = ""
+                if silent: silent_option = ' 2> /dev/null'
+                if recursive:
+                    if sudo: os.system("sudo chmod -R {} {} {}".format(permission, self.path, silent_option))
+                    else: os.system("chmod -R {} {} {}".format(permission, self.path, silent_option))
+                else:
+                    if sudo: os.system("sudo chmod {} {} {}".format(permission, self.path, silent_option))
+                    else: os.system("chmod {} {} {}".format(permission, self.path, silent_option))
+            def check(self, permission=None, sudo=False, silent=False, iterate=False, recursive=False): # combine [recursive] and [iterate] to walk all set all files in an directory and check it with the given permission.
+                Formats.check(nones={"permission":permission})
+                if self.get() != permission:
+                    self.set(permission=permission, sudo=sudo, silent=silent, recursive=recursive)
+                if recursive and iterate and os.path.isdir(self.path):
+                    for dirpath, subdirs, files in os.walk(self.path):
+                        for path in subdirs: 
+                            #print("DIR NAME:",path)
+                            #print("> FULL PATH:",dirpath+"/"+path)
+                            if path not in ["lost+found"]:
+                                file_path = Formats.FilePath(dirpath+"/"+path)
+                                file_path.permission.check(permission=permission, sudo=sudo, silent=silent)
+                        for path in files: 
+                            #print("FILE NAME:",path)
+                            #print("> FULL PATH:",dirpath+"/"+path)
+                            file_path = Formats.FilePath(dirpath+"/"+path)
+                            file_path.permission.check(permission=permission, sudo=sudo, silent=silent)
+
+        #   -   info:
+        def name(self):
+            if self.path in [False, None]: return None
+            x = 1
+            if self.path[len(self.path)-1] == '/': x += 1
+            name = self.path.split('/')[len(self.path.split('/'))-x]
+            return name
+        def extension(self, name=None):
+            #   -   check directory:
+            extension = None
+            if os.path.isdir(self.path): extension = 'dir'
+            else:
+                #   -   get extension:
+                try:
+                    if name == None: name = self.name()
+                    extension = name.split('.')[len(name.split('.'))-1]
+                except:
+                    try:
+                        name = self.name()
+                        extension = name.split('.')[len(name.split('.'))-1]
+                    except: extension = None
+            #   -   check image & video:
+            if extension in ["jpg", "png", "gif", "webp", "tiff", "psd", "raw", "bmp", "heig", "indd", "jpeg", "svg", "ai", "eps", "pdf"]: extension = "img"
+            elif extension in ["mp4", "m4a", "m4v", "f4v", "f4a", "m4b", "m4r", "f4b", "mov", "3gp", "3gp2", "3g2", "3gpp", "3gpp2", "h.263", "h.264", "hevc", "mpeg4", "theora", "3gp", "windows media 8", "quicktime", "mpeg-4", "vp8", "vp6", "mpeg1", "mpeg2", "mpeg-ts", "mpeg", "dnxhd", "xdcam", "dv", "dvcpro", "dvcprohd", "imx", "xdcam", "hd", "hd422"]: extension = "video"
+            return extension
+        def base(self, back=1):
+            base = self.path.replace('//','/')
+            if len(base.split("/")) <= 1: raise ValueError("Path [{}] has no base.".format(base))
+            if base[len(base)-1] == '/': base = base[:-1]
+            for x in range(back, back+1):
+                last = (base.split('/')[len(base.split('/'))-1]).replace('//','/')
+                base = base[:-len("/"+last)]
+            while True:
+                if '//' in base: base = base.replace('//','/')
+                else: break
+            if base[len(base)-1] != "/": base += '/'
+            return base
+            """splitted, result, count = self.path.split('/'), "", 0
+            for i in splitted:
+                if count < len(splitted) - 1 - back:
+                    result += '/' + i
+                else: result += "/"
+                count += 1
+            """
+        def size(self, mode="auto", options=["auto", "bytes", "kb", "mb", "gb", "tb"], type="string"):
+            path = self.path
+            def get_directory_size1(directory):
+                total_size = 0
+                for path, dirs, files in os.walk(path):
+                    for f in files:
+                        fp = os.path.join(path,f)
+                        try: total_size += os.path.getsize(fp)
+                        except: a=1
+                return total_size
+            #dirs_dict = {}
+            #for root, dirs, files in os.walk(path ,topdown=False):
+            #   size = sum(os.path.getsize(os.path.join(root, name)) for name in files) 
+            #   try: subdir_size = sum(dirs_dict[os.path.join(root,d)] for d in dirs)
+            #   except KeyError:
+            #       dirs_dict[os.path.join(root,d)] = 0
+            #       subdir_size = sum(dirs_dict[os.path.join(root,d)] for d in dirs)
+            #   total_size = size + subdir_size
+            def get_directory_size2(directory):
+                total = 0
+                try:
+                    # print("[+] Getting the size of", directory)
+                    for entry in os.scandir(directory):
+                        if entry.is_file():
+                            # if it's a file, use stat() function
+                            total += entry.stat().st_size
+                        elif entry.is_dir():
+                            # if it's a directory, recursively call this function
+                            total += get_directory_size2(entry.path)
+                except NotADirectoryError:
+                    # if `directory` isn't a directory, get the file size then
+                    return os.path.getsize(directory)
+                except PermissionError:
+                    # if for whatever reason we can't open the folder, return 0
+                    return 0
+                return total
+            total_size = get_directory_size2(self.path)
+            if mode == "auto":
+                if int(total_size/1024**4) >= 10:
+                    total_size = '{:,} TB'.format(int(round(total_size/1024**4,2))).replace(',', '.')
+                elif int(total_size/1024**3) >= 10:
+                    total_size = '{:,} GB'.format(int(round(total_size/1024**3,2))).replace(',', '.')
+                elif int(total_size/1024**2) >= 10:
+                    total_size = '{:,} MB'.format(int(round(total_size/1024**2,2))).replace(',', '.')
+                elif int(total_size/1024) >= 10:
+                    total_size = '{:,} KB'.format(int(round(total_size/1024,2))).replace(',', '.')
+                else:
+                    total_size = '{:,} Bytes'.format(int(int(total_size))).replace(',', '.')
+            elif mode == "bytes" or mode == "bytes".upper(): total_size = '{:,} Bytes'.format(int(total_size)).replace(',', '.') 
+            elif mode == "kb" or mode == "kb".upper(): total_size = '{:,} KB'.format(int(round(total_size/1024,2))).replace(',', '.') 
+            elif mode == "mb" or mode == "mb".upper(): total_size = '{:,} MB'.format(int(round(total_size/1024**2,2))).replace(',', '.') 
+            elif mode == "gb" or mode == "gb".upper(): total_size = '{:,} GB'.format(int(round(total_size/1024**3,2))).replace(',', '.') 
+            elif mode == "tb" or mode == "tb".upper(): total_size = '{:,} TB'.format(int(round(total_size/1024**4,2))).replace(',', '.') 
+            else: __error__("selected an invalid size mode [{}], options {}.".format(mode, options))
+            if type == "integer":
+                return int(total_size.split(" ")[0])
+            else: return total_size 
+        def exists(self):
+            return os.path.exists(self.path)
+            #
+        def mount(self):
+            return os.path.ismount(self.path)
+            #
+        def directory(self):
+            return os.path.isdir(self.path)
+            #
+        #   -   commands:
+        def delete(self, forced=False, sudo=False, silent=False):
+            if silent: silent = ' 2> /dev/null'
+            else: silent = ""
+            if sudo: sudo = "sudo "
+            else: sudo = ""
+            options = ""
+            if forced: 
+                options = " -f "
+                if os.path.isdir(path): options = " -fr "
+            elif os.path.isdir(path): options = " -r "
+            os.system(f"{sudo}rm{options}{self.path}{silent}")
+        def move(self, path=None, sudo=False, silent=False):
+            if silent: silent = ' 2> /dev/null'
+            else: silent = ""
+            if sudo: sudo = "sudo "
+            else: sudo = ""
+            os.system(f"{sudo}mv {self.path} {path}{silent}")
+            self.path = path
+        def copy(self, path=None, sudo=False, silent=False):
+            if silent: silent = ' 2> /dev/null'
+            else: silent = ""
+            if sudo: sudo = "sudo "
+            else: sudo = ""
+            if self.directory(): dir = "-r "
+            else: dir = ""
+            os.system(f"{sudo}cp {dir}{self.path} {path}{silent}")
+        def open(self, sudo=False):
+            if sudo: sudo = "sudo "
+            else: sudo = ""
+            if OS in ["osx"]: 
+                os.system(f"{sudo}open {self.path}")
+            elif OS in ["linux"]: 
+                os.system(f"{sudo}nautulis {self.path}")
+            else: utils.__invalid_os__(OS)
+        def create(self, 
+            #   Option 1: (creating a directory)
+            #   -   boolean format:
+            directory=False,
+            #   Option 2: (creating any file extension)
+            #   -   string format:
+            data="",
+            #   Options:
+            #   -   integer format:
+            permission=None,
+            #   -   string format:
+            owner=None,
+            group=None,
+            #   -   boolean format:
+            sudo=False,
+        ):
+
+            #   -   option 1:
+            if directory: 
+                if sudo: os.system('sudo mkdir '+self.path)
+                else: os.system('mkdir '+self.path)
+            
+            #   -   option 2:
+            elif data != None: 
+                Files.File(path=self.path, data=data).save()
+                #with open
+            
+            #   -   invalid option:
+            else: raise ValueError("Invalid option, either enable the [directory] boolean to create a directory, or specify [path] and [data] to create any file sort.")
+
+            #   -   default:
+            if owner != None or group != None: self.ownership.set(owner=owner, group=group, sudo=sudo)
+            if permission != None: self.permission.set(permission, sudo=sudo)
+
+
+            #
+        def check(self, 
+            #   Option 1: (creating a directory)
+            #   -   boolean format:
+            directory=False,
+            #   Option 2: (creating any file extension)
+            #   -   string format:
+            data="",
+            #   Options:
+            #   -   integer format:
+            permission=None,
+            #   -   string format:
+            owner=None,
+            group=None,
+            #   -   boolean format:
+            sudo=False,
+            silent=False,
+            recursive=False, # for directories only (for permission & ownership check)
+        ):
+
+            #   -   option 1:
+            if os.path.exists(self.path) == False:
+                self.create(directory=directory, data=data, permission=permission, owner=owner, group=group, sudo=sudo)
+            else:
+                #   -   default:
+                self.ownership.check(owner=owner, group=group, sudo=sudo, silent=silent, recursive=recursive)
+                self.permission.check(permission=permission, sudo=sudo, silent=silent, recursive=recursive)
+            
+            #
+
+    # the string object class.
+    class String(object):
+        def __init__(self, string):
+           # init.
+            Formats.check(strings={"string":string})
+            self.string = string
+            # can be filled with executing [self.x = x()]:
+        def is_numerical(self):
+            for i in ["q", "w", "e", "r", "t", "y", "u", "i", "o", "p", "a", "s", "d", "f", "g", "h", "j", "k", "l", "z", "x", "c", "v", "b", "n", "m"]:
+                if i in self.string.lower(): return False
+            return True
+        def bash(self):
+            a = self.string.replace('(','\(').replace(')','\)').replace("'","\'").replace(" ","\ ").replace("$","\$").replace("!","\!").replace("?","\?").replace("@","\@").replace("$","\$").replace("%","\%").replace("^","\^").replace("&","\&").replace("*","\*").replace("'","\'").replace('"','\"')       
+            return a
+        def identifier(self):
+            x = self.string.lower().replace(' ','-')
+            return x
+        def capitalScentence(self):
+            x = self.string.split(" ")
+            cap = [y.capitalize() for y in x]
+            return " ".join(cap)
+        def consoleInput(self, return_format=None, allow_errors=False, silent=False):
+
+            #   -   check format:
+            if return_format == "string": 
+                if len(return_format) > 0: return self.string
+                else: 
+                    if allow_errors: raise ValueError("Invalid string format [{}]. The required format is a string. (example: x)".format(self.string))
+                    elif silent == False: print(color.yellow+"Invalid string format [{}].{} The required format is a string. (example: x)".format(self.string, color.grey)+color.end)
+                    return False
+            elif return_format == "integer": 
+                correct_format = True
+                try: self.string = int(self.string)
+                except: correct_format = False
+                if correct_format: return self.string
+                else: 
+                    if allow_errors: raise ValueError("Invalid integer format [{}]. The required format is an integer. (example: 1)".format(self.string))
+                    elif silent == False: print(color.yellow+"Invalid integer format [{}].{} The required format is an integer. (example: 1)".format(self.string, color.grey)+color.end)
+                    return False
+            elif return_format == "float": 
+                correct_format = True
+                try: self.string = float(self.string)
+                except: correct_format = False
+                if correct_format: return self.string
+                else: 
+                    if allow_errors: raise ValueError("Invalid float format [{}]. The required format is an float. (example: 1.0)".format(self.string))
+                    elif silent == False: print(color.yellow+"Invalid float format [{}].{} The required format is an float. (example: 1.0)".format(self.string, color.grey)+color.end)
+                    return False
+            elif return_format == "boolean": 
+                if self.string in ["True", "true", 'yes', 'y']: return True
+                elif self.string in ["False", "false", 'no', 'n']: return False
+                else: 
+                    if allow_errors: raise ValueError("Invalid boolean format [{}]. The required format is a boolean. (example: True)".format(self.string))
+                    elif silent == False: print(color.yellow+"Invalid boolean format [{}].{} The required format is a boolean. (example: True)".format(self.string, color.grey)+color.end)
+                    return False
+            elif return_format in ["real_dictionary", "real_array"]:
+                correct_format = True
+                try: self.string = ast.literal_eval(self.string)
+                except: correct_format = False
+                if correct_format: return self.string
+                else: 
+                    if allow_errors: 
+                        if return_format == "real_array": 
+                            raise ValueError("Invalid python array format [{}]. The required format is a python dictionary. (example: [1, 2])".format(self.string))
+                        else: 
+                            raise ValueError("Invalid python dictionary format [{}]. The required format is a python dictionary. (example: {'x':1})".format(self.string))
+                    else:
+                        if silent == False:
+                            if return_format == "real_array": 
+                                print(color.orange+"Invalid python array format [{}].{} The required format is a python dictionary. (example: [1, 2])".format(color.grey, self.string)+color.end)
+                            else: 
+                                print(color.orange+"Invalid python dictionary format [{}].{} The required format is a python dictionary. (example: {'x':1})".format(color.grey, self.string)+color.end)
+                    return False
+            elif return_format == "array": 
+                correct_format = True
+                new = []
+                try:
+                    self.string = self.string.split(',')
+                    for x in self.string:
+                        for y in range(1, 4):
+                            if x[0] == ' ': x = x[1:]
+                            if x[len(x)-1] == ' ': x = x[:-1]
+                        new.append(x)
+                except: correct_format = False
+                if correct_format: return new
+                else: 
+                    if allow_errors: raise ValueError("Invalid format [{}]. The required format is an array. (example: x,y)".format(self.string))
+                    elif silent == False: print(color.orange+"Invalid format [{}].{} The required format is an array. (example: x,y)".format(color.grey, self.string)+color.end)
+                return False
+            elif return_format == "dictionary": 
+                new = {}
+                correct_format = True
+                try:
+                    self.string = self.string.split(',')
+                    for x in self.string:
+                        for y in range(1, 4):
+                            if x[0] == ' ': x = x[1:]
+                            if x[len(x)-1] == ' ': x = x[:-1]
+                        x = x.split(':')
+                        for y in range(1, 4):
+                            if x[0][0] == ' ': x[0] = x[0][1:]
+                            if x[0][len(x[0])-1] == ' ': x[0] = x[0][:-1]
+                        for y in range(1, 4):
+                            if x[1][0] == ' ': x[1] = x[1][1:]
+                            if x[1][len(x[1])-1] == ' ': x[1] = x[1][:-1]
+                        new[x[0]] = x[1]
+                except: correct_format = False
+                if correct_format: return new
+                else: 
+                    if allow_errors: raise ValueError("Invalid format [{}]. The required format is a dictionary. (example: x:1,y:2)".format(self.string))
+                    elif silent == False: print(color.orange+"Invalid format [{}]. The required format is a dictionary. (example: x:1,y:2)".format(color.grey, self.string)+color.end)
+                return False
+            else: raise ValueError("Invalid return format specified [{}].".format(return_format))
+
+    # the integer object class.
+    class Integer(object):
+        def __init__(self, value):
+            # init.
+            Formats.check(integers={"value":value})
+            self.value = value
+            self.int = int(value)
+            self.float = float(value)
+            # self.int = double(value)
+
+            # can be filled with executing [self.x = x()]:
+        def increaseVersion(self):
+            current_version = self.value
+            if '.' not in str(current_version): current_version = float(current_version)
+            minus_index = 0
+            x = current_version.split('.')
+            while True:
+                x[len(x)-1-minus_index] = int(x[len(x)-1-minus_index]) + 1
+                if x[len(x)-1-minus_index] == 10 and len(x)-1-minus_index != 0:
+                    x[len(x)-1-minus_index] = 0
+                    minus_index += 1
+                else: 
+                    new_version_ = ''
+                    index_ = 0
+                    for y in x:
+                        if len(x)-1 == index_: new_version_ += str(y)
+                        else: new_version_ += str(y)+'.'
+                        index_ += 1
+                    return new_version_
+        def roundDown(self, decimals):
+            """
+            Returns a value rounded down to a specific number of decimal places.
+            """
+            if not isinstance(decimals, int):
+                raise TypeError("decimal places must be an integer")
+            elif decimals < 0:
+                raise ValueError("decimal places has to be 0 or more")
+            elif decimals == 0:
+                return math.ceil(self.value)
+            factor = 10 ** decimals
+            return math.floor(self.value * factor) / factor
+
+    # the bytes object class.
+    class Bytes(object):
+        def __init__(self, bytes):
+           # init.
+            byteCheck({"bytes":bytes})
+            self.bytes = bytes  
+            # can be filled with executing [self.x = x()]:
+            #self.x = None
+        def zip(self, export_path=None):
+            Formats.check(nones={"export_path":export_path})
+            with open(export_path, 'wb') as f:
+                f.write(self.bytes)     
+
+    # the date object class.
+    class Date(object):
+        def __init__(self):
+            today = datetime.today()
+            self.seconds = str(today.strftime('%S'))
+            self.minute =  str(today.strftime('%M'))
+            self.hour =  str(today.strftime('%H'))
+            self.day =  str(today.strftime('%d'))
+            self.day_name =  str(today.strftime('%a'))
+            self.week =  str(today.strftime('%V'))
+            self.month =  str(today.strftime('%m'))
+            self.month_name = str(today.strftime('%h'))
+            self.year =  str(today.strftime('%Y'))
+            self.date =  str(today.strftime('%d-%m-%y'))
+            self.timestamp =  str(today.strftime('%d-%m-%y %H:%M'))
+            self.shell_timestamp =  str(today.strftime('%d_%m_%y-%H_%M'))
+            self.seconds_timestamp =  str(today.strftime('%d-%m-%y %H:%M.%S'))
+            self.shell_seconds_timestamp =  str(today.strftime('%d_%m_%y-%H_%M.%S'))
+            self.time = self.hour + ":" + self.minute
+        def compare(self, comparison, current, format="%d-%m-%y %H:%M"):
+            comparison = self.to_seconds(comparison, format=format)
+            current = self.to_seconds(current, format=format)
+            if comparison >= current:
+                return "future"
+            elif comparison <= current:
+                return "past"
+            elif comparison == current:
+                return "present"
+            else:
+                raise ValueError(f"Unexpected error, comparison seconds: {comparison} current seconds: {current}.")
+        def increase(self, string, weeks=0, days=0, hours=0, seconds=0, format="%d-%m-%y %H:%M"):
+            seconds += 3600*hours
+            seconds += 3600*24*days
+            seconds += 3600*24*7*weeks
+            s = self.to_seconds(string, format=format)
+            s += seconds
+            return self.from_seconds(s, format=format)
+        def decrease(self, string, weeks=0, days=0, hours=0, seconds=0, format="%d-%m-%y %H:%M"):
+            seconds += 3600*hours
+            seconds += 3600*24*days
+            seconds += 3600*24*7*weeks
+            s = self.to_seconds(string, format=format)
+            s -= seconds
+            return self.from_seconds(s, format=format)
+        def to_seconds(self, string, format="%d-%m-%y %H:%M"):
+            return time.mktime(datetime.strptime(string, format).timetuple())
+            #
+        def from_seconds(self, seconds, format="%d-%m-%y %H:%M"):
+            return datetime.fromtimestamp(seconds).strftime(format)
+            #
+        def convert(self, string, input="%d-%m-%y %H:%M", output="%Y%m%d"):
+            string = datetime.strptime(string, input)
+            return string.strftime(ouput)
+
