@@ -1,0 +1,13 @@
+<div class="mapview" i18n:domain="cpskin.localfood">
+  <div id="geojson" tal:attributes="data-geojson view/json" class="hiddenStructure"></div>
+  <div id="map-viewlet" i18n:domain="collective.geo.leaflet">
+    <metal:use use-macro="context/@@collectivegeoleaflet-macros/map-div"/>
+    <metal:use use-macro="context/@@collectivegeoleaflet-macros/map-init-leaflet"/>
+    <metal:use use-macro="context/@@collectivegeoleaflet-macros/map-search"/>
+  </div>
+  <script
+    type="text/javascript"
+    charset="utf-8"
+    src=""
+    tal:attributes="src string:${context/@@plone_portal_state/portal_url}/++resource++collective.geo.faceted/update_map.js"></script>
+</div>

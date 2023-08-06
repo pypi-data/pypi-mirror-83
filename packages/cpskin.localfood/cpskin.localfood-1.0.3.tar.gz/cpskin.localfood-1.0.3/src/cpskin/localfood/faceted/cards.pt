@@ -1,0 +1,70 @@
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en"
+      xmlns:tal="http://xml.zope.org/namespaces/tal"
+      xmlns:metal="http://xml.zope.org/namespaces/metal"
+      xmlns:i18n="http://xml.zope.org/namespaces/i18n"
+        metal:use-macro="context/main_template/macros/master"
+        i18n:domain="cpskin.localfood">
+
+<body>
+  <metal:content-core fill-slot="content-core">
+    <metal:block define-macro="content-core">
+      <div tal:define="
+        scale python: getattr(context, 'collection_image_scale', 'mini') or 'mini';
+        folderContents folderContents | python:context.getFolderContents();
+        Batch python:modules['Products.CMFPlone'].Batch;
+        b_start python:request.get('b_start', 0);
+        batch python:isinstance(folderContents, Batch) and folderContents or Batch(folderContents, 100, int(b_start), orphan=2)">
+
+        <div metal:use-macro="context/batch_macros/macros/navigation" />
+
+        <div id="facet_view" class="eea-preview-items columns-2 vertical">
+          <tal:entries repeat="brain batch">
+            <tal:block define="idx python:repeat['brain'].index + 1;
+                               obj brain/getObject">
+            <div class="" tal:attributes="class string:project item_${idx}"
+                tal:define="portal_type brain/portal_type;
+                            useViewTypes context/portal_properties/site_properties/typesUseViewActionInListings|python:[];
+                            useView python:portal_type in useViewTypes;">
+              <tal:block
+                   tal:define="title brain/pretty_title_or_id|string:;
+                               url brain/getURL|string:#;
+                               view_url python:(url and useView and url + '/view') or url">
+              <a href="" title=""
+                 tal:attributes="href view_url;
+                                 title title">
+
+                <tal:if condition="python: brain.portal_type == 'organization'"
+                        define="image obj/logo|string:;
+                                image_url python:image and view_url + '/@@images/logo/' + scale or ''">
+                <div class="image" tal:attributes="style string: background-image:url('${image_url}')"></div>
+                </tal:if>
+                <tal:if condition="python: brain.portal_type != 'organization'"
+                        define="image obj/image|string:;
+                                image_url python:image and view_url + '/@@images/image/' + scale or ''">
+                <div class="image" tal:attributes="style string: background-image:url('${image_url}')"></div>
+                </tal:if>
+                <div class="text">
+                  <div tal:condition="python: brain.portal_type == 'project'">
+                    <div class="title" tal:content="brain/review_state" i18n:domain="plone" i18n:translate="">state</div>
+                    <h3 tal:content="title">title</h3>
+                  </div>
+                  <div tal:condition="python: brain.portal_type != 'project'">
+                    <h3 tal:content="title">title</h3>
+                    <div class="title" tal:content="obj/description">description</div>
+                  </div>
+                </div>
+              </a>
+              </tal:block>
+            </div>
+            </tal:block>
+          </tal:entries>
+        </div>
+
+        <div metal:use-macro="context/batch_macros/macros/navigation" />
+
+      </div>
+
+    </metal:block>
+  </metal:content-core>
+</body>
+</html>

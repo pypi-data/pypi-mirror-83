@@ -1,0 +1,31 @@
+<configure
+    xmlns="http://namespaces.zope.org/zope"
+    xmlns:plone="http://namespaces.plone.org/plone"
+    xmlns:zcml="http://namespaces.zope.org/zcml"
+    xmlns:grok="http://namespaces.zope.org/grok"
+    i18n_domain="cpkin.core">
+
+  <include package="plone.behavior" file="meta.zcml" />
+
+  <plone:behavior
+    title="Contact card"
+    description="Adds a contact card viewlet"
+    provides=".contact.IContactCard"
+    for="plone.dexterity.interfaces.IDexterityContent"
+    factory=".contact.ContactCard"
+    marker=".contact.IContactCard"
+    />
+
+  <plone:behavior
+    title="Labels"
+    description="Adds label tags."
+    provides=".label.ILabels"
+    for="plone.dexterity.interfaces.IDexterityContent"
+    />
+
+  <adapter
+    factory=".indexer.LabelsIndexer"
+    name="labels"
+    />
+
+</configure>

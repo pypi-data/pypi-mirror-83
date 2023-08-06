@@ -1,0 +1,59 @@
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en"
+      xmlns:tal="http://xml.zope.org/namespaces/tal"
+      xmlns:metal="http://xml.zope.org/namespaces/metal"
+      xmlns:i18n="http://xml.zope.org/namespaces/i18n"
+      lang="en"
+      metal:use-macro="context/main_template/macros/master"
+      i18n:domain="cpskin.localfood">
+<body>
+<metal:main fill-slot="content-core">
+  <metal:content-core define-macro="content-core">
+    <div class="card-index columns-1">
+      <ol class="columns-3">
+        <li tal:repeat="widget view/filtered_widgets">
+          <span tal:content="widget/label" i18n:translate=""></span>
+          <span tal:content="widget/value" class="detail"></span>
+        </li>
+      </ol>
+      <ol class="columns-3">
+        <li tal:repeat="document view/documents">
+          <a href=""
+             tal:attributes="href document/absolute_url">
+          <span class="download" tal:content="document/title"></span>
+          </a>
+        </li>
+      </ol>
+    </div>
+
+    <div class="field">
+      <div id="form-widgets-text" class="richTextWidget richtext-field" tal:content="structure context/text/raw|context/text"></div>
+    </div>
+
+    <script type="text/javascript">
+      jQuery(function($){
+        $('.card-index-image a').prepOverlay({subtype: 'image'});
+      })
+    </script>
+    <div class="card-index-image">
+      <a href=""
+         tal:condition="context/image"
+         tal:attributes="href string:${context/absolute_url}/@@images/image/multimedia;
+                         title context/title">
+        <img src=""
+             tal:attributes="src string:${context/absolute_url}/@@images/image/actualite;
+                             alt context/title" />
+      </a>
+    <tal:while repeat="image view/images">
+      <a href=""
+         tal:attributes="href string:${image/absolute_url}/@@images/image/multimedia;
+                         title image/title">
+        <img src=""
+             tal:attributes="src string:${image/absolute_url}/@@images/image/actualite;
+                             alt image/title" />
+      </a>
+    </tal:while>
+    </div>
+  </metal:content-core>
+</metal:main>
+</body>
+</html>

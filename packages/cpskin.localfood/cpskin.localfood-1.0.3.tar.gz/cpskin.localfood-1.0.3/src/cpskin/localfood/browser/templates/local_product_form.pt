@@ -1,0 +1,19 @@
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en"
+      lang="en"
+      xmlns:i18n="http://xml.zope.org/namespaces/i18n"
+      xmlns:tal="http://xml.zope.org/namespaces/tal"
+      xmlns:metal="http://xml.zope.org/namespaces/metal"
+      metal:use-macro="context/main_template/macros/master"
+      i18n:domain="cpskin.localfood">
+<body>
+  <div metal:fill-slot="main"
+       tal:define="anonymous view/is_anonymous">
+    <tal:if condition="anonymous" i18n:translate="">
+    You must <a href="" tal:attributes="href string:login_form?came_from=${context/absolute_url}/${view/view_name}" i18n:translate="" i18n:name="logon">logon</a> to access to this part of the website.
+    </tal:if>
+    <tal:if condition="not: anonymous">
+      <tal:block replace="structure view/contents" />
+    </tal:if>
+  </div>
+</body>
+</html>
