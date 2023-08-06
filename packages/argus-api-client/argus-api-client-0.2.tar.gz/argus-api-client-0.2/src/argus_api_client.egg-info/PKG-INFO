@@ -1,0 +1,40 @@
+Metadata-Version: 2.1
+Name: argus-api-client
+Version: 0.2
+Summary: A Python API client library for the Argus alert aggregator server
+Home-page: UNKNOWN
+License: Apache-2.0
+Description: Argus API Client
+        ================
+        
+        This is the official Python client library for the 
+        [Argus](https://github.com/Uninett/Argus) API server.
+        
+        The Argus server is an incident registry, capable of aggregating alerts from 
+        multiple source systems. Argus also can send event notifications (via e-mail,
+        SMS, etc.) when incidents are created or resolved.
+        
+        Usage examples
+        ==============
+        
+        Listing open incidents that have not been acknowledged:
+        
+        ```python
+        from pyargus.client import Client
+        
+        c = Client(api_root_url="https://argus.example.org/api/v1", token="foobar")
+        for incident in c.get_incidents(open=True, acked=False):
+            print(incident)
+        ```
+        
+        
+        BUGS
+        ====
+        * Doesn't provide high-level error handling yet.
+        
+Keywords: api,argus,client
+Platform: UNKNOWN
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.7
+Description-Content-Type: text/markdown
