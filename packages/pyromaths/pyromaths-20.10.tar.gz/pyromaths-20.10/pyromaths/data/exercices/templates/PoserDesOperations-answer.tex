@@ -1,0 +1,211 @@
+\exercice*
+\begin{multicols}{2}\noindent
+\begin{enumerate}
+ (* for cas in ordre *)
+ (* if cas == "somme" *)
+  \item La somme des termes (( Sna|facteur )) et (( Snb|facteur )).\par
+    \begin{tabular}[t]{*{(( Sta|length + 1))}{c}}
+      &
+      (* for tt in Str *)
+      (* if loop.last *)
+      \tiny (( tt )) \\
+      (* else *)
+      \tiny (( tt )) &
+      (* endif *)
+      (* endfor *)
+      &
+      (* for tt in Sta *)
+      (* if loop.last *)
+      (( tt )) \\
+      (* elif ((tt)) == '.' *)
+      , &
+      (* else *)
+      (( tt )) &
+      (* endif *)
+      (* endfor *)
+      $+$ &
+      (* for tt in Stb *)
+      (* if loop.last *)
+      (( tt )) \\
+      (* elif ((tt)) == '.' *)
+      , &
+      (* else *)
+      (( tt )) &
+      (* endif *)
+      (* endfor *)
+      \hline
+      &
+      (* for tt in Stt *)
+      (* if loop.last *)
+      (( tt )) \\
+      (* elif ((tt)) == '.' *)
+      , &
+      (* else *)
+      (( tt )) &
+      (* endif *)
+      (* endfor *)
+    \end{tabular}\par
+    \[ \boxed{(( Sna|facteur )) + (( Snb|facteur )) = (( "{:.15g}".format(Sna+Snb)|float|facteur ))} \]
+  (* elif cas == "diff" *)
+    \item La différence des termes (( Dna|facteur )) et (( Dnb|facteur )).\par
+      \begin{tabular}[t]{*{(( Dta|length + 1))}{c}}
+      &
+      (* for tt in Dta *)
+      (* if loop.last *)
+      (* if Dtrh[loop.index0]  != " " *)
+      $^(( Dtrh[loop.index0] ))$
+      (* endif *)
+      (( tt )) \\
+      (* elif ((tt)) == '.' *)
+      , &
+      (* else *)
+      (* if Dtrh[loop.index0]  != " " *)
+      $^(( Dtrh[loop.index0] ))$
+      (* endif *)
+      (( tt )) &
+      (* endif *)
+      (* endfor *)
+      $-$ &
+      (* for tt in Dtb *)
+      (* if loop.last *)
+      (( tt ))
+      (* if Dtrb[loop.index0]  != " " *)
+      $_(( Dtrb[loop.index0] ))$
+      (* endif *)
+      \\
+      (* elif ((tt)) == '.' *)
+      , &
+      (* else *)
+      (( tt ))
+      (* if Dtrb[loop.index0]  != " " *)
+      $_(( Dtrb[loop.index0] ))$
+      (* endif *)
+      &
+      (* endif *)
+      (* endfor *)
+      \hline
+      &
+      (* for tt in Dtt *)
+      (* if loop.last *)
+      (( tt )) \\
+      (* elif ((tt)) == '.' *)
+      , &
+      (* else *)
+      (( tt )) &
+      (* endif *)
+      (* endfor *)
+    \end{tabular}\par
+    \[ \boxed{(( Dna|facteur )) - (( Dnb|facteur )) = (( "{:.14g}".format(Dna-Dnb)|float|facteur ))} \]
+  (* else *)
+  \item Le produit des facteurs (( "{:.14g}".format(Pna*10**Ppa)|float|facteur )) et (( "{:.14g}".format(Pnb*10**Ppb)|float|facteur )).
+    \begin{description}
+      \item[1\iere{} méthode :]\ \\
+        \begin{tabular}[t]{*{(( (Pna*Pnb)|string|length ))}{c}}
+      (* for tt in alignement.format(Pna) *)
+      (( tt ))
+      (* if loop.revindex0 == -Ppa *)
+       ,
+      (* endif *)
+      (* if loop.last *)
+       \\
+      (* else *)
+      &
+      (* endif *)
+      (* endfor *)
+      $\times$ &
+      (* for tt in alignement.format(Pnb) *)
+      (* if not loop.first *)
+      (( tt ))
+      (* if loop.revindex0 == -Ppb *)
+       ,
+      (* endif *)
+      (* if loop.last *)
+       \\ \hline
+      (* else *)
+      &
+      (* endif *)
+      (* endif *)
+      (* endfor *)
+      (* for f1 in (Pnb|string)[::-1] *)
+      (* if f1 != '.' *)
+      (* for tt in alignement.format(f1|int*Pna*10**loop.index0) *)
+      (( tt ))
+      (* if loop.last *)
+       \\
+      (* else *)
+      &
+      (* endif *)
+      (* endfor *)
+      (* endif *)
+      (* endfor *)
+      \hline
+      (* for tt in alignement.format(Pna*Pnb) *)
+      (( tt ))
+      (* if loop.revindex0 == -Ppa-Ppb *)
+       ,
+      (* endif *)
+      (* if loop.last *)
+       \\
+      (* else *)
+      &
+      (* endif *)
+      (* endfor *)
+    \end{tabular}
+      \item[2\ieme{} méthode :]\ \\
+        \begin{tabular}[t]{*{(( (Pna*Pnb)|string|length ))}{c}}
+      (* for tt in alignement.format(Pnb) *)
+      (( tt ))
+      (* if loop.revindex0 == -Ppb *)
+       ,
+      (* endif *)
+      (* if loop.last *)
+       \\
+      (* else *)
+      &
+      (* endif *)
+      (* endfor *)
+      $\times$ &
+      (* for tt in alignement.format(Pna) *)
+      (* if not loop.first *)
+      (( tt ))
+      (* if loop.revindex0 == -Ppa *)
+       ,
+      (* endif *)
+      (* if loop.last *)
+       \\ \hline
+      (* else *)
+      &
+      (* endif *)
+      (* endif *)
+      (* endfor *)
+      (* for f1 in (Pna|string)[::-1] *)
+      (* if f1 != '.' *)
+      (* for tt in alignement.format(f1|int*Pnb*10**loop.index0) *)
+      (( tt ))
+      (* if loop.last *)
+       \\
+      (* else *)
+      &
+      (* endif *)
+      (* endfor *)
+      (* endif *)
+      (* endfor *)
+      \hline
+      (* for tt in alignement.format(Pna*Pnb) *)
+      (( tt ))
+      (* if loop.revindex0 == -Ppa-Ppb *)
+       ,
+      (* endif *)
+      (* if loop.last *)
+       \\
+      (* else *)
+      &
+      (* endif *)
+      (* endfor *)
+    \end{tabular}
+  \end{description}
+  \[ \boxed{(( "{:.14g}".format(Pna*10**Ppa)|float|facteur )) \times (( "{:.14g}".format(Pnb*10**Ppb)|float|facteur )) = (( "{:.14g}".format(Pna*Pnb*10**(Ppa+Ppb))|float|facteur ))} \]
+  (* endif *)
+  (* endfor *)
+\end{enumerate}
+\end{multicols}
