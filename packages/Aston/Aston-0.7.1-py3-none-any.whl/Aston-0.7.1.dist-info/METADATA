@@ -1,0 +1,49 @@
+Metadata-Version: 2.1
+Name: Aston
+Version: 0.7.1
+Summary: Mass/UV Spectral Analysis Program
+Home-page: https://github.com/bovee/aston
+Author: Roderick Bovee
+Author-email: rbovee@gmail.com
+License: BSD 3-Clause
+Platform: Any
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Operating System :: OS Independent
+Classifier: Topic :: Scientific/Engineering :: Chemistry
+Description-Content-Type: text/markdown
+Requires-Dist: numpy (>=1.16.4)
+Requires-Dist: scipy (>=1.2.0)
+Provides-Extra: plot
+Requires-Dist: matplotlib ; extra == 'plot'
+Requires-Dist: jupyter ; extra == 'plot'
+
+[![Travis CI](https://travis-ci.org/bovee/Aston.svg?branch=master)](https://travis-ci.org/bovee/Aston/)
+
+
+# Aston
+
+Aston is a cross-platform, open source library for the analysis of chromatographic data. It's named for Francis William Aston, creator of the first fully functional mass spectrometer, and written using Python, Numpy, and Scipy. A graphical front-end is also available at https://github.com/bovee/AstonQt.
+
+
+## Installation
+
+Before you can use Aston, you must install Numpy and Scipy. Because these two packages contain C and Fortran code, installing via `pip` may be difficult (if you take this route, install them separately -- `pip install numpy` then `pip install scipy`) so I recommend installing them with your operating systems native facilities:
+
+ - Arch: `sudo pacman -Syu python-numpy python-scipy`
+ - Ubuntu/Debian: `sudo apt-get install python3-numpy python3-scipy`
+ - Mac OS X: `brew install numpy` and `brew install scipy` ( you will need Homebrew for this: http://brew.sh/ )
+ - Windows: graphical Anaconda installer @ https://www.continuum.io/downloads
+
+Once these are installed, you can check that everything works by running the tests with `python setup.py test`.
+
+
+## Usage
+
+```python
+from aston.tracefile import TraceFile
+c = TraceFile('./test.cdf')
+```
+
+
