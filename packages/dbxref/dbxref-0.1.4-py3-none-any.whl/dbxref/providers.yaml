@@ -1,0 +1,159 @@
+- name: Enzyme
+  prefixes: ["EC"]
+  resources:
+      html: ["https://enzyme.expasy.org/EC/%i"]
+      text: ["https://enzyme.expasy.org/EC/%i.txt"]
+  check_existence: "https://enzyme.expasy.org/EC/%i.txt"
+  retriever:
+      type: 'internal'
+      location: 'dbxref.retrieve.enzyme'
+- name: HAMAP
+  prefixes: ["HAMAP", "HM"]
+  resources:
+      html: ["https://hamap.expasy.org/signature/%i"]
+      text: ["https://hamap.expasy.org/signature/%i.txt"]
+  check_existence: "https://hamap.expasy.org/signature/%i.txt"
+  retriever:
+    type: 'internal'
+    location: 'dbxref.retrieve.hamap'
+- name: OMA - Orthologous MAtrix
+  prefixes: ["OMA"]
+  resources:
+      html: ["https://omabrowser.org/oma/omagroup/%i/"]
+      json: ["https://omabrowser.org/api/group/%i/"]
+  check_existence: "https://omabrowser.org/api/group/%i/"
+- name: Gene Identifier
+  prefixes: ["GI"]
+  resources:
+      html: ["https://www.ncbi.nlm.nih.gov/protein/GI:%i"]
+      xml: ["http://www.ncbi.nlm.nih.gov/sviewer/viewer.cgi?tool=portal&db=protein&dopt=xml&sort=&val=%i&retmode=file"]
+      text: ["https://www.ncbi.nlm.nih.gov/sviewer/viewer.fcgi?noredirect=1&db=protein&val=%i"]
+  check_existence: "http://www.ncbi.nlm.nih.gov/sviewer/viewer.cgi?tool=portal&db=protein&dopt=xml&sort=&val=%i&retmode=file"
+  retriever:
+    type: 'internal'
+    location: 'dbxref.retrieve.gi'
+- name: Uniprot
+  prefixes: ["UniProtKB/TrEMBL", "UniProtKB/Swiss-Prot"]
+  resources:
+      html: [ "http://www.uniprot.org/uniprot/%i"]
+      xml: [ "http://www.uniprot.org/uniprot/%i.xml"]
+  check_existence: "http://www.uniprot.org/uniprot/%i.xml"
+  retriever:
+      type: 'internal'
+      location: 'dbxref.retrieve.uniprot'
+- name: Taxonomy
+  prefixes: ["Taxon", "taxid"]
+  resources:
+      html: ["http://www.uniprot.org/taxonomy/%i"]
+      json: ["https://www.ebi.ac.uk/ena/data/taxonomy/v1/taxon/tax-id/%i"]
+      xml: ["http://www.uniprot.org/taxonomy/%i.rdf"]
+      xml_ncbi: ["https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=taxonomy&id=%i"]
+  check_existence: "http://www.uniprot.org/taxonomy/%i"
+  retriever:
+      type: 'internal'
+      location: 'dbxref.retrieve.taxonomy'
+- name: SequenceOntology
+  prefixes: ["SO"]
+  resources:
+      html: ["http://www.sequenceontology.org/browser/current_svn/term/SO:%i"]
+      obo: ["http://www.sequenceontology.org/browser/current_svn/export/term_only/obo/SO:%i"]
+      tsv: ["http://www.sequenceontology.org/browser/current_svn/export/term_only/csv_text/SO:%i"]
+  # does not work
+  # check_existence: "http://www.sequenceontology.org/browser/current_svn/term/SO:%i"
+  retriever:
+      type: 'internal'
+      location: 'dbxref.retrieve.sequence_ontology'
+- name: RFAM
+  prefixes: ["RFAM"]
+  resources:
+      html: ["http://rfam.xfam.org/family/%i"]
+      xml: ["http://rfam.xfam.org/family/%i?content-type=text%2Fxml"]
+      json: ["https://rfam.org/family/%i?content-type=application/json"]
+  check_existence: "http://rfam.xfam.org/family/%i?content-type=text%2Fxml"
+  retriever:
+    type: 'internal'
+    location: 'dbxref.retrieve.rfam'
+- name: Pubmed
+  prefixes: ["Pubmed", "PM"]
+  resources:
+      html: ['http://www.ncbi.nlm.nih.gov/pubmed/%i']
+      text: ['https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=pubmed&id=%i']
+      xml: ['https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=pubmed&id=%i&retmode=xml']
+      json: ['https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi?db=pubmed&id=%i&retmode=json']
+  check_existence: "http://www.ncbi.nlm.nih.gov/pubmed/%i"
+  retriever:
+    type: 'internal'
+    location: 'dbxref.retrieve.pubmed'
+- name: Protein Families
+  prefixes: ["PFAM"]
+  resources:
+      html: ["http://pfam.xfam.org/family/%i"]
+      xml: ["http://pfam.xfam.org/family/%i?output=xml"]
+  # does not work
+  # check_existence: "http://pfam.xfam.org/family/%i?content-type=text%2Fxml"
+  retriever:
+      type: 'internal'
+      location: 'dbxref.retrieve.pfam'
+- name: PDB
+  prefixes: ["PDB"]
+  resources:
+      html: ["http://www.rcsb.org/pdb/explore/explore.do?structureId=%i"]
+      xml: ["http://www.rcsb.org/pdb/download/downloadFile.do?fileFormat=xml&compression=NO&structureId=%i"]
+  check_existence: "http://www.rcsb.org/pdb/download/downloadFile.do?fileFormat=xml&compression=NO&structureId=%i"
+- name: InterPro
+  prefixes: ["InterPro"]
+  resources:
+      html: ["https://www.ebi.ac.uk/interpro/entry/%i"]
+      json: ["https://www.ebi.ac.uk/interpro/api/entry/InterPro/%i"]
+  retriever:
+      type: 'internal'
+      location: 'dbxref.retrieve.interpro'
+  # does not work
+  # check_existence: "http://www.ebi.ac.uk/interpro/entry/%i"
+- name: GeneID
+  prefixes: ["GeneID"]
+  resources:
+      html: ["http://www.ncbi.nlm.nih.gov/gene/%i"]
+      xml: ["http://www.ncbi.nlm.nih.gov/sviewer/viewer.cgi?tool=portal&db=gene&dopt=xml&sort=&val=%i&retmode=file"]
+  # does not work
+  # check_existence: "http://www.ncbi.nlm.nih.gov/sviewer/viewer.cgi?tool=portal&db=gene&dopt=xml&sort=&val=%i&retmode=file"
+- name: Gene Ontology
+  prefixes: ["GO"]
+  resources:
+      html: ["https://www.ebi.ac.uk/QuickGO/GTerm?id=GO:%i"]
+      xml: ["https://www.ebi.ac.uk/QuickGO/GTerm?id=GO:%i&format=oboxml"]
+      json: ["https://www.ebi.ac.uk/QuickGO/services/ontology/go/terms/GO:%i/complete"]
+  check_existence: "http://purl.obolibrary.org/obo/GO_%i"
+  retriever:
+      type: 'internal'
+      location: 'dbxref.retrieve.gene_ontology'
+- name: KEGG
+  prefixes: ["KO", "KEGG"]
+  resources:
+      html: ["https://www.genome.jp/dbget-bin/www_bget?%i"]
+      text: ["http://rest.kegg.jp/get/%i"]
+  check_existence: "http://rest.kegg.jsdjkaap/get/%i"
+  retriever:
+      type: 'internal'
+      location: 'dbxref.retrieve.kegg'
+- name: HTTP
+  prefixes: ["http", "https"]
+  resources:
+      html: ["%d:%i"]
+  check_existence: "%d:%i"
+- name: EggNOG
+  prefixes: ['eggnog']
+  resources:
+    html: ["http://eggnogdb.embl.de/#/app/results?target_nogs=%i"]
+- name: RefSeq
+  prefixes: ['RefSeq']
+  resources:
+    xml: ["https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nucleotide&term=srcdb_refseq[property]&id=%i&retmode=xml",
+    "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=protein&term=srcdb_refseq[property]&id=%i&retmode=xml"]
+  retriever:
+      type: 'internal'
+      location: 'dbxref.retrieve.refseq'
+- name: Conserved domain database
+  prefixes: ["CDD"]
+  resources:
+      html: ["https://www.ncbi.nlm.nih.gov/Structure/cdd/cddsrv.cgi?uid=%i"]
