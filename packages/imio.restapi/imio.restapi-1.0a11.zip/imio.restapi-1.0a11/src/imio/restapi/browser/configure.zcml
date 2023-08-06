@@ -1,0 +1,29 @@
+<configure
+    xmlns="http://namespaces.zope.org/zope"
+    xmlns:browser="http://namespaces.zope.org/browser"
+    xmlns:i18n="http://namespaces.zope.org/i18n"
+    xmlns:plone="http://namespaces.plone.org/plone"
+    i18n_domain="imio.restapi">
+
+  <!-- viewlets -->
+  <browser:viewlet
+    name="imio-restapi-actions"
+    manager="plone.app.layout.viewlets.interfaces.IBelowContentTitle"
+    for="*"
+    class=".viewlets.ActionViewlet"
+    template="templates/action-viewlet.pt"
+    layer="imio.restapi.interfaces.IImioRestapiLayer"
+    permission="cmf.ModifyPortalContent"
+    />
+
+  <browser:viewlet
+    name="imio-restapi-links"
+    manager="plone.app.layout.viewlets.interfaces.IBelowContentTitle"
+    for="*"
+    class=".viewlets.LinkViewlet"
+    template="templates/link-viewlet.pt"
+    layer="imio.restapi.interfaces.IImioRestapiLayer"
+    permission="cmf.ModifyPortalContent"
+    />
+
+</configure>

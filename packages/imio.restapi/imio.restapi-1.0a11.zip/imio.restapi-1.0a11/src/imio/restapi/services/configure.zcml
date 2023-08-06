@@ -1,0 +1,130 @@
+<configure
+    xmlns="http://namespaces.zope.org/zope"
+    xmlns:plone="http://namespaces.plone.org/plone"
+    xmlns:zcml="http://namespaces.zope.org/zcml">
+
+  <plone:service
+    method="POST"
+    for="Products.CMFCore.interfaces.IFolderish"
+    factory=".add.FolderPost"
+    layer="imio.restapi.interfaces.IImioRestapiLayer"
+    permission="cmf.AddPortalContent"
+    />
+
+  <plone:service
+    method="POST"
+    for="Products.CMFCore.interfaces.IFolderish"
+    name="@bulk"
+    factory=".add.BulkFolderPost"
+    layer="imio.restapi.interfaces.IImioRestapiLayer"
+    permission="cmf.AddPortalContent"
+    />
+
+  <plone:service
+    method="GET"
+    for="Products.CMFCore.interfaces.ISiteRoot"
+    accept="application/json,application/schema+json"
+    name="@request_schema"
+    factory=".request_schema.RequestSchemaGet"
+    layer="imio.restapi.interfaces.IImioRestapiLayer"
+    permission="zope2.View"
+    />
+
+  <configure zcml:condition="installed collective.documentgenerator">
+   <adapter factory=".pod.PodTemplates" name="pod-templates" />
+   <plone:service
+      method="GET"
+      for="*"
+      accept="application/json,application/schema+json"
+      name="@pod-templates"
+      factory=".pod.PodTemplatesGet"
+      layer="imio.restapi.interfaces.IImioRestapiLayer"
+      permission="zope2.View"
+      />
+  </configure>
+
+  <plone:service
+    method="GET"
+    for="*"
+    accept="application/json,application/schema+json"
+    name="@rest_link"
+    factory=".rest_link.LinkGet"
+    layer="imio.restapi.interfaces.IImioRestapiLayer"
+    permission="zope2.View"
+    />
+
+  <plone:service
+    method="POST"
+    for="*"
+    accept="application/json,application/schema+json"
+    name="@rest_link"
+    factory=".rest_link.LinkPost"
+    layer="imio.restapi.interfaces.IImioRestapiLayer"
+    permission="cmf.ModifyPortalContent"
+    />
+
+  <plone:service
+    method="PATCH"
+    for="*"
+    accept="application/json,application/schema+json"
+    name="@rest_link"
+    factory=".rest_link.LinkPatch"
+    layer="imio.restapi.interfaces.IImioRestapiLayer"
+    permission="cmf.ModifyPortalContent"
+    />
+
+  <plone:service
+    method="DELETE"
+    for="*"
+    accept="application/json,application/schema+json"
+    name="@rest_link"
+    factory=".rest_link.LinkDelete"
+    layer="imio.restapi.interfaces.IImioRestapiLayer"
+    permission="cmf.ModifyPortalContent"
+    />
+
+  <plone:service
+    method="GET"
+    for="Products.CMFCore.interfaces.ISiteRoot"
+    accept="application/json,application/schema+json"
+    name="@uid"
+    factory=".uid.UIDGet"
+    layer="imio.restapi.interfaces.IImioRestapiLayer"
+    permission="zope2.View"
+    />
+
+  <configure zcml:condition="installed Products.Archetypes">
+    <plone:service
+      method="GET"
+      for="Products.Archetypes.interfaces.base.IBaseObject"
+      name="@at_vocabularies"
+      factory=".at.ATVocabulariesGet"
+      layer="imio.restapi.interfaces.IImioRestapiLayer"
+      permission="zope2.View"
+      />
+  </configure>
+
+  <!-- get infos -->
+  <configure zcml:condition="installed Products.CPUtils">
+    <plone:service
+      method="GET"
+      for="zope.interface.Interface"
+      accept="application/json,application/schema+json"
+      name="@infos"
+      factory=".infos.InfosGet"
+      layer="imio.restapi.interfaces.IImioRestapiLayer"
+      permission="zope2.View"
+      />
+  </configure>
+
+  <!-- search -->
+  <plone:service
+    method="GET"
+    for="Products.CMFCore.interfaces.ISiteRoot"
+    accept="application/json,application/schema+json"
+    name="@search"
+    factory=".search.SearchGet"
+    layer="imio.restapi.interfaces.IImioRestapiLayer"
+    permission="zope2.View" />
+
+</configure>
