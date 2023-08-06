@@ -1,0 +1,61 @@
+Metadata-Version: 2.1
+Name: qronos-client
+Version: 0.0.1
+Summary: Python Client for QRonos
+Home-page: https://github.com/QuickRelease/qronos-client.git
+Author: Nick Solly
+Author-email: nick.solly@quickrelease.co.uk
+License: All Rights Reserved
+Description: # qronos-client
+        Python client for QRonos
+        
+        ## Installation
+        
+        This package can be installed via pip:
+        
+        ```
+        pip install qronos-client
+        ```
+        
+        ## Example Usage
+        
+        ```python
+        from qronos import QRonosClient
+        
+        # Create client and login
+        qronos = QRonosClient(host='dev.qronos.xyz')
+        token, expiry = qronos.login(username='Quentin', password='Rogers')
+        
+        # Alternatively if you already have a token
+        qronos = QRonosClient(host='dev.qronos.xyz', token='ABCDEFGHIJKLMN')
+        
+        # Import Tracker (Item) Data
+        job_id = qronos.tracker_import(tracker_id=24, tracker_importer_id=63, unique_columns=["Part Number", "Weight"], data=[{"Part Number": "A1", "Weight": 5}, {"Part Number": "A2", "Weight": 8}])
+        
+        # Import Stage Data
+        job_id = qronos.stage_import(stage_id=2, stage_importer_id=25, data=[{"Part Number": "A1", "Lead Time": 5}, {"Part Number": "A2", "Actual": "2020-10-26"}])
+        
+        # Check Status of an Import
+        status = qronos.import_status(job_id=job_id)
+        
+        # Logout
+        qronos.logout(all_tokens=True)
+        ```
+        
+        ## Testing
+        
+        Speak with a QRonos Demo Site Admin for credentials in order to run the tests.
+        
+Platform: UNKNOWN
+Classifier: Environment :: Web Environment
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Topic :: Internet :: WWW/HTTP
+Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
+Description-Content-Type: text/markdown
