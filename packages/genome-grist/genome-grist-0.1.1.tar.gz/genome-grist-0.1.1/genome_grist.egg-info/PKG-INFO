@@ -1,0 +1,55 @@
+Metadata-Version: 2.1
+Name: genome-grist
+Version: 0.1.1
+Summary: tools to support genome and metagenome analysis
+Home-page: https://github.com/dib-lab/genome-grist
+Author: C. Titus Brown, Luiz Irber, Tessa Pierce, Taylor Reiter
+Author-email: titus@idyll.org,lcirberjr@ucdavis.edu,ntpierce@gmail.com,tereiter@ucdavis.edu
+License: BSD 3-clause
+Description: # genome-grist - map Illumina metagenomes to GenBank genomes
+        
+        <a href="https://pypi.org/project/genome-grist/"><img alt="PyPI" src="https://badge.fury.io/py/genome-grist.svg"></a>
+        <a href="https://github.com/dib-lab/pybbhash/blob/latest/LICENSE.txt"><img alt="License: 3-Clause BSD" src="https://img.shields.io/badge/License-BSD%203--Clause-blue.svg"></a>
+        
+        1. download a metagenome
+        2. process it into trimmed reads, and make a [sourmash signature](https://sourmash.readthedocs.io/)
+        3. search the sourmash signature with 'gather' against sourmash databases, e.g. all of genbank
+        4. download the matching genomes from genbank
+        5. map all metagenome reads to genomes using minimap - `map_reads` and `extract_mapped_reads`
+        6. extract matching reads iteratively based on gather, successively eliminating reads that matched to previous gather matches - `extract_gather`
+        7. run mapping on “leftover” reads to genomes - `map_gather`
+        9. summarize all mapping results for comparison and graphing - `summarize_gather`
+        
+        ## Why the name `grist`?
+        
+        In the sourmash family of names (sourmash, wort, distillerycats, etc.)
+        
+        NOT:
+        https://en.wikipedia.org/wiki/Grist_(computing)
+        
+        THIS:
+        https://en.wikipedia.org/wiki/Grist
+        
+        ## Leftover text
+        
+        [podar ref genomes](https://osf.io/vbhy5/download)
+        
+        [Snakefile based on @luizirber code](https://github.com/luizirber/phd/blob/ed2d89769bd6908a5f28a7b8415d2bcdc509e2bb/experiments/wort/sra_search/Snakefile)
+        
+        [Genome URL generation code](https://github.com/dib-lab/sourmash_databases/pull/11/files#diff-3b4f98e8183094e86c5e5492ec95fb7cb078de369b41be91d061940474ce80e5R118-R139)
+        
+        [download SRA code](https://github.com/luizirber/phd/blob/ed2d89769bd6908a5f28a7b8415d2bcdc509e2bb/experiments/wort/sra_search/Snakefile)
+        
+Platform: UNKNOWN
+Classifier: Environment :: Console
+Classifier: Environment :: MacOS X
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Natural Language :: English
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Operating System :: MacOS :: MacOS X
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Topic :: Scientific/Engineering :: Bio-Informatics
+Description-Content-Type: text/markdown
