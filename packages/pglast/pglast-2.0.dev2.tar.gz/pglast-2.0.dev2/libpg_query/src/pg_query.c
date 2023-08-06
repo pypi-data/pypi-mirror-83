@@ -1,0 +1,52 @@
+#include "pg_query.h"
+#include "pg_query_internal.h"
+#include <mb/pg_wchar.h>
+#include <signal.h>
+
+const char* progname = "pg_query";
+
+sig_atomic_t pg_query_initialized = 0;
+
+void pg_query_init(void)
+{
+	if (pg_query_initialized != 0) return;
+	pg_query_initialized = 1;
+
+	MemoryContextInit();
+	SetDatabaseEncoding(PG_UTF8);
+}
+
+MemoryContext pg_query_enter_memory_context(const char* ctx_name)
+{
+	MemoryContext ctx = NULL;
+
+	pg_query_init();
+
+	ctx = AllocSetContextCreateInternal(TopMemoryContext,
+								ctx_name,
+								ALLOCSET_DEFAULT_SIZES);
+	MemoryContextSwitchTo(ctx);
+
+	return ctx;
+}
+
+void pg_query_exit_memory_context(MemoryContext ctx)
+{
+	// Return to previous PostgreSQL memory context
+	MemoryContextSwitchTo(TopMemoryContext);
+
+	MemoryContextDelete(ctx);
+}
+
+void pg_query_free_error(PgQueryError *error)
+{
+	free(error->message);
+	free(error->funcname);
+	free(error->filename);
+
+	if (error->context) {
+		free(error->context);
+	}
+
+	free(error);
+}
