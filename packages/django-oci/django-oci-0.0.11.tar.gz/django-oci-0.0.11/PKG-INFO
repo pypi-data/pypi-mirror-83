@@ -1,0 +1,71 @@
+Metadata-Version: 2.1
+Name: django-oci
+Version: 0.0.11
+Summary: Open Containers distribution API for Django
+Home-page: https://github.com/vsoch/django-oci
+Author: Vanessa Sochat
+Author-email: vsochat@stanford.edu
+License: Apache Software License 2.0
+Description: # django-oci
+        
+        [![PyPI version](https://badge.fury.io/py/django-oci.svg)](https://badge.fury.io/py/django-oci)
+        ![docs/assets/img/django-oci.png](docs/assets/img/django-oci.png)
+        
+        Open Containers distribution API for Django. 
+        
+        This repository serves a Django app that can be used to provide an opencontainers
+        distribution (OCI) endpoint to push and pull containers. An [example](tests)
+        application is provided in `tests` that can be interacted with here.
+        
+        
+        ## Quickstart
+        
+        Install django-oci::
+        
+        ```bash
+        pip install django-oci
+        ```
+        
+        Add it to your `INSTALLED_APPS` along with `rest_framework`
+        
+        ```python
+        
+            INSTALLED_APPS = (
+                ...
+                'django_oci',
+                'rest_framework',
+                ...
+            )
+        ```
+        
+        Add django-oci's URL patterns:
+        
+        ```python
+        
+            from django_oci import urls as django_oci_urls
+            urlpatterns = [
+                ...
+                url(r'^', include(django_oci.urls)),
+                ...
+            ]
+        
+        ```
+        
+        See the [documentation](https://vsoch.github.io/django-oci/) or [getting started guide](https://vsoch.github.io/django-oci/docs/getting-started/) for more details about setup, and testing. An [example application](tests) is provided
+        and described in the getting started guide as well. The latest [conformance testing](https://vsoch.github.io/django-oci/conformance/) is provided as well.
+        
+        ## Many Thanks 
+        
+        * [cookiecutter-djangopackage](https://github.com/pydanny/cookiecutter-djangopackage)
+        
+Keywords: django-oci
+Platform: UNKNOWN
+Classifier: Development Status :: 3 - Alpha
+Classifier: Framework :: Django :: 1.11
+Classifier: Framework :: Django :: 2.1
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Natural Language :: English
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
+Description-Content-Type: text/markdown
