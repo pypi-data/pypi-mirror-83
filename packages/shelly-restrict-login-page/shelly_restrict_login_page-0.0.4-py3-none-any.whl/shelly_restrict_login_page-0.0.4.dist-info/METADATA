@@ -1,0 +1,54 @@
+Metadata-Version: 2.1
+Name: shelly-restrict-login-page
+Version: 0.0.4
+Summary: A Python package to restrict the login page of shelly-devices.
+Home-page: https://github.com/Floplosion05/Shelly
+Author: Florian Fuchs
+Author-email: florfuchs2005@gmail.com
+License: MIT
+Keywords: shelly login shelly-login shelly-restrict-login http http-requests
+Platform: UNKNOWN
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3.7
+Description-Content-Type: text/markdown
+Requires-Dist: requests (>=2.24.0)
+Requires-Dist: passlib (>=1.7.4)
+
+# At the moment this Script is nowhere near being complete, use at your own risk!
+
+# Shelly
+Stuff based around the beautifull small electronic devices from Allterco
+
+### [Auto-Restrict-Login](Scripts/secure.py)
+This Script queries trough a given number of ips and restricts the http login with a given username and password
+
+##### Installation
+To install the Script(s) run:
+```
+pip install shelly-restrict-login-page==0.0.4
+```
+
+##### Usage
+To use the script run:
+1. The Script requires the ips as fourth parameter, each seperated by a comma eg ip1,ip2,...
+2. When a login page is already restricted you will be prompted to provide the old password
+3. The Script **doesnt** work with mdns names, just ip addresses
+4. The Script will automatically generate a file called Shelly.json in the same directory as the script, to store the last username and the hash of the last password.
+```
+python3 secure.py [mode] [username] [password] [ip1,ip2]
+  mode  enable/disable
+```
+##### Error-Codes
+  - 0: Failed to load Shelly.json, check the directory and path. (The script cant find the [Credentials-File](https://github.com/Floplosion05/Shelly/blob/main/README.md#credentials-file))
+  - 1: Wrong password entered. (The provided password doesnt match with the saved hash)
+  - 2: Right hash found but wrong password provided. (The entered password matches the saved hash, but not the actual password on the login page)
+  - 3: Found Shelly.json, but didnt find entry for this device. (The script found the [Credentials-File](https://github.com/Floplosion05/Shelly/blob/main/README.md#credentials-file), but the restricted login was never enabled with this script)
+
+##### Credentials-File
+The Credentials-File (Shellys.json) is generated and then located in the same directory as the script.
+The structure is:
+```
+{"devices": [{"ip": "192.168.xxx.xxx", "username": "test", "password": "$pbkdf2-sha256$30000$yZnzPqc0Rqi1NibEeM.5Fw$QZ0sk1Z6K4LMt3UM3AGrrKLk9jBOjwrXsY1psfAPY4Q"}, {"ip": "192.168.xxx.xxx", "username": "test", "password": "$pbkdf2-sha256$30000$yZnzPqc0Rqi1NibEeM.5Fw$QZ0sk1Z6K4LMt3UM3AGrrKLk9jBOjwrXsY1psfAPY4Q"}]}
+```
+
+
