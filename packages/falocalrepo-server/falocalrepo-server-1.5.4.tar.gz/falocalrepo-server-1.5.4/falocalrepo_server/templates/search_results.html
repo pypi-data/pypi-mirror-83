@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ title }}</title>
+    <style>
+        :root {
+            --table_border_color: darkgray;
+            --table_background_color: lightgrey;
+        }
+
+        body > h2 {
+            text-align: center;
+        }
+
+        .header {
+            width: 95%;
+            top: 20px;
+            margin: auto;
+            text-align: center
+        }
+
+        .footer {
+            width: 95%;
+            top: 20px;
+            margin: auto;
+            text-align: center
+        }
+
+        .header table {
+            width: 40%;
+            top: 20px;
+            margin: auto;
+            text-align: left;
+        }
+
+        table {
+            border-collapse: collapse;
+            border: 1px solid var(--table_border_color);
+        }
+
+        table td {
+            border: 1px solid var(--table_border_color);
+        }
+
+        table td span {
+            padding: 2px;
+        }
+
+        table td:last-child {
+            max-width: available !important;
+        }
+
+        table th {
+            padding: 2px;
+            border: 2px solid var(--table_border_color);
+            text-align: center;
+        }
+
+        table .col_id {
+            min-width: fit-content;
+            text-align: center;
+        }
+
+        table .col_author {
+            min-width: fit-content;
+            text-align: center;
+        }
+
+        table .col_date {
+            min-width: fit-content;
+            text-align: center;
+        }
+
+        table .col_title {
+            max-width: 180px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        table .col_tags {
+            max-width: 180px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        table .col_description {
+            max-width: 360px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        table tr.odd {
+            background-color: inherit;
+        }
+
+        table tr.even {
+            background-color: var(--table_background_color);
+        }
+
+        #search_results {
+            width: 95%;
+            top: 20px;
+            margin: auto;
+        }
+
+        button {
+            position: relative;
+            top: 10px;
+            bottom: 10px;
+        }
+
+        .clickable {
+            cursor: pointer;
+        }
+
+        td a.celllink {
+            display: block;
+            text-decoration: none;
+            color: inherit;
+        }
+    </style>
+</head>
+<body>
+{% set table_short %}{{ "submission" if table == "submissions" }}{{ "journal" if table == "journals" }}{% endset %}
+<h2>{{ title }}</h2>
+<div class="header">
+    <table>
+        {% for param, value in params.items() %}
+            <tr class="{{ loop.cycle('odd', 'even') }}">
+                <td style="width: 80px">{{ param.title() }}</td>
+                <td>{{ " OR ".join(value) }}</td>
+            </tr>
+        {% endfor %}
+    </table>
+    <br>
+    {% set navigation %}
+    Results: {{ offset }}-{{ offset + results|length }} of {{ results_total }}
+    · Page {{ (offset // limit) + 1 }}
+    <br>
+    <button onclick="pagePrev()" {{ 'disabled' if offset <= 0 }}>
+        Prev
+    </button>
+    <button onclick="window.location = (new URL(window.location.href)).pathname">New Search</button>
+    <button onclick="pageNext()" {{ 'disabled' if offset + results|length >= results_total }}>
+        Next
+    </button>
+    {% endset %}
+    {{ navigation }}
+    <br>&nbsp;<br>
+</div>
+<table id="search_results">
+    <tr class="even header">
+        <th class="col_id clickable" onclick="sortBy('ID')">ID</th>
+        <th class="col_author clickable" onclick="sortBy('AUTHOR')">Author</th>
+        <th class="col_date clickable" onclick="sortBy('UDATE')">Date</th>
+        <th class="col_title clickable" onclick="sortBy('TITLE')">Title</th>
+        {% if table == "submissions" %}
+            <th class="col_tags clickable" onclick="sortBy('TAGS')">Tags</th>
+        {% endif %}
+    </tr>
+    {% for item in results %}
+        <tr class="clickable {{ loop.cycle('odd', 'even') }}">
+            <td class="col_id">
+                <a class="celllink" href="/{{ table_short }}/{{ item["ID"] }}">
+                    <span>{{ item["ID"] }}</span>
+                </a>
+            </td>
+            <td class="col_author">
+                <a class="celllink" href="/user/{{ item["AUTHOR"] }}">
+                    <span>{{ item["AUTHOR"] }}</span>
+                </a>
+            </td>
+            <td class="col_date">
+                <a class="celllink" href="/{{ table_short }}/{{ item["ID"] }}">
+                    <span>{{ item["DATE"] }}</span>
+                </a>
+            </td>
+            <td class="col_title">
+                <a class="celllink" href="/{{ table_short }}/{{ item["ID"] }}">
+                    <span>{{ item["TITLE"] }}</span>
+                </a>
+            </td>
+            {% if table == "submissions" %}
+                <td class="col_tags">
+                    <a class="celllink" href="/{{ table_short }}/{{ item["ID"] }}">
+                        <span>{{ " ".join(item["TAGS"].split(",")) }}</span>
+                    </a>
+                </td>
+            {% endif %}
+        </tr>
+    {% endfor %}
+</table>
+<br>
+<div class="footer">
+    {{ navigation }}
+    <br>&nbsp;<br>
+</div>
+<script>
+    const sortBy = (sortField) => {
+        let url = new URL(window.location.href)
+        url.searchParams.set("order", JSON.stringify([sortField.toUpperCase()]))
+        window.location = url.href
+    }
+    const pagePrev = () => {
+        let url = new URL(window.location.href)
+        let offset = Number(url.searchParams.get("offset") || 0)
+        url.searchParams.set("offset", offset - {{ limit }} > 0 ? offset - {{ limit }} : 0)
+        window.location = url.href
+    }
+    const pageNext = () => {
+        let url = new URL(window.location.href)
+        url.searchParams.set("offset", Number(url.searchParams.get("offset") || 0) + {{ limit }})
+        window.location = url.href
+    }
+</script>
+</body>
+</html>
