@@ -1,0 +1,59 @@
+<div class="portlet portletSliderCollection"
+    i18n:domain="plone"
+    tal:define="collection_url view/collection_url;
+                plone_view context/@@plone;
+                toLocalizedTime nocall:plone_view/toLocalizedTime;
+                viewActions here/portal_properties/site_properties/typesUseViewActionInListings|python:();"
+    tal:attributes="class string:portlet portletSliderCollection ${view/css_class}">
+
+    <div class="portletHeader">
+        <span class="portletTopLeft"></span>
+        <a tal:attributes="href collection_url" tal:omit-tag="not:view/data/show_more">
+            <span tal:content="view/data/header" />
+        </a>
+        <span class="portletTopRight"></span>
+    </div>
+    <div class="portlet-wrapper">
+        <div class="flexslider">
+            <ul class="slides">
+                <tal:items tal:repeat="item view/results">
+                      <li tal:define="obj item/getObject">
+                          <a href="#"
+                             class="linkimg"
+                             tal:condition="obj/image|nothing"
+                             tal:attributes="href item/getURL">
+                             <img src="" alt=""
+                                  tal:define="scales obj/@@images;
+                                              scale python:scales.scale('image', 'thumb')"
+                                  tal:replace="structure python:scale and scale.tag(css_class='flexsliderimg') or None" />
+                          </a>
+                          <div class="flex-caption">
+                              <h2>
+                                 <a tal:attributes="href item/getURL"
+                                    tal:content="item/Title">Content title</a>
+                              </h2>
+                                <p> <a tal:attributes="href item/getURL"
+                                       tal:content="item/Description">
+                                      Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet, consetetur sadipscing elitr,
+                                      sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat.
+                                      Ut wisi enim ad minim veniam, quis nostrud exerci tation ullamcorper suscipit
+                                      lobortis nisl ut aliquip ex ea commodo consequat.</a>
+                                 </p>
+
+                          </div>
+                      </li>
+                </tal:items>
+            </ul>
+        </div>
+    </div>
+    <div class="portletFooter">
+        <span class="portletBottomLeft"></span>
+        <span tal:condition="view/data/show_more">
+        <a tal:attributes="href collection_url">
+           <span class="hiddenStructure"><span tal:replace="view/data/header" /> - </span>
+           <span i18n:translate="more_url">More&hellip;</span>
+        </a>
+        </span>
+        <span class="portletBottomRight"></span>
+    </div>
+</div>

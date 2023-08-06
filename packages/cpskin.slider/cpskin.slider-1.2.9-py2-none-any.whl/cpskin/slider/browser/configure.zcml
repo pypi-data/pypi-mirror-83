@@ -1,0 +1,46 @@
+<configure
+  xmlns="http://namespaces.zope.org/zope"
+  xmlns:five="http://namespaces.zope.org/five"
+  xmlns:i18n="http://namespaces.zope.org/i18n"
+  xmlns:browser="http://namespaces.zope.org/browser"
+  i18n_domain="cpskin">
+
+  <include package="plone.app.contentmenu"/>
+
+  <browser:page
+    for="plone.app.contenttypes.interfaces.ICollection"
+    name="slider_view"
+    template="collection_slider_dx_view.pt"
+    class="plone.app.contenttypes.browser.collection.CollectionView"
+    permission="zope2.View"
+    layer="..interfaces.ICPSkinSliderLayer"
+    />
+
+  <browser:page
+    for="plone.app.contenttypes.interfaces.ICollection"
+    name="slider_view_vertical"
+    template="collection_slider_view_vertical.pt"
+    class="plone.app.contenttypes.browser.collection.CollectionView"
+    permission="zope2.View"
+    layer="..interfaces.ICPSkinSliderLayer"
+    />
+
+  <browser:page
+    for="plone.app.contenttypes.interfaces.ICollection"
+    name="slick_view"
+    template="collection_slick_view.pt"
+    class="plone.app.contenttypes.browser.collection.CollectionView"
+    permission="zope2.View"
+    layer="..interfaces.ICPSkinSliderLayer"
+    />
+
+  <browser:menuItem
+    for="plone.app.contenttypes.interfaces.ICollection"
+    menu="plone_displayviews"
+    title="Slider view"
+    action="@@slider_view"
+    description=""
+    i18n:attributes="title"
+    layer="..interfaces.ICPSkinSliderLayer"
+    />
+</configure>
