@@ -1,0 +1,7 @@
+{% set AZURE = SOCIALOAUTH_ACTIVATE_AZURE %}
+{% set GOOGLE = SOCIALOAUTH_ACTIVATE_GOOGLE %}
+
+"SOCIAL_AUTH_OAUTH_SECRETS": {
+  {% if AZURE %}"azuread-oauth2": "{{ SOCIALOAUTH_AZURE_SECRET_KEY }}"{% endif %}{% if AZURE and GOOGLE %},{% endif %}
+  {% if GOOGLE %}"google-oauth2": "{{ SOCIALOAUTH_GOOGLE_SECRET_KEY }}"{% endif %}
+}
