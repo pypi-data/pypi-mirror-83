@@ -1,0 +1,25 @@
+language: python
+
+branches:
+  only:
+    - master
+    - dev
+    - testing
+
+env: MPLBACKEND=Agg
+
+dist: xenial
+
+python:
+  - "3.6"
+  - "3.7"
+  - "3.8"
+
+install:
+  - pip install codecov
+  - make install
+
+# Runs unit tests and generates coverage report
+script: make tests
+
+after_success: codecov
