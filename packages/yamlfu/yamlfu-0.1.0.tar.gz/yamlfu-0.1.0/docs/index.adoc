@@ -1,0 +1,66 @@
+= YAMLFu Guide
+João Pinto <lamego.pinto@gmail.com>
+:toc: left
+:source-highlighter: prettify
+:stylesheet: css/adoc-colony.css
+
+== Introduction
+
+_YAMLFu_ is an YAML templating language that allows to embed dynamic elements, using regular Pyhon expressions and _YAMLFu_ specific functions.
+
+The `yamlfu` command line utility processes _YAMLFu_ documents and generates regular YAML.
+
+CAUTION: yamlfu document rendering is equivalent to a python script execution. You should not render documents obtained from untrusted sources.
+
+== Dynamic Elements Using Python
+Strings contained within  `{}` «curly brackets» will be processed as dynamic elements, their content is evaluated in a python runtime, the result of that evalution replaces the dynamic string.
+
+=== Constant Expressions
+Constant expressions can be used to preserve calculation formulas in the source and only the result in the output.
+
+[cols="1a,1a", options="header"]
+.Constant expression examples
+|===
+|YAMLFu|YAML|
+.input.yaml
+[source, yaml]
+....
+include::../yamlfu/tests/files/expressions.yaml[]
+....
+|
+.yamlfu input.yaml
+[source, yaml]
+....
+include::../yamlfu/tests/files/expressions_result.yaml[]
+....
+|===
+
+=== Sibling References
+
+Sibling references can be used to facilitate string composition and transformation, all sibling keys in a map are available to the python execution as variables matching their key names.
+
+[cols="a,a", options="header"]
+.Sibling reference examples
+|===
+|YAMLFu|YAML|
+.input.yaml
+[source, yaml]
+....
+include::../yamlfu/tests/files/sibling_reference.yaml[]
+....
+|
+.yamlfu input.yaml
+[source, yaml]
+....
+include::../yamlfu/tests/files/sibling_reference_result.yaml[]
+....
+|===
+include::internal_nodes.adoc[]
+
+include::template_nodes.adoc[]
+
+include::render_files.adoc[]
+
+include::extra_yaml.adoc[]
+
+include::env_vars.adoc[]
