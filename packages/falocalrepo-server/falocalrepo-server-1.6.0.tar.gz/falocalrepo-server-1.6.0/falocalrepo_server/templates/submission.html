@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ title }}</title>
+    <style>
+        :root {
+            --table_border_color: darkgray;
+            --table_background_color_even: lightgrey;
+        }
+
+        #submission_file {
+            width: 95%;
+            max-width: 95%;
+            top: 20px;
+            margin: auto;
+            text-align: center
+        }
+
+        #submission_metadata {
+            width: 95%;
+            max-width: 95%;
+            top: 20px;
+            margin: auto;
+            text-align: center
+        }
+
+        #submission_description {
+            width: 80%;
+            max-width: 600px;
+            top: 20px;
+            margin: auto;
+            text-align: justify;
+        }
+
+        img {
+            max-width: 100%;
+            max-height: 100%;
+        }
+
+        table {
+            border-collapse: collapse;
+            border: 1px solid var(--table_border_color);
+        }
+
+        table th {
+            padding: 2px;
+            border: 2px solid var(--table_border_color);
+            text-align: center;
+        }
+
+        table td {
+            padding: 2px;
+            border: 1px solid var(--table_border_color);
+        }
+
+        .overflow {
+            overflow: hidden;
+            white-space: normal;
+        }
+
+        #submission_metadata table {
+            width: 300px;
+            max-width: 300px;
+            margin: auto;
+        }
+
+        #submission_metadata .value {
+            max-width: 300px;
+        }
+    </style>
+</head>
+<body>
+<div id="submission_file">
+    {% if file_type == None %}
+        Submission has no files
+    {% elif file_type == "image" %}
+        <a href="/submission/{{ submission["ID"] }}/file">
+            <img src="/submission/{{ submission["ID"] }}/file" alt=""
+                 onerror="document.getElementById('submission_file').innerText = 'File not found'">
+        </a>
+    {% elif file_type == "audio" %}
+        <audio src="/submission/{{ submission["ID"] }}/file" controls>
+            Your browser does not support audio tags. Download submission file:
+            <a href="/submission/{{ submission["ID"] }}/file">
+                submission.{{ submission["FILEEXT"] }}
+            </a>
+        </audio>
+    {% else %}
+        Download submission file:
+        <a href="/submission/{{ submission["ID"] }}/file">
+            submission.{{ submission["FILEEXT"] }}
+        </a>
+    {% endif %}
+</div>
+<br>
+<div id="submission_metadata">
+    <h2>{{ submission["TITLE"] }} by {{ submission["AUTHOR"] }}</h2>
+    <table style="max-width: 300px">
+        <tr>
+            <td>Author</td>
+            <td class="overflow value"><a href="/user/{{ submission["AUTHOR"] }}">
+                {{ submission["AUTHOR"] }}
+            </a></td>
+        </tr>
+        <tr>
+            <td>Date</td>
+            <td class="overflow value">{{ submission["DATE"] }}</td>
+        </tr>
+        <tr>
+            <td>Tags</td>
+            <td class="overflow value">
+                {% for tag in submission["TAGS"].split(",") %}
+                    {% if tag != "" %}
+                        <a href='/search/submissions/?tags=["%25{{ tag }}%25"]'>{{ tag }}</a>
+                    {% endif %}
+                {% endfor %}
+            </td>
+        </tr>
+        <tr>
+            <td>Category</td>
+            <td class="overflow value">{{ submission["CATEGORY"] }}</td>
+        </tr>
+        <tr>
+            <td>Species</td>
+            <td class="overflow value">{{ submission["SPECIES"] }}</td>
+        </tr>
+        <tr>
+            <td>Gender</td>
+            <td class="overflow value">{{ submission["GENDER"] }}</td>
+        </tr>
+        <tr>
+            <td>Rating</td>
+            <td class="overflow value">{{ submission["RATING"] }}</td>
+        </tr>
+    </table>
+    <br>
+    <button onclick="window.location.href = 'https://www.furaffinity.net/view/{{ submission["ID"] }}'">
+        Open on Fur Affinity
+    </button>
+</div>
+<br><br>
+<div id="submission_description">
+    {% autoescape false %}
+    {{ submission["DESCRIPTION"] }}
+    {% endautoescape %}
+</div>
+</body>
+</html>
