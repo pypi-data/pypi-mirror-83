@@ -1,0 +1,47 @@
+dist: bionic
+language: python
+cache: pip
+os: linux
+jobs:
+  include:
+    - python: 3.5
+      env: TOXENV=py35
+    - python: 3.6
+      env: TOXENV=py36
+    - python: 3.7
+      env: TOXENV=py37
+    - python: 3.8
+      env: TOXENV=py38
+    - name: "Python: 3.7 (macOS)"
+      os: osx
+      osx_image: xcode11.2
+      language: shell
+      env: TOXENV=py37
+    - name: "Python: 3.8 (Windows)"
+      os: windows
+      language: shell
+      before_install:
+        - choco install python --version 3.8.5
+      env: PATH=/c/Python38:/c/Python38/Scripts:$PATH TOXENV=py38
+    - name: Linters
+      python: 3.8
+      env: TOXENV=lint
+before_install:
+  - pip3 install --upgrade setuptools pip
+before_script:
+  - pip3 install --upgrade tox
+script:
+  - tox -e "$TOXENV"
+after_success:
+  - codecov
+deploy:
+  provider: pypi
+  distributions: sdist bdist_wheel
+  user: mozillasecurity
+  password:
+    secure: QaZQq+EgPexvXYH+QJ4S5w2zdQgJ+AL4h75XDtat5NKZxdNiGvXV+glGMWnRqG/x3RLYERZI1ZlQS/k88zdlgorfjAzUFad7mXfCxTX34/sF6WSMLUB50FddhjvBgtV2PaIGfRUgi/j1+DqI3g3akJd6BaRHTUO+UHn3GVyzAUkdoLBt6REwklTq44exzrEFmfRh0Pp2NTMUs9CoVekyrtvEHNcMAxTeRAJBbmv1C2LkBpx+nvIBfDmMzfhY4kuhpLheFfIoniNsz9cYKO21itVBnHwvFAGCm9plVRv27batX8CpbiqpAJrVJSZEmzaG2c+k3goM62i+o8BF8t/NUmRMcZ8D35EdIX0/5LrvEWrQll8PPkFboAVNQ3OnYddFypuDPtNzf54JXWDejqKT/kqCTUD+aSaSAivo+yljP9B9T7r5dFawIbLVYeJFVy1CxE4CwAxRsjtzrXGHOefUmfKUYMh8BcLjMxAAPfhHDQFOwOAwiex4E381OKjwTozrkGpeVQyrq8hy7OnMRBMVUfzH0gQJiH5iCzdQ+GoQJP55O+MaLNotIpLoPdvxR68A7eE3PqTvGXL2Aj3npZf59+79MpsHOHxVS52SqOnCOpvQhBG8Ssx7MUiaaDGg+wSVsbTg2i8mcEY5kR2JKWucrvbCa/OFqD//Ut8Lc7fIj5s=
+  on:
+    branch: master
+    tags: true
+    os: linux
+    python: 3.7
