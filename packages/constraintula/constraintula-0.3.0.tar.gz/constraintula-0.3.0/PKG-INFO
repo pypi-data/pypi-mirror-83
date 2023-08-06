@@ -1,0 +1,51 @@
+Metadata-Version: 2.1
+Name: constraintula
+Version: 0.3.0
+Summary: Define system of constraint equations for initializing data classes
+Home-page: https://github.com/DanielSank/constraintula
+Author: Daniel Sank
+Author-email: sank.daniel@gmail.com
+License: UNKNOWN
+Description: # constraintula
+        
+        ```python
+        import attr
+        import constraintula
+        import numpy as np
+        
+        PI = np.pi
+        
+        area, radius = constraintula.symbols('area radius')
+        
+        
+        @constraintula.constrain([area - PI * radius**2])
+        @attr.dataclass(frozen=True)
+        class Circle:
+            radius: float
+            area: float
+        
+        circle_from_radius = Circle(radius=2)
+        circle_from_area = Circle(area=42)
+        ```
+        
+        ## Installation
+        
+        ### User
+        ```
+        pip install constraintula
+        ```
+        
+        ### Developer
+        ```
+        pip install -e .[dev]
+        ```
+        
+        ## Disclaimer
+        
+        This is not an officially supported Google product.
+        
+Platform: UNKNOWN
+Classifier: Programming Language :: Python :: 3
+Classifier: Operating System :: OS Independent
+Description-Content-Type: text/markdown
+Provides-Extra: dev
