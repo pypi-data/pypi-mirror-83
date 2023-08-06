@@ -1,0 +1,1 @@
+This library allows for easy access to the publicly avaible NHL API.
