@@ -1,0 +1,35 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+# See Notices.txt for copyright information
+[package]
+name = "power-instruction-analyzer"
+version = "0.2.0"
+authors = ["Jacob Lifshay <programmerjake@gmail.com>"]
+edition = "2018"
+license = "LGPL-2.1-or-later"
+exclude = ["output-for-*.json"]
+description = "Program to analyze the behavior of Power ISA instructions"
+
+[features]
+native_instrs = []
+python = ["pyo3"]
+python-extension = ["python", "pyo3/extension-module"]
+
+[lib]
+name = "power_instruction_analyzer"
+crate-type = ["rlib", "cdylib"]
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+serde_plain = "0.3"
+pyo3 = { version = "0.11", optional = true }
+
+[dependencies.power-instruction-analyzer-proc-macro]
+path = "power-instruction-analyzer-proc-macro"
+version = "=0.2.0"
+
+[workspace]
+members = [
+    ".",
+    "power-instruction-analyzer-proc-macro",
+]
