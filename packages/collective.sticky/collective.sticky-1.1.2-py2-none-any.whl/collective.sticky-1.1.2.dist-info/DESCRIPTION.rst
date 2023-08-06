@@ -1,0 +1,61 @@
+Introduction
+============
+
+Adds a "sticky" checkbox to news items and events so they can be marked as sticky.
+Sticky items will appear at the top of collections that use the sticky_summary_view layout.
+
+Changelog
+=========
+
+1.1.2 (2017-11-27)
+------------------
+
+- Fix index of event sticky behavior.
+  [bsuttor]
+
+
+1.1.1 (2016-09-14)
+------------------
+
+- Fix index None error for ZCatalog > 3.
+  [bsuttor]
+
+
+1.1.0 (2016-03-08)
+------------------
+
+- Add dexterity behavior.
+  [bsuttor]
+
+- Add tests.
+  [bsuttor]
+
+
+1.0.3 (2015-11-27)
+------------------
+
+- Fix zcml: ImportError: Couldn't import plone_displayviews 
+  [bsuttor]
+
+
+1.0.2 (2015-11-26)
+------------------
+
+- Remove old Topic support.
+  [bsuttor]
+
+
+1.0.1 (2014-12-11)
+------------------
+
+- Add sticky sort on new style collections
+  [laulaz]
+
+
+1.0 (2014-08-26)
+----------------
+
+* Initial release.
+  []
+
+
