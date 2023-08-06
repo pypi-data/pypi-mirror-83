@@ -1,0 +1,60 @@
+Metadata-Version: 2.1
+Name: django-configurations-middleware
+Version: 2020.10.26
+Summary: django-configurations MIDDLEWARE
+Home-page: https://github.com/andrewp-as-is/django-configurations-middleware.py
+License: Unlicense
+Description: <!--
+        https://readme42.com
+        -->
+        
+        
+        [![](https://img.shields.io/pypi/v/django-configurations-middleware.svg?maxAge=3600)](https://pypi.org/project/django-configurations-middleware/)
+        [![](https://img.shields.io/badge/License-Unlicense-blue.svg?longCache=True)](https://unlicense.org/)
+        
+        ### Installation
+        ```bash
+        $ [sudo] pip install django-configurations-middleware
+        ```
+        
+        #### Features
+        key  | default value  | env
+        -|-|-
+        `MIDDLEWARE` | `[]` | `DJANGO_MIDDLEWARE`
+        `MIDDLEWARE_FILE` | `None` | `DJANGO_MIDDLEWARE_FILE`
+        `MIDDLEWARE_FILES` | `[]` | `DJANGO_MIDDLEWARE_FILES`
+        
+        ##### `settings.py`
+        ```python
+        from configurations import Configuration
+        from django_configurations_middleware import MiddlewareMixin
+        
+        class Base(MiddlewareMixin,Configuration):
+            MIDDLEWARE_FILE = 'middleware.txt'
+        
+        ```
+        
+        example #2:
+        ```python
+        class Base(MiddlewareMixin,Configuration):
+            MIDDLEWARE_FILES = ['middleware1.txt','middleware2.txt']
+        ```
+        
+        example #3:
+        ```bash
+        $ export DJANGO_MIDDLEWARE_FILE=middleware.txt
+        ```
+        
+        #### Links
+        +   [django-configurations](https://github.com/jazzband/django-configurations)
+        
+        <p align="center">
+            <a href="https://readme42.com/">readme42.com</a>
+        </p>
+Keywords: django django-configurations middleware
+Platform: UNKNOWN
+Classifier: Framework :: Django
+Classifier: License :: Public Domain
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Description-Content-Type: text/markdown
