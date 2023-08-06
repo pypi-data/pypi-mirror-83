@@ -1,0 +1,30 @@
+<configure
+    xmlns="http://namespaces.zope.org/zope"
+    xmlns:genericsetup="http://namespaces.zope.org/genericsetup"
+    i18n_domain="imio.ckeditortemplates">
+
+    <!-- Register the installation GenericSetup extension profile -->
+    <genericsetup:registerProfile
+        name="default"
+        title="imio.ckeditortemplates"
+        directory="profiles/default"
+        description="Extension profile for imio.ckeditortemplates."
+        provides="Products.GenericSetup.interfaces.EXTENSION"
+        />
+
+    <genericsetup:importStep
+        name="imio.ckeditortemplates.setup"
+        title="imio.ckeditortemplates: setup"
+        description="Various import steps that are not handled by GS import/export handlers."
+        handler=".setuphandlers.setupTemplates">
+    </genericsetup:importStep>
+
+    <genericsetup:upgradeStep
+        title="Reinstall profile"
+        description="Set ckeditor styles"
+        source="1"
+        destination="2"
+        handler=".upgrades.update_profile"
+        profile="imio.ckeditortemplates:default" />
+
+</configure>
