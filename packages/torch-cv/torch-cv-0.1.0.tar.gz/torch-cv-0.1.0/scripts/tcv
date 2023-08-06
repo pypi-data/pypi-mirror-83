@@ -1,0 +1,158 @@
+####################################################################################
+#                       Enter Script Description Here                              #
+#                                                                                  #
+# This is a shell script that contains the arguments to be passed to the CLI of    #
+# of the python package - torchcv                                                  #
+#                                                                                  #
+# Author - Raghhuveer Jaikanth                                                     #
+# Github -                                                                         #
+# Email - raghhuveerj97@gmail.com                                                  #
+####################################################################################
+
+#######################################################
+#                   HELP FUNCTIONS                    #
+#######################################################
+help() {
+  echo "This is a CLI tool for preprocessing data, training and evaluating PyTorch image classification models."
+  echo ""
+  echo "Usage - tcv [-h|c|f] [--help|config|function|log]"
+  echo "    -f  --file         :  Path to file to run code from. Ignored if -fn|--function is passed. -f will be given priority over function"
+  echo "    -fn --function     :  Flag that determines the function to be done. One of train, test, preprocess. Ignored if -f|--file is passed"
+  echo "    -c  --config       :  Path to config. Examples provided at - [Insert Link]"
+  echo "    -v  --verbose      :  [Optional] Verbose Mode"
+  echo "    -V  --version      :  Version of package"
+  echo "        --log          :  [Optional] Log output to a file. Default at {pwd}/logs/{timestamp}.log"
+  echo "        --log_dir      :  [Optional] Path to log directory. Ignored if --log is not passed."
+  echo ""
+  echo "    -h  --help         :  Print help"
+  exit 1
+}
+
+helpWithoutDescription() {
+  echo ""
+  echo "Available options are -"
+  echo "Usage - tcv [-h|c|f] [--help|config|function|log]"
+  echo "    -f  --file         :  Path to file to run code from. Ignored if -fn|--function is passed. -f will be given priority over function"
+  echo "    -f  --function     :  Flag that determines the function to be done. One of train, test, preprocess. Ignored if -f|--file is passed"
+  echo "    -c  --config       :  Path to config. Examples provided at - [Insert Link]"
+  echo "    -v  --verbose      :  [Optional] Verbose Mode"
+  echo "    -V  --version      :  Version of package"
+  echo "        --log          :  [Optional] Log output to a file. Default at {pwd}/logs/{timestamp}.log"
+  echo "        --log_dir      :  [Optional] Path to log directory."
+  echo ""
+  echo "    -h  --help         :  Print help"
+  exit 1
+}
+
+helpF() {
+  echo "Invalid Argument passed to -f"
+echo "Usage: -f=[train|test|preprocess], --function=[train|test|preprocess]"
+  echo "    test              :  Calls the testing script"
+  echo "    train_classifier  :  Calls the training script for classifier"
+  echo "    preprocess        :  Calls the preprocessing script"
+  exit 1
+}
+
+#######################################################
+#                   MAIN SCRIPT                       #
+#######################################################
+TIME=$(date "+%Y-%m-%d_%H%M%S")
+PWD=$(pwd)
+LOG=false
+LOG_PATH="$PWD/logs"
+export VERBOSE=false
+
+# Loop through arguments and process them
+for arg in "$@"; do
+  case $arg in
+  -h | --help)
+    help
+    ;;
+  -f=* | --file=*)
+    PYTHON_FILE="${arg#*=}"
+    ;;
+  -c=* | --config=*)
+    export CONFIG="${arg#*=}"
+    ;;
+  -fn=* | --function=*)
+    export FUNCTION="${arg#*=}"
+    ;;
+  -v | --verbose)
+    export VERBOSE="true"
+    ;;
+  --log)
+    LOG="true"
+    ;;
+  --log_dir=*)
+    LOG_PATH="${arg#*=}"
+    ;;
+  -V | --version)
+    VERSION="true"
+    ;;
+  *)
+    echo "Invalid option passed to script"
+    helpWithoutDescription
+    ;;
+  esac
+done
+
+# Version
+if [ "$VERSION" = "true" ]; then
+  pip freeze | grep torch-cv | cut -d'=' -f  3
+  exit 1
+fi
+
+# Check Config
+if [ -z "$CONFIG" ]; then
+  echo "Config file not specified. Please pass the -c=|--config= argument"
+  helpWithoutDescription
+fi
+
+# Check File or Function
+if [ -z "$PYTHON_FILE" ] && [ -z "$FUNCTION" ]; then
+  echo "Please pass either one of -f=*|--file=* OR -fn=[preprocess|test|train]|--function=[preprocess|test|train]"
+  helpWithoutDescription
+fi
+
+# For File.
+if [ -n "$PYTHON_FILE" ]; then
+  case "$LOG" in
+  true)
+    mkdir -p "$LOG_PATH"
+    echo "Logging to $LOG_PATH/run_$TIME.log"
+    echo ""
+    python "$PYTHON_FILE" 2>&1 | tee "$LOG_PATH/run_$TIME.log"
+    ;;
+  false)
+    python "$PYTHON_FILE"
+    ;;
+  esac
+  exit 0
+fi
+
+# For in-built functions.
+if [ -n "$FUNCTION" ]; then
+
+  # Check function argument
+  case "$FUNCTION" in
+  test) : ;;
+  train_classifier) : ;;
+  preprocess) : ;;
+  *) helpF ;;
+  esac
+
+  # Check Log
+  case "$LOG" in
+  true)
+    mkdir -p "$LOG_PATH"
+    echo "Logging to $LOG_PATH/run_$TIME.log"
+    echo ""
+    python -m torchcv.bin.starter 2>&1 | tee "$LOG_PATH/run_$TIME.log"
+        ;;
+  false)
+    python -m torchcv.bin.starter
+    ;;
+  esac
+
+  exit 0
+fi
