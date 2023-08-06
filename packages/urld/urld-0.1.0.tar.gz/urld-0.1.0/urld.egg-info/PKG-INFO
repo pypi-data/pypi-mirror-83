@@ -1,0 +1,50 @@
+Metadata-Version: 2.1
+Name: urld
+Version: 0.1.0
+Summary: Descompose URL in parts.
+Home-page: https://gitlab.com/Zer1t0/urld
+Author: Eloy Perez
+Author-email: zer1t0ps@protonmail.com
+License: UNKNOWN
+Description: # urld
+        
+        URL descomposer to extract parts of url. It accepts urls by stdin and displays
+        the parts in stdout.
+        
+        ## Installation
+        
+        From pypi:
+        ```
+        pip install urld
+        ```
+        
+        
+        
+        ## Usage
+        
+        By default, it splits the urls in their different parts:
+        ```shell
+        $ echo "https://www.gitlab.com/Zer1t0?test=a#hey" | urld
+        https www.gitlab.com /Zer1t0 test=a hey
+        ```
+        
+        But can also specify the parts you would like to retrieve:
+        ```shell
+        $ echo "https://www.gitlab.com/index.html" | urld -f host
+        www.gitlab.com
+        
+        $ echo "https://www.gitlab.com/index.html" | urld -f protocol path
+        https /index.html
+        
+        $ echo "https://www.gitlab.com/index.html" | urld -f extension
+        .html
+        
+        
+        $ echo "https://www.gitlab.com/?foo=bar" | urld -p foo
+        bar
+        ```
+        
+Platform: UNKNOWN
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: GNU General Public License v3 (GPLv3)
+Description-Content-Type: text/markdown
