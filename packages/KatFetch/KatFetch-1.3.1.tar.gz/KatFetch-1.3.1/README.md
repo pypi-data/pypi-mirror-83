@@ -1,0 +1,32 @@
+# KatFetch
+
+KatFetch is a minimal and customizable fetch script.
+
+## What is a fetch script?
+
+A fetch script is a script that **fetches** some information about your system. It is commonly used when taking screenshots of your desktop and is designed to show off your terminal and it's colours.
+
+## Installation
+
+You can install KatFetch using Pip. Simply run ```pip3 install katfetch``` as root (or use the --user option if ~/.local/bin is in your path).
+
+KatFetch also includes an installer. To use it, simply run `python3 setup.py install` and KatFetch will be installed to `/usr/bin` along with all dependencies.
+
+## Command line arguments
+
+```shell
+  --bar / --no-bar             Whether or not to display bar  
+  --just-bar / --not-just-bar  Display bar only  
+  --accent TEXT                Accent color to use for highlighted entries,  
+                               set to off for none  
+  
+  --bar-length INTEGER         Amount of colors to display in bar  
+  --bar-height INTEGER         Height of bar  
+  --stdout / --no-stdout       Output plaintext  
+  --help                       Show this message and exit.
+ ```
+
+## Screenshots
+
+![KatFetch Screenshot](https://gitlab.com/KatHamer/katfetch/raw/master/Screenshots/2020-10-28-163554_539x354_scrot.png)
+
