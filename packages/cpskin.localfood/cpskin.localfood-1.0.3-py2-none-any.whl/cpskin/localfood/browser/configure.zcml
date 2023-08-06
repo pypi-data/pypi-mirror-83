@@ -1,0 +1,73 @@
+<configure
+    xmlns="http://namespaces.zope.org/zope"
+    xmlns:browser="http://namespaces.zope.org/browser"
+    xmlns:plone="http://namespaces.plone.org/plone"
+    i18n_domain="cpskin.localfood">
+
+  <!-- Set overrides folder for Just-a-Bunch-Of-Templates product -->
+  <include package="z3c.jbot" file="meta.zcml" />
+  <browser:jbot
+      directory="overrides"
+      layer="cpskin.localfood.interfaces.ICpskinLocalfoodLayer"
+      />
+
+  <browser:page
+    name="local-producer-discovery"
+    for="*"
+    class=".matchmaking.ProducerDiscoveryView"
+    permission="zope2.View"
+    template="templates/producer_discovery.pt"
+    />
+
+  <browser:page
+    name="local-product-subscription"
+    for="*"
+    class=".matchmaking.MatchmakingIntroView"
+    permission="zope2.View"
+    template="templates/local_product_subscription.pt"
+    />
+
+  <browser:page
+    name="local-producer-form"
+    for="*"
+    class=".matchmaking.LocalProducerSubscriptionView"
+    permission="zope2.View"
+    template="templates/local_product_form.pt"
+    />
+
+  <browser:page
+    name="local-horeca-form"
+    for="*"
+    class=".matchmaking.HORECASubscriptionView"
+    permission="zope2.View"
+    template="templates/local_product_form.pt"
+    />
+
+  <browser:page
+    name="local-map-view"
+    for="*"
+    class=".mapview.MapView"
+    permission="zope2.View"
+    template="templates/mapview.pt"
+    />
+
+  <adapter
+    for="zope.interface.Interface
+         zope.interface.Interface
+         cpskin.localfood.browser.matchmaking.ILocalProducerForm
+         zope.interface.Interface
+         zope.interface.Interface"
+    provides="z3c.form.interfaces.IValue"
+    name="default"
+    factory=".matchmaking.LocalProducerDataProvider"
+    />
+
+
+  <!-- Publish static files -->
+  <plone:static
+      name="cpskin.localfood"
+      type="plone"
+      directory="static"
+      />
+
+</configure>
