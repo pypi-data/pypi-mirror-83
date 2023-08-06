@@ -1,0 +1,54 @@
+<configure
+    xmlns="http://namespaces.zope.org/zope"
+    xmlns:genericsetup="http://namespaces.zope.org/genericsetup"
+    xmlns:i18n="http://namespaces.zope.org/i18n"
+    xmlns:plone="http://namespaces.plone.org/plone"
+    i18n_domain="imio.behavior.teleservices">
+
+  <i18n:registerTranslations directory="locales" />
+
+  <!--
+    Be careful if you use general includeDependencies, it can have sideffects!
+    Better import explicite packages or configurations ;)
+  -->
+  <!--<includeDependencies package="." />-->
+
+  <include package=".browser" />
+
+  <include file="permissions.zcml" />
+
+  <genericsetup:registerProfile
+      name="default"
+      title="imio.behavior.teleservices"
+      directory="profiles/default"
+      description="Installs the imio.behavior.teleservices add-on."
+      provides="Products.GenericSetup.interfaces.EXTENSION"
+      post_handler=".setuphandlers.post_install"
+      />
+
+  <genericsetup:registerProfile
+      name="uninstall"
+      title="imio.behavior.teleservices (uninstall)"
+      directory="profiles/uninstall"
+      description="Uninstalls the imio.behavior.teleservices add-on."
+      provides="Products.GenericSetup.interfaces.EXTENSION"
+      post_handler=".setuphandlers.uninstall"
+      />
+
+  <utility
+      factory=".setuphandlers.HiddenProfiles"
+      name="imio.behavior.teleservices-hiddenprofiles"
+      />
+
+  <utility
+    component=".vocabularies.RemoteProceduresVocabulary"
+    name="imio.behavior.teleservices.vocabularies.remote_procedures"
+    provides="zope.schema.interfaces.IVocabularyFactory"
+    />
+
+  <!-- -*- extra stuff goes here -*- -->
+
+    <include package=".behaviors" />
+
+
+</configure>
