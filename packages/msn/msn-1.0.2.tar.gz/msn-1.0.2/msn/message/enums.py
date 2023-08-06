@@ -1,0 +1,20 @@
+from enum import Enum
+
+
+class MessagingType(Enum):
+    RESPONSE = "RESPONSE"
+    UPDATE = "UPDATE"
+    MESSAGE_TAG = "MESSAGE_TAG"
+
+
+class Tag(Enum):
+    CONFIRMED_EVENT_UPDATE = "CONFIRMED_EVENT_UPDATE"
+    POST_PURCHASE_UPDATE = "POST_PURCHASE_UPDATE"
+    ACCOUNT_UPDATE = "ACCOUNT_UPDATE"
+    HUMAN_AGENT = "HUMAN_AGENT"
+
+
+class NotificationType(Enum):
+    REGULAR = "REGULAR"
+    SILENT_PUSH = "SILENT_PUSH"
+    NO_PUSH = "NO_PUSH"
