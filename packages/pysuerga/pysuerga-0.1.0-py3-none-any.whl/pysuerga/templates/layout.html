@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        {% if layout.google_analytics %}
+            <script type="text/javascript">
+                var _gaq = _gaq || []; _gaq.push(['_setAccount', '{{ layout.google_analytics }}']); _gaq.push(['_trackPageview']);
+                (function() {
+                    var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+                    ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+                    var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+                })();
+            </script>
+        {% endif %}
+        {% if layout.title %}<title>{{ layout.title }}</title>{% endif %}
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+        {% if layout.favicon %}<link rel='shortcut icon' type='image/x-icon' href='{{ base_url }}{{ layout.favicon }}'/>{% endif %}
+        <link rel="stylesheet"
+              href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css"
+              integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm"
+              crossorigin="anonymous">
+        {% for stylesheet in layout.stylesheets %}
+            <link rel="stylesheet"
+                  href="{{ base_url }}{{ stylesheet }}">
+        {% endfor %}
+        <script src="https://kit.fontawesome.com/79e5369384.js" crossorigin="anonymous"></script>
+    </head>
+    <body>
+        <header>
+            <nav class="navbar navbar-expand-md navbar-dark fixed-top bg-dark">
+                <div class="container">
+                    <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#nav-content" aria-controls="nav-content" aria-expanded="false" aria-label="Toggle navigation">
+                        <span class="navbar-toggler-icon"></span>
+                    </button>
+
+                    {% if layout.logo or layout.header_text %}
+                        <a class="navbar-brand" href="{{ base_url }}/">
+                            {% if layout.logo %}
+                                <img alt="" src="{{ base_url }}{{ layout.logo }}" class="header-logo"/>
+                            {% endif %}
+                            {% if layout.header_text %}
+                                <span class="header-title">{{ layout.header_text }}</span>
+                            {% endif %}
+                        </a>
+                    {% endif %}
+
+                    {% if layout.navbar %}
+                        <div class="collapse navbar-collapse" id="nav-content">   
+                            <ul class="navbar-nav ml-auto">
+                                {% for item in layout.navbar %}
+                                    {% if item.target %}
+                                        <li class="nav-item">
+                                            <a class="nav-link" href="{% if not item.target.startswith("http") %}{{ base_url }}{% endif %}{{ item.target }}">{{ item.name }}</a>
+                                        </li>
+                                    {% else %}
+                                        <li class="nav-item dropdown">
+                                            <a class="nav-link dropdown-toggle"
+                                               data-toggle="dropdown"
+                                               id="{{ item.name }}"
+                                               href="#"
+                                               role="button"
+                                               aria-haspopup="true"
+                                               aria-expanded="false">{{ item.name }}</a>
+                                            <div class="dropdown-menu" aria-labelledby="{{ item.name }}">
+                                            {% for section in item.sections %}
+                                                <a class="dropdown-item" href="{% if not section.target.startswith("http") %}{{ base_url }}{% endif %}{{ section.target }}">{{ section.name }}</a>
+                                            {% endfor %}
+                                            </div>
+                                        </li>
+                                    {% endif %}
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    {% endif %}
+                </div>
+            </nav>
+        </header>
+        <main role="main">
+            <div class="container">
+                {% block body %}{% endblock %}
+            </div>
+        </main>
+        <footer class="container pt-4 pt-md-5 border-top">
+            {% if layout.social_media %}
+                <ul class="list-inline social-buttons float-right">
+                    {% for item in layout.social_media %}
+                        <li class="list-inline-item">
+                            <a href="{{ item.url }}" target="_blank">
+                                <i class="fab fa-{{ item.font_awesome }}"></i>
+                            </a>
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
+            {% if layout.footer_note %}
+                <p>{{ layout.footer_note }}</p>
+            {% endif %}
+        </footer>
+                
+        <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js"
+                integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN"
+                crossorigin="anonymous"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js"
+                integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q"
+                crossorigin="anonymous"></script>
+        <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"
+                integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl"
+                crossorigin="anonymous"></script>
+    </body>
+</html>
