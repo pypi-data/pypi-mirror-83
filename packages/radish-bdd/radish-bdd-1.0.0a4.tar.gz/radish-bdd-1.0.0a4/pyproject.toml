@@ -1,0 +1,32 @@
+[tool.coverage.run]
+branch = true
+parallel = true
+source = ["radish"]
+
+[tool.coverage.paths]
+source = ["src", ".tox/*/site-packages"]
+
+[tool.coverage.report]
+show_missing = true
+
+[tool.black]
+target_version = ["py37"]
+include = "(setup.py|src|tests)"
+
+[tool.isort]
+known_first_party = "radish"
+known_third_party = "colorful,docopt,example,freezegun,humanize,lark,parse_type,pytest,setuptools,steps_1,steps_2,tagexpressions,yaml"
+multi_line_output = 3
+
+[tool.towncrier]
+package = "radish"
+package_dir = "src"
+filename = "CHANGELOG.rst"
+directory = "changelog/"
+title_format = "radish-bdd {version} ({project_date})"
+template = "changelog/template.rst"
+
+[[tool.towncrier.type]]
+directory = "breaking"
+name = "Breaking"
+showcontent = true
