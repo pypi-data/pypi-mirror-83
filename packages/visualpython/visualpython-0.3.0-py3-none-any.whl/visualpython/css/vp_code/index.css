@@ -1,0 +1,198 @@
+:root {
+    --api-console-pattern: rgb(0, 0, 0, 0.15);
+    --api-console-bg: #575757;
+    --box-bg: #e7e4dd;
+    --box-hover-bg: #b4b2ae;
+    --box-bg-var: #c5dcaf;
+    --box-bg-oper: #ffeba9;
+    --box-bg-brac: #d6d6d6;
+    --box-bg-api: #91cfe7;
+    --box-bg-code: #ffffff;
+    --selected-box-border: #bb0000;
+}
+.vp-fa.fa {
+    z-index: 990;
+}
+/* popup box */
+.vp-ma-popup {
+    display:none;
+    position: absolute;
+    background-color: #ffffff;
+    box-shadow: 1px 1px 3px 0px grey;
+    z-index: 999;
+}
+.vp-ma-popup-box {
+    border-radius: 5px;
+    /* background-color: #eeeeee; */
+    margin: 2px;
+    padding-inline-start: 0px;
+}
+.vp-ma-popup-menu {
+    min-height: 20px;
+    width: 100%;
+}
+.vp-ma-popup-menu:hover,
+.vp-ma-popup-item:hover {
+    background-color: #eeeeee;
+    cursor: pointer;
+}
+
+/* parent area */
+.vp-ma-area {
+    position: relative;
+}
+
+/* toggle container */
+.vp-ma-toggle-container,
+.vp-ma-run-multi-code {
+    position: absolute;
+    border-radius: 5px;
+    background-color: var(--box-bg);
+    padding: 4px;
+}
+.vp-ma-toggle-container {
+    right: 1%;
+    top: 5px;
+}
+.vp-ma-run-multi-code {
+    right: 1%;
+    top: 30px;
+}
+.vp-ma-toggle-container:hover,
+.vp-ma-run-multi-code:hover {
+    background-color: var(--box-hover-bg);
+    cursor: pointer;
+}
+
+/* container scrollbar */
+.vp-ma-container::-webkit-scrollbar {
+    height: 5px;
+    width: 5px;
+}
+.vp-ma-container::-webkit-scrollbar-track {
+    border-radius: 0;
+    background: #eeeeee;
+}
+
+.vp-ma-container::-webkit-scrollbar-thumb {
+    border-radius: 0;
+    background: #b0b0b0;
+}
+
+/* container */
+.vp-ma-container {
+    cursor: default;
+    width: 95%;
+    height: 60px; /*36px;*/
+    /* background-color: var(--api-console-bg); */
+    /* 격자무늬 */
+    background-color: white;
+    border: 1px solid var(--api-console-pattern);
+    background-image:
+        repeating-linear-gradient(
+            to right,
+            var(--api-console-pattern) 0,
+            var(--api-console-pattern) 1px,
+            transparent 1px,
+            transparent 50px
+        ),
+        repeating-linear-gradient(
+            to bottom,
+            var(--api-console-pattern) 0,
+            var(--api-console-pattern) 1px,
+            transparent 1px,
+            transparent 50px
+        );
+    background-size: 17px 17px;
+    border-radius: 5px;
+    margin: 3px;
+    vertical-align: middle;
+    padding: 7px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    white-space: nowrap;
+}
+/* container helper */
+.vp-ma-container-helper:only-child {
+    font-style: italic;
+    /* same with vp-ma-box */
+    display: inline-block;
+    min-height: 20px;
+    background-color: yellow;
+    border-radius: 7px;
+    padding-left: 5px;
+    padding-right: 5px;
+    -webkit-touch-callout: none; /* iOS Safari */
+    -webkit-user-select: none; /* Safari */
+    -khtml-user-select: none; /* Konqueror HTML */
+    -moz-user-select: none; /* Old versions of Firefox */
+    -ms-user-select: none; /* Internet Explorer/Edge */
+    user-select: none; /* Non-prefixed version, currently
+                                supported by Chrome, Edge, Opera and Firefox */
+}
+.vp-ma-container-helper:not(:only-child) {
+    display: none;
+}
+
+.vp-ma-droppable-box:empty {
+    padding-left: 3px;
+    padding-right: 3px;
+}
+
+.vp-ma-droppable-box.ui-droppable-hover::after {
+    content: 'Here!'
+}
+
+/* box */
+.vp-ma-box,
+.vp-ma-popup-item {
+    display: inline-block;
+    min-height: 20px;
+    /* background-color: var(--box-bg); */
+    border-radius: 7px;
+    margin-right: 2px;
+}
+.vp-ma-box.var{
+    background-color: var(--box-bg-var);
+    border: 1px solid var(--box-bg);
+}
+.vp-ma-box.oper,
+.vp-ma-popup-item.oper{
+    background-color: var(--box-bg-oper);
+    border: 1px solid var(--box-bg);
+}
+.vp-ma-box.brac,
+.vp-ma-popup-item.brac{
+    background-color: var(--box-bg-brac);
+    padding-right: 2px;
+    padding-left: 2px;
+    border: 1px solid var(--box-bg);
+}
+.vp-ma-box.api{
+    background-color: var(--box-bg-api);
+    border: 1px solid var(--box-bg);
+}
+.vp-ma-box.code{
+    background-color: var(--box-bg-code);
+    border: 1px solid var(--box-bg);
+}
+.vp-ma-box:hover {
+    cursor: pointer;
+}
+.vp-ma-box.selected {
+    border: 1px solid var(--selected-box-border);
+}
+/* box helper - cursor */
+.vp-ma-box-helper {
+    display: inline-block;
+}
+
+.no-selection {
+    -webkit-touch-callout: none; /* iOS Safari */
+    -webkit-user-select: none; /* Safari */
+    -khtml-user-select: none; /* Konqueror HTML */
+    -moz-user-select: none; /* Old versions of Firefox */
+    -ms-user-select: none; /* Internet Explorer/Edge */
+    user-select: none; /* Non-prefixed version, currently
+                                supported by Chrome, Edge, Opera and Firefox */
+}

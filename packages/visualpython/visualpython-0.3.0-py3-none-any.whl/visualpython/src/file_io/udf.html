@@ -1,0 +1,75 @@
+<!-- TEST: Added class 'cm-s-ipython' to give codemirror same style with Jupyter -->
+<div class="vp-option-page pandas cm-s-ipython" id="vp_inputPage">
+    <!-- TEST: CodeMirror style -->
+    <style>
+        #vp-wrapper .vp-option-page .CodeMirror { border: 1px solid silver; }
+        #vp-wrapper .vp-option-page .CodeMirror-empty { outline: 1px solid #c22; }
+        #vp-wrapper .vp-option-page .CodeMirror-empty.CodeMirror-focused { outline: none; }
+        #vp-wrapper .vp-option-page .CodeMirror pre.CodeMirror-placeholder { color: #999; }
+
+        /* 화살표 접이박스 */
+        #vp-wrapper .vp-user-option-box.vp-spread {
+            min-height: 100px;
+        }
+        #vp-wrapper .vp-user-option-box.vp-minimize {
+            height: 40px;
+            overflow: hidden;
+        }
+        #vp-wrapper .vp-common-block {
+            padding: 5px;
+            border-bottom: 1px solid darkgray;
+        }
+
+        /* code td 긴 문자열 생략 */
+        .vp-udf-code,
+        .vp-udf-code pre {
+            text-overflow: ellipsis; 
+            overflow: hidden;
+            white-space: nowrap;
+            max-width: 250px;
+            height: 35px;
+            margin-right: 5px;
+        }
+
+        #vp_udfRefresh:hover {
+            cursor: pointer;
+        }
+
+        /* code block add popup menu */
+        .vp-cm-popup {
+            display:none;
+            position: absolute;
+            background-color: #ffffff;
+            box-shadow: 1px 1px 3px 0px grey;
+            z-index: 999;
+        }
+        .vp-cm-popup-menu {
+            min-height: 20px;
+            cursor: pointer;
+        }
+    </style>
+    <h4><span class="vp-multilang" data-caption-id="funcNavi"> Common > <strong>User-defined Code</strong></span></h4>
+    <hr/>
+    <label for="vp_udfTitle">Title</label> 
+    <input type="text" id="vp_udfTitle" placeholder="title to save"/> 
+    <button type="button" id="vp_udfSave">Save</button>
+    <br/><br/>
+    <form id="vp_optionForm">
+        <!-- <label for="vp_userCode">User Code</label> -->
+        <!-- TEST: CodeMirror -->
+        <textarea id="vp_userCode" name="code" style="display: none;" placeholder="input user code"></textarea>
+    </form>
+    <div class="vp-common-block vp-user-option-box vp-minimize">
+        <h4><div id="vp_udfListShow" class="vp-panel-area-vertical-btn vp-arrow-down"></div><span class="vp-multilang" data-caption-id="TODO:Variable">Saved Udf List</span> <i id="vp_udfRefresh" class="fa fa-refresh"></i></h4>
+        <div>
+            <table id="vp_udfList" style="width:95%;">
+                <colgroup><col width="20%"/><col width="250px"/><col width="*"/></colgroup>
+                <tr>
+                    <th>Title</th>
+                    <th>Code</th>
+                    <th></th>
+                </tr>
+            </table>
+        </div>
+    </div>
+</div>
