@@ -1,0 +1,43 @@
+Metadata-Version: 2.1
+Name: sleento
+Version: 0.0.1
+Summary: SleentO Python package for sending sms to your customer
+Home-page: https://github.com/sleento/sleento-python
+Author: Ged-flod
+Author-email: magenta.sleento@gmail.com
+License: MIT
+Keywords: sleento,sleento-python,sleento-code
+Platform: UNKNOWN
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown
+Requires-Dist: requests (>=2.22.0)
+
+# Python SleentO
+
+## installation
+
+```sh
+pip install sleento
+```
+
+### Usage
+
+```py
+from sleento import Client, Message
+
+client = Client(
+            cid='xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+    auth_token='xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+)
+
+message = Message(
+    client=client,
+    to_phone_number="+243818107793",
+    body="Hello World"
+)
+
+res = message.send()
+
+print(res.status_code, res.text)
+```
+
