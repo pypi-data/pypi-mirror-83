@@ -1,0 +1,41 @@
+#!python
+
+import argparse
+import sys
+import os
+
+
+# def main():
+parser = argparse.ArgumentParser('datfile creator to working with read_from_file function')
+
+parser.add_argument("-F",action="store", type=str, dest="ifolder", help="folder you want to create datfile from")
+parser.add_argument('-o', action="store", type=str, dest='ofname', help="output filename where file list to be stored")
+parser.add_argument('--append',action="store_true", dest="append", default=False, help="append filelist at the end of output datfile")
+
+results = parser.parse_args()
+
+# print(results)
+if results.ifolder is None:
+    parser.print_help()
+    sys.exit(-1)
+
+if results.ofname is None:
+    print("output filename cannot be nothing")
+    parser.print_help()
+    sys.exit(-2)
+
+
+abs_ifolder = os.path.abspath(results.ifolder)
+ifolder_list = os.listdir(abs_ifolder)
+# print(ifolder_list)
+mode = 'a' if results.append else 'w'
+with open(results.ofname, mode) as ofile:
+    for fname in ifolder_list:
+        if results.ifolder.endswith('/'):
+            ofile.write(f'{results.ifolder}{fname}\n')
+        else:
+            ofile.write(f'{results.ifolder}{os.sep}{fname}\n')
+        # ofile.write(f'{results.ifolder}{os.sep}{fname}')
+
+# if __name__ == "__main__":
+#     main()
