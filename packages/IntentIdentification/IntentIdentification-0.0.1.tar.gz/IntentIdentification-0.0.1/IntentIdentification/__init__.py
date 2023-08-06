@@ -1,0 +1,1 @@
+from IntentIdentification.predict import Predictor
