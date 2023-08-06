@@ -1,0 +1,615 @@
+<!DOCTYPE HTML>
+<html lang="de">
+<head>
+<meta http-equiv="content-type" content="text/html; charset=UTF-8">
+<title>Makros für Formularfelder mit Labels (table-Version)</title>
+<link rel="stylesheet" type="text/css" href="/++resource++collective.js.bootstrap/css/bootstrap.min.css">
+</head>
+<body tal:define="
+name string:beispiel;
+current python:{};
+templatetest python:True;
+action string:TUNIX;
+pool python:{'beispiel': [{'id': 42, 'label': 'Die Antwort'},
+{'id': 43, 'label': 'Eine andere Zahl', 'selected': 1}]};
+">
+<h1>Makros für Formularfelder mit Labels (<tt>table</tt>-Version)</h1>
+
+<p>&rarr; <a href="formfields_div">DIV-Version</a></p>
+
+<div class="row">
+<div class="col-md-6 col-sd-12">
+<table class="table">
+<caption>Kontext-Variablen</caption>
+  <thead>
+    <th>Name</th>
+    <th lang="en">Scope</th>
+    <th>Standardwert</th>
+    <th>Beschreibung</th>
+  </thead>
+  <tbody>
+    <tr>
+      <th>current</th>
+      <td>global</td>
+      <td><em>False</em></td>
+      <td>Python-<tt>dict</tt> mit allen vorhandenen Vorgabewerten</td>
+    </tr>
+    <tr>
+      <th>name</th>
+      <td>Zeile</td>
+      <td><em>Keiner</em></td>
+      <td>Feldname; ein Schlüsselwert für <tt>current</tt></td>
+    </tr>
+    <tr>
+      <th>value</th>
+      <td>Zeile</td>
+      <td>Abgeleitet von <em>name</em> und <em>current</em></td>
+      <td>Der Wert, ggf. eine Sequenz;
+        diese korrekt zu verarbeiten,
+        liegt in der Verantwortung des Makros bzw. des Codes im Hintergrund
+      </td>
+    </tr>
+    <tr>
+      <th>label</th>
+      <td>Zeile</td>
+      <td>Abgeleitet von <em>name</em></td>
+      <td>Beschriftung</td>
+    </tr>
+    <tr>
+      <th>oneline</th>
+      <td>Zeile</td>
+      <td><em>True</em></td>
+      <td>Sollen Beschriftung und Feld in einer gemeinsamen Zeilen untergebracht werden?</td>
+    </tr>
+    <tr>
+      <th>formname</th>
+      <td>Zeile</td>
+      <td>Wert von <em>name</em></td>
+      <td>?</td>
+    </tr>
+    <tr>
+      <th>readonly</th>
+      <td>Zeile</td>
+      <td><em>False</em></td>
+      <td>
+        Kein Eingabeelement erzeugen (sondern nur den Wert ausgeben),
+        oder es als nur-lesbar bzw. inaktiv kennzeichnen
+    </tr>
+    <tr>
+      <th>omit_empty</th>
+      <td>Zeile</td>
+      <td><em>True</em></td>
+      <td>
+        Wenn <em>readonly</em> und (noch) kein Wert vorhanden,
+        nichts generieren
+    </tr>
+  </tbody>
+  <!-- nur für bestimmte Makros: -->
+  <tbody>
+    <tr>
+      <th>inputtype</th>
+      <td>Zeile</td>
+      <td>text</td>
+      <td>Nur für <a href="#simple_field">simple_field</a>: <tt>type</tt>-Attribut</td>
+    </tr>
+    <tr>
+      <th>pool</th>
+      <td>global</td>
+      <td><em>Keiner</em></td>
+      <td>(bisher) nur für <a href="#select_single">select_single</a>:
+        Ein Python-<tt>dict</tt>-Objekt mit Schlüsseln,
+        die Sequenzen enthalten, entsprechend den Erfordernissen für &rarr;&nbsp;<tt>choices</tt>
+      </td>
+    </tr>
+    <tr>
+      <th>choices</th>
+      <td>Zeile</td>
+      <td>pool[name]</td>
+      <td>(bisher) nur für <a href="#select_single">select_single</a>:
+        Eine Sequenz von Python-<tt>dict</tt>-Objekten mit den Schlüsseln
+        <ul>
+          <li>id
+          <li>label
+          <li>selected
+        </ul>
+      </td>
+    </tr>
+    <tr>
+      <th>pretty_value</th>
+      <td>Zeile</td>
+      <td><em>Keiner</em></td>
+      <td>
+        Für Auswahllisten, wenn <em>readonly</em>:
+        Zu verwendender Text, um die Auswahlliste durch Text zu ersetzen
+      </td>
+    </tr>
+  </tbody>
+  <!-- nur für diesen Makro-Satz: -->
+  <tbody>
+  </tbody>
+</table>
+</div>
+
+<div class="col-md-6 col-sd-12">
+<table class="table">
+<caption>Liste der Makros</caption>
+<tr>
+  <td><a href="#form">form</a></td>
+  <td>Formular; mit <tt>layouted</tt> (Vorgabe: <em>True</em>)
+  als Tabelle
+  gestaltet
+  </td>
+</tr><tr>
+  <td><a href="#simple_field">simple_field</a></td>
+  <td>Textfeld</td>
+</tr><tr>
+  <td><a href="#textarea">textarea</a></td>
+  <td>Mehrzeiliges Textfeld</td>
+</tr><tr>
+  <td><a href="#empty">empty</a></td>
+  <td>Nur Layout-Rahmen; der Slot <tt>specific-input</tt>
+  muß gefüllt werden</td>
+</tr><tr>
+  <td><a href="#date_field">date_field</a></td>
+  <td>Datumsfeld</td>
+</tr><tr>
+  <td><a href="#hyperlink_field">hyperlink_field</a></td>
+  <td>Hyperlink eingeben (und klickbar darstellen, wenn vorhanden)</td>
+</tr><tr>
+  <td><a href="#file_field">file_field</a></td>
+  <td>Dateifeld <span lang="en">(Upload)</span></td>
+</tr><tr>
+  <td><a href="#select_single">select_single</a></td>
+  <td>Auswahlliste (einfach)</td>
+</tr><tr>
+  <td><a href="#select_single_wkey">select_single_wkey</a></td>
+  <td>Auswahlliste (einfach), mit vorangestellter Darstellung des Schlüssels
+  (z. B., wenn dieser nicht-numerisch ist, etwa eine Abkürzung)
+  </td>
+</tr>
+</table>
+</div>
+
+<div class="col-md-12 col-sd-12">
+<h2>Makro-Definitionen</h2>
+</div>
+
+<div class="col-md-6 col-sd-12">
+<h3 id="form">form</h3>
+<table class="table">
+  <tr>
+    <th>Variable</th>
+    <th>Beispielwert</th>
+    <th>Standardwert</th>
+    <th>Anmerkungen</th>
+  </tr>
+  <tr>
+    <th>action</th>
+    <td><tt tal:content="action">TUWAS</tt></td>
+    <td><em>Keiner</em></td>
+    <td>Immer anzugeben</td>
+  </tr>
+</table>
+<metal:mac define-macro="form"><tal:ns define="
+layouted layouted | python:True;
+miniform not:layouted;
+method method | string:get;
+formid formid | nothing;
+formname formname | nothing;
+known known | formdata/all_ids | python:{};
+names names | python:known.keys();
+">
+<dl tal:condition="debug | nothing">
+  <dt>action
+  <dd tal:content="action">action</dd>
+</dl>
+<form action="IMMER ANZUGEBEN"
+      tal:attributes="action action;
+                      method method;
+                      id formid;
+                      name formname;
+                      ">
+    <metal:slot define-slot="hidden-generated">
+    <tal:loop repeat="name names">
+    <tal:nsi define="value python:known[name];
+    ">
+    <metal:mac define-macro="hidden-input">
+    <input type="hidden"
+           tal:define="value value | python:current.get(name) | nothing"
+           tal:condition="python:value is not None"
+           tal:attributes="name name;
+                           value value">
+    </metal:mac>
+    </tal:nsi>
+    </tal:loop>
+    </metal:slot>
+    <metal:slot define-slot="hidden-manual"/>
+    <table tal:omit-tag="miniform">
+        <metal:slot define-slot="input">
+        <tr tal:define="templatetest templatetest | python:False"
+            tal:condition="templatetest"
+            tal:omit-tag="miniform">
+            <td colspan="2">
+                Slot <tt>input</tt>:
+                Hier die Eingabefelder
+            </td>
+        </tr>
+        </metal:slot>
+        <tr tal:omit-tag="miniform">
+            <td tal:omit-tag="miniform"
+                colspan="2">
+        <metal:slot define-slot="buttons">
+        </metal:slot>
+        <metal:slot define-slot="cancel-button">
+        </metal:slot>
+        <metal:slot define-slot="reset-button">
+        <input type="reset" class="btn btn-default reset-btn"
+               tal:define="make_reset make_reset | layouted"
+               tal:condition="make_reset"/>
+        </metal:slot>
+            </td>
+        </tr>
+    </table>
+</form>
+</tal:ns></metal:mac>
+</div>
+
+<div class="col-md-6 col-sd-12">
+<h3 id="simple_field">simple_field</h3>
+<table>
+<metal:mac define-macro="simple_field">
+<tal:ns define="
+readonly   readonly | python:False;
+oneline    oneline | python:True;
+
+inputclass inputclass | python:not oneline and 'input-block-level' or '';
+inputclass string:input-block-level;
+formname formname | name;
+label label | python:name.capitalize();
+label string:$label:;
+value value | python:current and current.get(name) or None;
+">
+<!-- [ simple_field ... --><tal:labelrow condition="not:oneline">
+<tr>
+  <td colspan="2">
+    <label for="acronym"
+           class="control-label"
+           tal:attributes="for name;
+                           "
+           tal:content="label">
+           Akronym
+    </label>
+  </td>
+</tr><!-- ... simple_field ... --></tal:labelrow>
+<tr>
+  <td tal:condition="oneline">
+    <label for="acronym"
+           class="control-label"
+           tal:attributes="for name;
+                           "
+           tal:content="label">
+           Akronym
+    </label>
+  </td>
+  <td tal:attributes="colspan python:not oneline and 2 or None">
+    <metal:slot define-slot="specific-input">
+    <input metal:use-macro="context/formfields_table-base/macros/wide-text-input"/>
+    </metal:slot>
+  </td>
+</tr><!-- ... simple_field ] -->
+</tal:ns>
+</metal:mac>
+</table>
+</div>
+
+<div class="col-md-6 col-sd-12">
+<h3 id="textarea">textarea</h3>
+<p>Mehrzeiliges Eingabefeld</p>
+<table>
+<metal:mac define-macro="textarea"
+           extend-macro="context/formfields_table-base/macros/base_field">
+    <metal:slot fill-slot="specific-input"
+                define-slot="specific-input">
+    <textarea tal:attributes="readonly readonly;
+                              name python:not readonly and (formname or name) or None;
+                              rows rows | string:3;
+                              cols cols | string:70;
+                              "
+              class="input-block-level"
+              tal:content="value">
+        Mehrzeiliger Text
+    </textarea>
+    </metal:slot>
+</metal:mac>
+</table>
+
+<h3 id="empty">empty</h3>
+<p>&bdquo;Leeres&ldquo; Makro,
+um ein konkretes Eingabefeld
+korrekt in das Formular zu integrieren
+</p>
+<table>
+<metal:mac define-macro="empty"
+           extend-macro="context/formfields_table-base/macros/base_field">
+    <metal:slot fill-slot="specific-input"
+                define-slot="specific-input">
+    Makro <tt>empty</tt>:
+    <strong>Bitte Slot <tt>specific-input</tt> füllen!</strong>
+    </metal:slot>
+</metal:mac>
+</table>
+</div>
+
+<div class="col-md-6 col-sd-12">
+<h3 id="date_field">date_field</h3>
+<table>
+<metal:mac define-macro="date_field"
+           extend-macro="context/formfields_table-base/macros/base_field">
+<strong>
+ACHTUNG:
+</strong>
+Die neuerlich zunehmende native Browser-Unterstützung mit type="date" kollidiert
+mit der Verwendung von DatePicker!
+Siehe http://dev-wiki.unitracc.de/wiki/Datepicker
+    <metal:slot fill-slot="specific-input"
+                define-slot="specific-input">
+    <input type="text" class="date"
+           tal:attributes="name name;
+                           id name;
+                           value value;
+                           ">
+    </metal:slot>
+</metal:mac>
+</table>
+</div>
+
+<div class="col-md-6 col-sd-12">
+<h3 id="hyperlink_field">hyperlink_field</h3>
+<table>
+<metal:mac define-macro="hyperlink_field"
+           extend-macro="context/formfields_div-base/macros/base_field">
+    <metal:slot fill-slot="specific-input"
+                define-slot="specific-input">
+    <div tal:condition="value">
+        <a href="#"
+           tal:attributes="href value"
+           tal:content="value">http://Der aktuelle Wert
+         </a>
+    </div>
+    <tal:ns define="inputtype string:url">
+    <input type="url"
+    metal:use-macro="context/formfields_table-base/macros/wide-text-input"/>
+    </tal:ns>
+    </metal:slot>
+</metal:mac>
+</table>
+</div>
+
+<div class="col-md-6 col-sd-12">
+<h3 id="file_field">file_field</h3>
+<p>Kopiert aus (gf):
+../../../zkb/browser/projectreview/templates/pr_result.pt
+</p>
+<table tal:define="
+name request/file_name | string:anhang;
+">
+<metal:mac define-macro="file_field"
+           extend-macro="context/formfields_div-base/macros/base_field">
+    <metal:slot fill-slot="specific-input"
+                define-slot="specific-input">
+    <tal:ns define="
+action_key action_key | string:${name}_action;
+filename_key filename_key | string:${name}_name;
+filename_value filename_value | python:current.get(filename_key, 'unbenannte Datei');
+download_prefix download_prefix | string:/download?varname=;
+download_suffix download_suffix | value;
+help_text help_text | nothing;
+">
+            <tal:if-has-attachment condition="value">
+            <input type="hidden" value="4711"
+                   tal:condition="not:readonly"
+                   tal:attributes="value value;
+                                   name name;"
+                   name="result.attachment_id:record">
+            <div>
+            <label class="radio"
+                   tal:omit-tag="readonly">
+                <tal:if-writable condition="not:readonly">
+                <input type="radio" name="attachment_action"
+                       tal:attributes="name action_key"
+                       value="keep"
+                       checked="checked">
+                Aktuelle Datei beibehalten:
+                </tal:if-writable>
+                <a href="#"
+                   target="_blank"
+                   tal:attributes="href string:$download_prefix$download_suffix;"
+                   tal:content="filename_value">
+                Anlage zum Ergebnis.doc
+                </a>
+            </label>
+            </div>
+            <div>
+            <label class="radio">
+                <input type="radio" name="attachment_action"
+                       tal:attributes="name action_key"
+                       value="remove">
+                Aktuelle Datei entfernen
+            </label>
+            </div>
+            </tal:if-has-attachment>
+            <div tal:condition="not:readonly">
+            <label class="radio">
+                <input type="radio" name="attachment_action"
+                       tal:attributes="name action_key"
+                       value="upload">
+                Neue Datei hochladen
+                <input type="file" class="input-block-level"
+                       tal:attributes="name string:FIXME"
+                       name="result_appendix" />
+            </label>
+            <p class="help-block"
+               tal:condition="help_text"
+               tal:content="help_text">
+               Datei mit zusätzlichen Informationen hochladen
+            </p>
+            </div>
+    </tal:ns>
+    </metal:slot>
+</metal:mac>
+</table>
+</div>
+
+<div class="col-md-6 col-sd-12">
+<h3 id="select_single">select_single</h3>
+<p>Auswahlliste zur Auswahl eines einzelnen Eintrags</p>
+<table>
+<metal:mac define-macro="select_single">
+<tal:ns define="
+readonly   readonly | python:False;
+oneline    oneline | python:True;
+
+formname formname | name;
+label label | python:name.capitalize();
+label string:$label:;
+
+pool pool | python:{name: []};
+value value | python:current and current.get(name) or None;
+pretty_value pretty_value | nothing;
+choices choices | python:pool[name];
+" tal:condition="python:value or not readonly or (readonly and pretty_value)">
+<!-- [ select_single ... --><tal:labelrow condition="not:oneline">
+<tr>
+  <td colspan="2">
+    <label for="acronym"
+           class="control-label"
+           tal:attributes="for name;
+                           "
+           tal:content="label">
+           Akronym
+    </label>
+  </td>
+</tr><!-- ... select_single ... --></tal:labelrow>
+<tr>
+  <td tal:condition="oneline">
+    <label for="acronym"
+           class="control-label"
+           tal:attributes="for name;
+                           "
+           tal:content="label">
+           Akronym
+    </label>
+  </td>
+  <td tal:attributes="colspan python:not oneline and 2 or None">
+    <select name="acronym" id="acronym"
+           class="input-block-level"
+           style="width: 98%; margin: 0 3px;"
+           tal:condition="not:readonly"
+           tal:attributes="name python:formname or name or None;
+                           id name;
+                           readonly readonly;
+                           ">
+        <option value=""
+                tal:define="allow_empty allow_empty | python:True;"
+                tal:condition="python:allow_empty or not value">
+        Bitte wählen &hellip;
+        </option>
+        <tal:loop repeat="choice choices">
+        <option tal:attributes="value choice/id;
+                                selected choice/selected | nothing"
+                tal:content="choice/label | choice/id"
+                value="42">
+        Die Antwort
+        </option>
+        </tal:loop>
+    </select>
+    <tal:if-readonly condition="readonly">
+    <span tal:replace="pretty_value">Der Schlüsselwert</span>
+    <input type="hidden"
+           tal:attributes="name formname;
+                           value value">
+    </tal:if-readonly>
+  </td>
+</tr><!-- ... select_single ] -->
+</tal:ns></metal:mac>
+</table>
+</div>
+
+<div class="col-md-6 col-sd-12">
+<h3 id="select_single_wkey">select_single_wkey</h3>
+<p>Auswahlliste zur Auswahl eines einzelnen Eintrags,
+mit vorangestelltem Schlüsselwert
+</p>
+<table>
+<metal:mac define-macro="select_single_wkey"
+           extend-macro="context/formfields_table-base/macros/base_field">
+    <metal:slot fill-slot="specific-input"
+                define-slot="specific-input">
+    <tal:ns define="
+pool pool | python:{name: []};
+value value | python:current and current.get(name) or None;
+pretty_value pretty_value | nothing;
+choices choices | python:pool[name];
+" tal:condition="python:value or not readonly or (readonly and pretty_value)">
+    <select name="acronym" id="acronym"
+           class="input-block-level"
+           style="width: 98%; margin: 0 3px;"
+           tal:attributes="name python:formname or name or None;
+                           id name;
+                           readonly readonly;
+                           ">
+        <option value=""
+                tal:define="allow_empty allow_empty | python:True;"
+                tal:condition="python:allow_empty or not value">
+        Bitte wählen &hellip;
+        </option>
+        <tal:loop repeat="choice choices">
+        <option tal:attributes="value choice/id;
+                                selected choice/selected | nothing"
+                tal:content="string:${choice/id} &ndash; ${choice/label}"
+                value="42">
+        Die Antwort
+        </option>
+        </tal:loop>
+    </select>
+    <tal:if-readonly condition="readonly">
+    <span>
+        <tal:txt condition="python:value and value != pretty_value">
+        <tal:val content="value">42</tal:val> &ndash;
+        </tal:txt>
+        <tal:prettyval content="pretty_value">
+        Der Label-Text des hier nicht geänderten Werts
+        </tal:prettyval>
+    <input type="hidden"
+           tal:attributes="name formname;
+                           value value">
+    </tal:if-readonly>
+    </tal:ns>
+    </metal:slot>
+</metal:mac>
+</div>
+
+<div class="col-md-6 col-sd-12">
+<h3 id="skeleton">skeleton</h3>
+<p>(Kopiervorlage für neue Makros)</p>
+<table>
+<metal:mac define-macro="skeleton"
+           extend-macro="context/formfields_table-base/macros/base_field">
+    <metal:slot fill-slot="specific-input"
+                define-slot="specific-input">
+    Neues Makro <tt>skeleton</tt>:
+    Bitte Slot <tt>specific-input</tt> füllen!
+    <input type="FIXME"
+           tal:attributes="name name;
+                           id name;
+                           value value;
+                           ">
+    </metal:slot>
+</metal:mac>
+</table>
+</div>
+</div>
+
+</body>
+</html>
+<!-- vim: set ts=8 sts=2 sw=2 si et hls :-->

@@ -1,0 +1,125 @@
+<!DOCTYPE HTML>
+<html lang="de">
+<head>
+<meta http-equiv="content-type" content="text/html; charset=UTF-8">
+<title>Basismakros für Formularfelder mit Labels (div-Version)</title>
+</head>
+<body tal:define="
+name string:beispiel;
+current python:{};
+templatetest python:True;
+action string:TUNIX
+labelwidth request/labelwidth | python:2;
+pool python:{'beispiel': [{'id': 42, 'label': 'Die Antwort'},
+{'id': 43, 'label': 'Eine andere Zahl', 'selected': 1}]};
+">
+<h1>Basismakros für Formularfelder mit Labels (<tt>div</tt>-Version)</h1>
+
+<p>Nicht direkt zu verwenden;
+für verwendbare Makros und Dokumentation,
+siehe <a href="formfields_div">formfields_div</a>
+</p>
+
+<p>&rarr; <a href="formfields_table-base">Tabellenversion</a></p>
+
+<h3 id="base_field">base_field</h3>
+<metal:mac define-macro="base_field">
+<!-- [ base_field ... -->
+<div class="form-group" tal:define="
+readonly   readonly | python:False;
+required   required | python:False;
+omit_empty omit_empty | python:True;
+oneline    oneline | python:True;
+labelwidth labelwidth | python:oneline and 2 or None;
+labelcolcls python:labelwidth and ('col-sm-%d' % labelwidth) or '';
+
+inputwidth python:labelwidth and (12 - labelwidth);
+inputcolcls python:inputwidth and ('col-sm-%d' % inputwidth) or '';
+
+inputclass inputclass | python:not oneline and 'input-block-level' or '';
+formname formname | name;
+first_missing first_missing | nothing;
+autofocus python:(first_missing is not None
+                  and first_missing in (name, formname)
+                  ) and 'autofocus' or None;
+label label | python:name.capitalize();
+label string:$label:;
+value value | python:current and current.get(name) or None;
+omit_elem python:readonly and omit_empty and not value;
+" tal:condition="not:omit_elem">
+    <label for="acronym"
+           class="control-label"
+           tal:attributes="for name;
+           class string:control-label ${labelcolcls};
+           ">
+        <span class="required"
+              tal:condition="required | nothing"
+              metal:define-macro="required-icon"
+              title="Required"
+              i18n:attributes="title title_required;"><i class="glyphicon glyphicon-exclamation-sign"></i></span>
+        <tal:txt content="label">
+        Akronym
+        </tal:txt>
+    </label>
+    <div class="controls"
+         tal:omit-tag="not:oneline"
+         tal:attributes="class string:controls $inputcolcls"
+         >
+    <metal:slot define-slot="required-support">
+
+<metal:mac define-macro="required-support">
+<tal:ns define="
+requiredfields_name requiredfields_name | string:requiredfields;
+">
+<input type="hidden"
+       name="required_fields:list"
+       value="feldname"
+       tal:condition="required | nothing"
+       tal:attributes="name string:${requiredfields_name}:list;
+                       value name;
+                       "/>
+</tal:ns>
+</metal:mac>
+
+    </metal:slot>
+    <metal:slot define-slot="specific-input">
+    <p>Bitte Slot <tt>specific-input</tt> füllen!</p>
+    </metal:slot>
+    </div>
+</div><!-- .form-group.row -->
+<!-- ... base_field ] -->
+</metal:mac>
+
+<metal:mac define-macro="wide-text-input">
+    <input type="text" name="acronym" id="acronym"
+           class="input-block-level text"
+           style="width: 98%; margin: 0 3px;"
+           tal:define="
+           inputtype inputtype | string:text;
+           readonly readonly | python:False;
+           required required | python:False;
+value value | python:current and current.get(name) or None;
+           appendtype python:(inputtype == 'text'
+                              and not readonly
+                              ) and (' '+inputtype) or '';
+           cls python:(inputclass + appendtype) or None;
+autofocus autofocus | python:(first_missing is not None
+                              and first_missing in (name, formname)
+                              ) and 'autofocus' or None;
+           "
+           tal:attributes="name python:(not readonly
+                                        ) and formname or None;
+                           id name;
+                           value value;
+                           readonly readonly;
+                           required python:required and 'required' or None;
+                           type inputtype | string:text;
+                           class cls;
+                           autofocus autofocus;
+                           ">
+</metal:mac>
+
+
+</body>
+</html>
+<!-- vim: set ts=8 sts=2 sw=2 si et hls :-->
