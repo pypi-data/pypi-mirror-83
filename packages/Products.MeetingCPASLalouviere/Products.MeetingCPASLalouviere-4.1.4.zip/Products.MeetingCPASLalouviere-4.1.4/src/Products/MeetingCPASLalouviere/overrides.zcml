@@ -1,0 +1,26 @@
+<configure
+    xmlns="http://namespaces.zope.org/zope"
+    xmlns:browser="http://namespaces.zope.org/browser"
+    xmlns:plone="http://namespaces.plone.org/plone">
+
+    <!-- IPrettyLink for MeetingItem -->
+    <adapter for="Products.PloneMeeting.interfaces.IMeetingItem"
+             factory=".adapters.MLItemPrettyLinkAdapter"
+             provides="imio.prettylink.interfaces.IPrettyLink" />
+
+    <adapter for="Products.PloneMeeting.interfaces.IMeeting"
+           factory="Products.MeetingCPASLalouviere.adapters.MeetingPBLalouviereWorkflowActions"
+           provides="Products.MeetingCPASLalouviere.interfaces.IMeetingPBLalouviereWorkflowActions"/>
+
+    <adapter for="Products.PloneMeeting.interfaces.IMeeting"
+           factory="Products.MeetingCPASLalouviere.adapters.MeetingPBLalouviereWorkflowConditions"
+           provides="Products.MeetingCPASLalouviere.interfaces.IMeetingPBLalouviereWorkflowConditions"/>
+
+    <adapter for="Products.PloneMeeting.interfaces.IMeetingItem"
+           factory="Products.MeetingCPASLalouviere.adapters.MeetingItemPBLalouviereWorkflowActions"
+           provides="Products.MeetingCPASLalouviere.interfaces.IMeetingItemPBLalouviereWorkflowActions"/>
+
+    <adapter for="Products.PloneMeeting.interfaces.IMeetingItem"
+           factory="Products.MeetingCPASLalouviere.adapters.MeetingItemPBLalouviereWorkflowConditions"
+           provides="Products.MeetingCPASLalouviere.interfaces.IMeetingItemPBLalouviereWorkflowConditions"/>
+</configure>
