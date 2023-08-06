@@ -1,0 +1,71 @@
+<configure
+    xmlns="http://namespaces.zope.org/zope"
+    xmlns:browser="http://namespaces.zope.org/browser"
+    xmlns:faceted="http://namespaces.zope.org/faceted"
+    i18n_domain="cpskin">
+
+    <!--
+      Legacy views - will be removed when all the themes have been modified
+    -->
+
+    <faceted:view
+      name="faceted-events-preview-items"
+      class=".view.EventsView"
+      template="preview-events.pt"
+      title="Faceted events preview"
+      permission="zope2.View"
+      layer="cpskin.agenda.interfaces.ICPSkinAgendaLayer"
+      />
+
+    <browser:page
+      name="faceted-event-preview-item"
+      for="zope.interface.Interface"
+      template="preview-event.pt"
+      permission="zope2.View"
+      layer="cpskin.agenda.interfaces.ICPSkinAgendaLayer"
+      />
+
+    <!--
+      New views :
+      faceted-agenda-view-items will replace faceted-events-preview-items
+    -->
+
+   <faceted:view
+     name="faceted-agenda-view-items"
+     class=".view.EventsView"
+     template="view-agenda.pt"
+     title="Faceted agenda view (grouped by day)"
+     permission="zope2.View"
+     layer="cpskin.agenda.interfaces.ICPSkinAgendaLayer"
+     />
+
+   <browser:page
+     name="faceted-agenda-view-item"
+     for="zope.interface.Interface"
+     template="view-agenda-item.pt"
+     permission="zope2.View"
+     layer="cpskin.agenda.interfaces.ICPSkinAgendaLayer"
+     />
+
+    <!--
+      View with ungrouped (per day) events
+    -->
+
+   <faceted:view
+     name="faceted-agenda-ungrouped-view-items"
+     class=".view.EventsView"
+     template="view-agenda-ungrouped.pt"
+     title="Faceted agenda view (ungrouped)"
+     permission="zope2.View"
+     layer="cpskin.agenda.interfaces.ICPSkinAgendaLayer"
+     />
+   
+   <browser:page
+     name="faceted-agenda-ungrouped-view-item"
+     for="zope.interface.Interface"
+     template="view-agenda-ungrouped-item.pt"
+     permission="zope2.View"
+     layer="cpskin.agenda.interfaces.ICPSkinAgendaLayer"
+     />
+
+</configure>

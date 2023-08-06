@@ -1,0 +1,25 @@
+<configure
+    xmlns="http://namespaces.zope.org/zope">
+
+    <include package="cpskin.core" />
+
+    <include file="profiles.zcml" />
+
+    <include package=".behaviors" />
+    <include package=".browser" />
+    <include package=".faceted" />
+
+    <adapter
+      factory=".dates.event_dates"
+      name="event_dates"
+      />
+
+    <adapter
+      factory=".adapters.zgeo_geometry_value"
+      name="zgeo_geometry"
+      />
+
+    <!-- Do not include override here, it's included in cpskin.policy to prenvent lot of zope.configuration.config.ConfigurationConflictError
+     <includeOverrides file="overrides.zcml" /> -->
+
+</configure>

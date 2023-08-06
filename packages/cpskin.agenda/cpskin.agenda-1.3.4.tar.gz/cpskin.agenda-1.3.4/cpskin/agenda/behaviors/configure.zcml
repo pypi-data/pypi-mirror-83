@@ -1,0 +1,43 @@
+<configure
+    xmlns="http://namespaces.zope.org/zope"
+    xmlns:plone="http://namespaces.plone.org/plone"
+    i18n_domain="cpskin">
+
+  <include package="plone.behavior" file="meta.zcml" />
+
+  <plone:behavior
+    title="Schedule details"
+    description="Optional special schedule details for event."
+    provides=".schedule.ISchedule"
+    factory=".schedule.Schedule"
+    for="plone.app.contenttypes.interfaces.IEvent"
+    marker=".schedule.ISchedule"
+    />
+
+  <plone:behavior
+    title="Use related contacts fields for Event"
+    description="Use location, organizer, contact and partners fields with a related field from collective.contact suite."
+    provides=".related_contacts.IRelatedContacts"
+    factory=".related_contacts.RelatedContacts"
+    for="plone.app.contenttypes.interfaces.IEvent"
+    marker=".related_contacts.ILocationRelatedContactsGeoreferenceable"
+    />
+
+  <adapter
+    factory=".related_contacts.LocationRelatedContactsGeoreferencingAnnotator"
+    provides="collective.geo.geographer.interfaces.IGeoreferenced"
+    for=".related_contacts.ILocationRelatedContactsGeoreferenceable"
+    />
+
+  <adapter factory=".related_contacts.ContactFieldSerializer" />
+  <adapter factory=".related_contacts.SerializeOccurenceToJson" />
+  <adapter factory=".related_contacts.SerializeEventCollectionToJson" />
+  <adapter factory=".related_contacts.TaxonomyFieldSerializer" />
+
+  <subscriber
+    for="plone.dexterity.interfaces.IDexterityFTI
+         zope.lifecycleevent.interfaces.IObjectModifiedEvent"
+    handler=".related_contacts.modified_event"
+    />
+
+</configure>
