@@ -1,0 +1,4 @@
+DEBUG_MODE = True
+
+SERVER_HOST = 'localhost'
+SERVER_PORT = '6000'
