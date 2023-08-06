@@ -1,0 +1,234 @@
+# Changelog
+
+## Version  3.4.1
+
+* Fixing #102 color space and HDR details not parsed from webm correctly (thanks to leonardyan)
+* Fixing no warning messages for HDR10+ experimental feature
+
+## Version  3.4.0
+
+* Adding #83 HDR10+ support for x265 (thanks to SlashX)
+* Adding x265 params hdr10, hdr10-opt, aq-mode and repeat-headers
+* Adding basic splash info and waiting cursor for events
+* Adding button to open config file from setting panel
+* Changing that autocrop will test two spots if possible (thanks to HannesJo0139)
+* Changing covers generated in their own temp directory
+* Fixing #103 x265-params were being pre-pended with an extra ":" (thanks to Zeid164)
+* Fixing #101 FFmpeg status codes now taken into account for errors
+
+## Version  3.3.1
+
+* Fixing #96 input selection did not support all video formats
+* Fixing #95 unicode decode error for FFmpeg output
+
+## Version  3.3.0
+
+* Adding ETA and size estimates on status panel
+* Adding custom x265-params options
+* Adding support for WebP encodings
+* Changing height to say "Auto" when keeping aspect ratio
+* Changing that buttons will be disabled without video or when encoding
+* Fixing cover extraction could timeout and crash program
+* Fixing #89 x265 params for hdr10 changed names (thanks to SlashX)
+* Fixing #92 cannot start FastFlix on Mac (thanks to Paul Bakaus)
+* Fixing autocrop sometimes failing due to muxing size limitations
+* Fixing thumbnail generation did not work for videos with multiple video tracks
+* Fixing gif generation to work with new filter_complex
+* Fixing gif output network location would not work
+
+## Version  3.2.1
+
+* Fixing #87 psutil not listed as requirement for pip (thanks to I-Iawk)
+
+## Version  3.2.0
+
+* Adding #75 burn-in subtitle support (thanks to Trevbams)
+* Adding #81 auto crop feature (thanks to HannesJo0139)
+* Adding #84 pause / resume functionality (thanks to loungebob)
+* Adding hover info for Audio and Subtitle tracks
+* Adding confirm overwrite dialog if file already exists and is not empty
+* Adding linking to issues in changelog file
+* Changing to explicitly set no-slow-firstpass for x265 bitrate runs
+* Changing FFmpeg to download latest available
+* Fixing AVC always copied chapters
+* Fixing how aspect ratio interacted with crop
+* Fixing HEVC would copy HDR10 details on 8-bit videos
+
+## Version  3.1.0
+
+* Adding support for movie title
+* Adding settings for disable update check on startup and limited audio conversions
+* Adding #57 after conversion options (thanks to TGMais)
+* Adding Windows should not to go to sleep during conversion
+* Changing #80 thumbnail preview will start at 10% in if no start time given (thanks to zsumie)
+* Changing no longer need to restart for setting page changes
+* Changing width and height will only give warnings if not divisible by two
+* Fixing output name is not regenerated on encoder switch if matching extension
+* Fixing #79 crash on no internet connection (thanks to L0Lock)
+* Fixing output paths not working on network drives
+
+## Version  3.0.2
+
+* Fixing #76 Windows FFmpeg builds switch from gyan.dev to https://github.com/BtbN/FFmpeg-Builds/releases (thanks to sioc)
+* Fixing failure size calculation limit on file to 500 bytes due to VP9
+
+## Version  3.0.1
+
+* Fixing missing import when installing from pip (linux only release)
+
+## Version  3.0.0
+
+* Adding AVC support (libx264)
+* Adding #65 rav1e support (librav1e)
+* Adding #49 SVT AV1 support (libsvtav1) directly with FFmpeg
+* Adding SVT AV1 dual pass, tier, scene detection, and tile parameters
+* Adding #67 Status Panel to view encoding logs
+* Adding #58 Support for cover attachments (thanks to -L0Lock-)
+* Adding various speed improvements
+* Adding changelog in GUI
+* Adding #68 version upgrade dialogue
+* Adding icons to encoders drop down
+* Adding video filename path
+* Adding Windows installer
+* Adding check for new ffmpeg on startup
+* Adding #69 nice feature for language selection (thanks to HannesJo0139)
+* Adding #13 button to copy commands to clipboard and save to file
+* Adding options to remove metadata and copy chapters
+* Changing #8 logs to be separated into GUI and conversion logs
+* Changing major internal re-write to keep encoding even if GUI dies
+* Changing bitrate suggestion resolutions to be more readable with fps
+* Changing command builders to specify the temporary files themselves
+* Changing changelog to proper markdown
+* Changing rotation and flip section to drop downs
+* Fixing Windows taskbar does not always show icon
+* Fixing #55 GUI logs by splitting them from core logs
+* Fixing #42 log output from FFmpeg stopped due to PIPE filling up (thanks to Trevbams)
+* Fixing that mkv cover attachments would show as video tracks
+* Fixing plugins should not be available if no FFmpeg library for them
+* Fixing error on audio tracks listing zero channels
+* Removing support for the direct SVT AV1 encoder (fixes #24)
+* Removing support for cutelog / socket based logging
+* Removing flix as library support (cleaning out old command generator code)
+
+## Version 2.6.3
+* Fixing #71 #26 encoding issues in video files (thanks to -L0Lock-)
+* Fixing tempfile issue with recursion on cleanup
+* Fixing SVT AV1 command building raising errors on bad crop
+
+## Version 2.6.2
+
+* Switching windows builds from zeranoe.com to gyan.dev
+
+## Version  2.6.1
+
+* Adding HEVC crf suggestions back
+* Fixing #62 VP9 and GIF crashing due to label bug (thanks to -L0Lock-)
+
+## Version  2.6.0
+
+* Adding AV1 AOM settings for cpu-used, tile-columns, tile-rows, row-mt
+* Adding HEVC x265 setting for profile
+* Changing plugins to include library used for encoding
+* Changing HEVC default speed to "medium" and crf to 28 to match x265 defaults
+* Fixing command builders to specify stream instead of video track for codec
+* Fixing FPS not showing correctly when dealing with higher numbers
+* Fixing #60 video track not selected properly (thanks to -L0Lock-)
+* Fixing crash on SVT-AV1 due to HDR label issue
+* Fixing SVT-AV1 audio tracks being converted incorrectly
+
+## Version  2.5.0
+
+* Adding settings dialog
+* Fixing no bitrate should be specified for lossless audio
+
+## Version  2.4.1
+
+* Fixing #52 HEVC custom CRF issue (thanks to 2600box)
+
+## Version  2.4.0
+
+* Adding larger command line view to see entire command at once
+* Changing to using qtpy which supports dynamic linking of either PySide2 or pyqt5, instead of only PySide2
+* Fixing #4 Error Message Box when someone other than video file is dropped onto fastflix
+* Fixing #44 Remove metadata from original file (thanks to HannesJo0139)
+* Fixing #20 Adding hoverhelp for most converter options
+
+## Version  2.3.4
+
+* Fixing audio downmixing only taking for last downmixing setting
+
+## Version  2.3.3
+
+* Fixing #46 max-cll was being sent incorrectly to x265-params (thanks to HannesJo0139)
+* Fixing #43 audio bitrate being set to wrong track (thanks to HannesJo0139)
+
+## Version  2.3.2
+
+* Fixing #39 HEVC two pass bitrate does not work (thanks to schlotkins)
+
+
+## Version  2.3.1
+
+* Fixing #35 custom CRF / bitrate values not updating in the command panel (thanks to schlotkins)
+
+## Version  2.3.0
+
+* Adding to pypi
+* Changing package to "fastflix"
+* Changing that custom mode fields are blocked unless "Custom" is selected
+* Changing always allowing pass-through for audio
+* Fixing HDR details not being parsed due to not quoting path to ffprobe (thanks to schlotkins)
+* Fixing killing child processes on *nix
+
+## Version  2.2.0
+
+* Adding custom extra ffmpeg args for HEVC
+* Adding max mux queue size change for HEVC
+* Fixing issue with codec not being set as copy (thanks to schlotkins)
+* Fixing quotes around parens on linux
+
+## Version  2.1.1
+
+* Fixing parse_hdr_details bug (thanks to Jan Temešinko and schlotkins)
+
+## Version  2.1.0
+
+* Adding config file that will allow for customizable work directory
+* Adding support for HEVC conversion
+* Adding support for audio downmixing and custom titles
+* Adding log to file
+* Adding realtime logging for ffmpeg conversions
+* Adding support to automatically download SVT-AV1
+* Fixing windows scaling display issues
+* Fixing scaling to properly keep scaling and will be red when bad
+* Fixing scaling for videos with rotation
+* Fixing audio to convert correct tracks
+* Removing bundling of FFmpeg and SVT-AV1
+* Removing support for external plugins
+
+## Version  2.0.1
+
+* Fixing broken exe, requiring console for time being
+
+## Version  2.0.0
+
+* Adding AV1 support (both FFMPEG libaom-av1 and SVT-AV1)
+* Adding VP9 support
+* Adding Visible command list
+* Adding Audio transcoding options
+* Changing into MIT license
+* Changing into plugin module design
+* Removing all GPL or restrictive licensed products (including x265)
+* Major Layout Redesign
+
+## Version  1.1.0
+
+* Add AV1 support
+* Add GIF support
+* Add Settings page
+* Add About page
+* Large amount of changes, fixes, and bugs introduced
+
+## Version  1.0.0
+
+* Initial release
