@@ -1,0 +1,24 @@
+matrix: 
+  include:
+    - os: osx
+      language: sh
+      env:
+          - HOMEBREW_NO_ANALYTICS=1
+          - HOMEBREW_NO_INSTALL_CLEANUP=1
+      addons:
+          homebrew:
+              update: true
+              packages: python3
+      before_install:
+        - brew link --overwrite python
+        - python3 --version
+        - pip3 install --upgrade pip
+      install:
+        - pip3 install -r requirements.txt
+        - pip3 install pylint
+      script:
+        - ./scripts/pylint.sh
+        - ./scripts/doctests.sh
+branches:
+  only:
+    - master
