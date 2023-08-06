@@ -1,0 +1,24 @@
+from setuptools import setup, find_packages
+
+
+setup(
+    name="wafec.wrapt.custom",
+    version="1.0.8",
+    author="Wallace",
+    author_email="wallacefcardoso@gmail.com",
+    packages=find_packages(),
+    classifiers=[
+        "Programming Language :: Python :: 3",
+        "License :: OSI Approved :: MIT License",
+        "Operating System :: OS Independent"
+    ],
+    install_requires=[
+        'wrapt>=1.12.1',
+        'requests>=2.23.0'
+    ],
+    entry_points={
+        'console_scripts': [
+            'comm_cmd = wafec_wrapt_custom.comm_ommand_line:main'
+        ]
+    }
+)
