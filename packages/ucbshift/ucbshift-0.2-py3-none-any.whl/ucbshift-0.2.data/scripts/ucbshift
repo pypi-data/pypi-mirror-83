@@ -1,0 +1,20 @@
+#/usr/bin/env bash
+
+set -m
+
+gunicorn --workers=2 --timeout 1200 --bind 127.0.0.1:8000 ucbshift.wsgi:server &
+
+echo "$(uname)"
+if [ "$(uname)" == "Darwin" ]; then
+	open -na "Google Chrome" --args --new-window  "http://localhost:8000"
+elif [ "$(expr substr $(uname -s) 1 5)" == "Linux" ]; then
+    xdg-open http://localhost:8000
+elif [ "$(expr substr $(uname -s) 1 10)" == "MINGW32_NT" ]; then
+    start http://localhost:8000
+elif [ "$(expr substr $(uname -s) 1 10)" == "MINGW64_NT" ]; then
+    start http://localhost:8000
+fi
+
+
+fg
+
