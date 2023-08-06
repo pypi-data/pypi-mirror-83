@@ -1,0 +1,466 @@
+#!/usr/bin/env python3
+
+import click
+import json
+from pathlib import Path
+from aws_requests_auth.boto_utils import AWSRequestsAuth
+from urllib.parse import urlparse
+
+import sys
+import yaml
+import os
+import boto3
+import requests
+
+DEFAULT_AWS_REGION = os.environ.get('DEFAULT_AWS_REGION', 'us-west-2')
+AWS_PROFILE = os.environ.get('AWS_PROFILE', None)
+
+
+class AWSProfileAuth(AWSRequestsAuth):
+    def __init__(self, aws_host, aws_region, aws_service, profile):
+        self.profile = profile
+        super(AWSProfileAuth, self).__init__(
+            None, None, aws_host, aws_region, aws_service, profile)
+        self._refreshable_credentials = boto3.Session(
+            profile_name=self.profile).get_credentials()
+
+    def get_aws_request_headers_handler(self, r):
+        credentials = get_credentials(
+            self._refreshable_credentials, profile_name=self.profile)
+        return self.get_aws_request_headers(r, **credentials)
+
+
+def get_credentials(credentials_obj=None, profile_name=None):
+    """
+    Override aws_requests_auth.boto_utils to support profiles
+    # https://github.com/DavidMuller/aws-requests-auth/issues/51
+    """
+    if credentials_obj is None:
+        credentials_obj = boto3.Session(
+            profile_name=profile_name).get_credentials()
+    frozen_credentials = credentials_obj.get_frozen_credentials()
+    return {
+        'aws_access_key': frozen_credentials.access_key,
+        'aws_secret_access_key': frozen_credentials.secret_key,
+        'aws_token': frozen_credentials.token,
+    }
+
+
+def hkc_print(message, *args, **kwargs):
+    print(json.dumps(message, indent=4), *args, **kwargs)
+
+
+@click.group()
+@click.option('--config', '-c', required=False,
+              default=str(Path.home()) + "/hyperkube-config.yaml")
+@click.option('--hyperkube-url', required=False, default=None)
+@click.option('--hyperkube-stage', required=False, default=None)
+@click.option('--aws-profile', required=False, default=None)
+@click.option('--x-api-key', required=False, default=None)
+@click.option('--aws-region', required=False, default=None)
+@click.pass_context
+def cli(ctx, config, hyperkube_url,
+        hyperkube_stage, aws_profile, x_api_key, aws_region):
+    ctx.ensure_object(dict)
+
+    # Load user provided config file, these options can be
+    # overidden by commandline flags
+    if config and os.path.exists(config):
+        ctx.obj['hyperkube_config'] = _load_config(config)
+    else:
+        ctx.obj['hyperkube_config'] = {}
+
+    if hyperkube_url is None:
+        hyperkube_url = ctx.obj['hyperkube_config']['url']
+
+    u = urlparse(hyperkube_url)
+    hostname = u.netloc
+
+    if hyperkube_stage is None:
+        hyperkube_stage = ctx.obj['hyperkube_config']['stage']
+
+    if aws_region is None:
+        aws_region = ctx.obj['hyperkube_config'].get(
+                             'aws_region', DEFAULT_AWS_REGION)
+
+    if aws_profile is None:
+        aws_profile = ctx.obj['hyperkube_config'].get(
+                              'aws_profile', AWS_PROFILE)
+
+    auth = AWSProfileAuth(aws_host=hostname,
+                          aws_region=aws_region,
+                          aws_service='execute-api',
+                          profile=aws_profile)
+
+    ctx.obj['base_url'] = f'{hyperkube_url}/{hyperkube_stage}'
+    ctx.obj['auth'] = auth
+
+    # Load api key from cli flag. If not provided try config
+    headers = None
+    if x_api_key is None:
+        x_api_key = ctx.obj['hyperkube_config'].get(
+                            'x_api_key')
+    if x_api_key is not None:
+        headers = {'X-Api-Key': x_api_key}
+    ctx.obj['headers'] = headers
+
+
+@cli.command()
+@click.pass_context
+def list(ctx):
+    """List all clusters in hyper-kube-config"""
+
+    try:
+        r = _request(ctx, "GET", "/clusters/list")
+        hkc_print(sorted(r.json()))
+        if r.status_code != 200:
+            sys.exit(1)
+    except requests.exceptions.RequestException as err:
+        print(f'Request error: {err}')
+
+
+@cli.command()
+@click.option('--k8s-config', '-k', default=f"{Path.home()}/.kube/config")
+@click.pass_context
+def add(ctx, k8s_config):
+    """Add cluster to hyper-kube-config"""
+
+    k8s_cfg = json.dumps(_load_config(k8s_config))
+    print(k8s_cfg)
+
+    try:
+        r = _request(ctx, "POST", "/clusters/add", data=k8s_cfg)
+        hkc_print(r.json())
+        if r.status_code == 404:
+            sys.exit(1)
+    except requests.exceptions.RequestException as err:
+        print(f'Request error: {err}')
+
+
+@cli.command()
+@click.option('--ca-key', '-a', required=True)
+@click.option('--cluster-name', '-n', required=True)
+@click.pass_context
+def add_ca_key(ctx, cluster_name, ca_key):
+    """Add cluster CA key to hyper-kube-config"""
+
+    key = _load_pem(ca_key)
+    post = {"cluster_name": cluster_name, "ca_key": key}
+
+    try:
+        r = _request(ctx, "POST", "/clusters/add-ca-key", data=post)
+        hkc_print(r.json())
+    except requests.exceptions.RequestException as err:
+        print(f'Request error: {err}')
+
+
+@cli.command()
+@click.option('--cluster-name', '-n', required=True)
+@click.pass_context
+def remove_ca_key(ctx, cluster_name):
+    """Remove specified cluster CA key from hyper-kube-config"""
+
+    try:
+        r = _request(ctx, "GET", "/clusters/remove-ca-key",
+                     query_string=f"?{cluster_name}")
+        hkc_print(r.json())
+        if r.status_code == 404:
+            sys.exit(1)
+    except requests.exceptions.RequestException as err:
+        print(f'Request error: {err}')
+
+
+@cli.command()
+@click.option('--cluster-to-remove', '-k', required=True)
+@click.pass_context
+def remove(ctx, cluster_to_remove):
+    """Remove cluster from hyper-kube-config"""
+
+    data = json.dumps({"cluster_name": cluster_to_remove})
+
+    try:
+        r = _request(ctx, "POST", "/clusters/remove", data=data)
+        hkc_print(r.json())
+        if r.status_code == 404:
+            sys.exit(1)
+    except requests.exceptions.RequestException as err:
+        print(f'Request error: {err}')
+
+
+@cli.command()
+@click.option('--cluster', '-g', multiple=True)
+@click.option('--k8s-config', '-k', default=f"{Path.home()}/.kube/config")
+@click.option('--merge', '-m', is_flag=True, default=False,
+              help='Cluster config will be merged with existing kubeconfig')
+@click.pass_context
+def get(ctx, cluster, k8s_config, merge):
+    """Retrieve and concatenate one or more cluster configs into one config,
+    set context to first cluster"""
+
+    param_string = "?"
+    for c in cluster:
+        param_string = param_string + c + "&"
+
+    # remove trailing '&'
+    param_string = param_string[:-1]
+
+    try:
+        r = _request(ctx, "GET", "/clusters/get-k8-config",
+                     query_string=param_string)
+        print(r.json())
+        if merge:
+            _merge(k8s_config, r.json())
+        if r.status_code == 404:
+            sys.exit(1)
+    except requests.exceptions.RequestException as err:
+        print(f'Request error: {err}')
+
+
+@cli.command()
+@click.option('--k8s-config', '-k', default=f"{Path.home()}/.kube/config")
+@click.option('--merge', '-m', is_flag=True, default=False,
+              help='Cluster config will be merged with existing kubeconfig')
+@click.pass_context
+def get_all(ctx, k8s_config, merge):
+    """Retrieve and concatenate all cluster configs into one config"""
+
+    try:
+        r = _request(ctx, "GET", "/clusters/get-all-k8-configs")
+        print(r.json())
+        if merge:
+            _merge(k8s_config, r.json())
+        if r.status_code == 404:
+            sys.exit(1)
+    except requests.exceptions.RequestException as err:
+        print(f'Request error: {err}')
+
+
+@cli.command()
+@click.option('--cluster', '-g')
+@click.pass_context
+def get_pem(ctx, cluster):
+    """Get the pem file for a specific cluster"""
+
+    try:
+        r = _request(ctx, "GET", "/clusters/get-pem",
+                     query_string=f"?cluster_name={cluster}")
+        print(r.text)
+        if r.status_code == 404:
+            sys.exit(1)
+    except requests.exceptions.RequestException as err:
+        print(f'Request error: {err}')
+
+
+@cli.command()
+@click.option('--cluster', '-g', required=True)
+@click.option('--pem', '-p', required=True)
+@click.pass_context
+def add_pem(ctx, cluster, pem):
+    """Add a pem file for a specific cluster"""
+
+    pem_data = _load_pem(pem)
+
+    try:
+        r = _request(ctx, "POST", "/clusters/add-pem",
+                     query_string=f"?cluster_name={cluster}",
+                     data=pem_data)
+        hkc_print(r.json())
+        if r.status_code == 404:
+            sys.exit(1)
+    except requests.exceptions.RequestException as err:
+        print(f'Request error: {err}')
+
+
+@cli.command()
+@click.option('--environment', '-e')
+@click.option('--status', '-s')
+@click.option('--cluster', '-g', required=True)
+@click.pass_context
+def set_cluster_status(ctx, environment, status, cluster):
+    """Set cluster status, you are able to update both environment or status"""
+
+    if environment:
+        try:
+            print(f'Setting cluster environment to {environment}')
+            r = _request(ctx, "GET", "/clusters/set-cluster-environment",
+                         query_string=f'?cluster_name={cluster}'
+                         f'&environment={environment}')
+            if r.status_code == 404:
+                sys.exit(1)
+        except requests.exceptions.RequestException as err:
+            print(f'Request error: {err}')
+    if status:
+        try:
+            print(f'Setting cluster status {status}')
+            r = _request(ctx, "GET", "/clusters/set-cluster-status",
+                         query_string=f'?cluster_name={cluster}'
+                         f'&cluster_status={status}')
+            if r.status_code == 404:
+                sys.exit(1)
+        except requests.exceptions.RequestException as err:
+            print(f'Request error: {err}')
+
+    if not status and not environment:
+        print(('Please provide either --environment or --status flag'
+               'for updating cluster'))
+
+
+@cli.command()
+@click.option('--environment', '-e', required=True)
+@click.option('--status', '-s', required=True)
+@click.pass_context
+def get_cluster_status(ctx, environment, status):
+    """Get clusters of a given status in a particular environment"""
+
+    try:
+        r = _request(ctx, "GET", "/clusters/cluster-status",
+                     query_string=f'?cluster_status={status}'
+                     f'&environment={environment}')
+        print(json.dumps(r.json()))
+        if r.status_code == 404:
+            sys.exit(1)
+    except requests.exceptions.RequestException as err:
+        print(f'Request error: {err}')
+
+
+@cli.command()
+@click.option('--environment', '-e')
+@click.pass_context
+def get_cluster_for_environment(ctx, environment):
+    """Get clusters of a given status in a particular environment"""
+    param_string = None
+    if environment is not None:
+        param_string = f'?environment={environment}'
+    try:
+        r = _request(ctx, "GET", "/clusters/clusters-per-environment",
+                     query_string=param_string)
+        hkc_print(r.json())
+        if r.status_code == 404:
+            sys.exit(1)
+    except requests.exceptions.RequestException as err:
+        print(f'Request error: {err}')
+
+
+@cli.command()
+@click.option('--metadata-file', '-f')
+@click.option('--cluster', '-g', required=True)
+@click.pass_context
+def set_cluster_metadata(ctx, metadata_file, cluster):
+    """Set cluster metadata """
+
+    metadata = _load_config(metadata_file)
+    data = json.dumps(metadata)
+    try:
+        print(f'Setting cluster {cluster} metadata.')
+        r = _request(ctx, "POST", "/clusters/set-cluster-metadata",
+                     query_string=f'?cluster_name={cluster}',
+                     data=data)
+        if r.status_code == 404:
+            sys.exit(1)
+        hkc_print(r.json())
+    except requests.exceptions.RequestException as err:
+        print(f'Request error: {err}')
+
+
+@cli.command()
+@click.option('--cluster', '-g', required=True)
+@click.pass_context
+def get_cluster_metadata(ctx, cluster):
+    """Get cluster metadata for a give cluster name"""
+
+    try:
+        r = _request(ctx, "GET", "/clusters/get-cluster-metadata",
+                     query_string=f'?cluster_name={cluster}')
+        hkc_print(r.json())
+        if r.status_code == 404:
+            sys.exit(1)
+    except requests.exceptions.RequestException as err:
+        print(f'Request error: {err}')
+
+
+def _request(ctx, verb, api_endpoint,
+             query_string=None, headers=None, data=None):
+    """Build http request"""
+
+    base_url = ctx.obj['base_url']
+    url = base_url + api_endpoint
+
+    if query_string is not None:
+        url = url + query_string
+    auth = ctx.obj['auth']
+
+    # Ability to add headers beyond api key
+    if headers is not None:
+        headers.update(**ctx.obj['headers'])
+    else:
+        headers = ctx.obj['headers']
+
+    response = requests.request(verb, headers=headers,
+                                url=url,
+                                auth=auth, data=data)
+
+    return response
+
+
+def _load_config(config):
+    """Loads yaml config to dict object"""
+    try:
+        with open(config, 'r') as ymlfile:
+            cfg = yaml.load(ymlfile, Loader=yaml.FullLoader)
+            return cfg
+    except FileNotFoundError as err:
+        print(f'Error: {err}')
+        sys.exit(1)
+
+
+def _load_pem(pem):
+    """Open and return a pem file as object"""
+    try:
+        with open(pem, 'r') as pemfile:
+            return pemfile.read()
+    except FileNotFoundError:
+        print(f'Provided pem not found: {pem}')
+        sys.exit(1)
+
+
+def _is_duplicate(dest_config_object, new_config_item_name):
+    for item in dest_config_object:
+        if item.get("name") == new_config_item_name:
+            return True
+    return False
+
+
+def _remove_old_objects(key, dest_config_object, new_config_object):
+    dest_config_new = []
+    for item in dest_config_object:
+        if not _is_duplicate(new_config_object, item.get("name")):
+            dest_config_new.append(item)
+    return dest_config_new
+
+
+def _merge(dest_file, *configs):
+    # Now do an effective flatmap to get it all into a single structure
+    if os.path.exists(dest_file):
+        dest_config = _load_config(dest_file)
+    else:
+        dest_config = {
+            "apiVersion": "v1",
+            "kind": "Config",
+            "current-context": "",
+            "clusters": [],
+            "contexts": [],
+            "users": [],
+        }
+
+    for new_config in configs:
+        for key in ['clusters', 'contexts', 'users']:
+            dest_config[key] = _remove_old_objects(key,
+                                                   dest_config[key],
+                                                   new_config.get(key, []))
+            dest_config[key].extend(new_config.get(key, []))
+    with open(dest_file, 'w') as dest_file_obj:
+        yaml.dump(dest_config, dest_file_obj)
+
+
+if __name__ == '__main__':
+    cli(obj={})
