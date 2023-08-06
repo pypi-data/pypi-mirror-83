@@ -1,0 +1,261 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Idea list and architecture of IntelMQ 3.0 &#8212; intelmq 2.3.0 documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <script src="../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Feeds whishlist" href="Feeds-whishlist.html" />
+    <link rel="prev" title="Release procedure" href="Release.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="idea-list-and-architecture-of-intelmq-3-0">
+<h1>Idea list and architecture of IntelMQ 3.0<a class="headerlink" href="#idea-list-and-architecture-of-intelmq-3-0" title="Permalink to this headline">¶</a></h1>
+<p>Authors: Aaron Kaplan <a class="reference external" href="mailto:kaplan&#37;&#52;&#48;cert&#46;at">kaplan<span>&#64;</span>cert<span>&#46;</span>at</a>, Sebastian Wagner <a class="reference external" href="mailto:wagner&#37;&#52;&#48;cert&#46;at">wagner<span>&#64;</span>cert<span>&#46;</span>at</a></p>
+<div class="section" id="use-cases">
+<h2>Use-cases<a class="headerlink" href="#use-cases" title="Permalink to this headline">¶</a></h2>
+<p>XXX fill in a complete list of use cases XXX</p>
+<div class="section" id="certs">
+<h3>CERTs<a class="headerlink" href="#certs" title="Permalink to this headline">¶</a></h3>
+<p>No direct access to networks in constituency.</p>
+<div class="section" id="data-collection">
+<h4>Data collection<a class="headerlink" href="#data-collection" title="Permalink to this headline">¶</a></h4>
+</div>
+<div class="section" id="distribution-of-information">
+<h4>Distribution of information<a class="headerlink" href="#distribution-of-information" title="Permalink to this headline">¶</a></h4>
+</div>
+<div class="section" id="national-cert">
+<h4>National CERT<a class="headerlink" href="#national-cert" title="Permalink to this headline">¶</a></h4>
+<p>Work is based heavily on Geolocation</p>
+</div>
+<div class="section" id="sector-cert">
+<h4>Sector CERT<a class="headerlink" href="#sector-cert" title="Permalink to this headline">¶</a></h4>
+<p>Work is based on known constituents, sector information, lists of IP address ranges and domains, company &amp; organisation names.</p>
+</div>
+</div>
+<div class="section" id="socs-and-nocs">
+<h3>SOCs and NOCs<a class="headerlink" href="#socs-and-nocs" title="Permalink to this headline">¶</a></h3>
+<p>Goal is the protection of internal known networks only. Direct access to the networks.</p>
+<p>Involves collecting information from internal infrastructure, matching IoCs to internal infrastructure, using IoCs for active protection.</p>
+</div>
+<div class="section" id="data-science-and-research">
+<h3>Data science and research<a class="headerlink" href="#data-science-and-research" title="Permalink to this headline">¶</a></h3>
+</div>
+</div>
+<div class="section" id="users">
+<h2>Users<a class="headerlink" href="#users" title="Permalink to this headline">¶</a></h2>
+<p>XXX fill in a complete list of use cases XXX</p>
+</div>
+<div class="section" id="restful-api">
+<h2>RESTful API<a class="headerlink" href="#restful-api" title="Permalink to this headline">¶</a></h2>
+<p>For automation purposes, we will need a typical RESTful API to manage, control, monitor the IntelMQ “botnet” and read and set configs.
+See <a class="reference external" href="https://github.com/certtools/intelmq/issues/1424">#1424</a></p>
+</div>
+<div class="section" id="ux">
+<h2>UX<a class="headerlink" href="#ux" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="devops-sysadmin-perspective">
+<h3>Devops/ Sysadmin perspective<a class="headerlink" href="#devops-sysadmin-perspective" title="Permalink to this headline">¶</a></h3>
+<div class="section" id="docker">
+<h4>Docker<a class="headerlink" href="#docker" title="Permalink to this headline">¶</a></h4>
+<p><em>Task</em>: create a setup where each bot MAY run in a docker container</p>
+<p><em>Background</em>: It might make sense to  be able to run each bot in a docker container since it fits with a lot of new paradigms in orchestration.
+With a proper template, each bot running in a docker container could send its logs to some central logger (for example splunk or similar) and
+the sysadmin/devops teams which are already using these systems for monitoring alerts can properly fit the IntelMQ logs and alerts to their regular daily routine.
+Docker also allows the sysadmin/devops folks to centrally manage the system.</p>
+<p><em>Think about</em>: how do we integrate the pipeline graph?</p>
+<p><em>Category</em>: this feature should be OPTIONAL.</p>
+</div>
+<div class="section" id="tutorials-and-vms-dockers">
+<h4>Tutorials and VMs / dockers<a class="headerlink" href="#tutorials-and-vms-dockers" title="Permalink to this headline">¶</a></h4>
+<p><em>Task</em>: create tutorials with VMs/docker images.</p>
+<p><em>Background</em>:
+We are missing good tutorials (“playbooks”) on how to run certain workflows via IntelMQ. Ideally, we would offer ready-made VMs/docker images where people who want to
+try out IntelMQ (and consequently adapt the setup to their own needs). This also helps teachers/presenters who want to demo IntelMQ.</p>
+<p>Specifically we would like to have:</p>
+<ul class="simple">
+<li><p>how to process shadowserver feeds</p></li>
+<li><p>how to process shodan data</p></li>
+<li><p>how to process n6 data</p></li>
+</ul>
+<p><em>Think about</em>: shadowserver already created some training material. Build on this.</p>
+<p><em>Category</em>: OPTIONAL component, but highly needed.</p>
+</div>
+</div>
+</div>
+<div class="section" id="architecture">
+<h2>Architecture<a class="headerlink" href="#architecture" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="message-queue">
+<h3>Message queue<a class="headerlink" href="#message-queue" title="Permalink to this headline">¶</a></h3>
+<p><em>Task</em>: Create a Kafka MQ backend: add Kafka as a replaceable MQ for IntelMQ 3.0</p>
+<p><em>Background</em>: IntelMQ 2.0 supports AMQP (RabbitMQ) next to redis as a message queue. Many organisations use Kafka internally. Support connecting to their other work flows.</p>
+<p><em>Think about</em>: Using <a class="reference external" href="https://pulsar.apache.org/">Apache Pulsar</a></p>
+<p><em>Category</em>: SHOULD</p>
+</div>
+</div>
+<div class="section" id="notification-settings">
+<h2>Notification settings<a class="headerlink" href="#notification-settings" title="Permalink to this headline">¶</a></h2>
+<p><em>Task</em>: Keep notification settings per event: Where to (destination mail/host address), how (protocol, authentication (SSL client certificate), etc), how often/time information (intervals etc.)</p>
+<p><em>Background</em>: CERTs (and potentially other groups of users) need to specify where the events should be sent to, how often etc. Currently only destination email addresses can be saved (<code class="docutils literal notranslate"><span class="pre">source.abuse_contact</span></code>), which is not enough for most use-cases. There exist some custom solutions (e.g. <code class="docutils literal notranslate"><span class="pre">notify</span></code> boolean at cert.at (to be changed), <code class="docutils literal notranslate"><span class="pre">extra.processing</span></code> dictionary at BSI), but no least common denominator.</p>
+<p>See also https://github.com/certtools/intelmq/issues/758</p>
+<p><em>Category</em>: this feature should be OPTIONAL but is NEEDED by several users.</p>
+</div>
+<div class="section" id="configuration-parameter-handling-in-bots-and-a-bot-s-unified-documentation">
+<h2>Configuration parameter handling in Bots and a bot’s unified documentation<a class="headerlink" href="#configuration-parameter-handling-in-bots-and-a-bot-s-unified-documentation" title="Permalink to this headline">¶</a></h2>
+<p><em>Task</em>: Handle bots’ configuration parameters by the core, providing type sanitation, checks, default values and documentation.</p>
+<p><em>Background</em>: Currently every bot needs to handle these issues itself, but many of these checks could be done centrally in a generic way. At upgrades, new configuration might get introduced and the bots need to provide defaults values although they are available in BOTS. Error handling on parameters must be done for every bot on itself. Documentation is not available to the Bots, not available in BOTS and the Manager. There are 3 places for parameters where the available information is spread: BOTS, <code class="docutils literal notranslate"><span class="pre">Bots.md</span></code> and the bots’ code.</p>
+</div>
+<div class="section" id="automatic-monitoring-management-handling-full-load-situations">
+<h2>Automatic Monitoring &amp; Management: Handling full load situations<a class="headerlink" href="#automatic-monitoring-management-handling-full-load-situations" title="Permalink to this headline">¶</a></h2>
+<p><em>Task</em>: Create a solution to prevent system over-loading (only for Redis).</p>
+<p><em>Background</em>: If too much data is ingested, collected or enriched, the system can easily run out of memory. This quickly causes major operation troubles and data loss, needing manual intervention.</p>
+<p>See also: https://github.com/certtools/intelmq/issues/709</p>
+</div>
+<div class="section" id="making-intelmq-plug-able-and-getting-rid-of-bots">
+<h2>Making intelmq plug-able and getting rid of BOTS<a class="headerlink" href="#making-intelmq-plug-able-and-getting-rid-of-bots" title="Permalink to this headline">¶</a></h2>
+<p><em>Task</em>: Allow installation of IntelMQ bots, meaning the deprecation of the centralized BOTS file and a generated documentation.</p>
+<p><em>Background</em>: Adapting IntelMQ to specific needs also means the development of specific bots which might not part of the public repository. Adding them to an existing IntelMQ installation is currently only possible by cloning the repository and adding the code there, not by just providing/installing the required code (because of BOTS and central documentation).</p>
+<p>See also https://github.com/certtools/intelmq/issues/972</p>
+</div>
+<div class="section" id="exposing-a-plug-in-or-hooking-api">
+<h2>Exposing a plug-in or hooking API<a class="headerlink" href="#exposing-a-plug-in-or-hooking-api" title="Permalink to this headline">¶</a></h2>
+<p><em>Task</em>: Provide an hooking API for the core classes.</p>
+<p><em>Background</em>: Adapting IntelMQ to specific can require adaptions in the Core classes’ code. Instead of making the changes/extensions in the core itself, we can provide a hook system allowing to call (or replace?) functions at specific steps. For example custom monitoring.</p>
+</div>
+<div class="section" id="grouping-of-events">
+<h2>Grouping of events<a class="headerlink" href="#grouping-of-events" title="Permalink to this headline">¶</a></h2>
+<p><em>Task</em>: Provide possibilities to assign an event to a group of events.</p>
+<p><em>Background</em>: Several IoCs part of one MISP Event. Grouping of similar events to one group for outputs (e.g. one CSV file per Network).</p>
+<p>See also: https://github.com/certtools/intelmq/issues/751</p>
+</div>
+<div class="section" id="data-format-multiple-values">
+<h2>Data Format: Multiple values<a class="headerlink" href="#data-format-multiple-values" title="Permalink to this headline">¶</a></h2>
+<p><em>Task</em>: Allow multiple values for (some) fields in the data format.</p>
+<p><em>Background</em>: In some cases one value per field is not enough, for example for Domain -&gt; IP address lookups. Other formats like IDEA and n6 support this.</p>
+<p>See also: https://github.com/certtools/intelmq/issues/543 https://github.com/certtools/intelmq/issues/373</p>
+</div>
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../index.html">
+    <img class="logo" src="../_static/Logo_Intel_MQ.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+<p class="blurb">IntelMQ is a solution for IT security teams for collecting and processing security feeds using a message queuing protocol.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=certtools&repo=intelmq&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="Ecosystem.html">IntelMQ Ecosystem</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="README.html">Welcome to IntelMQ!</a></li>
+<li class="toctree-l1"><a class="reference internal" href="INSTALL.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="UPGRADING.html">Upgrade instructions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="User-Guide.html">User Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="intelmqctl.html">intelmqctl documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Bots.html">Bots Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Feeds.html">Available Feeds</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ELK-Stack.html">ELK Stack</a></li>
+<li class="toctree-l1"><a class="reference internal" href="FAQ.html">Frequently asked questions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="MISP-Integrations.html">MISP integrations in IntelMQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="n6-integrations.html">IntelMQ - n6 Integration</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="Developers-Guide.html">Developers Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Data-Harmonization.html">Data Harmonization</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Harmonization-fields.html">Harmonization field names</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Release.html">Release procedure</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Idea list and architecture of IntelMQ 3.0</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Feeds-whishlist.html">Feeds whishlist</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="Release.html" title="previous chapter">Release procedure</a></li>
+      <li>Next: <a href="Feeds-whishlist.html" title="next chapter">Feeds whishlist</a></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2020, cert.at.
+      
+      |
+      <a href="../_sources/guides/IntelMQ-3.0-Architecture.md.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

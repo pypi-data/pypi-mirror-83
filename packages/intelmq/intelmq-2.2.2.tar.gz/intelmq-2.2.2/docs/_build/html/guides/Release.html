@@ -1,0 +1,255 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Release procedure &#8212; intelmq 2.3.0 documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <script src="../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Idea list and architecture of IntelMQ 3.0" href="IntelMQ-3.0-Architecture.html" />
+    <link rel="prev" title="Harmonization field names" href="Harmonization-fields.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="release-procedure">
+<h1>Release procedure<a class="headerlink" href="#release-procedure" title="Permalink to this headline">¶</a></h1>
+<p><strong>Table of Contents:</strong></p>
+<ul class="simple">
+<li><p><a class="reference external" href="#documentation">Documentation</a></p></li>
+<li><p><a class="reference external" href="#commit-push-review-and-merge">Commit, push, review and merge</a></p></li>
+<li><p><a class="reference external" href="#tag-and-release">Tag and release</a></p></li>
+<li><p><a class="reference external" href="#tarballs-and-pypi">Tarballs and PyPI</a></p></li>
+<li><p><a class="reference external" href="#packages">Packages</a></p></li>
+<li><p><a class="reference external" href="#announcements">Announcements</a></p></li>
+<li><p><a class="reference external" href="#prepare-new-version">Prepare new version</a></p></li>
+</ul>
+<p>General assumption: You are working on branch maintenance, the next version is a bug fix release. For feature releases it is slightly different.</p>
+<div class="section" id="check-before">
+<h2>Check before<a class="headerlink" href="#check-before" title="Permalink to this headline">¶</a></h2>
+<ul class="simple">
+<li><p>Make sure the current state is really final ;)
+You can test most of the steps described here locally before doing it real.</p></li>
+<li><p>Check the upgrade functions in <code class="docutils literal notranslate"><span class="pre">intelmq/lib/upgrades.py</span></code>.</p></li>
+<li><p>Close the milestone on GitHub and move any open issues to the next one.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">docs/INSTALL.md</span></code>: Update supported operating systems.</p></li>
+</ul>
+</div>
+<div class="section" id="documentation">
+<h2>Documentation<a class="headerlink" href="#documentation" title="Permalink to this headline">¶</a></h2>
+<ul class="simple">
+<li><p>CHANGELOG.MD and</p></li>
+<li><p>NEWS.MD: Update the latest header, fix the order, remove empty sections and (re)group the entries if necessary.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">intelmq/version.py</span></code>: Update the version.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">debian/changelog</span></code>: Insert a new section for the new version with the tool <code class="docutils literal notranslate"><span class="pre">dch</span></code>.</p></li>
+</ul>
+<p>Eventually adapt the default log levels if necessary. Should be INFO for stable releases. See older releases.</p>
+</div>
+<div class="section" id="commit-push-review-and-merge">
+<h2>Commit, push, review and merge<a class="headerlink" href="#commit-push-review-and-merge" title="Permalink to this headline">¶</a></h2>
+<p>Commit your changes in a separate branch, the final commit’s message should start with <code class="docutils literal notranslate"><span class="pre">REL:</span> </code>. Push and create a pull request to maintenance and after that from maintenance to master. Someone else should review the changes. Eventually fix them, make sure the <code class="docutils literal notranslate"><span class="pre">REL:</span> </code> is the last commit, you can also push that one at last, after the reviews.</p>
+<p>Why a separate branch? Because if problems show up, you can still force-push to that one, keeping the release commit the latest one.</p>
+</div>
+<div class="section" id="tag-and-release">
+<h2>Tag and release<a class="headerlink" href="#tag-and-release" title="Permalink to this headline">¶</a></h2>
+<p>Tag the commit with <code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">tag</span> <span class="pre">-s</span> <span class="pre">version</span> <span class="pre">HEAD</span></code>, merge it into master, push the branches <em>and</em> the tag. The tag is just <code class="docutils literal notranslate"><span class="pre">a.b.c</span></code>, not prefixed with <code class="docutils literal notranslate"><span class="pre">v</span></code> (that was necessary only with SVN a long time ago…).</p>
+<p>Go to https://github.com/certtools/intelmq/tags and enter the release notes (from the CHANGELOG) for the new tag, then it’s considered a <em>release</em> by GitHub.</p>
+</div>
+<div class="section" id="tarballs-and-pypi">
+<h2>Tarballs and PyPI<a class="headerlink" href="#tarballs-and-pypi" title="Permalink to this headline">¶</a></h2>
+<ul class="simple">
+<li><p>Build the source and binary (wheel) distribution: <code class="docutils literal notranslate"><span class="pre">python3</span> <span class="pre">setup.py</span> <span class="pre">sdist</span> <span class="pre">bdist_wheel</span></code></p></li>
+<li><p>Upload the files including signatures to PyPI with e.g. twine: <code class="docutils literal notranslate"><span class="pre">twine</span> <span class="pre">upload</span> <span class="pre">-s</span> <span class="pre">dist/intelmq...</span></code></p></li>
+</ul>
+</div>
+<div class="section" id="packages">
+<h2>Packages<a class="headerlink" href="#packages" title="Permalink to this headline">¶</a></h2>
+<p>We are currently using the public Open Build Service instance of openSUSE: http://build.opensuse.org/project/show/home:sebix:intelmq</p>
+<p>First, test all the steps first with the <a class="reference external" href="http://build.opensuse.org/project/show/home:sebix:intelmq:unstable">unstable-repository</a> and check that at least installations succeed.</p>
+<ul class="simple">
+<li><p>Create the tarballs with the script <code class="docutils literal notranslate"><span class="pre">create-archives.sh</span></code>.</p></li>
+<li><p>Update the dsc and spec files for new filenames and versions.</p></li>
+<li><p>Update the .changes file</p></li>
+<li><p>Build locally for all distributions.</p></li>
+<li><p>Commit.</p></li>
+</ul>
+</div>
+<div class="section" id="announcements">
+<h2>Announcements<a class="headerlink" href="#announcements" title="Permalink to this headline">¶</a></h2>
+<p>Announce the new version at the mailinglists intelmq-users, intelmq-dev.
+For bigger releases, probably also at IHAP, Twitter, etc. Ask your favorite social media consultant.</p>
+</div>
+<div class="section" id="prepare-new-version">
+<h2>Prepare new version<a class="headerlink" href="#prepare-new-version" title="Permalink to this headline">¶</a></h2>
+<p>Increase the version in <code class="docutils literal notranslate"><span class="pre">intelmq/version.py</span></code> and declare it as alpha version.
+Add the new version in <code class="docutils literal notranslate"><span class="pre">intelmq/lib/upgrades.py</span></code>.
+Add a new entry in <code class="docutils literal notranslate"><span class="pre">debian/changelog</span></code> with <code class="docutils literal notranslate"><span class="pre">dch</span> <span class="pre">-v</span> <span class="pre">[version]</span> <span class="pre">-c</span> <span class="pre">debian/changelog</span></code>.</p>
+<p>Add new entries to <code class="docutils literal notranslate"><span class="pre">CHANGELOG.md</span></code> and <code class="docutils literal notranslate"><span class="pre">NEWS.md</span></code>. For <code class="docutils literal notranslate"><span class="pre">CHANGELOG.md</span></code>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1">### Configuration</span>
+
+<span class="c1">### Core</span>
+
+<span class="c1">### Development</span>
+
+<span class="c1">### Harmonization</span>
+
+<span class="c1">### Bots</span>
+<span class="c1">#### Collectors</span>
+
+<span class="c1">#### Parsers</span>
+
+<span class="c1">#### Experts</span>
+
+<span class="c1">#### Outputs</span>
+
+<span class="c1">### Documentation</span>
+
+<span class="c1">### Packaging</span>
+
+<span class="c1">### Tests</span>
+
+<span class="c1">### Tools</span>
+
+<span class="c1">### Contrib</span>
+
+<span class="c1">### Known issues</span>
+</pre></div>
+</div>
+<p>And for <code class="docutils literal notranslate"><span class="pre">NEWS.md</span></code>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1">### Requirements</span>
+
+<span class="c1">### Tools</span>
+
+<span class="c1">### Harmonization</span>
+
+<span class="c1">### Configuration</span>
+
+<span class="c1">### Libraries</span>
+
+<span class="c1">### Postgres databases</span>
+</pre></div>
+</div>
+</div>
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../index.html">
+    <img class="logo" src="../_static/Logo_Intel_MQ.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+<p class="blurb">IntelMQ is a solution for IT security teams for collecting and processing security feeds using a message queuing protocol.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=certtools&repo=intelmq&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="Ecosystem.html">IntelMQ Ecosystem</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="README.html">Welcome to IntelMQ!</a></li>
+<li class="toctree-l1"><a class="reference internal" href="INSTALL.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="UPGRADING.html">Upgrade instructions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="User-Guide.html">User Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="intelmqctl.html">intelmqctl documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Bots.html">Bots Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Feeds.html">Available Feeds</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ELK-Stack.html">ELK Stack</a></li>
+<li class="toctree-l1"><a class="reference internal" href="FAQ.html">Frequently asked questions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="MISP-Integrations.html">MISP integrations in IntelMQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="n6-integrations.html">IntelMQ - n6 Integration</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="Developers-Guide.html">Developers Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Data-Harmonization.html">Data Harmonization</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Harmonization-fields.html">Harmonization field names</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Release procedure</a></li>
+<li class="toctree-l1"><a class="reference internal" href="IntelMQ-3.0-Architecture.html">Idea list and architecture of IntelMQ 3.0</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Feeds-whishlist.html">Feeds whishlist</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="Harmonization-fields.html" title="previous chapter">Harmonization field names</a></li>
+      <li>Next: <a href="IntelMQ-3.0-Architecture.html" title="next chapter">Idea list and architecture of IntelMQ 3.0</a></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2020, cert.at.
+      
+      |
+      <a href="../_sources/guides/Release.md.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

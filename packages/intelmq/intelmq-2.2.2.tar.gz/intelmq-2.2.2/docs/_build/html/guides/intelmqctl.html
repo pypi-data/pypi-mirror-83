@@ -1,0 +1,562 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>intelmqctl documentation &#8212; intelmq 2.3.0 documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <script src="../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Bots Documentation" href="Bots.html" />
+    <link rel="prev" title="User Guide" href="User-Guide.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="intelmqctl-documentation">
+<h1>intelmqctl documentation<a class="headerlink" href="#intelmqctl-documentation" title="Permalink to this headline">¶</a></h1>
+<p><strong>Table of Contents:</strong></p>
+<ul class="simple">
+<li><p><a class="reference external" href="#introduction">Introduction</a></p></li>
+<li><p><a class="reference external" href="#output-type">Output type</a></p></li>
+<li><p><a class="reference external" href="#manage-individual-bots">Manage individual bots</a></p>
+<ul>
+<li><p><a class="reference external" href="#start">start</a></p></li>
+<li><p><a class="reference external" href="#stop">stop</a></p></li>
+<li><p><a class="reference external" href="#status">status</a></p></li>
+<li><p><a class="reference external" href="#restart">restart</a></p></li>
+<li><p><a class="reference external" href="#reload">reload</a></p></li>
+<li><p><a class="reference external" href="#run">run</a></p>
+<ul>
+<li><p><a class="reference external" href="#console">console</a></p></li>
+<li><p><a class="reference external" href="#message">message</a></p></li>
+<li><p><a class="reference external" href="#process">process</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference external" href="#disable">disable</a></p></li>
+<li><p><a class="reference external" href="#enable">enable</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference external" href="#manage-the-botnet">Manage the botnet</a></p>
+<ul>
+<li><p><a class="reference external" href="#start">start</a></p></li>
+<li><p><a class="reference external" href="#stop">stop</a></p></li>
+<li><p><a class="reference external" href="#status">status</a></p></li>
+<li><p><a class="reference external" href="#restart">restart</a></p></li>
+<li><p><a class="reference external" href="#reload">reload</a></p></li>
+<li><p><a class="reference external" href="#enable-disable">enable / disable</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference external" href="#list-bots">List bots</a></p></li>
+<li><p><a class="reference external" href="#list-queues">List queues</a></p></li>
+<li><p><a class="reference external" href="#log">Log</a></p></li>
+<li><p><a class="reference external" href="#check">Check</a></p>
+<ul>
+<li><p><a class="reference external" href="#orphaned-queues">Orphaned queues</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference external" href="#configuration-upgrade">Configuration upgrade</a></p></li>
+<li><p><a class="reference external" href="#exit-code">Exit code</a></p></li>
+<li><p><a class="reference external" href="#known-issues">Known issues</a></p></li>
+</ul>
+<div class="section" id="introduction">
+<h2>Introduction<a class="headerlink" href="#introduction" title="Permalink to this headline">¶</a></h2>
+<p>intelmqctl is the main tool to handle a intelmq installation.
+It handles the bots themselves and has some tools to handle the installation.</p>
+</div>
+<div class="section" id="output-type">
+<h2>Output type<a class="headerlink" href="#output-type" title="Permalink to this headline">¶</a></h2>
+<p>intelmqctl can be used as command line tool, as library and as tool by other programs.
+If called directly, it will print all output to the console (stderr).
+If used as python library, the python types themselves are returned.
+The third option is to use machine-readable JSON as output (used by other managing tools).</p>
+</div>
+<div class="section" id="manage-individual-bots">
+<h2>Manage individual bots<a class="headerlink" href="#manage-individual-bots" title="Permalink to this headline">¶</a></h2>
+<p>As all init systems, intelmqctl has the methods start, stop, restart, reload and status.</p>
+<div class="section" id="start">
+<h3>start<a class="headerlink" href="#start" title="Permalink to this headline">¶</a></h3>
+<p>This will start the bot with the ID <code class="docutils literal notranslate"><span class="pre">file-output</span></code>. A file with it’s PID will be created in <code class="docutils literal notranslate"><span class="pre">/opt/intelmq/var/run/[bot-id].pid</span></code>.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>&gt; intelmqctl start file-output
+Starting file-output...
+file-output is running.
+</pre></div>
+</div>
+<p>If the bot is already running, it won’t be started again:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>&gt; intelmqctl start file-output
+file-output is running.
+</pre></div>
+</div>
+</div>
+<div class="section" id="stop">
+<h3>stop<a class="headerlink" href="#stop" title="Permalink to this headline">¶</a></h3>
+<p>If the PID file does exist, a SIGINT will be sent to the process. After 0.25s we check if the process is running. If not, the PID file will be removed.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>&gt; intelmqctl stop file-output
+Stopping file-output...
+file-output is stopped.
+</pre></div>
+</div>
+<p>If there’s no running bot, there’s nothing to do.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>&gt; intelmqctl stop file-output
+file-output was NOT RUNNING.
+</pre></div>
+</div>
+<p>If the bot did not stop in 0.25s, intelmqctl will say it’s still running:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>&gt; intelmqctl stop file-output
+file-output is still running
+</pre></div>
+</div>
+</div>
+<div class="section" id="status">
+<h3>status<a class="headerlink" href="#status" title="Permalink to this headline">¶</a></h3>
+<p>Checks for the PID file and if the process with the given PID is alive. If the PID file exists, but the process does not exist, it will be removed.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>&gt; intelmqctl status file-output
+file-output is stopped.
+&gt; intelmqctl start file-output
+Starting file-output...
+file-output is running.
+&gt; intelmqctl status file-output
+file-output is running.
+</pre></div>
+</div>
+</div>
+<div class="section" id="restart">
+<h3>restart<a class="headerlink" href="#restart" title="Permalink to this headline">¶</a></h3>
+<p>The same as stop and start consecutively.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>&gt; intelmqctl restart file-output
+Stopping file-output...
+file-output is stopped.
+Starting file-output...
+file-output is running.
+</pre></div>
+</div>
+</div>
+<div class="section" id="reload">
+<h3>reload<a class="headerlink" href="#reload" title="Permalink to this headline">¶</a></h3>
+<p>Sends a SIGHUP to the bot, which will then reload the configuration.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>&gt; intelmqctl reload file-output
+Reloading file-output ...
+file-output is running.
+</pre></div>
+</div>
+<p>If the bot is not running, we can’t reload it:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>&gt; intelmqctl reload file-output
+file-output was NOT RUNNING.
+</pre></div>
+</div>
+</div>
+<div class="section" id="run">
+<h3>run<a class="headerlink" href="#run" title="Permalink to this headline">¶</a></h3>
+<p>Run a bot directly for debugging purpose.</p>
+<p>If launched with no arguments, the bot will call its init method and start processing messages as usual – but you see everything happens.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>&gt; intelmqctl run file-output
+file-output: RestAPIOutputBot initialized with id file-output and version <span class="m">3</span>.5.2 as process <span class="m">12345</span>.
+file-output: Bot is starting.
+file-output: Loading <span class="nb">source</span> pipeline and queue <span class="s1">&#39;file-output-queue&#39;</span>.
+file-output: Connected to <span class="nb">source</span> queue.
+file-output: No destination queues to load.
+file-output: Bot initialization completed.
+file-output: Waiting <span class="k">for</span> incoming message.
+</pre></div>
+</div>
+<p>Should you get lost any time, just use the <strong>–help</strong> after any argument for further explanation.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>&gt; intelmqctl run file-output --help
+</pre></div>
+</div>
+<p>Note that if another instance of the bot is running, only warning will be displayed.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>&gt; intelmqctl run file-output
+Main instance of the bot is running in the background. You may want to launch: intelmqctl stop file-output
+</pre></div>
+</div>
+<p>You can set the log level with the <code class="docutils literal notranslate"><span class="pre">-l</span></code> flag, e.g. <code class="docutils literal notranslate"><span class="pre">-l</span> <span class="pre">DEBUG</span></code>. For the ‘console’ subcommand, ‘DEBUG’ is the default.</p>
+<div class="section" id="console">
+<h4>console<a class="headerlink" href="#console" title="Permalink to this headline">¶</a></h4>
+<p>If launched with <strong>console</strong> argument, you get a <code class="docutils literal notranslate"><span class="pre">pdb</span></code> live console; or <code class="docutils literal notranslate"><span class="pre">ipdb</span></code> or <code class="docutils literal notranslate"><span class="pre">pudb</span></code> consoles if they were previously installed (I.E. <code class="docutils literal notranslate"><span class="pre">pip3</span> <span class="pre">install</span> <span class="pre">ipdb</span> <span class="pre">--user</span></code>).</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>&gt; intelmqctl run file-output console
+*** Using console ipdb. Please use <span class="s1">&#39;self&#39;</span> to access to the bot instance properties. ***
+ipdb&gt; self. ...
+</pre></div>
+</div>
+<p>You may specify the desired console in the next argument.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>&gt; intelmqctl run file-output console pudb
+</pre></div>
+</div>
+</div>
+<div class="section" id="message">
+<h4>message<a class="headerlink" href="#message" title="Permalink to this headline">¶</a></h4>
+<p>Operate directly with the input / output pipelines.</p>
+<p>If <strong>get</strong> is the parameter, you see the message that waits in the input (source or internal) queue. If the argument is <strong>pop</strong>, the message gets popped as well.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>&gt; intelmqctl run file-output message get
+file-output: Waiting <span class="k">for</span> a message to get...
+<span class="o">{</span>
+    <span class="s2">&quot;classification.type&quot;</span>: <span class="s2">&quot;c&amp;c&quot;</span>,
+    <span class="s2">&quot;feed.url&quot;</span>: <span class="s2">&quot;https://example.com&quot;</span>,
+    <span class="s2">&quot;raw&quot;</span>: <span class="s2">&quot;1233&quot;</span>,
+    <span class="s2">&quot;source.ip&quot;</span>: <span class="s2">&quot;1.2.3.4&quot;</span>,
+    <span class="s2">&quot;time.observation&quot;</span>: <span class="s2">&quot;2017-05-17T22:00:33+00:00&quot;</span>,
+    <span class="s2">&quot;time.source&quot;</span>: <span class="s2">&quot;2017-05-17T22:00:32+00:00&quot;</span>
+<span class="o">}</span>
+</pre></div>
+</div>
+<p>To send directly to the bot’s ouput queue, just as it was sent by <code class="docutils literal notranslate"><span class="pre">self.send_message()</span></code> in bot’s <code class="docutils literal notranslate"><span class="pre">process()</span></code> method, use the <strong>send</strong> argument.
+In our case of <code class="docutils literal notranslate"><span class="pre">file-output</span></code>, it has no destionation queue so that nothing happens.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>&gt; intelmqctl run file-output message send <span class="s1">&#39;{&quot;time.observation&quot;: &quot;2017-05-17T22:00:33+00:00&quot;, &quot;time.source&quot;: &quot;2017-05-17T22:00:32+00:00&quot;}&#39;</span>
+file-output: Bot has no destination queues.
+</pre></div>
+</div>
+<p>Note, if you would like to know possible parameters of the message, put a wrong one – you will be prompted if you want to list all the current bot harmonization.</p>
+</div>
+<div class="section" id="process">
+<h4>process<a class="headerlink" href="#process" title="Permalink to this headline">¶</a></h4>
+<p>With no other arguments, bot’s <code class="docutils literal notranslate"><span class="pre">process()</span></code> method will be run one time.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>&gt; intelmqctl run file-output process
+file-output: Bot is starting.
+file-output: Bot initialization completed.
+file-output: Processing...
+file-output: Waiting <span class="k">for</span> incoming message.
+file-output: Received message <span class="o">{</span><span class="s1">&#39;raw&#39;</span>: <span class="s1">&#39;1234&#39;</span><span class="o">}</span>.
+</pre></div>
+</div>
+<p>If run with <strong>–dryrun|-d</strong> flag, the message gets never really popped out from the source or internal pipeline, nor sent to the output pipeline.
+Plus, you receive a note about the exact moment the message would get sent, or acknowledged. If the message would be sent to a non-default path, the name of this path is printed on the console.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>&gt; intelmqctl run file-output process -d
+file-output:  * Dryrun only, no message will be really sent through.
+...
+file-output: DRYRUN: Message would be acknowledged now!
+</pre></div>
+</div>
+<p>You may trick the bot to process a JSON instead of the Message in its pipeline with <strong>–msg|-m</strong> flag.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>&gt; intelmqctl run file-output process -m <span class="s1">&#39;{&quot;source.ip&quot;:&quot;1.2.3.4&quot;}&#39;</span>
+file-output:  * Message from cli will be used when processing.
+...
+</pre></div>
+</div>
+<p>If you wish to display the processed message as well, you the <strong>–show-sent|-s</strong> flag. Then, if sent through (either with <code class="docutils literal notranslate"><span class="pre">--dryrun</span></code> or without), the message gets displayed as well.</p>
+</div>
+</div>
+<div class="section" id="disable">
+<h3>disable<a class="headerlink" href="#disable" title="Permalink to this headline">¶</a></h3>
+<p>Sets the <code class="docutils literal notranslate"><span class="pre">enabled</span></code> flag in the runtime configuration of the bot to <code class="docutils literal notranslate"><span class="pre">false</span></code>.
+By default, all bots are enabled.</p>
+<p>Example output:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>&gt; intelmqctl status file-output
+file-output is stopped.
+&gt; intelmqctl disable file-output
+&gt; intelmqctl status file-output
+file-output is disabled.
+</pre></div>
+</div>
+</div>
+<div class="section" id="enable">
+<h3>enable<a class="headerlink" href="#enable" title="Permalink to this headline">¶</a></h3>
+<p>Sets the <code class="docutils literal notranslate"><span class="pre">enabled</span></code> flag in the runtime configuration of the bot to <code class="docutils literal notranslate"><span class="pre">true</span></code>.</p>
+<p>Example output:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>&gt; intelmqctl status file-output
+file-output is disabled.
+&gt; intelmqctl <span class="nb">enable</span> file-output
+&gt; intelmqctl status file-output
+file-output is stopped.
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="manage-the-botnet">
+<h2>Manage the botnet<a class="headerlink" href="#manage-the-botnet" title="Permalink to this headline">¶</a></h2>
+<p>In IntelMQ, the botnet is the set of all currently configured and enabled bots.
+All configured bots have their configuration in runtime.conf and their queues in pipeline.conf.
+By default, all bots are enabled. To disable a bot set <code class="docutils literal notranslate"><span class="pre">enabled</span></code> to <code class="docutils literal notranslate"><span class="pre">false</span></code>.
+Also see <a class="reference internal" href="Bots.html"><span class="doc">Bots</span></a> and [User-Guide.html#runtime-configuration](User Guide: Runtime Configuration).</p>
+<p>If not bot id is given, the command applies to all bots / the botnet.
+All commands except the start action are applied to all bots.
+But only enabled bots are started.</p>
+<p>In the examples below, a very minimal botnet is used.</p>
+<div class="section" id="id1">
+<h3>start<a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h3>
+<p>The start action applies to all bots which are enabled.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>&gt; intelmqctl start
+Starting abusech-domain-parser...
+abusech-domain-parser is running.
+Starting abusech-feodo-domains-collector...
+abusech-feodo-domains-collector is running.
+Starting deduplicator-expert...
+deduplicator-expert is running.
+file-output is disabled.
+Botnet is running.
+</pre></div>
+</div>
+<p>As we can &gt; intelmqctl stop
+Stopping Botnet…
+Stopping abusech-domain-parser…
+abusech-domain-parser is stopped.
+Stopping abusech-feodo-domains-collector…
+abusech-feodo-domains-collector is stopped.
+Stopping deduplicator-expert…
+deduplicator-expert is stopped.
+Stopping file-output…
+file-output is stopped.
+Botnet is stopped.
+see, file-output is disabled and thus has not been started. You can always explicitly start disabled bots.</p>
+</div>
+<div class="section" id="id2">
+<h3>stop<a class="headerlink" href="#id2" title="Permalink to this headline">¶</a></h3>
+<p>The stop action applies to all bots. Assume that all bots have been running:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>&gt; intelmqctl stop
+Stopping Botnet...
+Stopping abusech-domain-parser...
+abusech-domain-parser is stopped.
+Stopping abusech-feodo-domains-collector...
+abusech-feodo-domains-collector is stopped.
+Stopping deduplicator-expert...
+deduplicator-expert is stopped.
+Stopping file-output...
+file-output is stopped.
+Botnet is stopped.
+</pre></div>
+</div>
+</div>
+<div class="section" id="id3">
+<h3>status<a class="headerlink" href="#id3" title="Permalink to this headline">¶</a></h3>
+<p>With this command we can see the status of all configured bots. Here, the botnet was started beforehand:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>&gt; intelmqctl status
+abusech-domain-parser is running.
+abusech-feodo-domains-collector is running.
+deduplicator-expert is running.
+file-output is disabled.
+</pre></div>
+</div>
+<p>And if the disabled bot has also been started:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>&gt; intelmqctl status
+abusech-domain-parser is running.
+abusech-feodo-domains-collector is running.
+deduplicator-expert is running.
+file-output is running.
+</pre></div>
+</div>
+<p>If the botnet is stopped, the output looks like this:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>&gt; intelmqctl status
+abusech-domain-parser is stopped.
+abusech-feodo-domains-collector is stopped.
+deduplicator-expert is stopped.
+file-output is disabled.
+</pre></div>
+</div>
+</div>
+<div class="section" id="id4">
+<h3>restart<a class="headerlink" href="#id4" title="Permalink to this headline">¶</a></h3>
+<p>The same as start and stop consecutively.</p>
+</div>
+<div class="section" id="id5">
+<h3>reload<a class="headerlink" href="#id5" title="Permalink to this headline">¶</a></h3>
+<p>The same as reload of every bot.</p>
+</div>
+<div class="section" id="enable-disable">
+<h3>enable / disable<a class="headerlink" href="#enable-disable" title="Permalink to this headline">¶</a></h3>
+<p>The sub commands <code class="docutils literal notranslate"><span class="pre">enable</span></code> and <code class="docutils literal notranslate"><span class="pre">disable</span></code> set the corresponding flags in runtime.conf.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>&gt; intelmqctl status
+file-output is stopped.
+malware-domain-list-collector is stopped.
+malware-domain-list-parser is stopped.
+&gt; intelmqctl disable file-output
+&gt; intelmqctl status
+file-output is disabled.
+malware-domain-list-collector is stopped.
+malware-domain-list-parser is stopped.
+&gt; intelmqctl <span class="nb">enable</span> file-output
+&gt; intelmqctl status
+file-output is stopped.
+malware-domain-list-collector is stopped.
+malware-domain-list-parser is stopped.
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="list-bots">
+<h2>List bots<a class="headerlink" href="#list-bots" title="Permalink to this headline">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">intelmqctl</span> <span class="pre">list</span> <span class="pre">bots</span></code> does list all configured bots and their description.</p>
+</div>
+<div class="section" id="list-queues">
+<h2>List queues<a class="headerlink" href="#list-queues" title="Permalink to this headline">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">intelmqctl</span> <span class="pre">list</span> <span class="pre">queues</span></code> shows all queues which are currently in use according to the configuration and how much events are in it:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>&gt; intelmqctl list queues
+abusech-domain-parser-queue - <span class="m">0</span>
+abusech-domain-parser-queue-internal - <span class="m">0</span>
+deduplicator-expert-queue - <span class="m">0</span>
+deduplicator-expert-queue-internal - <span class="m">0</span>
+file-output-queue - <span class="m">234</span>
+file-output-queue-internal - <span class="m">0</span>
+</pre></div>
+</div>
+<p>Use the <code class="docutils literal notranslate"><span class="pre">-q</span></code> or <code class="docutils literal notranslate"><span class="pre">--quiet</span></code> flag to only show non-empty queues:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>&gt; intelmqctl list queues -q
+file-output-queue - <span class="m">234</span>
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">--sum</span></code> or <code class="docutils literal notranslate"><span class="pre">--count</span></code> flag will show the sum of events on all queues:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>&gt; intelmqctl list queues --sum
+<span class="m">42</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="log">
+<h2>Log<a class="headerlink" href="#log" title="Permalink to this headline">¶</a></h2>
+<p>intelmqctl can show the last log lines for a bot, filtered by the log level.</p>
+<p>See the help page for more information.</p>
+</div>
+<div class="section" id="check">
+<h2>Check<a class="headerlink" href="#check" title="Permalink to this headline">¶</a></h2>
+<p>This command will do various sanity checks on the installation and especially the configuration.</p>
+<div class="section" id="orphaned-queues">
+<h3>Orphaned Queues<a class="headerlink" href="#orphaned-queues" title="Permalink to this headline">¶</a></h3>
+<p>The <code class="docutils literal notranslate"><span class="pre">intelmqctl</span> <span class="pre">check</span></code> tool can search for orphaned queues. “Orphaned queues” are queues that have been used in the past and are no longer in use. For example you had a bot which you removed or renamed afterwards, but there were still messages in it’s source queue. The source queue won’t be renamed automatically and is now disconnected. As this queue is no longer configured, it won’t show up in the list of IntelMQ’s queues too. In case you are using redis as message broker, you can use the <code class="docutils literal notranslate"><span class="pre">redis-cli</span></code> tool to examine or remove these queues:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>redis-cli -n <span class="m">2</span>
+keys * <span class="c1"># lists all existing non-empty queues</span>
+llen <span class="o">[</span>queue-name<span class="o">]</span> <span class="c1"># shows the length of the queue [queue-name]</span>
+lindex <span class="o">[</span>queue-name<span class="o">]</span> <span class="o">[</span>index<span class="o">]</span> <span class="c1"># show the [index]&#39;s message of the queue [queue-name]</span>
+del <span class="o">[</span>queue-name<span class="o">]</span> <span class="c1"># remove the queue [queue-name]</span>
+</pre></div>
+</div>
+<p>To ignore certain queues in this check, you can set the parameter <code class="docutils literal notranslate"><span class="pre">intelmqctl_check_orphaned_queues_ignore</span></code> in the <em>defaults</em> configuration file. For example:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span>    &quot;intelmqctl_check_orphaned_queues_ignore&quot;: [&quot;Taichung-Parser&quot;],
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="configuration-upgrade">
+<h2>Configuration upgrade<a class="headerlink" href="#configuration-upgrade" title="Permalink to this headline">¶</a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">intelmqctl</span> <span class="pre">upgrade-config</span></code> function upgrade, upgrade the configuration from previous versions to the current one.
+It keeps track of previously installed versions and the result of all “upgrade functions” in the “state file”, locate in the <code class="docutils literal notranslate"><span class="pre">$var_state_path/state.json</span></code> (<code class="docutils literal notranslate"><span class="pre">/opt/intelmq/var/lib/state.json</span></code> or <code class="docutils literal notranslate"><span class="pre">/var/lib/intelmq/state.json</span></code>).</p>
+<p>This function has been introduced in version 2.0.1.</p>
+<p>It makes backups itself for all changed files before every run. Backups are overridden if they already exists. So make sure to always have a backup of your configuration just in case.</p>
+</div>
+<div class="section" id="exit-code">
+<h2>Exit code<a class="headerlink" href="#exit-code" title="Permalink to this headline">¶</a></h2>
+<p>In case of errors, unsuccessful operations, the exit code is higher than 0.
+For example, when running <code class="docutils literal notranslate"><span class="pre">intelmqctl</span> <span class="pre">start</span></code> and one enabled bot is not running, the exit code is 1.
+The same is valid for e.g. <code class="docutils literal notranslate"><span class="pre">intelmqctl</span> <span class="pre">status</span></code>, which can be used for monitoring, and all other operations.</p>
+</div>
+<div class="section" id="known-issues">
+<h2>Known issues<a class="headerlink" href="#known-issues" title="Permalink to this headline">¶</a></h2>
+<p>The currently implemented process managing using PID files is very erroneous.</p>
+</div>
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../index.html">
+    <img class="logo" src="../_static/Logo_Intel_MQ.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+<p class="blurb">IntelMQ is a solution for IT security teams for collecting and processing security feeds using a message queuing protocol.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=certtools&repo=intelmq&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="Ecosystem.html">IntelMQ Ecosystem</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="README.html">Welcome to IntelMQ!</a></li>
+<li class="toctree-l1"><a class="reference internal" href="INSTALL.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="UPGRADING.html">Upgrade instructions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="User-Guide.html">User Guide</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">intelmqctl documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Bots.html">Bots Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Feeds.html">Available Feeds</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ELK-Stack.html">ELK Stack</a></li>
+<li class="toctree-l1"><a class="reference internal" href="FAQ.html">Frequently asked questions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="MISP-Integrations.html">MISP integrations in IntelMQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="n6-integrations.html">IntelMQ - n6 Integration</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="Developers-Guide.html">Developers Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Data-Harmonization.html">Data Harmonization</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Harmonization-fields.html">Harmonization field names</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Release.html">Release procedure</a></li>
+<li class="toctree-l1"><a class="reference internal" href="IntelMQ-3.0-Architecture.html">Idea list and architecture of IntelMQ 3.0</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Feeds-whishlist.html">Feeds whishlist</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="User-Guide.html" title="previous chapter">User Guide</a></li>
+      <li>Next: <a href="Bots.html" title="next chapter">Bots Documentation</a></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2020, cert.at.
+      
+      |
+      <a href="../_sources/guides/intelmqctl.md.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

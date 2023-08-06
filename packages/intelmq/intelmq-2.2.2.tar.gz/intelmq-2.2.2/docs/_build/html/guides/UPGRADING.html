@@ -1,0 +1,217 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Upgrade instructions &#8212; intelmq 2.3.0 documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <script src="../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="User Guide" href="User-Guide.html" />
+    <link rel="prev" title="Installation" href="INSTALL.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="upgrade-instructions">
+<h1>Upgrade instructions<a class="headerlink" href="#upgrade-instructions" title="Permalink to this headline">¶</a></h1>
+<p>For installation instructions, see <a class="reference internal" href="INSTALL.html"><span class="doc">INSTALL</span></a>.</p>
+<p><strong>Table of Contents:</strong></p>
+<ul class="simple">
+<li><p><a class="reference external" href="#stop-intelmq-and-backup">Stop IntelMQ and Backup</a></p></li>
+<li><p><a class="reference external" href="#upgrade-intelmq">Upgrade IntelMQ</a></p>
+<ul>
+<li><p><a class="reference external" href="#packages">Packages</a></p></li>
+<li><p><a class="reference external" href="#pypi">PyPi</a></p></li>
+<li><p><a class="reference external" href="#local-repository">Local repository</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference external" href="#check-the-installation">Check the installation</a></p></li>
+<li><p><a class="reference external" href="#redefinecheck-permissions">Redefine/Check permissions</a></p></li>
+<li><p><a class="reference external" href="#start-intelmq">Start IntelMQ</a></p></li>
+</ul>
+<div class="section" id="read-news">
+<h2>Read NEWS<a class="headerlink" href="#read-news" title="Permalink to this headline">¶</a></h2>
+<p>Read the <a class="reference external" href="https://github.com/certtools/intelmq/blob/develop/NEWS">NEWS</a> file to look for things you need to have a look at.</p>
+</div>
+<div class="section" id="stop-intelmq-and-backup">
+<h2>Stop IntelMQ and Backup<a class="headerlink" href="#stop-intelmq-and-backup" title="Permalink to this headline">¶</a></h2>
+<ul class="simple">
+<li><p>Make sure that your IntelMQ system is completely stopped: <code class="docutils literal notranslate"><span class="pre">intelmqctl</span> <span class="pre">stop</span></code></p></li>
+<li><p>Create a backup of IntelMQ Home directory, which includes all configurations. They are not overwritten, but backups are always nice to have!</p></li>
+</ul>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>&gt; sudo cp -R /opt/intelmq /opt/intelmq-backup
+</pre></div>
+</div>
+</div>
+<div class="section" id="upgrade-intelmq">
+<h2>Upgrade IntelMQ<a class="headerlink" href="#upgrade-intelmq" title="Permalink to this headline">¶</a></h2>
+<p>Before upgrading, check that your setup is clean and there are no events in the queues:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>intelmqctl check
+intelmqctl list queues -q
+</pre></div>
+</div>
+<p>The upgrade depends on how you installed IntelMQ.</p>
+<div class="section" id="packages">
+<h3>Packages<a class="headerlink" href="#packages" title="Permalink to this headline">¶</a></h3>
+<p>Use your systems package management.</p>
+</div>
+<div class="section" id="pypi">
+<h3>PyPi<a class="headerlink" href="#pypi" title="Permalink to this headline">¶</a></h3>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">pip</span> <span class="n">install</span> <span class="o">-</span><span class="n">U</span> <span class="o">--</span><span class="n">no</span><span class="o">-</span><span class="n">deps</span> <span class="n">intelmq</span>
+<span class="n">sudo</span> <span class="n">intelmqsetup</span>
+</pre></div>
+</div>
+<p>Using <code class="docutils literal notranslate"><span class="pre">--no-deps</span></code> will not upgrade dependencies, which would probably overwrite the system’s libraries.
+Remove this option to also upgrade dependencies.</p>
+</div>
+<div class="section" id="local-repository">
+<h3>Local repository<a class="headerlink" href="#local-repository" title="Permalink to this headline">¶</a></h3>
+<p>If you have an editable installation, refer to the instructions in the <a class="reference external" href="Developers-Guide.html#development-environment">Developers Guide</a>.</p>
+<p>Update the repository depending on your setup (e.g. <code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">pull</span> <span class="pre">origin</span> <span class="pre">master</span></code>).</p>
+<p>And run the installation again:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip install .
+sudo intelmqsetup
+</pre></div>
+</div>
+<p>For editable installations (development only), run <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">-e</span> <span class="pre">.</span></code> instead.</p>
+</div>
+</div>
+<div class="section" id="upgrade-configuration-and-check-the-installation">
+<h2>Upgrade configuration and check the installation<a class="headerlink" href="#upgrade-configuration-and-check-the-installation" title="Permalink to this headline">¶</a></h2>
+<p>Go through <a class="reference external" href="https://github.com/certtools/intelmq/blob/master/NEWS">NEWS</a> and apply necessary adaptions to your setup.
+If you have adapted IntelMQ’s code, also read the <a class="reference external" href="https://github.com/certtools/intelmq/blob/master/CHANGELOG">CHANGELOG</a>.</p>
+<p>Check your installation and configuration to detect any problems:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>intelmqctl upgrade-config
+intelmqctl check
+</pre></div>
+</div>
+</div>
+<div class="section" id="start-intelmq">
+<h2>Start IntelMQ<a class="headerlink" href="#start-intelmq" title="Permalink to this headline">¶</a></h2>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">&gt;</span> <span class="n">intelmqctl</span> <span class="n">start</span>
+</pre></div>
+</div>
+</div>
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../index.html">
+    <img class="logo" src="../_static/Logo_Intel_MQ.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+<p class="blurb">IntelMQ is a solution for IT security teams for collecting and processing security feeds using a message queuing protocol.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=certtools&repo=intelmq&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="Ecosystem.html">IntelMQ Ecosystem</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="README.html">Welcome to IntelMQ!</a></li>
+<li class="toctree-l1"><a class="reference internal" href="INSTALL.html">Installation</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Upgrade instructions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="User-Guide.html">User Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="intelmqctl.html">intelmqctl documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Bots.html">Bots Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Feeds.html">Available Feeds</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ELK-Stack.html">ELK Stack</a></li>
+<li class="toctree-l1"><a class="reference internal" href="FAQ.html">Frequently asked questions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="MISP-Integrations.html">MISP integrations in IntelMQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="n6-integrations.html">IntelMQ - n6 Integration</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="Developers-Guide.html">Developers Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Data-Harmonization.html">Data Harmonization</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Harmonization-fields.html">Harmonization field names</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Release.html">Release procedure</a></li>
+<li class="toctree-l1"><a class="reference internal" href="IntelMQ-3.0-Architecture.html">Idea list and architecture of IntelMQ 3.0</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Feeds-whishlist.html">Feeds whishlist</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="INSTALL.html" title="previous chapter">Installation</a></li>
+      <li>Next: <a href="User-Guide.html" title="next chapter">User Guide</a></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2020, cert.at.
+      
+      |
+      <a href="../_sources/guides/UPGRADING.md.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

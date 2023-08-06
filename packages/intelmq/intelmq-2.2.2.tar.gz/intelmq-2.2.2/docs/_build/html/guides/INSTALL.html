@@ -1,0 +1,266 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Installation &#8212; intelmq 2.3.0 documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <script src="../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Upgrade instructions" href="UPGRADING.html" />
+    <link rel="prev" title="Welcome to IntelMQ!" href="README.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="installation">
+<h1>Installation<a class="headerlink" href="#installation" title="Permalink to this headline">¶</a></h1>
+<p><strong>Table of Contents:</strong></p>
+<ul class="simple">
+<li><p><a class="reference external" href="#requirements">Requirements</a></p></li>
+<li><p><a class="reference external" href="#install-dependencies">Install Dependencies</a></p>
+<ul>
+<li><p><a class="reference external" href="#ubuntu--debian">Ubuntu / Debian</a></p></li>
+<li><p><a class="reference external" href="#centos-7--rhel-7">CentOS 7 / RHEL 7</a></p></li>
+<li><p><a class="reference external" href="#opensuse-leap-151">openSUSE Leap 15.1</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference external" href="#installation">Installation</a></p>
+<ul>
+<li><p><a class="reference external" href="#native-packages">Native Packages</a></p></li>
+<li><p><a class="reference external" href="#pypi">PyPi</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference external" href="#additional-information">Additional Information</a></p></li>
+<li><p><a class="reference external" href="#afterwards">Afterwards</a></p></li>
+</ul>
+<p>Please report any errors you encounter at https://github.com/certtools/intelmq/issues</p>
+<p>For upgrade instructions, see <a class="reference internal" href="UPGRADING.html"><span class="doc">UPGRADING</span></a>.
+For setting up a development environment see the <a class="reference external" href="Developers-Guide.html#development-environment">Developer’s Guide</a> section <em>Development Environment</em>.
+For testing pre-releases see also the <a class="reference external" href="Developers-Guide.html#testing-pre-releases">Developer’s Guide</a> section <em>Testing Pre-releases</em>.</p>
+<div class="section" id="requirements">
+<h2>Requirements<a class="headerlink" href="#requirements" title="Permalink to this headline">¶</a></h2>
+<p>The following instructions assume the following requirements. Python versions &gt;= 3.5 are supported.</p>
+<p>Supported and recommended operating systems are:</p>
+<ul class="simple">
+<li><p>CentOS 7</p></li>
+<li><p>Debian 9 and 10</p></li>
+<li><p>OpenSUSE Leap 15.1</p></li>
+<li><p>Ubuntu: 16.04, 18.04, 19.10, 20.04</p></li>
+</ul>
+<p>Other distributions which are (most probably) supported include CentOS 8, RHEL, Fedora and openSUSE Tumbleweed.</p>
+</div>
+<div class="section" id="install-dependencies">
+<h2>Install Dependencies<a class="headerlink" href="#install-dependencies" title="Permalink to this headline">¶</a></h2>
+<p>If you are using native packages, you can simply skip this section as all dependencies are installed automatically.</p>
+<div class="section" id="ubuntu-debian">
+<h3>Ubuntu / Debian<a class="headerlink" href="#ubuntu-debian" title="Permalink to this headline">¶</a></h3>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>apt install python3-pip python3-dnspython python3-psutil python3-redis python3-requests python3-termstyle python3-tz python3-dateutil
+apt install redis-server
+</pre></div>
+</div>
+<p>Optional dependencies:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>apt install bash-completion jq
+apt install python3-sleekxmpp python3-pymongo python3-psycopg2
+</pre></div>
+</div>
+</div>
+<div class="section" id="centos-7-rhel-7">
+<h3>CentOS 7 / RHEL 7<a class="headerlink" href="#centos-7-rhel-7" title="Permalink to this headline">¶</a></h3>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>yum install epel-release
+yum install python36 python36-devel python36-requests
+yum install gcc gcc-c++
+yum install redis
+</pre></div>
+</div>
+</div>
+<div class="section" id="opensuse-15-1">
+<h3>openSUSE 15.1<a class="headerlink" href="#opensuse-15-1" title="Permalink to this headline">¶</a></h3>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>zypper install python3-dateutil python3-dnspython python3-psutil python3-pytz python3-redis python3-requests python3-python-termstyle
+zypper install redis
+</pre></div>
+</div>
+<p>Optional dependencies:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>zypper in bash-completion jq
+zypper in python3-psycopg2 python3-pymongo python3-sleekxmpp
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="id1">
+<h2>Installation<a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h2>
+<p>Installation methods available:</p>
+<ul class="simple">
+<li><p>native packages (<code class="docutils literal notranslate"><span class="pre">.deb</span></code>, <code class="docutils literal notranslate"><span class="pre">.rpm</span></code>)</p></li>
+<li><p>PyPi (latest releases as python package)</p></li>
+</ul>
+<p><strong>Note:</strong> installation for development purposes must follow the instructions available on <a class="reference external" href="Developers-Guide.html#development-environment">Developers Guide</a>.</p>
+<div class="section" id="native-packages">
+<h3>Native Packages<a class="headerlink" href="#native-packages" title="Permalink to this headline">¶</a></h3>
+<p>Supported Operating Systems:</p>
+<ul class="simple">
+<li><p><strong>CentOS 7</strong> (requires <code class="docutils literal notranslate"><span class="pre">epel-release</span></code>)</p></li>
+<li><p><strong>Debian 8</strong> (requires <code class="docutils literal notranslate"><span class="pre">python3-typing</span></code>)</p></li>
+<li><p><strong>Debian 9</strong></p></li>
+<li><p><strong>Debian 10</strong></p></li>
+<li><p><strong>Fedora 29</strong></p></li>
+<li><p><strong>Fedora 30</strong></p></li>
+<li><p><strong>RHEL 7</strong>  (requires <code class="docutils literal notranslate"><span class="pre">epel-release</span></code>)</p></li>
+<li><p><strong>openSUSE Leap 15.0</strong></p></li>
+<li><p><strong>openSUSE Leap 15.1</strong></p></li>
+<li><p><strong>openSUSE Tumbleweed</strong></p></li>
+<li><p><strong>Ubuntu 16.04</strong> (enable the universe repositories by appending <code class="docutils literal notranslate"> <span class="pre">universe</span></code> in <code class="docutils literal notranslate"><span class="pre">/etc/apt/sources.list</span></code> to <code class="docutils literal notranslate"><span class="pre">deb</span> <span class="pre">http://[...].archive.ubuntu.com/ubuntu/</span> <span class="pre">xenial</span> <span class="pre">main</span></code>)</p></li>
+<li><p><strong>Ubuntu 18.04</strong> (enable the universe repositories by appending <code class="docutils literal notranslate"> <span class="pre">universe</span></code> in <code class="docutils literal notranslate"><span class="pre">/etc/apt/sources.list</span></code> to <code class="docutils literal notranslate"><span class="pre">deb</span> <span class="pre">http://[...].archive.ubuntu.com/ubuntu/</span> <span class="pre">bionic</span> <span class="pre">main</span></code>)</p></li>
+<li><p><strong>Ubuntu 19.10</strong> (enable the universe repositories by appending <code class="docutils literal notranslate"> <span class="pre">universe</span></code> in <code class="docutils literal notranslate"><span class="pre">/etc/apt/sources.list</span></code> to <code class="docutils literal notranslate"><span class="pre">deb</span> <span class="pre">http://[...].archive.ubuntu.com/ubuntu/</span> <span class="pre">eoan</span> <span class="pre">main</span></code>)</p></li>
+<li><p><strong>Ubuntu 20.04</strong> (enable the universe repositories by appending <code class="docutils literal notranslate"> <span class="pre">universe</span></code> in <code class="docutils literal notranslate"><span class="pre">/etc/apt/sources.list</span></code> to <code class="docutils literal notranslate"><span class="pre">deb</span> <span class="pre">http://[...].archive.ubuntu.com/ubuntu/</span> <span class="pre">focal</span> <span class="pre">main</span></code>)</p></li>
+</ul>
+<p>Get the installation instructions for your operating system here: <a class="reference external" href="https://software.opensuse.org/download.html?project=home%3Asebix%3Aintelmq&amp;package=intelmq">Installation Native Packages</a>.
+To import the key on Debian and Ubuntu, use:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>curl https://build.opensuse.org/projects/home:sebix:intelmq/public_key <span class="p">|</span> sudo apt-key add -
+</pre></div>
+</div>
+<p>Please report any errors or improvements at <a class="reference external" href="https://github.com/certtools/intelmq/issues">IntelMQ Issues</a>. Thanks!</p>
+</div>
+<div class="section" id="pypi">
+<h3>PyPi<a class="headerlink" href="#pypi" title="Permalink to this headline">¶</a></h3>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>sudo -i
+
+pip3 install intelmq
+
+useradd -d /opt/intelmq -U -s /bin/bash intelmq
+sudo intelmqsetup
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">intelmqsetup</span></code> will create all necessary directories, provides a default configuration for new setups. See <a class="reference external" href="User-Guide.html#opt-and-lsb-paths">the user-guide section on paths</a> for more information on them and how to influence them.</p>
+</div>
+<div class="section" id="additional-information">
+<h3>Additional Information<a class="headerlink" href="#additional-information" title="Permalink to this headline">¶</a></h3>
+<p>Following any one of the installation methods mentioned before, will setup the IntelMQ base. However, some bots may have additional dependencies which are mentioned in their own documentation available on in the <a class="reference internal" href="Bots.html"><span class="doc">Bots documentation</span></a>.</p>
+</div>
+</div>
+<div class="section" id="afterwards">
+<h2>Afterwards<a class="headerlink" href="#afterwards" title="Permalink to this headline">¶</a></h2>
+<p>Now continue with the <a class="reference internal" href="User-Guide.html"><span class="doc">User Guide</span></a>.</p>
+</div>
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../index.html">
+    <img class="logo" src="../_static/Logo_Intel_MQ.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+<p class="blurb">IntelMQ is a solution for IT security teams for collecting and processing security feeds using a message queuing protocol.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=certtools&repo=intelmq&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="Ecosystem.html">IntelMQ Ecosystem</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="README.html">Welcome to IntelMQ!</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="UPGRADING.html">Upgrade instructions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="User-Guide.html">User Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="intelmqctl.html">intelmqctl documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Bots.html">Bots Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Feeds.html">Available Feeds</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ELK-Stack.html">ELK Stack</a></li>
+<li class="toctree-l1"><a class="reference internal" href="FAQ.html">Frequently asked questions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="MISP-Integrations.html">MISP integrations in IntelMQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="n6-integrations.html">IntelMQ - n6 Integration</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="Developers-Guide.html">Developers Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Data-Harmonization.html">Data Harmonization</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Harmonization-fields.html">Harmonization field names</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Release.html">Release procedure</a></li>
+<li class="toctree-l1"><a class="reference internal" href="IntelMQ-3.0-Architecture.html">Idea list and architecture of IntelMQ 3.0</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Feeds-whishlist.html">Feeds whishlist</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="README.html" title="previous chapter">Welcome to IntelMQ!</a></li>
+      <li>Next: <a href="UPGRADING.html" title="next chapter">Upgrade instructions</a></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2020, cert.at.
+      
+      |
+      <a href="../_sources/guides/INSTALL.md.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

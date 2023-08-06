@@ -1,0 +1,239 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Frequently asked questions &#8212; intelmq 2.3.0 documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <script src="../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="MISP integrations in IntelMQ" href="MISP-Integrations.html" />
+    <link rel="prev" title="ELK Stack" href="ELK-Stack.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="frequently-asked-questions">
+<h1>Frequently asked questions<a class="headerlink" href="#frequently-asked-questions" title="Permalink to this headline">¶</a></h1>
+<p><strong>Table of Contents:</strong></p>
+<ul class="simple">
+<li><p><a class="reference external" href="#send-intelmq-events-to-splunk">Send IntelMQ events to Splunk</a></p></li>
+<li><p><a class="reference external" href="#permission-denied-when-using-redis-unix-socket">Permission denied when using redis unix socket</a></p></li>
+<li><p><a class="reference external" href="#why-is-the-time-invalid">Why is the time invalid?</a></p></li>
+<li><p><a class="reference external" href="#how-can-i-improve-the-speed">How can I improve the speed?</a></p></li>
+<li><p><a class="reference external" href="#my-bots-died-on-startup-with-no-errors-logged">My bot(s) died on startup with no errors logged</a></p></li>
+<li><p><a class="reference external" href="#orphaned-queues">Orphaned Queues</a></p></li>
+<li><p><a class="reference external" href="#multithreading-is-not-available-for-this-bot">Multithreading is not available for this bot</a></p></li>
+</ul>
+<div class="section" id="send-intelmq-events-to-splunk">
+<h2>Send IntelMQ events to Splunk<a class="headerlink" href="#send-intelmq-events-to-splunk" title="Permalink to this headline">¶</a></h2>
+<ol class="simple">
+<li><p>Go to Splunk and configure in order to be able to receive logs(intelmq events) to a tcp port</p></li>
+<li><p>Use tcp output bot and configure accordingly to the Splunk configuration that you applied.</p></li>
+</ol>
+</div>
+<div class="section" id="permission-denied-when-using-redis-unix-socket">
+<h2>Permission denied when using redis unix socket<a class="headerlink" href="#permission-denied-when-using-redis-unix-socket" title="Permalink to this headline">¶</a></h2>
+<p>If you get an error like this:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">intelmq</span><span class="o">.</span><span class="n">lib</span><span class="o">.</span><span class="n">exceptions</span><span class="o">.</span><span class="n">PipelineError</span><span class="p">:</span> <span class="n">pipeline</span> <span class="n">failed</span> <span class="o">-</span> <span class="ne">ConnectionError</span><span class="p">(</span><span class="s1">&#39;Error 13 connecting to unix socket: /var/run/redis/redis.sock. Permission denied.&#39;</span><span class="p">,)</span>
+</pre></div>
+</div>
+<p>make sure the permissions for the socket are set accordingly in <code class="docutils literal notranslate"><span class="pre">/etc/redis/redis.conf</span></code> (or wherever your config is), e.g.:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">unixsocketperm</span> <span class="mi">777</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="why-is-the-time-invalid">
+<h2>Why is the time invalid?<a class="headerlink" href="#why-is-the-time-invalid" title="Permalink to this headline">¶</a></h2>
+<p>If you wonder why you are getting errors like this:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">intelmq</span><span class="o">.</span><span class="n">lib</span><span class="o">.</span><span class="n">exceptions</span><span class="o">.</span><span class="n">InvalidValue</span><span class="p">:</span> <span class="n">invalid</span> <span class="n">value</span> <span class="s1">&#39;2017-03-06T07:36:29&#39;</span> <span class="p">()</span> <span class="k">for</span> <span class="n">key</span> <span class="s1">&#39;time.source&#39;</span>
+</pre></div>
+</div>
+<p>IntelMQ requires time zone information for all timestamps. Without a time zone, the time is ambiguous and therefore rejected.</p>
+</div>
+<div class="section" id="how-can-i-improve-the-speed">
+<h2>How can I improve the speed?<a class="headerlink" href="#how-can-i-improve-the-speed" title="Permalink to this headline">¶</a></h2>
+<p>In most cases the bottlenecks are look-up experts. In these cases you can easily use the integrated load balancing features.</p>
+<div class="section" id="multithreading">
+<h3>Multithreading<a class="headerlink" href="#multithreading" title="Permalink to this headline">¶</a></h3>
+<p>When using the AMQP broker, you can make use of Multi-threading. See the <a class="reference external" href="User-Guide.html#multithreading-beta">Uer-Guide, section Multithreading</a>.</p>
+</div>
+<div class="section" id="classic-load-balancing-multiprocessing">
+<h3>“Classic” load-balancing (Multiprocessing)<a class="headerlink" href="#classic-load-balancing-multiprocessing" title="Permalink to this headline">¶</a></h3>
+<p>Before Multithreading was available in IntelMQ, and in case you use Redis as broker, the only way to do load balancing involves more work.
+Create multiple instances of the same bot and connect them all to the same source and destination bots. Then set the parameter <code class="docutils literal notranslate"><span class="pre">load_balance</span></code> to <code class="docutils literal notranslate"><span class="pre">true</span></code> for the bot which sends the messages to the duplicated bot. Then, the bot sends messages to only one of the destination queues and not to all of them.</p>
+<p>True Multi<em>processing</em> is not available in IntelMQ. See also this discussion on a possible enhanced load balancing: https://github.com/certtools/intelmq/issues/186</p>
+</div>
+<div class="section" id="other-options">
+<h3>Other options<a class="headerlink" href="#other-options" title="Permalink to this headline">¶</a></h3>
+<p>For any bottleneck based on (online) lookups, optimize the lookup itself and if possible use local databases.</p>
+<p>It is also possible to use multiple servers to spread the workload. To get the messages from one system to the other you can either directly connect to the other’s pipeline or use a fast exchange mechanism such as the TCP Collector/Output (make sure to secure the network by other means).</p>
+</div>
+<div class="section" id="removing-raw-data-for-higher-performance-and-less-space-usage">
+<h3>Removing raw data for higher performance and less space usage<a class="headerlink" href="#removing-raw-data-for-higher-performance-and-less-space-usage" title="Permalink to this headline">¶</a></h3>
+<p>If you do not need the raw data, you can safely remove it. For events (after parsers), it keeps the original data, eg. a line of a CSV file. In reports it keeps the actual data to be parsed, so don’t delete the raw field in Reports - between collectors and parsers.</p>
+<p>The raw data consumes about 50% - 30% of the messages’ size. The size of course depends on how many additional data you add to it and how much data the report includes. Dropping it, will improve the speed as less data needs to be transferred and processed at each step.</p>
+<div class="section" id="in-a-bot">
+<h4>In a bot<a class="headerlink" href="#in-a-bot" title="Permalink to this headline">¶</a></h4>
+<p>You can do this for example by using the <em>Field Reducer Expert</em>. The configuration could be:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">type</span></code>: <code class="docutils literal notranslate"><span class="pre">blacklist</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">keys</span></code>: <code class="docutils literal notranslate"><span class="pre">raw</span></code></p></li>
+</ul>
+<p>Other solutions are the <em>Modify</em> bot and the <em>Sieve</em> bot. The last one is a good choice if you already use it and you only need to add the command:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">remove</span> <span class="n">raw</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="in-the-database">
+<h4>In the database<a class="headerlink" href="#in-the-database" title="Permalink to this headline">¶</a></h4>
+<p>In case you store data in the database and you want to keep its size small, you can (periodically) delete the raw data there.</p>
+<p>To remove the raw data for a events table of a PostgreSQL database, you can use something like:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">UPDATE</span> <span class="n">events</span> <span class="n">SET</span> <span class="n">raw</span> <span class="o">=</span> <span class="n">NULL</span> <span class="n">WHERE</span> <span class="s2">&quot;time.source&quot;</span> <span class="o">&lt;</span> <span class="s1">&#39;2018-07-01&#39;</span><span class="p">;</span>
+</pre></div>
+</div>
+<p>If the database is big, make sure only update small parts of the database by using an appropriate <code class="docutils literal notranslate"><span class="pre">WHERE</span></code> clause. If you do not see any negative performance impact, you can increase the size of the chunks, otherwise the events in the output bot may queue up. The <code class="docutils literal notranslate"><span class="pre">id</span></code> column can also be used instead of the source’s time.</p>
+</div>
+</div>
+</div>
+<div class="section" id="my-bot-s-died-on-startup-with-no-errors-logged">
+<h2>My bot(s) died on startup with no errors logged<a class="headerlink" href="#my-bot-s-died-on-startup-with-no-errors-logged" title="Permalink to this headline">¶</a></h2>
+<p>Rather than starting your bot(s) with <code class="docutils literal notranslate"><span class="pre">intelmqctl</span> <span class="pre">start</span></code>, try <code class="docutils literal notranslate"><span class="pre">intelmqctl</span> <span class="pre">run</span> <span class="pre">[bot]</span></code>. This will provide valuable debug output you might not otherwise see, pointing to issues like system configuration errors.</p>
+</div>
+<div class="section" id="orphaned-queues">
+<h2>Orphaned Queues<a class="headerlink" href="#orphaned-queues" title="Permalink to this headline">¶</a></h2>
+<p>This section has been moved to the <a class="reference external" href="intelmctl.html#orphaned-queues">intelmqctl documentation</a></p>
+</div>
+<div class="section" id="multithreading-is-not-available-for-this-bot">
+<h2>Multithreading is not available for this bot<a class="headerlink" href="#multithreading-is-not-available-for-this-bot" title="Permalink to this headline">¶</a></h2>
+<p>Multithreading is not available for some bots and AMQP broker is necessary. Possible reasons why a certain bot or a setup does not support Multithreading include:</p>
+<ul class="simple">
+<li><p>Multithreading is only available when using the AMQP broker.</p></li>
+<li><p>For most collectors, Multithreading is disabled. Otherwise this would lead to duplicated data, as the data retrieval is not atomic.</p></li>
+<li><p>Some bots use libraries which are not thread safe. Look a the bot’s documentation for more information.</p></li>
+<li><p>Some bots’ operations are not thread safe. Look a the bot’s documentation for more information.</p></li>
+</ul>
+<p>If you think this mapping is wrong, please report a bug.</p>
+</div>
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../index.html">
+    <img class="logo" src="../_static/Logo_Intel_MQ.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+<p class="blurb">IntelMQ is a solution for IT security teams for collecting and processing security feeds using a message queuing protocol.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=certtools&repo=intelmq&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="Ecosystem.html">IntelMQ Ecosystem</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="README.html">Welcome to IntelMQ!</a></li>
+<li class="toctree-l1"><a class="reference internal" href="INSTALL.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="UPGRADING.html">Upgrade instructions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="User-Guide.html">User Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="intelmqctl.html">intelmqctl documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Bots.html">Bots Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Feeds.html">Available Feeds</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ELK-Stack.html">ELK Stack</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Frequently asked questions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="MISP-Integrations.html">MISP integrations in IntelMQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="n6-integrations.html">IntelMQ - n6 Integration</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="Developers-Guide.html">Developers Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Data-Harmonization.html">Data Harmonization</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Harmonization-fields.html">Harmonization field names</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Release.html">Release procedure</a></li>
+<li class="toctree-l1"><a class="reference internal" href="IntelMQ-3.0-Architecture.html">Idea list and architecture of IntelMQ 3.0</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Feeds-whishlist.html">Feeds whishlist</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="ELK-Stack.html" title="previous chapter">ELK Stack</a></li>
+      <li>Next: <a href="MISP-Integrations.html" title="next chapter">MISP integrations in IntelMQ</a></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2020, cert.at.
+      
+      |
+      <a href="../_sources/guides/FAQ.md.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>
