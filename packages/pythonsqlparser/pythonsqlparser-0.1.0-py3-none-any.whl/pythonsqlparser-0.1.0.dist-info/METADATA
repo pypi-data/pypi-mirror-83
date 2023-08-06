@@ -1,0 +1,91 @@
+Metadata-Version: 2.1
+Name: pythonsqlparser
+Version: 0.1.0
+Summary: This repository provides a Python SQL string parser.
+Home-page: https://github.com/pysparkling/python-sql-parser/
+Author: Erwan Guyomarc'h
+Author-email: tools4origins@gmail.com
+License: Apache-2.0
+Platform: UNKNOWN
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Natural Language :: English
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.4
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Requires-Python: >=3.4
+Description-Content-Type: text/markdown
+Requires-Dist: antlr4-python3-runtime (==4.7.1)
+
+# SQL Parser
+This package convert SQL string into a syntax tree object.
+
+These objects can then be manipulated via Python's code.
+
+### Usage
+
+```python
+from sqlparser import parse_statement
+from sqlparser.utils import print_tree
+tree = parse_statement('SELECT * FROM table WHERE column LIKE "%Python%"')
+print_tree(tree)
+```
+Result (each line is a node of the tree):
+```
+|SingleStatementContext
+|-StatementDefaultContext
+|--QueryContext
+|---QueryTermDefaultContext
+|----QueryPrimaryDefaultContext
+|-----RegularQuerySpecificationContext
+|------SelectClauseContext
+|-------TerminalNodeImpl[SELECT]
+|-------NamedExpressionSeqContext
+|--------NamedExpressionContext
+|---------ExpressionContext
+|----------PredicatedContext
+|-----------ValueExpressionDefaultContext
+|------------StarContext
+|-------------TerminalNodeImpl[*]
+|------FromClauseContext
+|-------TerminalNodeImpl[FROM]
+|-------RelationContext
+|--------TableNameContext
+|---------MultipartIdentifierContext
+|----------ErrorCapturingIdentifierContext
+|-----------IdentifierContext
+|------------UnquotedIdentifierContext
+|-------------NonReservedContext
+|--------------TerminalNodeImpl[table]
+|-----------RealIdentContext
+|---------TableAliasContext
+|------WhereClauseContext
+|-------TerminalNodeImpl[WHERE]
+|-------PredicatedContext
+|--------ValueExpressionDefaultContext
+|---------ColumnReferenceContext
+|----------IdentifierContext
+|-----------UnquotedIdentifierContext
+|------------NonReservedContext
+|-------------TerminalNodeImpl[column]
+|--------PredicateContext
+|---------TerminalNodeImpl[LIKE]
+|---------ValueExpressionDefaultContext
+|----------ConstantDefaultContext
+|-----------StringLiteralContext
+|------------TerminalNodeImpl["%Python%"]
+|---QueryOrganizationContext
+|-TerminalNodeImpl[<EOF>]
+```
+
+
