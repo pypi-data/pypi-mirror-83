@@ -1,0 +1,52 @@
+<configure xmlns="http://namespaces.zope.org/zope"
+           xmlns:genericsetup="http://namespaces.zope.org/genericsetup"
+           xmlns:plone="http://namespaces.plone.org/plone"
+           xmlns:i18n="http://namespaces.zope.org/i18n"
+           xmlns:cmf="http://namespaces.zope.org/cmf"
+           i18n_domain="cpskin">
+
+    <!-- Dependencies -->
+    <include package="cpskin.theme" />
+
+    <!-- Profile -->
+    <genericsetup:registerProfile
+        name="default"
+        title="cpskin.diazotheme.trendy"
+        directory="profiles/default"
+        description="Installs cpskin.diazotheme.trendy theme"
+        for="Products.CMFPlone.interfaces.IPloneSiteRoot"
+        provides="Products.GenericSetup.interfaces.EXTENSION"
+        />
+
+    <genericsetup:registerProfile
+        name="uninstall"
+        title="cpskin.diazotheme.trendy uninstall"
+        directory="profiles/uninstall"
+        description="Installs cpskin.diazotheme.trendy theme"
+        for="Products.CMFPlone.interfaces.IPloneSiteRoot"
+        provides="Products.GenericSetup.interfaces.EXTENSION"
+        />
+
+    <!-- Theme -->
+    <plone:static directory="static" name="cpskin.diazotheme.trendy" type="theme" />
+
+    <!-- Upgrades -->
+    <genericsetup:upgradeStep
+        title="cpskin.diazotheme.trendy theme: upgrade to LESS (v0002)"
+        description="Upgrade step for cpskin.diazotheme.trendy theme to LESS (v0002)"
+        handler=".upgradehandlers.upgrade_to_less"
+        source="0001"
+        destination="0002"
+        profile="cpskin.diazotheme.trendy:default"
+        />
+
+    <genericsetup:upgradeStep
+        title="cpskin.diazotheme.trendy theme: migrate carousel sliders to count sliders (v0003)"
+        description=""
+        handler=".upgradehandlers.migrate_carousel_sliders_to_count"
+        source="0002"
+        destination="0003"
+        profile="cpskin.diazotheme.trendy:default"
+        />
+
+</configure>
