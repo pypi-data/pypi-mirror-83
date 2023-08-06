@@ -1,0 +1,50 @@
+import pytest
+
+
+@pytest.fixture
+def project(project):
+    project.write_file("requirements/setup.txt", contents="setup-requires-pkg")
+    project.write_file("requirements/base.txt", contents="install-requires-pkg")
+    project.write_file("requirements/docs.txt", contents="docs-extras-require-pkg")
+    project.write_file("requirements/cli.txt", contents="cli-extras-require-pkg")
+    project.write_file("requirements/tests.txt", contents="tests-require-pkg")
+    project.create_pkg_tree(
+        setup_requires="requirements/setup.txt",
+        install_requires="requirements/base.txt",
+        tests_require="requirements/tests.txt",
+        extras_require={
+            "docs": "requirements/docs.txt",
+            "cli": "requirements/cli.txt",
+        },
+    )
+    yield project
+
+
+@pytest.mark.parametrize("build", ["sdist", "bdist_wheel"])
+def test_build_package(project, build):
+    ret = project.sys_exec_run("setup.py", build)
+    assert ret.exitcode == 0
+    package = project.get_generated_dist()
+    with project.virtualenv() as venv:
+        installed_packages = venv.get_installed_packages()
+        assert "install-requires-pkg" not in installed_packages
+        ret = venv.install(str(package))
+        assert ret.exitcode == 0, ret
+        installed_packages = venv.get_installed_packages()
+        assert "install-requires-pkg" in installed_packages
+
+        # Now the docs extras
+        installed_packages = venv.get_installed_packages()
+        assert "docs-extras-require-pkg" not in installed_packages
+        ret = venv.install(f"{package}[docs]")
+        assert ret.exitcode == 0, ret
+        installed_packages = venv.get_installed_packages()
+        assert "docs-extras-require-pkg" in installed_packages
+
+        # Now the cli extras
+        installed_packages = venv.get_installed_packages()
+        assert "cli-extras-require-pkg" not in installed_packages
+        ret = venv.install(f"{package}[cli]")
+        installed_packages = venv.get_installed_packages()
+        assert ret.exitcode == 0, ret
+        assert "docs-extras-require-pkg" in installed_packages
