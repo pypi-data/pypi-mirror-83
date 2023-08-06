@@ -1,0 +1,78 @@
+Metadata-Version: 2.1
+Name: fastapi-redis-session
+Version: 0.1.1
+Summary: A redis-based session backend for Fastapi apps
+Home-page: https://github.com/duyixian1234/fastapi-redis-session
+License: MIT
+Author: duyixian
+Author-email: duyixian1234@qq.com
+Requires-Python: >=3.7,<4.0
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Requires-Dist: fastapi (>=0.61.1,<0.62.0)
+Requires-Dist: redis (>=3.5.3,<4.0.0)
+Project-URL: Repository, https://github.com/duyixian1234/fastapi-redis-session
+Description-Content-Type: text/markdown
+
+# fastapi-redis-session
+
+![CI](https://github.com/duyixian1234/fastapi-redis-session/workflows/CI/badge.svg?branch=master)
+
+A redis-based session backend for Fastapi apps
+
+## Install
+
+```bash
+pip install -U fastapi-redis-session
+```
+
+## Use
+
+```python
+from typing import Any
+
+from fastapi import Depends, FastAPI, Request, Response
+
+from fastapi_redis_session import getSession, setSession
+from fastapi_redis_session.deps import getSessionStorage
+from fastapi_redis_session.session import SessionStorage
+
+app = FastAPI(title=__name__)
+
+
+@app.post("/setSession")
+async def _setSession(
+    request: Request, response: Response, sessionStorage: SessionStorage = Depends(getSessionStorage)
+):
+    sessionData = await request.json()
+    setSession(response, sessionData, sessionStorage)
+
+
+@app.get("/getSession")
+async def _setSession(session: Any = Depends(getSession)):
+    return session
+
+```
+
+## Config
+
+### Deafult Config
+
+- url of Redis: redis://localhost:6379/0
+- name of sessionId: ssid
+- generator function of sessionId: `lambda :uuid.uuid4().hex`
+
+### Custom Config
+
+```python
+from fastapi_redis_session.config import basicConfig
+basicConfig(
+        redisURL="redis://localhost:6379/1",
+        sessionIdName="sessionId",
+        sessionIdGenerator=lambda: str(random.randint(1000, 9999)),
+    )
+```
+
