@@ -1,0 +1,1 @@
+from num_thai_cnv.num_thai_cnv import ThaiNumberConverter
