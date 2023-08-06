@@ -1,0 +1,35 @@
+Metadata-Version: 2.1
+Name: s1-noisefloor
+Version: 0.1.1
+Classifier: Programming Language :: Rust
+Classifier: Topic :: Scientific/Engineering :: GIS
+Project-Url: https://github.com/PeterQLee/sentinel1_denoise_rs/
+Summary: Algorithms to remove noise floor intensity patterns that are prevelant in Sentinel-1 cross-polarized images in EW and IW modes
+Home-Page: https://github.com/PeterQLee/sentinel1_denoise_rs/
+Author: PeterQLee <leep1995@gmail.com>
+Author-Email: PeterQLee <leep1995@gmail.com>
+License: MIT
+Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+
+## About
+This library provides algorithms to remove noise floor intensity patterns that are prevelant in
+Sentinel-1 cross-polarized images in EW mode, and to a lesser degree, IW mode. 
+
+The algorithms in this library make use of convex optimization to construct noise floors that can be
+subtracted to correct the image. Two main algorithms are implemented that make use of the
+information provided in the Sentinel-1 xml files.
+
+
+1. A linear noise floor removal method that rescales the default noise floor
+    that is provided in each Sentinel-1 product. This is the application of the method in
+    P. Q. Lee, L. Xu, D. A. Clausi. 2020. Sentinel-1 additive noise removal from cross-polarization
+    extra-wide TOPSAR with dynamic least-squares. Remote Sensing of
+    Environment. 248. https://doi.org/10.1016/j.rse.2020.111982 . Currently only available in GRD EW mode images.
+
+ 2. A non-linear noise floor removal method that computes the noise floor as a power function of
+    the antenna pattern. Parameters are estimated with linear programming. This is the application
+    of the method in http://www.eng.uwaterloo.ca/~pqjlee/lp_paper_aug14_2020.pdf . Can be applied to both EW and IW GRD mode images.
+	
+	
+For more info, see https://github.com/PeterQLee/sentinel1_denoise_rs .
+
