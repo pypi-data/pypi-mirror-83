@@ -1,0 +1,27 @@
+{% extends "layout.html" %}
+{% block body %}
+<h1>WORKERS</h1>
+<table>
+    <tr>
+        <th>ID</th>
+        <th>处理类型</th>
+        <th>最大处理任务数量</th>
+        <th>负载量</th>
+        <th>hostname</th>
+        <th>IP</th>
+        <th>PID</th>
+    </tr>
+    {% for w in workers %}
+    <tr>
+        <td>{{w.wid}}</td>
+        <td>{{w.handle_type}}</td>
+        <td>{{w.max_handle_num}}</td>
+        <td>{{w.curr_handle_num}}</td>
+        <td>{{w.hostname}}</td>
+        <td>{{w.hostip}}</td>
+        <td>{{w.pid}}</td>
+
+    </tr>
+    {% endfor %}
+</table>
+{% endblock %}

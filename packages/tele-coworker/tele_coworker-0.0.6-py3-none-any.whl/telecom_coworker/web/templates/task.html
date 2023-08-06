@@ -1,0 +1,42 @@
+{% extends "layout.html" %}
+{% block body %}
+<h1>task</h1>
+
+<form action="/page/task" method="post">
+    <input type="text" name="tid">
+    <input type="submit">
+</form>
+
+{% with messages = get_flashed_messages() %}
+{% if messages %}
+<ul class=flashes>
+    {% for message in messages %}
+    <li>{{ message }}</li>
+    {% endfor %}
+</ul>
+{% endif %}
+{% endwith %}
+
+
+{% if state %}
+<h2>任务ID: {{state.tid}}</h2>
+<p>当前状态: {{state.state}}</p>
+{% if state.ip %}
+<p>IP: {{state.ip}}</p>
+{% endif %}
+{% if state.pid %}
+<p>PID: {{state.pid}}</p>
+{% endif %}
+{% if state.exitcode %}
+<p>退出状态码: {{state.exitcode}}</p>
+{% endif %}
+{% if state.updated_at %}
+<p>更新时间: {{state.updated_at}}</p>
+{% endif %}
+{% if state.logs %}
+<p>信息:</p>
+<p style="white-space: pre-wrap">{{state.logs}}</p>
+{% endif %}
+{% endif %}
+
+{% endblock %}

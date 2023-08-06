@@ -1,0 +1,39 @@
+{% extends "layout.html" %}
+{% block body %}
+<h1>index</h1>
+<p>当前任务总数: {{task_size}}</p>
+<p>当前工作单元总数: {{worker_size}}</p>
+<p>当前在运行的任务: {{payload_size}}</p>
+<table>
+    <tr>
+        <th>任务类型</th>
+        <th>负载量</th>
+        <th>总数</th>
+    </tr>
+    {% for task_type, payload_num, total_num in task_stats %}
+    <tr>
+        <td>{{task_type}}</td>
+        <td>{{payload_num}}</td>
+        <td>{{total_num}}</td>
+    </tr>
+    {% endfor %}
+</table>
+<p>以下任务类型需要更多的工作单元: {{task_type_list_need_more_workers}}</p>
+<h3>消息</h3>
+<table>
+    <tr>
+        <th>消息类型</th>
+        <th>Task ID</th>
+        <th>工作单元 ID</th>
+        <th></th>
+    </tr>
+    {% for type, tid, wid, content in messages %}
+    <tr>
+        <td>{{type}}</td>
+        <td><a href="{{ url_for('page_task', tid=tid) }}">{{tid}}</a> </td>
+        <td>{{wid}}</td>
+        <td>{{content[:50]}}</td>
+    </tr>
+    {% endfor %}
+</table>
+{% endblock %}
