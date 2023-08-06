@@ -1,0 +1,36 @@
+<configure xmlns="http://namespaces.zope.org/zope"
+           xmlns:genericsetup="http://namespaces.zope.org/genericsetup"
+           xmlns:i18n="http://namespaces.zope.org/i18n"
+           i18n_domain="cpskin">
+
+    <!-- Profile -->
+    <genericsetup:registerProfile
+        name="default"
+        title="cpskin.diazotheme.modern"
+        directory="profiles/default"
+        description="Installs cpskin.diazotheme.modern theme"
+        for="Products.CMFPlone.interfaces.IPloneSiteRoot"
+        provides="Products.GenericSetup.interfaces.EXTENSION"
+        />
+
+    <!-- Uninstall -->
+    <genericsetup:registerProfile
+        name="uninstall"
+        title="cpskin.diazotheme.modern: uninstall"
+        directory="profiles/uninstall"
+        description="Uninstalls cpskin.diazotheme.modern theme"
+        for="Products.CMFPlone.interfaces.IPloneSiteRoot"
+        provides="Products.GenericSetup.interfaces.EXTENSION"
+        />
+
+    <!-- Upgrades -->
+    <genericsetup:upgradeStep
+        title="cpskin.diazotheme.modern theme: upgrade to LESS (v2)"
+        description="Upgrade step for cpskin.diazotheme.modern theme to LESS (v2)"
+        handler=".upgradehandlers.upgrade_to_less"
+        source="1"
+        destination="2"
+        profile="cpskin.diazotheme.modern:default"
+        />
+
+</configure>
