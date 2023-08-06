@@ -1,0 +1,666 @@
+Metadata-Version: 2.1
+Name: http-noah
+Version: 0.2.1
+Summary: REST-minded yet generic HTTP Python client with both async and sync interfaces
+Home-page: https://github.com/haizaar/http-noah
+Author: Zaar Hai
+Author-email: haizaar@haizaar.com
+License:                                  Apache License
+                           Version 2.0, January 2004
+                        http://www.apache.org/licenses/
+
+   TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
+
+   1. Definitions.
+
+      "License" shall mean the terms and conditions for use, reproduction,
+      and distribution as defined by Sections 1 through 9 of this document.
+
+      "Licensor" shall mean the copyright owner or entity authorized by
+      the copyright owner that is granting the License.
+
+      "Legal Entity" shall mean the union of the acting entity and all
+      other entities that control, are controlled by, or are under common
+      control with that entity. For the purposes of this definition,
+      "control" means (i) the power, direct or indirect, to cause the
+      direction or management of such entity, whether by contract or
+      otherwise, or (ii) ownership of fifty percent (50%) or more of the
+      outstanding shares, or (iii) beneficial ownership of such entity.
+
+      "You" (or "Your") shall mean an individual or Legal Entity
+      exercising permissions granted by this License.
+
+      "Source" form shall mean the preferred form for making modifications,
+      including but not limited to software source code, documentation
+      source, and configuration files.
+
+      "Object" form shall mean any form resulting from mechanical
+      transformation or translation of a Source form, including but
+      not limited to compiled object code, generated documentation,
+      and conversions to other media types.
+
+      "Work" shall mean the work of authorship, whether in Source or
+      Object form, made available under the License, as indicated by a
+      copyright notice that is included in or attached to the work
+      (an example is provided in the Appendix below).
+
+      "Derivative Works" shall mean any work, whether in Source or Object
+      form, that is based on (or derived from) the Work and for which the
+      editorial revisions, annotations, elaborations, or other modifications
+      represent, as a whole, an original work of authorship. For the purposes
+      of this License, Derivative Works shall not include works that remain
+      separable from, or merely link (or bind by name) to the interfaces of,
+      the Work and Derivative Works thereof.
+
+      "Contribution" shall mean any work of authorship, including
+      the original version of the Work and any modifications or additions
+      to that Work or Derivative Works thereof, that is intentionally
+      submitted to Licensor for inclusion in the Work by the copyright owner
+      or by an individual or Legal Entity authorized to submit on behalf of
+      the copyright owner. For the purposes of this definition, "submitted"
+      means any form of electronic, verbal, or written communication sent
+      to the Licensor or its representatives, including but not limited to
+      communication on electronic mailing lists, source code control systems,
+      and issue tracking systems that are managed by, or on behalf of, the
+      Licensor for the purpose of discussing and improving the Work, but
+      excluding communication that is conspicuously marked or otherwise
+      designated in writing by the copyright owner as "Not a Contribution."
+
+      "Contributor" shall mean Licensor and any individual or Legal Entity
+      on behalf of whom a Contribution has been received by Licensor and
+      subsequently incorporated within the Work.
+
+   2. Grant of Copyright License. Subject to the terms and conditions of
+      this License, each Contributor hereby grants to You a perpetual,
+      worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+      copyright license to reproduce, prepare Derivative Works of,
+      publicly display, publicly perform, sublicense, and distribute the
+      Work and such Derivative Works in Source or Object form.
+
+   3. Grant of Patent License. Subject to the terms and conditions of
+      this License, each Contributor hereby grants to You a perpetual,
+      worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+      (except as stated in this section) patent license to make, have made,
+      use, offer to sell, sell, import, and otherwise transfer the Work,
+      where such license applies only to those patent claims licensable
+      by such Contributor that are necessarily infringed by their
+      Contribution(s) alone or by combination of their Contribution(s)
+      with the Work to which such Contribution(s) was submitted. If You
+      institute patent litigation against any entity (including a
+      cross-claim or counterclaim in a lawsuit) alleging that the Work
+      or a Contribution incorporated within the Work constitutes direct
+      or contributory patent infringement, then any patent licenses
+      granted to You under this License for that Work shall terminate
+      as of the date such litigation is filed.
+
+   4. Redistribution. You may reproduce and distribute copies of the
+      Work or Derivative Works thereof in any medium, with or without
+      modifications, and in Source or Object form, provided that You
+      meet the following conditions:
+
+      (a) You must give any other recipients of the Work or
+          Derivative Works a copy of this License; and
+
+      (b) You must cause any modified files to carry prominent notices
+          stating that You changed the files; and
+
+      (c) You must retain, in the Source form of any Derivative Works
+          that You distribute, all copyright, patent, trademark, and
+          attribution notices from the Source form of the Work,
+          excluding those notices that do not pertain to any part of
+          the Derivative Works; and
+
+      (d) If the Work includes a "NOTICE" text file as part of its
+          distribution, then any Derivative Works that You distribute must
+          include a readable copy of the attribution notices contained
+          within such NOTICE file, excluding those notices that do not
+          pertain to any part of the Derivative Works, in at least one
+          of the following places: within a NOTICE text file distributed
+          as part of the Derivative Works; within the Source form or
+          documentation, if provided along with the Derivative Works; or,
+          within a display generated by the Derivative Works, if and
+          wherever such third-party notices normally appear. The contents
+          of the NOTICE file are for informational purposes only and
+          do not modify the License. You may add Your own attribution
+          notices within Derivative Works that You distribute, alongside
+          or as an addendum to the NOTICE text from the Work, provided
+          that such additional attribution notices cannot be construed
+          as modifying the License.
+
+      You may add Your own copyright statement to Your modifications and
+      may provide additional or different license terms and conditions
+      for use, reproduction, or distribution of Your modifications, or
+      for any such Derivative Works as a whole, provided Your use,
+      reproduction, and distribution of the Work otherwise complies with
+      the conditions stated in this License.
+
+   5. Submission of Contributions. Unless You explicitly state otherwise,
+      any Contribution intentionally submitted for inclusion in the Work
+      by You to the Licensor shall be under the terms and conditions of
+      this License, without any additional terms or conditions.
+      Notwithstanding the above, nothing herein shall supersede or modify
+      the terms of any separate license agreement you may have executed
+      with Licensor regarding such Contributions.
+
+   6. Trademarks. This License does not grant permission to use the trade
+      names, trademarks, service marks, or product names of the Licensor,
+      except as required for reasonable and customary use in describing the
+      origin of the Work and reproducing the content of the NOTICE file.
+
+   7. Disclaimer of Warranty. Unless required by applicable law or
+      agreed to in writing, Licensor provides the Work (and each
+      Contributor provides its Contributions) on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+      implied, including, without limitation, any warranties or conditions
+      of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A
+      PARTICULAR PURPOSE. You are solely responsible for determining the
+      appropriateness of using or redistributing the Work and assume any
+      risks associated with Your exercise of permissions under this License.
+
+   8. Limitation of Liability. In no event and under no legal theory,
+      whether in tort (including negligence), contract, or otherwise,
+      unless required by applicable law (such as deliberate and grossly
+      negligent acts) or agreed to in writing, shall any Contributor be
+      liable to You for damages, including any direct, indirect, special,
+      incidental, or consequential damages of any character arising as a
+      result of this License or out of the use or inability to use the
+      Work (including but not limited to damages for loss of goodwill,
+      work stoppage, computer failure or malfunction, or any and all
+      other commercial damages or losses), even if such Contributor
+      has been advised of the possibility of such damages.
+
+   9. Accepting Warranty or Additional Liability. While redistributing
+      the Work or Derivative Works thereof, You may choose to offer,
+      and charge a fee for, acceptance of support, warranty, indemnity,
+      or other liability obligations and/or rights consistent with this
+      License. However, in accepting such obligations, You may act only
+      on Your own behalf and on Your sole responsibility, not on behalf
+      of any other Contributor, and only if You agree to indemnify,
+      defend, and hold each Contributor harmless for any liability
+      incurred by, or claims asserted against, such Contributor by reason
+      of your accepting any such warranty or additional liability.
+
+   END OF TERMS AND CONDITIONS
+
+   APPENDIX: How to apply the Apache License to your work.
+
+      To apply the Apache License to your work, attach the following
+      boilerplate notice, with the fields enclosed by brackets "{}"
+      replaced with your own identifying information. (Don't include
+      the brackets!)  The text should be enclosed in the appropriate
+      comment syntax for the file format. We also recommend that a
+      file or class name and description of purpose be included on the
+      same "printed page" as the copyright notice for easier
+      identification within third-party archives.
+
+   Copyright {yyyy} {name of copyright owner}
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+
+Description: #########
+        HTTP Noah
+        #########
+        
+        .. image:: https://img.shields.io/pypi/v/http-noah.svg
+            :target: https://pypi.python.org/pypi/http-noah
+        
+        .. image:: https://img.shields.io/travis/haizaar/http-noah.svg
+                :target: https://travis-ci.org/haizaar/http-noah
+        
+        .. image:: https://img.shields.io/pypi/dm/http-noah.svg
+            :target: https://pypi.python.org/pypi/http-noah
+        
+        
+        Generic HTTP client for sync (requests) and async (aiohttp) operations.
+        
+        "Noah" means "convenient" in Hebrew.
+        
+        For now I support Python 3.8+ only. Please open an issue if you need support for earlier versions.
+        
+        **********
+        Motivation
+        **********
+        
+        If you have ever interfaced with REST APIs in Python it probably started like this
+        
+        .. code-block:: python
+        
+          class PetSanctuaryClient:
+              def __init__(self):
+                  self.session = requests.Session()
+        
+              def get(self, url):
+                  res = self.session.get(url)
+                  res.raise_for_status()
+                  return res.json()
+        
+        From this point it obviously gets complicated really quickly... ``.jsoin()`` returns you dict or list, but usually
+        you want to at least validate it somehow or even better use a specialty tool like `Pydantic <https://pydantic-docs.helpmanual.io/>`_.
+        Continuing the above hypothetical example
+        
+        .. code-block:: python
+        
+          from pydantic import BaseModel, ValidationError
+          from typing import List
+        
+          class Pet(BaseModel):
+              name: str
+        
+          class Pets(BaseModel):
+              __root__ = List[Pet]
+        
+          class PetSanctuaryClient:
+              ...
+        
+              def list_pets(self) -> Pets:
+                  pets_info = self.get(...)
+                  try:
+                      return Pets.parse_obj(pets_info)
+                  except ValidationError:
+                      logger.info("Failed to parse pets_info", pets_info=pets_info)  # hooray structlog
+        
+        The above has to be properly factored out of course and you end up with the following class signature:
+        
+        .. code-block:: python
+        
+          class PetSanctuaryClient:
+              def list_pets(...)
+              def get_pet(...)
+              def delete_pet(...)
+              def assign_pet_to_carer(...)
+              def list_carers(...)
+              def get_carer(...)
+              ...
+        
+        If your target API is anything above trivial you'll quickly end up with entangled mess of methods.
+        Naming conventions help of course but it quickly becomes a monster of a class.
+        If we could only break down this monolithic contraption into sub-APIs implemented in their separate classes
+        which we would then hierarchically plug into the main?  I believe the below is much easier to digest:
+        
+        .. code-block:: python
+        
+          psc = PetSanctuaryClient(...)
+          psc.pets.get(..)
+          psc.pets.list(...)
+          psc.cares.list(...)
+          ...
+        
+        I hope this gives you an idea of why this project was born. Throw into the equation support for asyncio and
+        numerous corner cases like forming URLs, aiohttp releasing connection on ``.raise_for_status()`` invocation and hence
+        denying you from seeing the error body which quite often contains  valuable information, etc.
+        
+        All this particularly started to make sense when I switched to using
+        `FastAPI <https://fastapi.tiangolo.com/>`_ for my backend services and already had Pydantic
+        models that I could reuse on the client side.
+        
+        
+        ************
+        Installation
+        ************
+        There are ``sync`` and ``async`` flavours to installation to make sure only
+        relevant dependencies are pulled (e.g. chances are you don't want aiohttp in your sync app).
+        
+        Sync version::
+        
+          pip install --upgrade http-noah[sync]
+        
+        Async version::
+        
+          pip install --upgrade http-noah[async]
+        
+        To install both sync and async versions use ``all`` extra specification instead of ``sync`` / ``async``.
+        
+        *****
+        Usage
+        *****
+        
+        Basic example
+        #############
+        Let's start with a basic example.
+        Assuming our Pet Sanctuary API is running on ``http://localhost:8080/api/v1``:
+        
+        .. code-block:: python
+        
+          from pydantic import BaseModel
+          from http_noah.sync_client import SyncHTTPClient
+        
+          class Pet(BaseModel):
+              name: str
+        
+          def main():
+              with SyncHTTPClient("localhost", 8080) as client:
+                  pet: Pet = client.get("/pets/1", response_type=Pet)
+        
+        Let's have a closer looks at what happened here:
+        
+        * We provided only ``host`` and ``port`` with ``api_base`` defaulting to ``/api/v1`` so that
+          we don't have to prepend it to every URL in our call
+        * We ask http_noah to convert API response to an instance of the desired type (or raise
+          otherwise)
+        * We used a context manager to make sure everything will be cleaned up promptly.
+          In a more complex code, you may consider a kind of a life-cycle manager e.g. like in my demo
+          Hanuka project (`source <https://github.com/haizaar/hanuka/blob/master/hanuka/main.py#L36>`_)
+        
+        Async example is pretty much the same:
+        
+        .. code-block:: python
+        
+          from http_noah.async_client import AsyncHTTPClient
+        
+          async def main():
+              async with AsyncHTTPClient("localhost", 8080) as client:
+                  pet: Pet = await client.get("/pets/1", response_type=Pet)
+        
+        Since the goal of this library is to provide similar interfaces for both sync and async
+        code I'll focus on *async* examples from now on and will be leaving notes if there are
+        differences that I worked hard to reduce to a very few.
+        
+        The client support the following methods that map the corresponding HTTP verbs:
+        
+        .. code-block:: python
+        
+          .get(...)
+          .post(...)
+          .put(...)
+          .delete(...)
+        
+        Sending your data back is easy as well - be it just a dict or Pydantic model.
+        
+        For Pydantic models you can just pass them to the ``body`` argument of e.g. ``.post()``:
+        
+        .. code-block:: python
+        
+          async def create_pet():
+              async with AsyncHTTPClient("localhost", 8080) as client:
+                  pet = Pet(name="Crispy")
+                  await client.post("/pets", body=pet, response_type=Pet)
+        
+        If you just want to send data as JSON you need to outline that explicitly:
+        
+        .. code-block:: python
+        
+          from http_noah.common import JSONData
+        
+          async def create_pet():
+              async with AsyncHTTPClient("localhost", 8080) as client:
+                  pet = {"name": "Crispy"}
+                  await client.post("/pets", body=JSONData(data=pet), response_type=Pet)
+        
+        This is necessary for http_noah to understand whether your intent is to send you data
+        as JSON or as Form which both can be Python dicts. See more on forms and file uploads
+        in the dedicated section below.
+        
+        Again, I prefer to model everything I send and receive with Pydantic models - it makes
+        life so much easier that you get addicted to it very fast.
+        
+        Nested Clients
+        ##############
+        Now when we understand the basic usage let's see how can we build those beautiful nested
+        clients I promised you in the beginning.
+        
+        Let's build a client for our hypothetical pet sanctuary API by starting with the root class:
+        
+        .. code-block:: python
+        
+          from __future__ import annotations
+        
+          from http_noah.async_client import AsyncAPIClientBase, AsyncHTTPClient
+        
+          class PetSanctuaryClient(AsyncAPIClientBase):
+              @classmethod
+              def new(cls, host: str, port: int, scheme: str = "https") -> PetSanctuaryClient:
+                  client = AsyncHTTPClient(host=host, port=port, scheme=scheme)
+                  return cls(client=client)
+        
+        A this point it's just a boilerplate class that does nothing spectacular except having
+        a builder function. Note that I use ``AsyncAPIClientBase`` and not ``AsyncHTTPClient``.
+        
+        Now let's implement Pets sub-API:
+        
+        .. code-block:: python
+        
+          from __future__ import annotations
+        
+          from dataclasses import dataclass
+          from http_noah.async_client import AsyncAPIClientBase, AsyncHTTPClient
+        
+          # Skipped model definitions here - as in the basic example
+        
+          @dataclass
+          class PetClient:
+              client: AsyncHTTPClient
+        
+              class paths:
+                  prefix: str = "/pets"
+                  list: str = prefix
+                  get: str = prefix + "/{id}"
+                  create: str = prefix
+        
+              async def list(self) -> Pets:
+                  return await self.client.get(self.paths.list, response_type=Pets)
+        
+              async def get(self, id: int) -> Pet:
+                  return await self.client.get(self.paths.get.format(id=id), response_type=Pet)
+        
+              async def create(self, pet: Pet) -> Pet:
+                  return await self.client.post(self.paths.create, body=Pet, response_type=Pet)
+        
+          @dataclass
+          class PetSanctuaryClient(AsyncAPIClientBase):
+              pets: PetClient
+        
+              @classmethod
+              def new(cls, host: str, port: int, scheme: str = "https") -> PetSanctuaryClient:
+                  client = AsyncHTTPClient(host=host, port=port, scheme=scheme)
+                  pet_client = PetClient(client)
+                  return cls(client=client, pets=pet_client)
+        
+        Now we are talking! Let's enjoy it:
+        
+        .. code-block:: python
+        
+            psc = PetSanctuaryClient("localhost", 8080, scheme="http")
+            async with psc:
+                pets = await psc.pets.list()
+                pet = await psc.pets.get(1)
+        
+        Similarly we can implement other sub-API clients and nest them easily.
+        
+        
+        Getting serious
+        ###############
+        
+        Response type
+        =============
+        Specifying response type is **mandatory** *unless* you expect your request to respond with
+        HTTP 204 "No Content" which generally makes sense for DELETE operations.
+        
+        * If response Content-Type heading is set to ``applicaiton/json`` then JSON data will be
+          decoded for you and can be further parsed using `Pydantic <https://pydantic-docs.helpmanual.io/>`_
+          model of your choice.
+        * Otherwise, you can request back either ``str`` or ``bytes``
+        
+        This results in a limitation where with this library you can't fetch JSON response back
+        as string. But since this is a high-level REST client I've yet bumped into this limitation
+        in practice.
+        
+        To sum it up, here are your options for the ``response_type`` argument:
+        
+        * ``bytes`` when a request returns a binary data, e.g image
+        * ``str`` when a request returns text (technically speaking "when the content type is not ``application/json``")
+        * ``dict``, ``list``, ``int``, ``bool``, ``float``, ``str`` (i.e. any of the JSON -> Python native types),
+          when your request returns JSON data and you don't want it parsed further into Pydantic objects.
+        
+        Error handling
+        ==============
+        Trying to align between sync and async code I aliased common error base classes under
+        common names ``ConnectionError``, ``HTTPError``, and ``TimeoutError`` in both
+        ``http_noah.sync_client`` and ``async_client``. This is where it stops though - behind the
+        name these are still ``requests`` / ``aiohttp`` error classes if you want to dig deeper.
+        
+        One useful thing that http_noah does for you is making sure to log HTTP body when the error occurs.
+        This is usually a small but vital piece of information to help you understand what's going
+        on. Sadly enough, it requires quite a bit of tinkering to dig this info out.
+        Just one example is that calling aiohttp's response object ``raise_for_status()`` method
+        will actually return the underlying HTTP connection back to the pool depriving you of reading
+        the error body.
+        
+        Again, http_noah will log HTTP (error) body when it encounters HTTP errors.
+        
+        Timeouts
+        ========
+        Timeouts can be configured by passing instance of ``http_noah.common.Timeout`` class to
+        either ``.get()``, ``put()``, etc. methods or setting it per client instance through
+        ``ClientOptions``:
+        
+        .. code-block:: python
+        
+          from http_noah.common import ClientOptions, Timeout
+          from http_noah.async_client import AsyncHTTPClient
+        
+          options = ClientOptions(Timeout(total=10)
+          async with AsyncHTTPClient(host="localhost", port=80, options=options) as client:
+              await client.get(...)  # Limited to 10 seconds
+              await client.post(..., timeout=Timeout(total=20))  # per call override
+        
+        However, if you reflect on the nested client approach as was suggested earlier, you can quickly notice
+        that re-defining ``timeout`` argument in all your high-level methods is very onerous.
+        Fortunately, http_noah stands true to its name and provides an easy solution with
+        the help of ``timeout`` context manager that both sync and async client implements:
+        
+        Continuing our ``PetSanctuaryClient`` example:
+        
+        .. code-block:: python
+        
+          from http_noah.common import Timeout
+        
+          async with PetSanctuaryClient("localhost", 8080, scheme="http") as psc:
+              pets = await psc.pets.list()
+              with psc.client.timeout(Timeout(total=1):
+                  pet = await psc.pets.get(1)  # Limited to 1 second
+        
+        As you can see, neither ``PetClient`` nor ``PetSanctuaryClient`` defined any timeout
+        logic yet we can perfectly apply timeouts.
+        
+        .. note::
+          One difference between sync and async behaviour here is that in case of connection
+          timeout, aiohttp will raise ``async.TimeoutError`` where requests will raise
+          ``requests.exceptions.ConnectionError`` which is technically not a TimeoutError.
+        
+          See ``test_connect_timeout`` tests under ``tests/async_tests.py`` and
+          ``tests/sync_tests.py`` for details.
+        
+        Forms
+        =====
+        Forms are not used much today. However, I still encounter them when I need to login
+        into API to get Bearer token.
+        
+        To use a form with http_noah simply fill it up as a ``dict``, as you would with
+        aiohttp / requests, and pass it through ``body`` argument wrapped with ``FormData``:
+        
+        .. code-block:: python
+        
+          from typing import Literal
+          from pydantic import BaseModel
+          from http_noah.common import FormData
+        
+          class TokenResponse(BaseModel):
+              access_token: str
+              token_type: Literal["bearer"]
+        
+          async def get_access_token():
+              login_form = FormData(data={
+                  "grant_type": "password",
+                  "username": "foo",
+                  "password": "secret",
+              })
+              async with AsyncHTTPClient("localhost", 8080) as client:
+                  tr = await client.post("/access_token", body=login_form, response_type=TokenResponse)
+        
+        Files
+        =====
+        http-noah provides simple means to upload a file as a multipart encoded form.
+        Best illustrated by example:
+        
+        .. code-block:: python
+        
+          from pathlib import Path
+        
+          from http_noah.common import UploadFile
+        
+          async with AsyncHTTPClient("localhost", 8080) as client:
+              await client.post(
+                  "/pets/1/photo",
+                  body=UploadFile(name="thumbnail", path=Path("myphoto.jpg"),
+              )
+        
+        SSL
+        ===
+        SSL/TLS are supported as they are in ``requests`` and ``aiohttp``. Sometimes however
+        it's desirable to disable SSL validation, e.g. in your dev environment. This can be
+        done through ``ClientOptions``:
+        
+        .. code-block:: python
+        
+          from http_noah.common import ClientOptions
+          from http_noah.async_client import AsyncHTTPClient
+        
+          options = ClientOptions(ssl_verify_cert=False)
+          async with AsyncHTTPClient(host="localhost", port=80, options=options) as client:
+              ...
+        
+        Authentication
+        ==============
+        http-noah support both Basic and Bearer token client authentication.
+        These can be set at any time on the existing client:
+        
+        .. code-block:: python
+        
+          async with AsyncHTTPClient("localhost", 8080) as client:
+              # Bearer token
+              client.set_auth_token("my-secret-token")
+              # Or Basic Auth
+              client.set_auth_basic("my-username", "my-password")
+        
+        It's a deliberate design decision to omit auth parameters from constructor
+        because in case of, e.g. bearer token, auth info may not be known in advance
+        because one may need to submit a login form first. Hence it's required to be
+        able to set auth info at a later stage.
+        
+        
+        ***********
+        Development
+        ***********
+        To develop http_noah you'll need Python 3.8+, pipenv and `direnv <https://direnv.net/>`_ installed.
+        
+        Then just run ``make bootstrap`` after cloning the repo, wait a while, and you are done - next time you enter into the
+        cloned directory the environment will be set for you.
+        
+        Code wise, you can't really have the same code that does both sync and async. Not in a readable way at least.
+        Since readability counts and simplicity trumps complexity, I'd rather have two versions of a very simple code
+        that does each of sync and async instead of one callback-polluted/iterator-based/black-magic-imbued code-base.
+        
+        Care was takes to have a functional tests for each of the library features.
+        
+        Enjoy and see you at PRs!
+        
+Platform: UNKNOWN
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Natural Language :: English
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3.8
+Provides-Extra: async
+Provides-Extra: sync
+Provides-Extra: all
