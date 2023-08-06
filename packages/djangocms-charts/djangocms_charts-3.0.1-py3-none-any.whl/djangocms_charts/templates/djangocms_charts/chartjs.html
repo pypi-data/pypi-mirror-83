@@ -1,0 +1,85 @@
+{% load cms_tags staticfiles sekizai_tags i18n chart_tags %}
+
+
+{# Add required scripts and custom function to build chart #}
+{% addtoblock "css" %}<link rel="stylesheet" href="{% static 'djangocms_charts/output/Chart.js/2.9.4/Chart.min.css' %}">{% endaddtoblock %}
+{% addtoblock "js" %}<script src="{% static 'djangocms_charts/output/Chart.js/2.9.4/Chart.bundle.min.js' %}"></script>{% endaddtoblock %}
+
+{# Add ChartJs-Sass CSS and JS if enabled #}
+{% if enable_chartjs_sass %}
+    {% addtoblock "css" %}<link rel="stylesheet" href="{% static 'djangocms_charts/output/ChartJs-Sass/2.0.0/css/chartjs-sass-default.min.css' %}">{% endaddtoblock %}
+    {% addtoblock "js" %}<script src="{% static 'djangocms_charts/output/ChartJs-Sass/2.0.0/js/chartjs-sass.min.js' %}"></script>{% endaddtoblock %}
+{% endif %}
+
+{% spaceless %}
+{# ----  Chart Container ----  #}
+<div id="{{ instance.chart_container_id }}"
+     style="position: relative;
+             {% if instance.chart_width %} width:{{ instance.get_chart_width }};{% endif %}
+             {% if instance.chart_height %} height:{{ instance.get_chart_height }};{% endif %}"
+     class="chart-container {{ instance.chart_container_classes }}">
+    {# ----  Chart, Title, and Legend  Canvas object ----  #}
+    <canvas id="{{ instance.chart_id }}"
+            class="chart {{ instance.chart_classes }}"
+            aria-label="{{ instance.label|default:'ChartJS Chart'}}"
+            role="img"></canvas>
+    {# ----  Optional Caption ----  #}
+    {% if instance.caption %}<small>{{ instance.caption}}</small>{% endif %}
+</div>
+{% endspaceless %}
+
+{# Global Settings:  Chart.defaults.global. #}
+{% if global_options %}
+    {%  addtoblock "js" %}
+        <script>
+        {% for key, value in global_options %}
+            try{ {{ key|safe }} = {{ value|clean_json|safe }}; }
+            catch(err){ console.error('Error loading Global Option "{{ key|safe }}": ' + err.message); }
+        {% endfor %}
+        </script>
+    {% endaddtoblock %}
+{% endif %}
+
+{# Load Chart Settings and Build Chart   #}
+{%  addtoblock "js" %}
+    <script>
+        var chart_{{ instance.id }} = null;
+
+        function build_chart_{{ instance.id }}() {
+
+            //Get data and options
+            try{
+                var chart_data = {{ chart_data|clean_json|safe }};
+                var color_by_dataset = {{ color_by_dataset|safe }};
+            }
+            catch(err){
+                console.error('Error loading Chart: ' + err.message);
+                return;
+            }
+
+            {% if enable_chartjs_sass %}
+            //ChartJS-Sass
+            chart_data = parse_css_colors("#{{ instance.chart_id }}", chart_data['type'], chart_data, color_by_dataset);
+            {% endif %}
+
+            // Get Chart Canvas context
+            var ctx = $("#{{ instance.chart_id }}").get(0).getContext("2d");
+
+            //Destroy the existing chart if present
+            if (chart_{{ instance.id }} != null) {
+                chart_{{ instance.id }}.destroy();
+            }
+            chart_{{ instance.id }} = new Chart(ctx, chart_data);
+        }
+        {# Build/rebuild Charts after loading #}
+        $(document).ready(function () {
+            build_chart_{{ instance.id }}();
+        });
+        {# Rebuild Charts after editing plugins - Edit mode only #}
+        {% if request.toolbar and request.toolbar.edit_mode_active %}
+            CMS.$(window).on('cms-content-refresh', function () {
+                location.reload();
+            });
+        {% endif %}
+    </script>
+{% endaddtoblock %}
