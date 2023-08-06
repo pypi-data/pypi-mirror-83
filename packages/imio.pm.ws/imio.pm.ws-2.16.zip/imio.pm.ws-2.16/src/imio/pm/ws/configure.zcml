@@ -1,0 +1,243 @@
+<configure
+    xmlns="http://namespaces.zope.org/zope"
+    xmlns:five="http://namespaces.zope.org/five"
+    xmlns:genericsetup="http://namespaces.zope.org/genericsetup"
+    xmlns:soap="http://namespaces.zope.org/soap"
+    xmlns:browser="http://namespaces.zope.org/browser"
+    xmlns:i18n="http://namespaces.zope.org/i18n"
+    i18n_domain="imio.pm.ws">
+
+  <five:registerPackage package="." initialize=".initialize" />
+  <i18n:registerTranslations directory="locales" />
+
+  <include package="archetypes.schemaextender" />
+  <include package="Products.CMFPlacefulWorkflow"/>
+
+  <!-- include the soap namespace for the soap:view directive -->
+  <include package="z3c.soap" file="meta.zcml" />
+  <!-- include the zope2.SOAPAccess permission -->
+  <include package="z3c.soap" file="configure.zcml" />
+  <include package="z3c.unconfigure" file="meta.zcml"/>
+
+  <!--permission
+    id="ws4pm.SOAPAccess"
+    title="SOAP Access"
+  /-->
+
+  <class class="Products.PloneMeeting.MeetingItem.MeetingItem">
+    <implements interface=".interfaces.IExternalIdentifierable" />
+  </class>
+
+  <adapter factory=".extender.ExternalIdentifierExtender"
+           for=".interfaces.IExternalIdentifierable"
+           provides="archetypes.schemaextender.interfaces.ISchemaExtender"
+           name="imio.pm.ws.externalidentifier" />
+
+  <class class=".WS4PM_server.testConnectionRequest">
+    <implements interface=".interfaces.ITestConnectionRequest" />
+  </class>
+
+  <class class=".WS4PM_server.checkIsLinkedRequest">
+    <implements interface=".interfaces.ICheckIsLinkedRequest" />
+  </class>
+
+  <class class=".WS4PM_server.getConfigInfosRequest">
+    <implements interface=".interfaces.IConfigInfosRequest" />
+  </class>
+
+  <class class=".WS4PM_server.getUserInfosRequest">
+    <implements interface=".interfaces.IUserInfosRequest" />
+  </class>
+
+  <class class=".WS4PM_server.getItemInfosRequest">
+    <implements interface=".interfaces.IItemInfosRequest" />
+  </class>
+
+  <class class=".WS4PM_server.getSingleItemInfosRequest">
+    <implements interface=".interfaces.ISingleItemInfosRequest" />
+  </class>
+
+  <class class=".WS4PM_server.getItemTemplateRequest">
+    <implements interface=".interfaces.IItemTemplateRequest" />
+  </class>
+
+  <class class=".WS4PM_server.searchItemsRequest">
+    <implements interface=".interfaces.ISearchItemsRequest" />
+  </class>
+
+  <class class=".WS4PM_server.meetingsAcceptingItemsRequest">
+    <implements interface=".interfaces.IMeetingsAcceptingItemsRequest" />
+  </class>
+
+  <class class=".WS4PM_server.createItemRequest">
+    <implements interface=".interfaces.ICreateItemRequest" />
+  </class>
+
+  <soap:view
+    for="Products.CMFPlone.interfaces.IPloneSiteRoot"
+    methods="testConnectionRequest
+             checkIsLinkedRequest
+             getConfigInfosRequest
+             getUserInfosRequest
+             getItemInfosRequest
+             getSingleItemInfosRequest
+             getItemTemplateRequest
+             searchItemsRequest
+             meetingsAcceptingItemsRequest
+             createItemRequest"
+    class=".soap.soapview.SOAPView"
+    permission="zope2.SOAPAccess"
+  />
+
+  <browser:page
+      for="Products.CMFPlone.interfaces.IPloneSiteRoot"
+      name="ws4pm.wsdl"
+      layer="imio.pm.ws.interfaces.IWS4PMLayer"
+      class=".soap.soapview.WS4PMWSDL"
+      template="soap/ws4pmwsdl.pt"
+      permission="zope2.Public"
+      />
+
+  <utility
+    factory=".WS4PM_server.testConnectionRequest"
+    name="testConnectionRequest"
+    provides="z3c.soap.interfaces.IZSIRequestType"
+  />
+
+  <utility
+    factory=".WS4PM_server.testConnectionResponse"
+    name="testConnectionRequest"
+    provides="z3c.soap.interfaces.IZSIResponseType"
+  />
+
+  <utility
+    factory=".WS4PM_server.checkIsLinkedRequest"
+    name="checkIsLinkedRequest"
+    provides="z3c.soap.interfaces.IZSIRequestType"
+  />
+
+  <utility
+    factory=".WS4PM_server.checkIsLinkedResponse"
+    name="checkIsLinkedRequest"
+    provides="z3c.soap.interfaces.IZSIResponseType"
+  />
+
+  <utility
+    factory=".WS4PM_server.getConfigInfosRequest"
+    name="getConfigInfosRequest"
+    provides="z3c.soap.interfaces.IZSIRequestType"
+  />
+
+  <utility
+    factory=".WS4PM_server.getConfigInfosResponse"
+    name="getConfigInfosRequest"
+    provides="z3c.soap.interfaces.IZSIResponseType"
+  />
+
+  <utility
+    factory=".WS4PM_server.getUserInfosRequest"
+    name="getUserInfosRequest"
+    provides="z3c.soap.interfaces.IZSIRequestType"
+  />
+
+  <utility
+    factory=".WS4PM_server.getUserInfosResponse"
+    name="getUserInfosRequest"
+    provides="z3c.soap.interfaces.IZSIResponseType"
+  />
+
+  <utility
+    factory=".WS4PM_server.getItemInfosRequest"
+    name="getItemInfosRequest"
+    provides="z3c.soap.interfaces.IZSIRequestType"
+  />
+
+  <utility
+    factory=".WS4PM_server.getItemInfosResponse"
+    name="getItemInfosRequest"
+    provides="z3c.soap.interfaces.IZSIResponseType"
+  />
+
+  <utility
+    factory=".WS4PM_server.getSingleItemInfosRequest"
+    name="getSingleItemInfosRequest"
+    provides="z3c.soap.interfaces.IZSIRequestType"
+  />
+
+  <utility
+    factory=".WS4PM_server.getSingleItemInfosResponse"
+    name="getSingleItemInfosRequest"
+    provides="z3c.soap.interfaces.IZSIResponseType"
+  />
+
+  <utility
+    factory=".WS4PM_server.getItemTemplateRequest"
+    name="getItemTemplateRequest"
+    provides="z3c.soap.interfaces.IZSIRequestType"
+  />
+
+  <utility
+    factory=".WS4PM_server.getItemTemplateResponse"
+    name="getItemTemplateRequest"
+    provides="z3c.soap.interfaces.IZSIResponseType"
+  />
+
+  <utility
+    factory=".WS4PM_server.searchItemsRequest"
+    name="searchItemsRequest"
+    provides="z3c.soap.interfaces.IZSIRequestType"
+  />
+
+  <utility
+    factory=".WS4PM_server.searchItemsResponse"
+    name="searchItemsRequest"
+    provides="z3c.soap.interfaces.IZSIResponseType"
+  />
+
+  <utility
+    factory=".WS4PM_server.meetingsAcceptingItemsRequest"
+    name="meetingsAcceptingItemsRequest"
+    provides="z3c.soap.interfaces.IZSIRequestType"
+  />
+
+  <utility
+    factory=".WS4PM_server.meetingsAcceptingItemsResponse"
+    name="meetingsAcceptingItemsRequest"
+    provides="z3c.soap.interfaces.IZSIResponseType"
+  />
+
+  <utility
+    factory=".WS4PM_server.createItemRequest"
+    name="createItemRequest"
+    provides="z3c.soap.interfaces.IZSIRequestType"
+  />
+
+  <utility
+    factory=".WS4PM_server.createItemResponse"
+    name="createItemRequest"
+    provides="z3c.soap.interfaces.IZSIResponseType"
+  />
+
+  <!-- override plone.transformchain transformer to not apply on SOAP requests -->
+  <unconfigure package="plone.transformchain">
+    <utility factory=".transformer.Transformer" />
+  </unconfigure>
+  <utility factory=".overrides.SoapAwareTransformer" />
+
+  <genericsetup:registerProfile
+    name="default"
+    title="Webservices for PloneMeeting"
+    directory="profiles/default"
+    description="Registration of the Webservices for PloneMeeting (imio.pm.ws)"
+    provides="Products.GenericSetup.interfaces.EXTENSION"
+  />
+
+  <genericsetup:registerProfile
+    name="uninstall"
+    title="Uninstall of the Webservices for PloneMeeting (imio.pm.ws)"
+    directory="profiles/uninstall"
+    description=""
+    provides="Products.GenericSetup.interfaces.EXTENSION"
+  />
+
+</configure>
