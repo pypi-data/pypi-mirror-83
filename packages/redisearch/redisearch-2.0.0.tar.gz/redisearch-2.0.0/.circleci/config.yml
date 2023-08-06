@@ -1,0 +1,169 @@
+version: 2.1
+
+commands:
+  test-steps:
+    parameters:
+      python_ver:
+        type: string
+        default: "3"
+      redisearch_ver:
+        type: string
+        default: latest
+      coverage:
+        type: boolean
+        default: true
+    steps: 
+      - checkout
+
+      - restore_cache: # Download and cache dependencies
+          keys:
+          - v1-dependencies-{{ checksum "requirements.txt" }}
+          # fallback to using the latest cache if no exact match is found
+          - v1-dependencies-
+
+      - run:
+          name: install dependencies
+          command: |
+            virtualenv venv
+            . venv/bin/activate
+            python --version
+            pip install -r requirements.txt
+            pip install --force-reinstall git+https://github.com/RedisLabs/rmtest.git
+            <<# parameters.coverage >> pip install codecov <</ parameters.coverage >>
+            python - \<<'__'
+            import redis
+            r = redis.Redis(decode_responses=True)
+            print(r.execute_command('info server'))
+            print(r.execute_command('info modules'))
+            __
+            
+      - save_cache:
+          paths:
+            - ./venv
+          key: v1-dependencies-{{ checksum "requirements.txt" }}
+
+      - run:
+          name: test dist
+          command: python setup.py sdist
+
+      - run:
+          name: run tests
+          command: |
+            . venv/bin/activate
+            <<# parameters.coverage >> COV=1 <</ parameters.coverage >>
+            if [[ $COV == 1 ]]; then
+                REDIS_PORT=6379 coverage run test/test.py
+                REDIS_PORT=6379 coverage run -a test/test_builder.py
+                codecov
+            else
+                REDIS_PORT=6379 python test/test.py
+                REDIS_PORT=6379 python test/test_builder.py
+            fi
+
+      - store_artifacts:
+          path: test-reports
+          destination: test-reports
+
+
+jobs:
+  test:
+    parameters:
+      python_ver:
+        type: string
+        default: "3"
+      redisearch_ver:
+        type: string
+        default: latest
+      coverage:
+        type: boolean
+        default: true
+    docker:
+      - image: circleci/python:<<parameters.python_ver >>
+      - image: redislabs/redisearch:<<parameters.redisearch_ver >>
+    steps:
+      - test-steps:
+          python_ver: <<parameters.python_ver>>
+          redisearch_ver: <<parameters.redisearch_ver>>
+          coverage: <<parameters.coverage>>
+      - store_artifacts:
+          path: test-reports
+          destination: test-reports
+
+    working_directory: ~/repo
+
+
+on-any-branch: &on-any-branch
+  filters:
+    branches:
+      only: /.*/
+    tags:
+      only: /.*/
+
+never: &never
+  filters:
+    branches:
+      ignore: /.*/
+    tags:
+      ignore: /.*/
+
+on-master: &on-master
+  filters:
+    branches:
+      only: master
+
+on-version-tags: &on-version-tags
+  filters:
+    branches:
+      ignore: /.*/
+    tags:
+      only: /^v[0-9].*/
+
+on-master-and-version-tags: &on-master-and-version-tags
+  filters:
+    branches:
+      only:
+        - master
+    tags:
+      only: /^v[0-9].*/ 
+
+
+workflows:
+  version: 2
+  commit:
+    jobs:
+      - test:
+          name: build
+          python_ver: "3"
+          redisearch_ver: latest
+          coverage: yes
+          <<: *on-any-branch
+      - test:
+          name: test_py2_latest
+          python_ver: "2.7"
+          redisearch_ver: latest
+          coverage: yes
+          <<: *on-any-branch
+      - test:
+          name: test_py3_search1.6
+          python_ver: "3"
+          redisearch_ver: "1.6.14"
+          coverage: yes
+          <<: *on-any-branch
+      - test:
+          name: test_py2_search1.6
+          python_ver: "2.7"
+          redisearch_ver: "1.6.14"
+          coverage: yes
+          <<: *on-any-branch
+
+  nightly:
+    triggers:
+      - schedule:
+          cron: "0 0 * * *"
+          <<: *on-master
+    jobs:
+      - test:
+          name: test-nightly
+          python_ver: "3"
+          redisearch_ver: edge
+          coverage: no
