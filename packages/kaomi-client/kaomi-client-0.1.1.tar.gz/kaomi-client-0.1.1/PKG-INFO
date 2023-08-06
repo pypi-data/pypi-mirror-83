@@ -1,0 +1,68 @@
+Metadata-Version: 2.1
+Name: kaomi-client
+Version: 0.1.1
+Summary: This package contains the client endpoint for the Kaomi deployer. Kaomi client has to be run on the deployer system.
+Home-page: https://gitlab.linkspirit.it/linkspirit/kaomi-deployer.git
+Author: Linkspirit Team
+Author-email: tecnici@linkspirit.it
+License: UNKNOWN
+Description: # Kaomi Client
+        
+        This package contains the client endpoint for KAOMI Deployer.
+        
+        ## Client
+        
+        ---
+        
+        ### Parameters
+        Di seguito si riporta la tabella con l'elenco di parametri che si possono passare al client.
+        
+        ```buildoutcfg
+        > python kaomi_client <ARGS>
+        ```
+        
+        Possibili argomenti della chiamata
+        
+        | id | id extended | arg[s] | mandatory | default |
+        |----|-------------|--------|:---------:|:-------:|
+        | -k | --key | apikey | yes | - |
+        | -s | --server | server with Kaomi deployer | yes | - |
+        | -p | --port | port of kaomi service | no | ?? |
+        | | | | | | 
+        | -d | --directory | path local dir, path remote dir | - | - |
+        | -f | --file | path local file, path remote file | - | - | 
+        | -a | --action | action name | - | - |
+        | -x | --delete | filesystem node (file or dir) | - | - |
+        | | | | | | 
+        | -dp | --dir-perms | permissions for directories | no | remote folders' ones | 
+        | -fp | --file-perms | permissions for files | no | remote files' ones |
+        | -o | --overwrite | overwrite flag for dirs and file | no | no overwrite |
+        | | | | | |
+        | -v | --verbose | verbose output | no | non-verbose output | 
+        
+        ### Output
+        
+        #### Status codes
+        
+        * `0` = Successo
+        * `1` = Problema locale (eg. elemento da uploadare inesistente, etc.)
+        * `2` = Problema remoto: comunicazione (eg. server non raggiungibile, connessione rifiutata, timeout, etc.)
+        * `3` = Problema remoto: autorizzazioni (eg. cartella non scrivibile, azione insesistente, apikey inesistente, etc.)
+        * `4` = Problema remoto: applicazione (eg. problemi specifici dell'operazione che si voleva svolgere)
+        
+        #### Stdout
+        Di seguito si riportano gli output restituiti dal client:
+        * Operazione su file/cartelle 
+            * Successo: no output (nel caso `-v`, una linea per ogni file caricato)
+            * Fallimento: errore
+            
+        * Esecuzione di azioni
+            * Successo: no output (nel caso `-v`, restituito l'output dell'azione)
+            * Fallimento: errore
+            
+        
+Platform: UNKNOWN
+Classifier: Programming Language :: Python :: 3
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3
+Description-Content-Type: text/markdown
