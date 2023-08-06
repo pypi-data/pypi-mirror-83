@@ -1,0 +1,51 @@
+name: CI/CD
+
+on:
+  push:
+  pull_request:
+
+jobs:
+
+  build-n-publish:
+    name: Python Packaging
+    runs-on: ubuntu-20.04
+    strategy:
+      matrix:
+        python-version:
+          - 3.8
+
+    steps:
+
+      - uses: actions/checkout@master
+      - run: git fetch --prune --unshallow
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install basic tools
+        run: pip install setuptools_scm
+
+      - name: Create distributions
+        run: |
+          python setup.py sdist
+          pip wheel -w dist/ .
+          echo ""
+          echo "Distributions:"
+          ls -alh dist/
+
+      - name: Rename wheel
+        run: |
+          sudo apt update
+          sudo apt install rename
+          find . -type f -name "*.whl" -exec rename -v "s/cp(\d)(\d)-cp(\d)(\d)-linux_x86_64/py3-none-any/g" {} +
+
+      - name: Publish to PyPI
+        if: |
+          github.repository == 'robotology/gym-ignition-models' &&
+          github.ref == 'refs/heads/master' &&
+          github.event_name != 'pull_request'
+        uses: pypa/gh-action-pypi-publish@master
+        with:
+          password: ${{ secrets.pypi_password }}
