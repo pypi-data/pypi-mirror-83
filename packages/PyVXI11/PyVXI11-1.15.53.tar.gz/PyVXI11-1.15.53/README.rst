@@ -1,0 +1,89 @@
+VXI11 module python based on Cython 
+==========================================
+
+
+Copyright
+------------
+
+cVXI11.pyx, cVXI11.pxd, VXI11.i and setup.py is written by Noboru Yamamoto, KEK, JAPAN.
+(C) 2009-2020 Noboru Yamamoto
+
+This is a software to control devices using VXI11 protocol form Python. This software based on Cython.
+There seems exsists softwares with same name in the net.
+If you are looking for the pure-python implementation, please visit python-vxi11 page in PyPI.
+
+
+Files
+----------
+
+This package contains :
+
+ README
+ VXI11.rpcl
+ cVXI11.pyx
+ cVXI11.pxd
+ setup.py
+
+ and some helper files.
+
+How to build
+------------------
+
+ You must have rpcgen command, Cython, and python running on your system.
+(If you also wants to build old VXI11.py and related library, you need swig).
+
+Python 2.7.17/Python 3.8.0/Cython version 0.29.14 were used to test/develop this version on MacOSX 10.15.
+
+
+The following sequence of commands will build and install VXI11 module in your python
+interpreter.
+
+.. code-block:: shell
+
+   %python setup.py build
+   %python setup.py install 
+
+or 
+
+.. code-block:: shell
+   
+   %sudo python setup.py install 
+   
+Before start building, pleas make sure thata there is none of VXI11.py, VXI11_wrap.c, cVXI11.cpp, cVXI11.h, VXI11.h,VXI11_clnt.c,VXI11_svc.c and VXI11_xdr.c.
+These files should be generated using the tools mentioned above, ie rpcgen, cython ,swig and are platform dependent.
+In other words, these files created on other platforms may not work on your platform.
+
+On MacOSX, you need to setup CC and CXX environments variables. So use:
+
+.. code-block:: shell
+   
+   %env CC=/usr/bin/clang CXX=/usr/bin/clang++ python setup.py build install
+
+for building and istalling the software.
+
+
+binary tools
+---------------
+
+run "make all" to create vxi11scan and vxi11_device_clear.
+vxi11scan.py nor pyvxi11scan.pyx are not support on this version.
+
+note
+-------
+
+2014.4.1 : SRQ support still is not complete. Sometime it crashes. Please use it at your own risk.
+
+2014.4.2 : SQR handler on MacOSX respond to SRQ. However, on Linux, it does not get event.
+
+2014.4.4 : Ubuntu installation may not incude /usr/sbin/rpcinfo command. You need to install it from the package manager.
+
+2014.4.6 : compilation error. You may have warnings during compilation. It does not affects the operation of the software.
+
+2019.4.17 : Support for Python 3. VXI11.rpcl was adjusted for 64bit mode compilation.
+
+2020.2.7 : pmap_getport/pmap_getmaps are introduced. pmap_getport ask port number
+for requested program to a portmapper on the host. THe function pmap_getmaps() returns list of services from the portmapper. It remvoes dependency on the rpcinfo shell program.
+
+2020.10.22: On MacOS, getifaddrs() is supported. 
+
+
