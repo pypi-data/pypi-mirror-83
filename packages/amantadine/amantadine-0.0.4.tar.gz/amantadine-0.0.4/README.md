@@ -1,0 +1,65 @@
+# Amantadine
+
+
+<strong>Amantadine</strong> is a framework for rendering HTML on the server
+
+> It is not ready for production.
+
+## Introduce
+
+The heavy HTML, CSS and JS files are rendered into independent HTML files, and asynchronous data collection through network requests is supported, and functions are defined as parameters. Only render CSS tags used in HTML to reduce volume
+
+## Install
+
+``` bash
+$ pip install -U amantadine
+```
+
+## Usage
+
+``` python
+import amantadine
+
+pages = amantadine.Pages(
+    body=[amantadine.Record("h1", [amantadine.OnlyText("Amantadine")])],
+    head=[
+        amantadine.Record("meta", attrs={"charset": "UTF-8"}),
+        amantadine.Record("title", [amantadine.OnlyText("Amantadine")]),
+    ],
+)
+
+print(amantadine.renderDoc(pages))
+```
+
+After rendering:
+
+``` html
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta class='' charset=UTF-8></meta>
+    <title class=''>Amantadine</title>
+</head>
+
+<body>
+    <h1 class=''>Amantadine</h1>
+</body>
+
+</html>
+```
+
+## Build
+
+Not only that, you can also render large web projects. This reduces the redundancies of the top and bottom columns, which you can learn from the examples in the `/example` folder in the directory
+
+``` bash
+$ python main.py
+🎍 Build Production .
+ 
+All Chunk:
+docs/index.html 50722B
+```
+
+## License
+MIT LICENSE
