@@ -1,0 +1,236 @@
+Metadata-Version: 2.1
+Name: tiatoolbox
+Version: 0.4.0
+Summary: Computational pathology toolbox developed by TIA Lab.
+Home-page: https://github.com/tialab/tiatoolbox
+Author: TIA Lab
+Author-email: tialab@dcs.warwick.ac.uk
+License: UNKNOWN
+Keywords: tiatoolbox
+Platform: UNKNOWN
+Classifier: Development Status :: 2 - Pre-Alpha
+Classifier: Intended Audience :: Developers
+Classifier: Natural Language :: English
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown
+Requires-Dist: Click (>=7.0)
+Requires-Dist: numpy
+Requires-Dist: pillow
+Requires-Dist: matplotlib
+Requires-Dist: opencv-python (>=4.0)
+Requires-Dist: openslide-python (==1.1.2)
+Requires-Dist: pyyaml
+Requires-Dist: pandas
+Requires-Dist: glymur
+Requires-Dist: scikit-learn (==0.23.2)
+
+<p align="center">
+  <img width="450" height="200" src="https://warwick.ac.uk/fac/sci/dcs/research/tia/tiatoolbox/files/tialab_logo.png">
+</p>
+<h1 align="center">TIA Toolbox</h1>
+<p align="center">
+  <a href="https://tia-toolbox.readthedocs.io/en/latest/?badge=latest">
+    <img src="https://readthedocs.org/projects/tia-toolbox/badge/?version=latest" alt="Documentation Status" />
+  </a>
+  <a href="https://travis-ci.org/TIA-Lab/tiatoolbox">
+    <img src="https://travis-ci.org/TIA-Lab/tiatoolbox.svg?branch=master" alt="Travis CI Status" />
+  </a>
+  <a href="https://badge.fury.io/py/tiatoolbox">
+    <img src="https://badge.fury.io/py/tiatoolbox.svg" alt="PyPI Status" />
+  </a>
+</p>
+
+Computational Pathology Toolbox developed by TIA Lab
+
+Please try
+
+    python -m tiatoolbox -h
+
+Getting Started
+===============
+
+First, install
+- OpenSlide [here](https://openslide.org/download/).
+- OpenJPEG [here](https://www.openjpeg.org/), using
+`conda install -c conda-forge openjpeg>=2.3.0`.
+
+Then, create and activate the conda environment:
+
+pip
+---
+
+    pip install tiatoolbox
+
+conda
+-----
+
+    conda env create --name tiatoolbox --file requirements.conda.yml
+    conda activate tiatoolbox
+
+tiatoolbox --help
+=================
+
+    usage: tiatoolbox [-h] [--version] [--verbose VERBOSE]
+                     {read-region,
+                      save-tiles,
+                      slide_info,
+                      slide-thumbnail,
+                      stainnorm,
+                      }
+                     ...
+
+    positional arguments:
+      {slide_info}
+
+    read-region         usage: tiatoolbox read-region -h
+    save-tiles          usage: tiatoolbox save-tiles -h
+    slide-info          usage: tiatoolbox slide-info -h
+    slide-thumbnail     usage: tiatoolbox slide-thumbnail -h
+    stainnorm           usage: tiatoolbox stainnorm -h
+
+    optional arguments:
+      -h, --help            show this help message and exit
+      --version             show program`s version number and exit
+      --verbose             VERBOSE
+
+
+License
+=======
+
+The source code TIA Toolbox (tiatoolbox) as hosted on GitHub is released under the [GNU General Public License (Version 3)].
+
+The full text of the licence is included in [LICENSE.md](https://raw.githubusercontent.com/TIA-Lab/tiatoolbox/develop/LICENSE.md).
+
+[GNU General Public License (Version 3)]: https://www.gnu.org/licenses/gpl-3.0.html
+
+
+Auxiliary Files
+---------------
+
+Auxiliary files, such as pre-trained model weights downloaded from the TIA Lab webpage (https://warwick.ac.uk/fac/sci/dcs/research/tia/tiatoolbox), are provided under the [Creative Commons Attribution-NonCommercial-ShareAlike Version 4 (CC BY-NC-SA 4.0) license](https://creativecommons.org/licenses/by-nc-sa/4.0/).
+
+
+Dual License
+------------
+
+If you would like to use any of the source code or auxiliary files (e.g. pre-trained model weights) under a different license agreement please contact the Tissue Image Analytics (TIA) Lab at the University of Warwick (tialab@dcs.warwick.ac.uk).
+
+
+History
+=======
+
+0.4.0 (2020-10-25)
+------------------
+
+### Major and Feature Improvements
+
+- Adds `OpenSlideWSIReader` to read Openslide image formats
+- Adds support to read Omnyx jp2 images using `OmnyxJP2WSIReader`.
+- New feature added to perform stain normalisation using `Ruifork`, `Reinhard`, `Vahadane`, `Macenko` methods and using custom stain matrices.
+- Adds example notebook to read whole slide images via the toolbox.
+- Adds `WSIMeta` class to save meta data for whole slide images. `WSIMeta` casts properties to python types. Properties from OpenSlide are returned as string. raw values can always be accessed via `slide.raw`. Adds data validation e.g., checking that level_count matches up with the length of the `level_dimensions` and `level_downsamples`. Adds type hints to `WSIMeta`.
+- Adds exceptions `FileNotSupported` and `MethodNotSupported`
+
+
+### Changes to API
+
+-  Restructures `WSIReader` as parent class to allow support to read whole slide images in other formats.
+- Adds `slide_info` as a property of `WSIReader`
+- Updates `slide_info` type to `WSIMeta` from `dict`
+- Depericiates support for multiprocessing from within the toolbox. The toolbox is focussed on processing single whole slide and standard images. External libraries can be used to run using multi processing on multiple files.
+
+### Bug Fixes and Other Changes
+
+- Adds `scikit-learn`, `glymur` as a dependency
+- Adds licence information
+- Removes `pathos` as a dependency
+- Updates `openslide-python` requirement to 1.1.2
+
+0.3.0 (2020-07-19)
+------------------
+
+### Major and Feature Improvements
+
+- Adds feature `read_region` to read a small region from whole slide images
+- Adds feature `save_tiles` to save image tiles from whole slide images
+- Adds feature `imresize` to resize images
+- Adds feature `transforms.background_composite` to avoid creation of black tiles from whole slide images.
+
+### Changes to API
+
+- None
+
+### Bug Fixes and Other Changes
+
+- Adds `pandas` as dependency
+
+------------------
+0.2.2 (2020-07-12)
+------------------
+
+### Major and Feature Improvements
+
+-   None
+
+### Changes to API
+
+-   None
+
+### Bug Fixes and Other Changes
+
+-   Fix command line interface for `slide-info` feature and travis pypi deployment
+
+------------------
+0.2.1 (2020-07-10)
+------------------
+
+### Major and Feature Improvements
+
+-   None
+
+### Changes to API
+
+-   None
+
+### Bug Fixes and Other Changes
+
+-   Minor changes to configuration files.
+
+------------------
+0.2.0 (2020-07-10)
+------------------
+
+### Major and Feature Improvements
+
+-   Adds feature slide\_info to read whole slide images and display meta
+    data information
+-   Adds multiprocessing decorator TIAMultiProcess to allow running
+    toolbox functions using multiprocessing.
+
+### Changes to API
+
+-   None
+
+### Bug Fixes and Other Changes
+
+-   Adds Sphinx Readthedocs support
+    <https://readthedocs.org/projects/tia-toolbox/> for stable and
+    develop branches
+-   Adds code coverage tools to test the pytest coverage of the package
+-   Adds deepsource integration to highlight and fix bug risks,
+    performance issues etc.
+-   Adds README to allow users to setup the environment.
+-   Adds conda and pip requirements instructions
+
+------------------
+0.1.0 (2020-05-28)
+------------------
+
+-   First release on PyPI.
+
+
+
