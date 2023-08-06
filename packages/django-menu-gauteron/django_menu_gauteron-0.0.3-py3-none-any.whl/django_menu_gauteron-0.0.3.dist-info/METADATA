@@ -1,0 +1,150 @@
+Metadata-Version: 2.1
+Name: django-menu-gauteron
+Version: 0.0.3
+Summary: A simple menu middleware for Django
+Home-page: https://github.com/amigne/django_menu
+Author: Yann Gauteron
+Author-email: yann@gauteron.xyz
+License: UNKNOWN
+Platform: UNKNOWN
+Classifier: Development Status :: 2 - Pre-Alpha
+Classifier: Environment :: Web Environment
+Classifier: Framework :: Django
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+
+# django-menu
+This package is a simple Django middleware for generating a dictionary with
+the information required to be displayed in a template.
+
+# Usage
+The module is integrated in a Django project by adding it in the `MIDDLEWARE`
+list within the project settings file.
+```
+MIDDLEWARE = [
+   ...
+   'django_menu.middleware.menu_middleware',
+]
+```
+
+The menu elements are set in a similar way that the Django project views
+are configured in `urlpatterns`. A root file (typically named "menu.py")
+should be created in the Django project directory. Its very minimal content
+is the following:
+```
+menu = [
+]
+```
+
+The project settings file must make reference to this file in the 
+`ROOT_MENUCONF` variable.
+```
+ROOT_MENUCONF = 'project.menu' # If the root file is "project/menu.py"
+```
+
+Within the project views and templates, the menu dictionary is referenced
+as `request.menu`.
+
+# Configuration
+## Menu items
+With the above settings, the menu is empty. The next step is to add content.
+The module proposes 3 types of content:
+  * A label - A simple label without any linked URL;
+  * A menu entry - A single menu entry that relates to an URL or to a view.
+  * A menu group - A group of menu entries. The template implementation may
+  decide to group all the child items as an expandable tree;
+
+These contents are added by calling functions from the django_menu module.
+
+`label(name, condition=None, **kwargs)` is used to add a label to the menu:
+  * The `name` argument defines the name to be displayed.
+  * The `condition` argument specifies an optional callable that returns a
+  boolean value True if the label must be displayed or False otherwise.
+
+`menu(name, viewname=None, url=None, condition=None, alternate_views=[], **kwargs)` is used to add an entry
+to the menu:
+  * The `name` argument defines the name to be displayed.
+  * The `viewname` is used to refer to a Django view name as defined in the
+  `urlpatterns`. The view name is typically intended to be used for
+  referring to project internal views.
+  * The `url` argument is used to refer to an full URL, typically for
+  links external to the project.
+  * The `condition` argument specifies an optional callable that returns a
+  boolean value True if the menu entry must be displayed or False otherwise.
+  * The `alternate_views` argument specifies an optional list with view names
+  that should activate the link.
+
+Either `viewname` or `url` must be given, but they cannot be set
+simultaneously for the same menu entry.
+
+`menugroup(name, entries, condition=None, **kwargs)` is used to hierarchically group menu
+items together.
+  * The `name` argument defines the name to be displayed.
+  * The `entries` is a list of child menu items (labels, menu entries or
+  another menu group).
+  * The `condition` argument specifies an optional callable that returns a
+  boolean value True if the menu group must be displayed or False otherwise.
+
+For all functions, the `kwargs` collects all other named arguments and add
+them as is to the menu dictionary. This is a convenient way for the user to
+add own options that may be used by the template for custom processing
+(e.g. to add icons, colors, custom CSS class, ...).
+
+### Example
+```
+from django_menu import label, menu, menugroup
+
+menu = [
+    label('Shop'),
+    menugroup('Food', 
+    [
+        menugroup('Meat',
+            [
+              menu('Hamburger', viewname='hamburger', icon='fas fa-hamburger'),
+            ], 
+            icon='fas fa-drumstick-bite'),
+        menu('Pizza', viewname='pizza', icon='fas fa-pizza-slice'),
+    ],
+    icon = 'fas fa-utensils'),
+]
+```
+
+## Menu configuration by application
+All menu can be configured in a single menu root configuration file. However,
+this is not very flexible and convenient to manage when the number of Django
+applications increase.
+
+It has been adopted an approach similar to the `urlpatterns` one: It is
+recommended for th root menu configuration file to `include` per-app menu
+configuration files.
+
+### Example
+```
+from django_menu import include
+
+menu = [
+    *include('myapp.menu'), # To include the "myapp/menu.py" file
+]
+```
+
+Remark that `include` returns a list. The elements of the list must unpacked
+using the star `*` operator.
+
+
+## Versions
+  * 0.0.1 _Development version_ Initial version with menu, menu group, label
+  and include support. Active view support is implemented.
+  * 0.0.2 _Development version_ Adding the conditional presence of the menu
+  items.
+  * 0.0.3 _Development version_ Adding alternate views to activate a link from
+  multiple views.
+
+
