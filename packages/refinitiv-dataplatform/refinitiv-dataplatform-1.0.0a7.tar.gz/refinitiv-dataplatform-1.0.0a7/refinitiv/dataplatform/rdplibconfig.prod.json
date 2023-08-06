@@ -1,0 +1,70 @@
+{
+  "name": "prod",
+  "auto-reconnect": false,
+  "watch-enabled": false,
+  "log": {
+    "level": "NOTSET"
+  },
+  "platform-url": "https://api.refinitiv.com",
+  "esg": {
+    "root": "data/environmental-social-governance/v1",
+    "universe": "${esg:root}/universe",
+    "views": "${esg:root}/views/{data_type}"
+  },
+  "news": {
+    "root": "data/news/v1",
+    "stories": "${news:root}/stories/{story_id}",
+    "headlines": "${news:root}/headlines"
+  },
+  "historical-pricing": {
+    "root": "data/historical-pricing/v1",
+    "views": {
+      "events": "${historical-pricing:root}/views/events/{universe}",
+      "interday-summaries": "${historical-pricing:root}/views/interday-summaries/{universe}",
+      "intraday-summaries": "${historical-pricing:root}/views/intraday-summaries/{universe}"
+    }
+  },
+  "pricing": {
+    "root": "data/pricing/beta3",
+    "snapshots": "${pricing:root}/snapshots",
+    "views": {
+      "chains": "${pricing:root}/views/chains?universe={universe}"
+    }
+  },
+  "search": {
+    "root": "search/beta1",
+    "main": "${search:root}/",
+    "lookup": "${search:root}/lookup",
+    "metadata": {
+      "views": "${search:root}/metadata/views/"
+    }
+  },
+  "ipa": {
+    "financial-contracts": "data/quantitative-analytics/v1/financial-contracts",
+    "surfaces": "data/quantitative-analytics-curves-and-surfaces/v1/surfaces",
+    "curves": {
+      "forward": "data/quantitative-analytics-curves-and-surfaces/v1/curves/forward-curves",
+      "zc-curve": "data/quantitative-analytics-curves-and-surfaces/v1/curves/zc-curves",
+      "zc-curve-definitions": "data/quantitative-analytics-curves-and-surfaces/v1/curves/zc-curve-definitions"
+    }
+  },
+  "fundamental": {
+    "root": "data/datagrid/beta1",
+    "datagrid": "${fundamental:root}/"
+  },
+  "auth": {
+    "base-url": "/auth/oauth2/v1/",
+    "authorize": "authorize",
+    "token": "token"
+  },
+  "streaming": {
+    "connections": {
+      "pricing": {
+        "type": "service-discovery",
+        "base-url": "/streaming/pricing/v1/",
+        "locations": []
+      }
+    }
+  }
+}
+

@@ -1,0 +1,207 @@
+-------------------------------------------------------------------------------------
+Refinitiv Dataplatform Package Changes Log
+-------------------------------------------------------------------------------------
+
+Release Summary:
+
+1.0.0a7, october 27, 2020
+    - fix in get_timeseries: response.json() raise JSONDecodeError
+
+1.0.0a7.dev1, October 8, 2020
+    - Implement a new feature for auto-reconnection mode.
+    - Implement a new data grid in content layer.
+    - Implement the RDPItemStream.
+    - Fixed a create an np.array bug in instrument_definition.
+    - Fixed a bug in EndPoint when session is None.
+    - Fixed a required of nest_asyncio version 1.3.3.
+
+1.0.0a7.dev0, September 25, 2020
+    - Add docstring for ESG, Chain, News, IPA, partial of HistoricalPricing and Search.
+    - Fixed bug request object has no attribute 'prepare'.
+    - Fixed the IPA module scope.
+
+1.0.0a6, September 17, 2020
+    - Fixed bug StreamingChain when session doesn't supply.
+    - Fixed bug Search metadata when dataframe is empty.
+    - Fixed bug HistoricalPricing when interval argument is a string type.
+
+1.0.0a6.dev1, September 11, 2020
+    - Add pause/resume for streaming.
+    - Update the IPA contact to version 1.0.60
+        and curve and surface to version 1.0.41.
+    - Fixed bug with Python 3.8 about http request.
+    - Fixed bug DeprecationWarning when check empty array.
+    - Fixed bug on_complete callback in StreamingPrices
+    
+1.0.0a6.dev0, August 31, 2020
+    - Fixed bug streaming prices with_updates argument.
+    - Fixed bug on_event when streaming connection websocket is closed.
+    - Fixed bug streaming connection close.
+    - Fixed bug empty dataframe in time series and search metadata
+
+1.0.0a5, August 18, 2020
+    - Fixed bug streaming connection invalid state of future object.
+    - Fixed bug convert dataframe type.
+    
+1.0.0a4, August 18, 2020
+    - Fixed streaming chain invalid state of future object.
+
+1.0.0a3, August 14, 2020
+    - Fixed minor bugs.
+
+1.0.0a3-B200811.0, August 11, 2020
+    - Fixed bug stream connection configuration.
+
+1.0.0a3-B200810.0, August 10, 2020
+    - Added the configuration file for multiple WebSocket’s streaming connections
+        i.e. service discovery for pricing or trading analytic or ads-websocket
+    - Support listener design patter for streaming websocket.
+    - Expose eikon module (import refinitiv.dataplatform.eikon as ek)
+    - Increase required nest_asyncio package version to be 1.3.0.
+
+Release 1.0.0a3-B200623, June 23, 2020
+    - Added IPA surface and curve APIs and renamed IPA parameter from PricingParams to CalculationParams.
+    - Supported configuration file phase I.
+    - Supported multiple WebSockets and renamed ItemStream to OMMItemStream.
+    - Supported automatic reconnection for streaming (WebSocket).
+
+Release 1.0.0a1, June 3, 2020
+    - Added search, esg, symbology, IPA bond and options APIs.
+    - Added streaming chains.
+    - Streaming support partial update.
+    - Deprecated DeployedPlatformSession
+    - Redesigned DeployedPlatformSession to be a part of PlatformSession.
+
+-------------------------------------------------------------------------------------
+
+
+-------------------------------------------------------------------------------------
+Details of each release follow, from most recent to oldest.
+-------------------------------------------------------------------------------------
+1.0.0a7.dev1, October 8, 2020
+
+Features added
+    - Implement a new feature for auto-reconnection mode.
+        To enable this feature it need to set the "auto-reconnect" attribute to be "true" in your configuration file.
+    - Implement a new data grid in content layer.
+        The rdp.get_data function is similar to rdp.legacy.get_data.
+    - Implement the RDPItemStream.
+        This is a new kind of streaming protocol. This protocol use for TDS service.
+Bugs fixed
+    - Fixed a create an np.array bug in instrument_definition.
+    - Fixed a bug in EndPoint when session is None.
+    - Fixed a required of nest_asyncio version to be 1.3.3 because of the 1.4.1 cause a issue. (reported on github)
+
+1.0.0a7.dev0, September 25, 2020
+Features added
+    - Add docstring for ESG, Chain, News, IPA, partial of HistoricalPricing and Search.
+        it is in basic function level of our RDP module.
+Bugs fixed
+    - fix bug request object has no attribute 'prepare'.
+        It cause from upgrade for httpx library.
+    - fix the IPA module scope.
+        old ways is rdp.ipa.get_bond_analytics. it is deprecated.
+        new ways is rdp.get_bond_analytics
+
+1.0.0a6, September 17, 2020
+Bugs fixed
+    - fig bug StreamingChain when session doesn't argument is not supply.
+        it should use the default session if it exists.
+    - fix bug Search metadata when dataframe is empty.
+        it is the test when dict is empty.
+    - Fixed bug HistoricalPricing when interval argument is a string type.
+        it is a wrong way to access the data.
+
+1.0.0a6.dev1, September 11, 2020
+Features added
+    - add a pause/resume method in Stream, OMMStream, OMMItemStream and StreamingChain.
+    - update the IPA contact to version 1.0.60
+        and curve and surface to version 1.0.41.
+Bugs fixed
+    - fix bug Python 3.8 issue with http request by replace with httpx library.
+    - fix bug the DeprecationWarning when check array size. 
+    - fix bug on_complete callback never get called in StreamingPrices.
+
+1.0.0a6.dev0, August 31, 2020
+Bugs fixed
+    - fix bug missing an argument with_updates for open and open_async function in streaming prices.
+    - fix bug calling an on_event function when streaming connection websocket is closed and auto-reconnetion is disabled.
+    - fix bug close function in streaming connection. It should call the close_async function.
+    - fix bug in time series and search metadata when returned dataframe is empty. 
+    
+1.0.0a5, August 18, 2020
+Bugs fixed
+    - fix bug streaming connection invalid state of set authentication token future object.
+        remove the set_result because the run_coroutine_threadsafe will be set automatically. 
+    - fixed bug convert dataframe type. It needs to check if the dataframe is empty before call convert datatype.
+    
+1.0.0a4, August 18, 2020
+Bugs fixed
+    - fix bug streaming chain invalid state of complete decoded future.
+
+1.0.0a3, August 14, 2020
+Bugs fixed
+    - fix bug import eikon module.
+    - fix bug streaming listener design pattern.
+
+1.0.0a3-B200811.0, August 11, 2020
+Bugs fixed
+    - fix bug stream connection configuration.
+
+Release 1.0.0a3-B200810.0, August 10, 2020
+Features added
+    - Support configuration for multiple websockets for a streaming connection (only support OMM protocol)
+    - Use the "pricing" as streaming connection name for desktop and deployed platform (note that both only support pricing streaming)
+    - Support pause/resume for OMM streaming protocol
+    - Support listener design patter for streaming websocket.
+    - Expose eikon module (import refinitiv.dataplatform.eikon as ek)
+Bugs fixed
+    - fix bug set authentication to stream connection.
+    - fix bug read/override configuration file, the order is Global -> Home -> Running directory
+
+Release 1.0.0a3-B200709, July 9, 2020
+Features added
+    - Improvement HistoricalPricing’s datatype in dataframe.
+    - Improvement automatic streaming reconnection.
+    - Support multiple package installation side by side in same ‘site-package/refinitiv’ directory
+
+Release 1.0.0a3-B200626, June 26, 2020
+Features added
+    - Improvement refresh authentication token mechanism
+Bugs fixed
+    - fix bug automatic streaming reconnection.
+    - fix bug http GET request.
+
+Release 1.0.0a3-B200623, June 23, 2020
+Features added
+    - Implemented IPA surface and curve APIs.
+    - rename parameter for IPA PricingParams CalculationParams.
+    - Support configuration file phase I.
+    - Support multiple WebSockets.
+    - rename ItemStream to OMMItemStream.
+    - Support automatic reconnection for streaming (WebSocket).
+    - Support listener design pattern for streaming.
+
+Release 1.0.0a2.1, June 9, 2020
+Bugs fixed
+    - fix bug http request in header
+
+Release 1.0.0a2, June 9, 2020
+Deprecated
+    - Deprecated import eikon
+
+Release 1.0.0a1.1, June 3, 2020
+Bugs fixed
+    - fix bug backward compatible for eikon
+
+Release 1.0.0a1, June 3, 2020
+Features added
+    - Implemented search, esg, symbology, IPA bond and options APIs.
+    - Implemented streaming chains.
+    - Streaming support partial update.
+    - Improvement the session logger.
+Deprecated
+    - DeployedPlatformSession
+    - Redesigned DeployedPlatformSession to be a part of PlatformSession.
+Bugs fixed
+    - fix bug Pricing and StreamingPricing parameters ordering
