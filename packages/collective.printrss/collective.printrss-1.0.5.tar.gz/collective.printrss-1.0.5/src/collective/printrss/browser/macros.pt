@@ -1,0 +1,17 @@
+<div id="macros_feed" class="feed" metal:define-macro="feed">
+<ul class="feed">
+  <tal:rss tal:define="toLocalizedTime nocall:context/@@plone/toLocalizedTime;" tal:repeat="item context/items">
+    <li class="portletItem oddrow" tal:define="oddrow repeat/item/odd" tal:attributes="class python:oddrow and 'portletItem even' or 'portletItem odd'">
+      <div class="summary" tal:condition="context/want_to_print_summary">
+        <tal:summary replace="structure python:item.get('summary').replace('<img','<img class=summary_picture') if context.want_to_print_picture is True else item.get('summary').replace('<img','<img style=display:none')">summary</tal:summary>
+      </div>
+      <div class="img" tal:condition="python:context.want_to_print_picture and item.get('image_url')" tal:attributes="style python:'background-image:url({})'.format(item.get('image_url'))"/>
+      <a target="_blank" href="#" tal:attributes="href item/url" class="tile">
+        <span tal:replace="item/title">
+          Title
+        </span>
+      </a>
+    </li>
+  </tal:rss>
+</ul>
+</div>

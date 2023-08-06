@@ -1,0 +1,5 @@
+====================
+collective.printrss
+====================
+
+User documentation
