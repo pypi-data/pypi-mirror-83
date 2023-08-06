@@ -1,0 +1,241 @@
+openapi: 3.0.0
+info:
+  license:
+    name: Apache-2.0
+  title: xOpera API
+  version: 0.2.1
+servers:
+- url: /
+paths:
+  /deploy:
+    post:
+      operationId: deploy
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeploymentInput'
+        description: Deployment inputs and service template name.
+        required: false
+      responses:
+        "202":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Invocation'
+          description: The deployment was successfully initiated.
+        "500":
+          description: There was an error starting the deployment.
+      summary: Deploy a CSAR
+      x-openapi-router-controller: opera.api.controllers.default
+  /info:
+    get:
+      operationId: info
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+          description: The opera environment operation.
+        "500":
+          description: General error.
+      summary: Get information about the current opera environment
+      x-openapi-router-controller: opera.api.controllers.default
+  /outputs:
+    get:
+      operationId: outputs
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeploymentOutput'
+          description: The outputs of the deployment.
+        "404":
+          description: No outputs exist for this deployment.
+      summary: Fetch deployment outputs
+      x-openapi-router-controller: opera.api.controllers.default
+  /status:
+    get:
+      operationId: status
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvocationHistory'
+          description: Asynchronous operation status history.
+      summary: Fetch the status of a deployment
+      x-openapi-router-controller: opera.api.controllers.default
+  /status/{invocationId}:
+    get:
+      operationId: invocation_status
+      parameters:
+      - explode: false
+        in: path
+        name: invocationId
+        required: true
+        schema:
+          format: uuid
+          type: string
+        style: simple
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Invocation'
+          description: An invocation status.
+        "404":
+          description: No invocation with this id.
+      summary: Fetch the status of a particular invocation.
+      x-openapi-router-controller: opera.api.controllers.default
+  /undeploy:
+    post:
+      operationId: undeploy
+      responses:
+        "202":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Invocation'
+          description: The undeploy operation was successfully initiated.
+        "500":
+          description: There was an error starting the undeploy operation.
+      summary: Undeploy a deployment
+      x-openapi-router-controller: opera.api.controllers.default
+  /validate:
+    post:
+      operationId: validate
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeploymentInput'
+        description: Validation inputs and service template name.
+        required: false
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationResult'
+          description: The validation result.
+        "500":
+          description: There was an error starting validate operation.
+      summary: Validate a CSAR
+      x-openapi-router-controller: opera.api.controllers.default
+components:
+  schemas:
+    DeploymentInput:
+      description: Inputs and service template name for deploy and validate commands.
+      example:
+        service_template: service_template
+        inputs: '{}'
+      properties:
+        inputs:
+          type: object
+        service_template:
+          type: string
+      required:
+      - service_template
+      type: object
+    DeploymentOutput:
+      description: Free-form mapping of outputs.
+      type: object
+    Invocation:
+      description: An invocation of the deployment.
+      example:
+        exception: exception
+        service_template: service_template
+        stdout: stdout
+        inputs: '{}'
+        instance_state:
+          key: instance_state
+        id: id
+        stderr: stderr
+        timestamp: timestamp
+      properties:
+        id:
+          type: string
+        state:
+          $ref: '#/components/schemas/InvocationState'
+        operation:
+          $ref: '#/components/schemas/OperationType'
+        timestamp:
+          description: An ISO8601 timestamp of the invocation.
+          type: string
+        service_template:
+          description: The service template used for the invocation.
+          type: string
+        inputs:
+          description: Inputs provided for invocation.
+          type: object
+        instance_state:
+          additionalProperties:
+            type: string
+          description: State of the instances defined in service template.
+          type: object
+        exception:
+          description: An internal xOpera error that occurred during the operation.
+          type: string
+        stdout:
+          description: xOpera console output for operation.
+          type: string
+        stderr:
+          description: xOpera error output for operation.
+          type: string
+      required:
+      - id
+      - operation
+      - state
+      - timestamp
+      type: object
+    InvocationHistory:
+      description: Invocation history ordered by timestamp ascending.
+      items:
+        $ref: '#/components/schemas/Invocation'
+      type: array
+    ValidationResult:
+      description: A CSAR validation result.
+      example:
+        success: true
+        message: message
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+      required:
+      - success
+      type: object
+    Info:
+      description: Information about an opera environment.
+      example:
+        service_template: service_template
+        inputs: '{}'
+        content_root: content_root
+        status: status
+      properties:
+        service_template:
+          type: string
+        content_root:
+          type: string
+        inputs:
+          type: object
+        status:
+          type: string
+      type: object
+    InvocationState:
+      enum:
+      - pending
+      - in_progress
+      - success
+      - failed
+      type: string
+    OperationType:
+      enum:
+      - deploy
+      - undeploy
+      type: string
