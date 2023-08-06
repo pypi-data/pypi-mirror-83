@@ -1,0 +1,57 @@
+<!doctype html>
+<html>
+<head>
+<title>PhishDetect Admin</title>
+<link href="/css/main.dist.css" rel="stylesheet">
+<link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.7.2/css/all.css" integrity="sha384-fnmOCqbTlWIlj8LyTjo7mOUStjsKC4pOpQbqyi7RrhN7udi9RwhKkMHpvLbHG9Sr" crossorigin="anonymous">
+<script src="/js/jquery-3.5.1.min.js"></script>
+</head>
+<body class="bg-gray-lightest text-gray-900 text-sm">
+<div class="p-12 w-full">
+    <div class="flex float-left">
+        <ul class="list-reset flex mb-8 w-full">
+            <li class="mr-6">
+                {% if page == 'Alerts' %}<span class="text-gray-dark"><i class="fas fa-exclamation-circle"></i> Alerts</span>
+                {% else %}<a href="/alerts/"><i class="fas fa-exclamation-circle"></i> Alerts</a>
+                {% endif %}
+            </li>
+            <li class="mr-6">
+                {% if page == 'Reports' %}<span class="text-gray-dark"><i class="fas fa-envelope"></i> Reports</span>
+                {% else %}<a href="/reports/"><i class="fas fa-envelope"></i> Reports</a>
+                {% endif %}
+            </li>
+            <li class="mr-6">
+                {% if page == 'Pending Indicators' %}<span class="text-gray-dark"><i class="fas fa-list-ul"></i> Indicators</span>
+                {% else %}<a href="/indicators/pending/"><i class="fas fa-list-ul"></i> Indicators</a>
+                {% endif %}
+            </li>
+            <li class="mr-6">
+                {% if page == 'Users' %}<span class="text-gray-dark"><i class="fas fa-user-plus"></i> Users</span>
+                {% else %}<a href="/users/"><i class="fas fa-user-plus"></i> Users</a>
+                {% endif %}
+            </li>
+            <li class="mr-6">
+                {% if page == 'Configuration' %}<span class="text-gray-dark"><i class="fas fa-cogs"></i> Configuration</span>
+                {% else %}<a href="/conf/"><i class="fas fa-cogs"></i> Configuration</a>
+                {% endif %}
+            </li>
+        </ul>
+    </div>
+    <div class="float-right text-right">
+        {% if current_node %}<div>{{ current_node["host"] }}</div>{% endif %}
+        <div>
+            {% if page == 'Node Selection' %}<span class="text-gray-dark"><i class="fas fa-exchange-alt"></i> Switch Node</span>
+            {% else %}<a href="/node/"><i class="fas fa-exchange-alt"></i> Switch Node</a>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="clearfix"></div>
+
+    <h1 class="text-2xl mb-6"><b>PhishDetect</b> Admin{% if page %} - {{ page }}{% endif %}</h1>
+
+    {% block content %}{% endblock %}
+</div>
+{% block scripts %}{% endblock %}
+</body>
+</html>
