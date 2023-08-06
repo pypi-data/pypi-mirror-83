@@ -1,0 +1,378 @@
+Testing forms
+=============
+
+Before we can begin, we need to set up a few things.
+
+We prepare for Python 2/3 compatibility:
+
+  >>> import six
+
+We need a manager account:
+
+  >>> uf = self.folder.acl_users
+  >>> _ignored = uf._doAddUser('manager', 'r00t', ['Manager'], [])
+
+We need to configure all of Five for the functional test:
+
+  >>> from Zope2.App import zcml
+  >>> import Products.Five
+  >>> zcml.load_config('meta.zcml', Products.Five)
+  >>> import five.formlib
+  >>> import five.formlib.tests
+  >>> zcml.load_config('configure.zcml', package=Products.Five)
+  >>> zcml.load_config('configure.zcml', package=five.formlib)
+  >>> zcml.load_config('configure.zcml', package=five.formlib.tests)
+
+Finally, we need to setup a traversable folder.  Otherwise, Five won't
+get to to do its view lookup:
+
+  >>> from Products.Five.tests.testing import manage_addFiveTraversableFolder
+  >>> manage_addFiveTraversableFolder(self.folder, 'ftf')
+
+Let's set up a testbrowser:
+
+  >>> from Testing.testbrowser import Browser
+  >>> browser = Browser()
+  >>> browser.addHeader('Accept-Language', 'en-US')
+
+Add forms
+---------
+
+We can add objects to containers (object managers) through add forms.
+An unprotected form can be accessed with anonymously:
+
+  >>> browser.open("http://localhost/test_folder_1_/ftf/+/addfieldcontent.html")
+  >>> print(browser.headers)
+  Status: 200 ...
+  ...
+
+We don't have access, we will not be able to get to the protected add form:
+
+  >>> browser.open("http://localhost/test_folder_1_/ftf/+/protectedaddform.html") # doctest: +IGNORE_EXCEPTION_DETAIL
+  Traceback (most recent call last):
+      ...
+  HTTPError: HTTP Error 401: Unauthorized
+
+For a protected one we need a manager account:
+
+  >>> browser.addHeader('Authorization', 'Basic manager:r00t')
+  >>> browser.open("http://localhost/test_folder_1_/ftf/+/protectedaddform.html")
+  >>> print(browser.headers)
+  Status: 200 ...
+  ...
+
+
+Now let's add a piece of our sample content object to test more things
+on it:
+
+  >>> ctl = browser.getControl(name="field.title")
+  >>> ctl.value = 'title'
+  >>> ctl = browser.getControl(name="add_input_name")
+  >>> ctl.value = 'edittest'
+  >>> browser.getControl(name="UPDATE_SUBMIT").click()
+
+Having added this piece of content, we can access it under its URL:
+
+  >>> browser.open("http://localhost/test_folder_1_/ftf/edittest")
+  >>> print(browser.headers)
+  Status: 200 ...
+  ...
+
+We can also verify that the title was set correctly, and the not
+specified attribute is the default value:
+
+  >>> edittest = self.folder.ftf.edittest
+  >>> str(edittest.title)
+  'title'
+  >>> edittest.description #XXX shouldn't we get a u'' here???
+
+We can also verify that the IObjectCreatedEvent was fired, and the test
+subscriber we registered set a flag indicating such:
+
+  >>> edittest._created_flag
+  True
+
+Because the process of adding an object often sets attributes after the
+object is created and added, and IObjectModified event should also have been
+fired:
+
+  >>> edittest._modified_flag
+  True
+  >>> del edittest._modified_flag
+
+Edit forms
+----------
+
+First, it's important to note that forms validate user input.
+Therefore, if we specify invalid data, our object won't change:
+
+  >>> browser.open("http://localhost/test_folder_1_/ftf/edittest/@@edit.html")
+  >>> ctl = browser.getControl(name="field.title")
+  >>> ctl.value = ''
+  >>> ctl = browser.getControl(name="field.description")
+  >>> ctl.value = 'BarDescription'
+  >>> browser.getControl(name="UPDATE_SUBMIT").click()
+  >>> print(browser.headers)
+  Status: 200 ...
+  ...
+  >>> print(browser.contents)
+  <html>
+  ...
+            There are <strong>1</strong> input errors.
+  ...
+
+We will see that nothing has changed:
+
+  >>> str(edittest.title)
+  'title'
+  >>> edittest.description #XXX shouldn't we get a u'' here???
+  >>> getattr(edittest, '_modified_flag', False)
+  False
+
+However, when we specify the correct fields:
+
+  >>> browser.open("http://localhost/test_folder_1_/ftf/edittest/@@edit.html")
+  >>> ctl = browser.getControl(name="field.title")
+  >>> ctl.value = 'FooTitle'
+  >>> ctl = browser.getControl(name="field.description")
+  >>> ctl.value = 'FooDescription'
+  >>> browser.getControl(name="UPDATE_SUBMIT").click()
+  >>> print(browser.headers)
+  Status: 200 ...
+  ...
+
+We will see that something has changed:
+
+  >>> str(edittest.title)
+  'FooTitle'
+  >>> str(edittest.description)
+  'FooDescription'
+
+And that the event has been fired:
+
+  >>> edittest._modified_flag
+  True
+  >>> del edittest._modified_flag
+
+Widget Overrides
+----------------
+
+We have an alternate add form for IFieldContent which uses a TextArea widget
+via and override in the zcml.  Let's ensure that that works:
+
+  >>> print(http(r"""
+  ... GET /test_folder_1_/ftf/+/addwidgetoverride.html HTTP/1.1
+  ... """, handle_errors=False))
+  HTTP/1.1 200 OK
+  ...
+  ...<textarea
+  ...
+
+  >>> print(http_request(
+  ...     "/test_folder_1_/ftf/+/addwidgetoverride.html", (
+  ...         ("field.title", "title2"),
+  ...         ("field.description", "Blah"),
+  ...         ("UPDATE_SUBMIT", "Add"),
+  ...         ("add_input_name", "edittest2"),
+  ...     ),
+  ...     auth="Basic manager:r00t"))
+  HTTP/1.1 302 Found
+  ...
+  Location: http://localhost/test_folder_1_/ftf/manage_main
+  ...
+
+We also indicated that all fields for this view should be set before adding
+the content, this means that no IObjectModified event should have been fired
+
+  >>> edittest2 = self.folder.ftf.edittest2
+  >>> str(edittest2.title)
+  'title2'
+  >>> str(edittest2.description)
+  'Blah'
+  >>> edittest2._created_flag
+  True
+
+  >>> getattr(edittest2, '_modified_flag', False)
+  False
+
+
+Unicode-safety of forms
+-----------------------
+
+To test unicode values in both Python 2 and Python 3, we need
+an auxiliary function.
+
+The ``http`` and ``http_request`` functions below expect as input
+utf-8 encoded binary strings for Python 2 and strings
+for Python 3. The following function converts our input values
+accordingly:
+
+  >>> def to_input(v):
+  ...     if six.PY2:
+  ...         return v.encode("utf-8")
+  ...     else:
+  ...         return v
+
+Even though ZPublisher does not support unicode, automatically
+generated forms do.  In the following we will enter the following two
+chinese sequences (How do you do? and I'm doing good) in forms:
+
+  >>> ni_hao = u'\u4f60\u597d'
+  >>> wo_hen_hao = u'\u6211\u5f88\u597d'
+
+First, it's imaginable that we make a mistake and enter one of the
+phrases in the integer field:
+
+  >>> print(http_request(
+  ...     "/test_folder_1_/ftf/+/addfieldcontent.html", (
+  ...         ("field.title", "ChineseTitle"),
+  ...         ("field.description", "ChineseDescription"),
+  ...         ("field.somenumber", to_input(ni_hao)),
+  ...         ("UPDATE_SUBMIT", "Add"),
+  ...         ("add_input_name", "unicodetest"),
+  ...     ),
+  ...     auth="Basic manager:r00t"))
+  HTTP/1.1 200 OK
+  ...
+            There are <strong>1</strong> input errors.
+  ...
+
+When we enter the unicode data in the right fields (the text fields),
+the form will submit correctly and create the object:
+
+  >>> print(http_request(
+  ...     "/test_folder_1_/ftf/+/addfieldcontent.html", (
+  ...         ("field.title", to_input(ni_hao)),
+  ...         ("field.description", to_input(wo_hen_hao)),
+  ...         ("field.somenumber", "0"),
+  ...         ("UPDATE_SUBMIT", "Add"),
+  ...         ("add_input_name", "unicodetest"),
+  ...     ),
+  ...     auth="Basic manager:r00t"))
+  HTTP/1.1 302 Found
+  ...
+  Location: http://localhost/test_folder_1_/ftf/manage_main
+  ...
+
+We can test the object has the correct values, as unicode strings, of
+course:
+
+  >>> unicodetest = self.folder.ftf.unicodetest
+  >>> unicodetest.title == ni_hao
+  True
+  >>> unicodetest.description == wo_hen_hao
+  True
+  >>> unicodetest.somenumber
+  0
+
+Of course, the same should apply to edit forms.  First, we happen to
+again make the mistake of entering unicode data in the integer field:
+
+  >>> print(http_request(
+  ...     "/test_folder_1_/ftf/unicodetest/@@edit.html", (
+  ...         ("field.title", "ChineseTitle"),
+  ...         ("field.description", "ChineseDescription"),
+  ...         ("field.somenumber", to_input(ni_hao)),
+  ...         ("UPDATE_SUBMIT", "Change"),
+  ...     ),
+  ...     auth="Basic manager:r00t"))
+  HTTP/1.1 200 OK
+  ...
+            There are <strong>1</strong> input errors.
+  ...
+
+We see that the object hasn't changed:
+
+  >>> unicodetest.title == ni_hao
+  True
+  >>> unicodetest.description == wo_hen_hao
+  True
+  >>> unicodetest.somenumber
+  0
+
+Now we provide some valid form data:
+
+  >>> print(http_request(
+  ...     "/test_folder_1_/ftf/unicodetest/@@edit.html", (
+  ...         ("field.title", to_input(wo_hen_hao)),
+  ...         ("field.description", to_input(ni_hao)),
+  ...         ("field.somenumber", "1"),
+  ...         ("UPDATE_SUBMIT", "Change"),
+  ...     ),
+  ...     auth="Basic manager:r00t"))
+  HTTP/1.1 200 OK
+  ...
+
+We see that the object's data has changed:
+
+  >>> unicodetest.title == wo_hen_hao
+  True
+  >>> unicodetest.description == ni_hao
+  True
+  >>> unicodetest.somenumber
+  1
+
+Let's also not forget about List widgets.  Let's see if we can add an
+element to the list:
+
+  >>> print(http_request(
+  ...     "/test_folder_1_/ftf/unicodetest/@@edit.html", (
+  ...         ("field.title", to_input(ni_hao)),
+  ...         ("field.description", to_input(wo_hen_hao)),
+  ...         ("field.somenumber", "1"),
+  ...         ("field.somelist.add", "Add Some item"),
+  ...         ("field.somelist.count", "0"),
+  ...     ),
+  ...     auth="Basic manager:r00t"))
+  HTTP/1.1 200 OK
+  ...
+  ...<input class="textType" id="field.somelist.0." name="field.somelist.0." size="20" type="text" value=""  />...
+  ...
+
+Now, let's enter some more Chinese:
+
+  >>> de_guo = u'\u5fb7\u56fd'
+
+  >>> print(http_request(
+  ...     "/test_folder_1_/ftf/unicodetest/@@edit.html", (
+  ...         ("field.title", to_input(ni_hao)),
+  ...         ("field.description", to_input(wo_hen_hao)),
+  ...         ("field.somenumber", "1"),
+  ...         ("field.somelist.0.", to_input(de_guo)),
+  ...         ("field.somelist.count", "1"),
+  ...         ("UPDATE_SUBMIT", "Change"),
+  ...     ),
+  ...     auth="Basic manager:r00t"))
+  HTTP/1.1 200 OK
+  ...
+
+The object's data will have changed accordingly:
+
+  >>> unicodetest.somelist == [de_guo]
+  True
+
+
+Object widget:
+--------------
+
+A little more complex is the ``ObjectWidget``.  Here we simply test
+that the edit form works:
+
+  >>> from five.formlib.tests.schemacontent import \
+  ...     manage_addComplexSchemaContent
+  >>> n = manage_addComplexSchemaContent(self.folder.ftf, 'objecttest')
+
+  >>> print(http(r"""
+  ... GET /test_folder_1_/ftf/objecttest/@@edit.html HTTP/1.1
+  ... """, handle_errors=False))
+  HTTP/1.1 200 OK
+  ...
+
+
+Clean up
+--------
+
+Finally, we need to clean up:
+
+  >>> from zope.component.testing import tearDown
+  >>> tearDown()
