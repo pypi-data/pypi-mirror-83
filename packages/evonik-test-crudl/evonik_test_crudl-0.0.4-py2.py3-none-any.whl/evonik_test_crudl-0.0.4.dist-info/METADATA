@@ -1,0 +1,70 @@
+Metadata-Version: 2.1
+Name: evonik-test-crudl
+Version: 0.0.4
+Summary: Helpers for testing CRUDL-like APIs, e.g., REST and GQL
+Home-page: https://evodl.visualstudio.com/evonik-test-crudl
+Author: Benjamin Schiller
+Author-email: benjamin.schiller@evonik.com
+License: UNKNOWN
+Platform: UNKNOWN
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.7
+Description-Content-Type: text/markdown
+Requires-Dist: evonik-dummy (>=0.0.11)
+Requires-Dist: pytest (>=6.0.1)
+
+# evonik-test-crudl
+
+This repo contains the python module `evonik.test.crudl`.
+It is publically available on the python package index as the package `evonik-test-crudl`.
+
+The module contains python classes to test CRUDL APIs, including REST and GQL.
+It heavily used the package `evonik-dummy`, available [here](https://pypi.org/project/evonik-dummy/).
+
+
+
+## Repo Structure
+
+```
+evonik/            # source code of evonik.test.crudl
+notebooks/         # jupyter notebooks with examples and doc
+LICENSE            # MIT license file
+README.md          # this README
+setup.py           # pypi setup script
+requirements.txt   # list of dependencies for local testing / development
+```
+
+## Installation
+
+Use the package manager [pip](https://pip.pypa.io/en/stable/) to install `evonik.test.crudl` as the package `evonik-test-crudl`.
+
+```bash
+pip install evonik-test-crudl
+```
+
+## Test
+
+To test the current implementation, execute the following:
+
+```
+pip install -r requirements.txt
+pytest evonik/test/crudl
+```
+
+## Build & Upload
+
+To build the package and upload a new version to pypi, execute the following commands:
+
+```
+rm -rf build dist evonik_dummy.egg-info
+python3 setup.py sdist bdist_wheel --universal
+twine upload dist/*
+```
+
+## License
+[MIT](https://choosealicense.com/licenses/mit/)
+
+
+
