@@ -1,0 +1,71 @@
+Metadata-Version: 2.1
+Name: xontrib-cmd-durations
+Version: 0.2.3
+Summary: Send notification once long running command is finished. Add duration PROMP_FIELD.
+Home-page: https://github.com/jnoortheen/xontrib-cmd-durations
+License: MIT
+Keywords: xontrib,xonsh
+Author: Noortheen Raja J
+Author-email: jnoortheen@gmail.com
+Requires-Python: >=3.6
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Natural Language :: English
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Topic :: System :: Shells
+Classifier: Topic :: System :: System Shells
+Classifier: Topic :: Terminals
+Requires-Dist: xonsh (>=0.9.20)
+Project-URL: Code, https://github.com/jnoortheen/xontrib-cmd-durations
+Project-URL: Documentation, https://github.com/jnoortheen/xontrib-cmd-durations/blob/master/README.md
+Project-URL: Issue tracker, https://github.com/jnoortheen/xontrib-cmd-durations/issues
+Project-URL: Repository, https://github.com/jnoortheen/xontrib-cmd-durations
+Description-Content-Type: text/markdown
+
+# Overview
+
+<p align="center">
+Send notification once long-running command is finished. Adds `long_cmd_duration` to `$PROMPT_FIELDS` .
+</p>
+
+## Installation
+
+To install use pip:
+
+``` bash
+xpip install xontrib-cmd-durations
+# or: xpip install -U git+https://github.com/jnoortheen/xontrib-cmd-durations
+```
+
+## Usage
+
+``` bash
+xontrib load cmd_done
+```
+
+## Usage
+
+* makes `long_cmd_duration` available to the `$PROMPT_FIELDS`
+* if the command is taking more than `$LONG_DURATION` seconds
+  + it is `long_cmd_duration` returns the duration in human readable way
+  + a desktop notification is sent if the terminal is not focused.
+    - **Note**: Currently the focusing part requires `xdotool` to be installed.
+
+        So the notification part will not work in Windows/OSX. PRs welcome on that.
+
+``` bash
+$RIGHT_PROMPT = '{long_cmd_duration:⌛{}}{user:{{BOLD_RED}}🤖{}}{hostname:{{BOLD_#FA8072}}🖥{}}'
+```
+
+![](./images/2020-10-26-10-59-38.png)
+
+## Credits
+
+This package was created with [xontrib cookiecutter template](https://github.com/jnoortheen/xontrib-cookiecutter).
+
