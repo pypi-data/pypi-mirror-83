@@ -1,0 +1,43 @@
+<configure xmlns="http://namespaces.zope.org/zope"
+           xmlns:genericsetup="http://namespaces.zope.org/genericsetup"
+           xmlns:plone="http://namespaces.plone.org/plone"
+           xmlns:i18n="http://namespaces.zope.org/i18n"
+           xmlns:cmf="http://namespaces.zope.org/cmf"
+           i18n_domain="cpskin">
+
+    <!-- Dependencies -->
+    <include package="cpskin.theme" />
+
+    <!-- Profile -->
+    <genericsetup:registerProfile
+        name="default"
+        title="cpskin.diazotheme.retro"
+        directory="profiles/default"
+        description="Installs cpskin.diazotheme.retro theme"
+        for="Products.CMFPlone.interfaces.IPloneSiteRoot"
+        provides="Products.GenericSetup.interfaces.EXTENSION"
+        />
+
+    <genericsetup:registerProfile
+        name="uninstall"
+        title="cpskin.diazotheme.retro uninstall"
+        directory="profiles/uninstall"
+        description="Uninstalls cpskin.diazotheme.retro theme"
+        for="Products.CMFPlone.interfaces.IPloneSiteRoot"
+        provides="Products.GenericSetup.interfaces.EXTENSION"
+        />
+
+    <!-- Theme -->
+    <plone:static directory="static" name="cpskin.diazotheme.retro" type="theme" />
+
+    <!-- Upgrades -->
+    <genericsetup:upgradeStep
+        title="cpskin.diazotheme.retro theme: upgrade to LESS (v2)"
+        description="Upgrade step for cpskin.diazotheme.retro theme to LESS (v2)"
+        handler=".upgradehandlers.upgrade_to_less"
+        source="1"
+        destination="2"
+        profile="cpskin.diazotheme.retro:default"
+        />
+
+</configure>
