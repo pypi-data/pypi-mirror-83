@@ -1,0 +1,32 @@
+# Mancho: A musical transcription assistant.
+
+This is a tool to make musical transcriptions.
+Documentation is WIP.
+
+## Installation
+
+Mancho depends on [rubberband](https://breakfastquay.com/rubberband/), portaudio and PyGtk3. Make sure these dependencies are installed.
+
+On Ubuntu 20.04 LTS you can run:
+```bash
+sudo apt install python3-pip python3-pyaudio python3-gi rubberband-cli
+```
+
+Afterwards:
+```bash
+python3 -m pip install mancho
+```
+
+## Quickstart
+Start mancho by running:
+```bash
+python3 -m mancho
+```
+
+1. Load an audio file using the open dialog.
+2. You can scroll and zoom using the arrow keys.
+3. You can select a region to loop using the mouse.
+4. Set the playback using the slider and click play (or press `spacebar`)
+5. By pressing `a`, you can set markers. They can be removed using `backspace` and `del`
+6. `s` selects the region between the markers.
+7. `shift` and arrow keys extend the selection, `alt` and arrow keys shorten it. `ctrl` and arrow keys move the selection.
