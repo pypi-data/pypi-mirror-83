@@ -1,0 +1,115 @@
+Metadata-Version: 2.1
+Name: casparser
+Version: 0.3.0
+Summary: (Karvy/Kfintech/CAMS) Consolidated Account Statement (CAS) PDF parser
+Home-page: https://github.com/codereverser/casparser
+Author: Sandeep Somasekharan
+Author-email: codereverser@gmail.com
+License: MIT License
+Keywords: pdf,parser,cas,cams,karvy,kfintech
+Platform: UNKNOWN
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+Requires-Dist: click (>=7.1.2)
+Requires-Dist: colorama (>=0.4.4)
+Requires-Dist: pdfminer.six (>=20201018)
+Requires-Dist: python-dateutil (==2.8.1)
+Requires-Dist: texttable (>=1.6.3)
+Requires-Dist: wcwidth (==0.2.5)
+Provides-Extra: mupdf
+Requires-Dist: PyMuPDF (==1.18.1) ; extra == 'mupdf'
+
+# CASParser
+[![code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![GitHub](https://img.shields.io/github/license/codereverser/casparser)](https://github.com/codereverser/casparser/blob/main/LICENSE)
+![PyPI - Python Version](https://img.shields.io/pypi/pyversions/casparser)
+
+Parse Consolidated Account Statement (CAS) PDF files generated from CAMS/KFINTECH
+
+
+## Installation
+```bash
+pip install casparser
+``` 
+
+### with faster PyMuPDF parser
+```bash
+pip install casparser[mupdf]
+```
+
+**Note:** Enabling this dependency could result in licensing changes. Check the 
+[License](#license-info) section for more details 
+
+
+## Usage
+
+```
+import casparser
+data = casparser.read_cas_pdf('/path/to/cas/pdf/file.pdf', 'password')
+```
+
+#### CLI
+
+```bash
+Usage: casparser [-o output_file.json] [-p password] [-s] CAS_PDF_FILE
+
+Options:
+  -o, --output FILE  Output file path (json)
+  -s, --summary      Print Summary of transactions parsed.
+  -p PASSWORD        CAS password
+  --version          Show the version and exit.
+  --help             Show this message and exit.
+``` 
+
+##### Demo
+
+![demo](https://raw.githubusercontent.com/codereverser/casparser/main/assets/demo.jpg)
+
+
+## License
+<a name="license-info"></a>
+
+CASParser is distributed under MIT license by default. However enabling the optional dependency
+`mupdf` would imply the use of [PyMuPDF](https://github.com/pymupdf/PyMuPDF) /
+[MuPDF](https://mupdf.com/license.html) and hence the licenses GNU GPL v3 and GNU Affero GPL v3 
+would apply. Copies of all licenses have been included in this repository. - _IANAL_
+
+# Changelog
+
+## 0.3.0 - 2020-10-25
+
+- **Breaking Change**: `folios` is a list instead of dict, so that the order is 
+ preserved during format conversion to other data types like json.  
+- Added a second parser based on [PyMuPDF](https://github.com/pymupdf/PyMuPDF) / 
+[MuPDF](https://mupdf.com/) - ~15-20x faster compared to pure-python pdfminer.
+- Added AMC detection (accessible via `amc` property of folio)
+- CLI summary now includes the number of transactions processed.
+
+## 0.2.1 - 2020-10-23
+
+- `read_cas_pdf` now supports more input types
+- better cli summary output
+- fixed investor info parsing where mobile numbers don't have country code
+- updated dependencies
+
+## 0.2.0 - 2020-10-15
+
+- removed support for python < 3.8 versions
+- Better investor info parser
+
+## 0.1.2 - 2020-10-14
+
+- Support for parsing investor info 
+
+## 0.1.1 - 2020-10-14
+
+- Support for parsing folios without PAN
+
+## 0.1.0 - 2020-10-11
+
+- Initial release
+
