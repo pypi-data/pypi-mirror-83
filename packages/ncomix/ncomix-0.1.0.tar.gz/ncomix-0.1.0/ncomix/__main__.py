@@ -1,0 +1,1 @@
+print("Ooops! Module ncomix doesn'tsupport direct execution")
