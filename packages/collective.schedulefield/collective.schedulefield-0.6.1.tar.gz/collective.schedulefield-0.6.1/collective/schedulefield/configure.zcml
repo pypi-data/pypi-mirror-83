@@ -1,0 +1,82 @@
+<configure
+    xmlns="http://namespaces.zope.org/zope"
+    xmlns:browser="http://namespaces.zope.org/browser"
+    xmlns:z3c="http://namespaces.zope.org/z3c"
+    xmlns:i18n="http://namespaces.zope.org/i18n"
+    xmlns:plone="http://namespaces.plone.org/plone"
+    xmlns:genericsetup="http://namespaces.zope.org/genericsetup"
+    i18n_domain="collective.schedulefield">
+
+  <i18n:registerTranslations directory="locales" />
+  <include package="z3c.form" file="meta.zcml" />
+
+  <genericsetup:registerProfile
+      name="default"
+      title="collective.schedulefield"
+      directory="profiles/default"
+      description="Installs the collective.schedulefield add-on."
+      provides="Products.GenericSetup.interfaces.EXTENSION"
+      />
+
+  <adapter
+      factory=".schedule.ScheduleFieldWidget"
+      for=".schedule.ISchedule
+           z3c.form.interfaces.IFormLayer"
+      />
+
+  <browser:resource
+    file="js/jquery.maskedinput.min.js"
+    name="jquery.maskedinput.min.js"
+    />
+
+  <browser:resource
+    file="js/schedulemask.js"
+    name="schedulemask.js"
+    />
+
+  <z3c:widgetTemplate
+      mode="display"
+      widget=".schedule.ISchedule"
+      layer="z3c.form.interfaces.IFormLayer"
+      template="schedule_display.pt"
+      />
+
+  <z3c:widgetTemplate
+      mode="input"
+      widget=".schedule.ISchedule"
+      layer="z3c.form.interfaces.IFormLayer"
+      template="schedule_input.pt"
+      />
+
+  <z3c:widgetTemplate
+      mode="hidden"
+      widget=".schedule.ISchedule"
+      layer="z3c.form.interfaces.IFormLayer"
+      template="schedule_hidden.pt"
+      />
+
+
+  <plone:behavior
+    title="Scheduled Content"
+    description="Adds schedule field"
+    provides=".behavior.IScheduledContent"
+    factory=".behavior.ScheduledContent"
+    for="plone.dexterity.interfaces.IDexterityContent"
+    marker=".behavior.IScheduledContent"
+    />
+
+  <browser:viewlet
+    name="schedulefield.schedule"
+    for="*"
+    manager="plone.app.layout.viewlets.interfaces.IBelowContentBody"
+    class=".viewlet.ScheduledContentViewlet"
+    template="scheduled_content_viewlet.pt"
+    permission="zope2.View"
+    />
+
+  <browser:resourceDirectory
+    name="collective.schedulefield"
+    directory="static"
+    />
+
+</configure>
