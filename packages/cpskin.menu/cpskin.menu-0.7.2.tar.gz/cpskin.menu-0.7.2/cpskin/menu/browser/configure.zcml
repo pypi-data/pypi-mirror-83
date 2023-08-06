@@ -1,0 +1,48 @@
+<configure
+    xmlns="http://namespaces.zope.org/zope"
+    xmlns:browser="http://namespaces.zope.org/browser"
+    xmlns:i18n="http://namespaces.zope.org/i18n"
+    i18n_domain="cpskin">
+
+
+  <browser:resourceDirectory
+    name="cpskin.menu.resources"
+    directory="resources"
+    />
+
+  <browser:page
+    for="*"
+    name="multilevel-navigation"
+    class=".navigationview.MultiLevelNavigationView"
+    permission="zope2.View"
+    layer="..interfaces.ICpskinMenuLayer"
+    allowed_interface="..interfaces.IMultiLevelNavigationView"
+    />
+
+  <browser:page
+    for="*"
+    name="direct-access"
+    class=".directaccessview.DirectAccessView"
+    permission="zope2.View"
+    layer="..interfaces.ICpskinMenuLayer"
+    allowed_interface="..interfaces.IDirectAccessView"
+    />
+
+  <browser:page
+    for="*"
+    name="show_description"
+    class=".menu.UtilsView"
+    attribute="show_description"
+    permission="zope2.View"
+    layer="..interfaces.ICpskinMenuLayer"
+    />
+
+  <browser:viewlet
+    name="cpskin.menu"
+    manager="plone.app.layout.viewlets.interfaces.IPortalHeader"
+    class=".menu.CpskinMenuViewlet"
+    permission="zope2.View"
+    layer="..interfaces.ICpskinMenuLayer"
+    />
+
+</configure>

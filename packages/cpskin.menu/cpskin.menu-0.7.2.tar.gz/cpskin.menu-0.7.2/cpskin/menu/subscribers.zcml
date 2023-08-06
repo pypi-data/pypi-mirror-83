@@ -1,0 +1,63 @@
+<configure xmlns="http://namespaces.zope.org/zope"
+           i18n_domain="cpskin">
+
+  <!-- Content published -->
+  <subscriber
+     handler=".subscribers.content_modified"
+     for="Products.CMFCore.interfaces.IContentish
+          Products.DCWorkflow.interfaces.IAfterTransitionEvent"
+     />
+  <subscriber
+     handler=".subscribers.content_modified"
+     for="Products.CMFCore.interfaces.IFolderish
+          Products.DCWorkflow.interfaces.IAfterTransitionEvent"
+     />
+
+  <!-- Content modified -->
+  <subscriber
+     handler=".subscribers.content_modified"
+     for="Products.CMFCore.interfaces.IContentish
+          OFS.interfaces.IObjectClonedEvent"
+     />
+  <subscriber
+     handler=".subscribers.content_modified"
+     for="Products.CMFCore.interfaces.IContentish
+          zope.lifecycleevent.interfaces.IObjectModifiedEvent"
+     />
+  <subscriber
+     handler=".subscribers.content_modified"
+     for="Products.CMFCore.interfaces.IFolderish
+          OFS.interfaces.IObjectClonedEvent"
+     />
+  <subscriber
+     handler=".subscribers.content_modified"
+     for="Products.CMFCore.interfaces.IFolderish
+          zope.lifecycleevent.interfaces.IObjectModifiedEvent"
+     />
+
+  <!-- Content removed -->
+  <subscriber
+     handler=".subscribers.content_modified"
+     for="Products.CMFCore.interfaces.IContentish
+          OFS.interfaces.IObjectWillBeRemovedEvent"
+     />
+  <subscriber
+     handler=".subscribers.content_modified"
+     for="Products.CMFCore.interfaces.IFolderish
+          OFS.interfaces.IObjectWillBeRemovedEvent"
+     />
+
+   <!-- Content added -->
+  <subscriber
+     handler=".subscribers.content_modified"
+     for="Products.CMFCore.interfaces.IContentish
+          zope.container.interfaces.IObjectAddedEvent"
+     />
+  <subscriber
+     handler=".subscribers.content_modified"
+     for="Products.CMFCore.interfaces.IFolderish
+          zope.container.interfaces.IObjectAddedEvent"
+     />
+
+</configure>
+
