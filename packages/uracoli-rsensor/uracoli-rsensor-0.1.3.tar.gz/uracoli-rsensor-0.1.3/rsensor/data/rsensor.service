@@ -1,0 +1,19 @@
+[Unit]
+Description=Mqtt Aquisition Script
+After=network-online.target
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+WorkingDirectory=/home/pi/rsensor
+#EnvironmentFile=
+ExecStart=/home/pi/ve_py2_rsensor/bin/mqtt_to_db -C /home/pi/rsensor/rsensor.cfg -LINFO
+SyslogIdentifier=rsensor
+StandardOutput=syslog
+StandardError=syslog
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

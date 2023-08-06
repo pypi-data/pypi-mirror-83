@@ -1,0 +1,103 @@
+
+## CREATE TABLE IF NOT EXISTS `nodes`
+## (
+##     `node_idx` INTEGER PRIMARY KEY,
+##     `id` VARCHAR(64) NOT NULL,
+##     `geoloaction` VARCHAR(64) DEFAULT NULL,
+##     `loctag` VARCHAR(64) DEFAULT NULL,
+##     `board` VARCHAR(64) DEFAULT NULL,
+##     `firmware` VARCHAR(64) DEFAULT NULL,
+##     `version` VARCHAR(64) DEFAULT NULL
+## 
+
+tables:
+    - name: nodes
+      type: static
+      columns: 
+      - field  : node_idx
+        type   : INTEGER
+        default: PRIMARY KEY NOT NULL  /*!40101 AUTO_INCREMENT */
+      - field  : id
+        type   : VARCHAR(64)
+        default: DEFAULT NULL
+      - field  : location_idx
+        type   : INTEGER
+        default: DEFAULT -1
+      - field  : board
+        type   : VARCHAR(64)
+        default: DEFAULT NULL
+      - field  : firmware
+        type   : VARCHAR(64)
+        default: DEFAULT NULL
+      - field  : version
+        type   : VARCHAR(64)
+        default: DEFAULT NULL
+      indexes:
+        - node_idx, id
+    
+    # sensor table
+    # each device node and every each sensor is registered here.
+    - name: sensors
+      type: static
+      columns:
+      - field  : sensor_idx
+        type   : INTEGER
+        default: PRIMARY KEY NOT NULL  /*!40101 AUTO_INCREMENT */
+      - field  : id
+        type   : VARCHAR(32)
+        default: DEFAULT NULL
+      - field  : node_name
+        type   : VARCHAR(32)
+        default: DEFAULT NULL
+      - field  : sensor_name
+        type   : VARCHAR(32)
+        default: DEFAULT NULL
+      - field : description
+        type   : VARCHAR(64)
+        default: DEFAULT NULL
+      - field : type
+        type   : VARCHAR(8)
+        default: DEFAULT NULL
+      - field : unit
+        type   : VARCHAR(8)
+        default: DEFAULT NULL
+        
+    - name: locations
+      type: static
+      columns: 
+      - field  : location_idx
+        type   : INTEGER
+        default: PRIMARY KEY NOT NULL /*!40101 AUTO_INCREMENT */
+      - field  : loctag
+        type   : VARCHAR(64)
+        default: DEFAULT NULL
+      - field  : geolocation
+        type   : VARCHAR(64)
+        default: DEFAULT NULL
+      - field : description
+        type   : VARCHAR(64)
+        default: DEFAULT NULL
+      indexes:
+        - location_idx, loctag
+        
+    - name: timeseries
+      type: static
+      columns: 
+      - field  : idx
+        type   : INTEGER
+        default: PRIMARY KEY NOT NULL /*!40101 AUTO_INCREMENT */
+      - field  : ts
+        type   : INTEGER
+        default: DEFAULT NULL
+      - field  : sensor_idx
+        type   : INTEGER
+        default: NOT NULL
+      - field  : location_idx
+        type   : INTEGER
+        default: NOT NULL
+      - field  : value
+        type   : REAL
+        default: DEFAULT 0.0
+      - field  : invalid
+        type   : BOOLEAN
+        default: DEFAULT FALSE

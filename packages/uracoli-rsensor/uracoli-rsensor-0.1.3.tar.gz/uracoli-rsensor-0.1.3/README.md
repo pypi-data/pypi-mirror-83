@@ -1,0 +1,57 @@
+# uracoli-rsensor - A Framework for Logging Sensor Values
+
+## Abstract
+
+The uracoli-rsensor package provides a logging of data from a MQTT
+broker into a database (sqlite or MySQL).
+
+## Setup
+
+The package can installed directly from the sources.
+
+	pip install git+https://gitlab.com/uracoli-project/uracoli-rsensor.git
+
+
+## Quickstart
+
+To quickly log sensor data from a MQTT broker in a SQLite database write a minimal config file `minial.cfg`:
+
+	database:
+	  dbtype: sqlite
+	  dbname:  /tmp/rsensor-database.sqlitedb
+	mqtt:
+	-  host: test.mosquitto.org
+	   port: 1883
+	   prefix: rsensor-test
+
+Note: The "dash" before the "host:" keyword means there can be a list of MQTT brokers.
+
+Run the test data generator in the background or in a seperate shell:
+
+	rs_testgen -H test.mosquitto.org
+
+See your data arrive at the broker (optional step):
+
+	mosquitto_sub -h test.mosquitto.org -t "rsensor-test/#" -v
+
+Run the data logger script:
+
+	mqtt_to_db -C minimal.cfg 
+
+To see whats in the database, run:
+
+	sqlite3 /tmp/rsensor.sqlitedb "select * from timeseries"
+
+... or human readable:
+
+	sqlite3 /tmp/rsensor.sqlitedb  "SELECT strftime('%Y-%m-%d %H:%M:%S', datetime(t.ts, 'unixepoch')) as string, s.id, t.value FROM timeseries AS t JOIN sensors AS s ON s.sensor_idx = t.sensor_idx" 
+
+## Documentation
+
+https://uracoli-rsensor.readthedocs.io/en/latest/
+
+## License
+
+The contents of uracoli-rsensor is licensed with a Modified BSD License, see
+file LICENSE for further details.
+
