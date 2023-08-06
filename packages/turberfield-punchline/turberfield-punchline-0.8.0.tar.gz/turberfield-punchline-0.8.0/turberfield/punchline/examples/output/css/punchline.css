@@ -1,0 +1,286 @@
+/* Base : Grid : Objects : State: Theme */
+
+/*  Base    */
+
+* {
+box-sizing: border-box;
+border: 0;
+font: inherit;
+font-size: 100%;
+line-height: 1.2em;
+list-style-type: none;
+margin: 0;
+outline: 0;
+padding: 0;
+text-decoration: none;
+vertical-align: baseline;
+}
+
+@font-face {
+font-family: "Bernier Regular";
+src: local("Bernier Regular"), local("BernierRegular-Regular"),
+    url(/fonts/BERNIERRegular-Regular.otf) format("opentype"),
+    url(/fonts/BERNIERRegular-Regular.ttf) format("ttf");
+font-weight: 100 950;
+}
+
+@font-face {
+font-family: "Bernier Shade";
+src: local("Bernier Shade"), local("BernierShade-Regular"),
+    url(/fonts/BERNIERShade-Regular.otf) format("opentype"),
+    url(/fonts/BERNIERShade-Regular.ttf) format("ttf");
+font-weight: 100 950;
+}
+
+@font-face {
+font-family: "Tenderness";
+src: local("Tenderness"), local("Tenderness-Regular"),
+    url(/fonts/Tenderness.otf) format("opentype");
+font-weight: 100 950;
+}
+
+/*  Grid and Flex */
+
+body {
+display: grid;
+grid-template-columns: 3fr 6fr 2fr;
+grid-template-areas:
+"banner  speech  images"
+"banner  speech  images"
+"banner  action  images"
+"banner  legals  images";
+height: 100vh;
+}
+
+.punchline-banner {
+background-color: var(--punchline-colour-washout, whitesmoke);
+border-left: 0.25rem solid var(--punchline-colour-shadows, grey);
+color: var(--punchline-colour-midtone, silver);
+font-family: var(--titles);
+grid-area: banner;
+padding-left: 1.0rem;
+padding-right: 1.2rem;
+}
+
+div.punchline-spoken {
+display: flex;
+flex-direction: column;
+grid-area: speech;
+}
+
+div.punchline-spoken nav ul {
+display: flex;
+flex-direction: row;
+justify-content: flex-end;
+}
+
+aside.punchline-spoken {
+align-items: center;
+background-color: var(--punchline-colour-shadows, grey);
+border-left: 1rem solid var(--punchline-colour-washout, whitesmoke);
+grid-area: images;
+min-width: 128px;
+}
+
+.punchline-widget-listofcontents {
+align-items: center;
+display: flex inline;
+flex-direction: row;
+grid-area: action;
+justify-content: center;
+}
+
+.punchline-widget-webbadge {
+align-items: center;
+display: flex inline;
+flex-direction: row;
+grid-area: legals;
+justify-content: center;
+}
+
+@media screen and (max-width: 1024px) {
+
+body {
+display: grid;
+grid-template-columns: 5fr 1fr;
+grid-template-areas:
+"speech  images"
+"speech  images"
+"action  legals";
+}
+
+.punchline-banner {
+display: none;
+}
+
+}
+
+main {
+flex-grow: 1;
+padding: 0.5rem;
+padding-left: 1.0rem;
+padding-top: 0.9rem;
+}
+
+/*  Objects  */
+
+.punchline-spoken ul {
+padding: 0.5em;
+}
+
+.punchline-spoken li {
+animation-name: fadeinout;
+animation-fill-mode: both;
+padding-bottom: 1.3em;
+}
+
+.punchline-spoken li:last-of-type {
+animation-name: fadein;
+}
+
+.punchline-spoken blockquote header {
+font-family: var(--system);
+font-size: 1.1rem;
+font-weight: lighter;
+margin: 0.25rem 0 0.25rem 0;
+}
+
+.punchline-spoken p {
+font-family: var(--detail);
+font-size: 1.3rem;
+font-variant: normal;
+}
+
+.punchline-spoken blockquote > header:empty + p {
+letter-spacing: 0.125rem;
+}
+
+
+/*  State   */
+
+@keyframes fadein {
+0% {
+opacity: 0;
+}
+12% {
+opacity: 1;
+}
+100% {
+opacity: 1;
+}
+}
+
+@keyframes fadeinout {
+0% {
+opacity: 0;
+}
+12% {
+opacity: 1;
+}
+82% {
+opacity: 1;
+}
+100% {
+opacity: 0.6;
+}
+}
+
+
+/*  Theme   */
+
+body {
+border: 6rem solid var(--punchline-colour-washout, whitesmoke);
+color: var(--punchline-colour-shadows, grey);
+font-family: var(--detail);
+}
+
+h1, h2 {
+letter-spacing: 0.125rem;
+font-family: var(--titles);
+font-size: 3rem;
+margin: 1rem 0 1rem 1rem;
+}
+
+p {
+padding-left: 1rem;
+}
+
+em {
+font-style: italic;
+}
+
+pre {
+font-variant: small-caps;
+}
+
+strong {
+font-weight: bolder;
+}
+
+img {
+padding: 0.35rem 0.7rem 0.35rem 0.7rem;
+width: 100%;
+}
+
+a {
+color: var(--punchline-colour-shadows, grey);
+font-family: var(--detail);
+font-weight: bolder;
+padding-left: 0.5em;
+padding-right: 0.5em;
+}
+
+li a {
+border-left: 1px solid var(--punchline-colour-washout, whitesmoke);
+margin: 0.5rem 0 0.5rem 0;
+}
+
+li a:hover {
+background-color: var(--punchline-colour-shadows, grey);
+color: var(--punchline-colour-washout, whitesmoke);
+}
+
+
+button {
+border: 2px solid var(--punchline-colour-washout, whitesmoke);
+color: var(--punchline-colour-shadows, grey);
+letter-spacing: 0.125rem;
+font-family: var(--blocks);
+font-size: 1.6rem;
+margin: 1rem;
+min-width: 6rem;
+padding: 0.6rem;
+width: fit-content(15rem);
+}
+
+button:hover {
+border: 2px solid var(--punchline-colour-shadows, grey);
+}
+
+.punchline-banner h1 {
+color: var(--punchline-colour-midtone, silver);
+display: flex inline;
+flex-direction: column;
+font-size: 7rem;
+}
+
+.punchline-banner h1 span:nth-child(4n+1)::first-letter {
+color: var(--punchline-colour-shadows, grey);
+}
+
+.punchline-banner h1 span:nth-child(4n+2)::first-letter {
+color: var(--punchline-colour-hilight, powderblue);
+}
+
+.punchline-banner h1 span:nth-child(4n+3)::first-letter {
+color: var(--punchline-colour-shadows, grey);
+}
+
+.punchline-banner h1 span:nth-child(4n+4) {
+color: var(--punchline-colour-gravity, darkslategrey);
+}
+
+.punchline-widget-webbadge img {
+opacity: 0.5;
+width: 10%;
+}
