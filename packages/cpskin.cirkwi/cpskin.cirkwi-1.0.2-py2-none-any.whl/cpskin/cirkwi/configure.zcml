@@ -1,0 +1,30 @@
+<configure
+    xmlns="http://namespaces.zope.org/zope"
+    xmlns:five="http://namespaces.zope.org/five"
+    xmlns:genericsetup="http://namespaces.zope.org/genericsetup"
+    xmlns:i18n="http://namespaces.zope.org/i18n"
+    i18n_domain="cpskin.cirkwi">
+
+  <includeDependencies package="." />
+
+  <i18n:registerTranslations directory="locales" />
+
+  <include package=".browser" />
+
+
+  <genericsetup:registerProfile
+      name="default"
+      title="cpskin.cirkwi"
+      directory="profiles/default"
+      description="Installs the cpskin.cirkwi add-on."
+      provides="Products.GenericSetup.interfaces.EXTENSION"
+      />
+
+  <genericsetup:importStep
+      name="cpskin.cirkwi-postInstall"
+      title="cpskin.cirkwi post_install import step"
+      description="Post install import step from cpskin.cirkwi"
+      handler=".setuphandlers.post_install">
+  </genericsetup:importStep>
+
+</configure>
