@@ -1,0 +1,107 @@
+Metadata-Version: 2.1
+Name: pyomop
+Version: 3.0.0
+Summary: OMOP CDM utils in Python
+Home-page: https://github.com/dermatologist/pyomop
+Author: Bell Eapen
+Author-email: github@gulfdoctor.net
+License: gpl3
+Project-URL: Documentation, https://pyscaffold.org/
+Platform: any
+Classifier: Intended Audience :: Science/Research
+Classifier: Development Status :: 4 - Beta
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Topic :: Scientific/Engineering :: Information Analysis
+Description-Content-Type: text/markdown; charset=UTF-8
+Requires-Dist: sqlalchemy
+Requires-Dist: click
+Requires-Dist: pandas
+Requires-Dist: psycopg2
+Provides-Extra: testing
+Requires-Dist: pytest ; extra == 'testing'
+Requires-Dist: pytest-cov ; extra == 'testing'
+
+# pyomop
+
+OMOP CDM utils. This repo may be similar to [@jbadger3's](https://github.com/jbadger3) [inspectomop](https://github.com/jbadger3/inspectomop), but this is not a fork.
+
+## Description
+
+The [OHSDI](https://www.ohdsi.org/) OMOP Common Data Model allows for the systematic analysis of healthcare observational databases. This is a python library to use the CDM v6 compliant databases using SQLAlchemy as the ORM. **pyomop** also supports converting query results to a pandas dataframe (see below) for use in machine learning pipelines. See some useful [SQL Queries here.](https://github.com/OHDSI/QueryLibrary)
+
+### Support
+* Postgres
+* MySQL
+* SqLite
+* More to follow..
+
+## Installation
+
+```
+pip install pyomop
+
+```
+
+## Usage
+
+```
+
+from pyomop import CdmEngineFactory, CdmVocabulary, CdmVector, Cohort, Vocabulary, metadata
+from sqlalchemy.sql import select
+import datetime
+
+cdm = CdmEngineFactory()  # Creates SQLite database by default
+
+# Postgres example (db='mysql' also supported)
+# cdm = CdmEngineFactory(db='pgsql', host='', port=5432,
+#                       user='', pw='',
+#                       name='', schema='cdm6')
+
+
+engine = cdm.engine
+# Create Tables if required
+metadata.create_all(engine)
+# Create vocabulary if required
+vocab = CdmVocabulary(cdm)
+# vocab.create_vocab('/path/to/csv/files')  # Uncomment to load vocabulary csv files
+
+# SQLAlchemy as ORM
+session =  cdm.session
+session.add(Cohort(cohort_definition_id=2, subject_id=100,
+            cohort_end_date=datetime.datetime.now(),
+            cohort_start_date=datetime.datetime.now()))
+session.commit()
+
+result = session.query(Cohort).all()
+for row in result:
+    print(row)
+
+# Convert result to a pandas dataframe
+vec = CdmVector()
+vec.result = result
+print(vec.df.dtypes)
+
+# Execute a query and convert it to dataframe
+vec.sql_df(cdm, 'TEST') # TEST is defined in sqldict.py
+print(vec.df.dtypes) # vec.df is a pandas dataframe
+# OR
+vec.sql_df(cdm, query='SELECT * from cohort')
+print(vec.df.dtypes) # vec.df is a pandas dataframe
+
+
+```
+
+## command-line usage
+
+```
+pyomop -help
+```
+
+
+## Contributors
+
+* [Bell Eapen](https://nuchange.ca)
+
+
