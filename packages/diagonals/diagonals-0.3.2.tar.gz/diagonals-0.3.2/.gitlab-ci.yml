@@ -1,0 +1,36 @@
+before_script:
+  - export GIT_SSL_NO_VERIFY=1
+  - export PATH="$HOME/miniconda2/bin:$PATH"
+
+stages:
+  - prepare
+  - test
+  - report
+  - clean
+
+cache:
+  paths:
+    - test/report
+
+prepare:
+  stage: prepare
+  script:
+    - conda update conda
+
+test_python:
+ stage: test
+ script:
+   - git submodule sync --recursive
+   - git submodule update --init --recursive
+   - conda env update -f environment.yml -n diagonals3 python=3.7
+   - source activate diagonals3
+   - pip install -e .[test]
+   - python setup.py test
+
+
+clean:
+  stage: clean
+  script:
+    - conda clean --all --yes
+
+
