@@ -1,0 +1,2 @@
+const GOOGLE_ANALYTICS_ID = 'UA-21170686-7';
+export default GOOGLE_ANALYTICS_ID;
