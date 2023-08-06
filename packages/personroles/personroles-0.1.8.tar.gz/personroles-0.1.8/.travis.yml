@@ -1,0 +1,55 @@
+# Config file for automatic testing at travis-ci.com
+--- 
+after_script: 
+#   - "$CCTR upload-coverage -r .coverage"
+#   - "$CCTR after-build --exit-code $TRAVIS_TEST_RESULT"
+  - "rm -f config/application.yml"
+after_success: 
+#  - coveralls
+  - "bash <(curl -s https://codecov.io/bash)"
+  - "codecov -e TOX_ENV"
+before_install: 
+  - "python --version"
+  - "pip install -U pip"
+  - "pip install -U pytest"
+#  - "pip install codecov"
+#  - "pip install codacy-coverage"
+  - "sudo apt-get install jq"
+before_script: ~
+branches: 
+  only: 
+    - master
+build: 
+  nodes: 
+    coverage: 
+      tests: 
+        override: 
+#           - command: './run-tests.sh'
+          - command: "pytest"
+            coverage:
+              file: '.coverage'
+              config_file: '.coveragerc'
+#              format: 'py-cc'
+#deploy: 
+#  distributions: "sdist bdist_wheel"
+#  provider: pypi
+#  true: 
+#    python: "3.8"
+#    repo: "https://pypi.org/project/personroles/"
+#    tags: true
+#  user: O_live_rSt_apel
+#
+#  provider: script
+#  script: bash ./codacy_deploy.sh
+env: 
+  global:
+  - TOX_ENV=py38
+  - CC_TEST_REPORTER_ID=d8b6d79f2be4dddc63b5feb3e4a607e7da5079babd5b52dd6c29c519845a6577
+#  - "GIT_COMMITTED_AT=$(if [ \"$TRAVIS_PULL_REQUEST\" == \"false\" ]; then git log -1 --pretty=format:%ct; else git log -1 --skip 1 --pretty=format:%ct; fi) - CC_TEST_REPORTER_ID=d8b6d79f2be4dddc63b5feb3e4a607e7da5079babd5b52dd6c29c519845a6577 - CCTR=./cc-test-reporter"
+language: python
+python: 
+  - "3.8"
+install: 
+  - "pip install -U tox-travis \".[test]\" ."
+script: 
+  - tox
