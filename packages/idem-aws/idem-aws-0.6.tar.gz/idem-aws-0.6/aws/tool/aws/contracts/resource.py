@@ -1,0 +1,74 @@
+from dict_tools import data
+from typing import Tuple
+
+
+async def pre_get(hub, ctx):
+    kwargs = ctx.get_arguments()
+    func_ctx = kwargs["ctx"]
+    if not func_ctx.get("acct"):
+        raise ConnectionError("missing acct profile")
+    elif not func_ctx["acct"].get("session"):
+        raise ConnectionError("Incomplete profile information: missing session")
+
+
+def sig_request(
+    hub,
+    ctx,
+    resource: str,
+    resource_type: str,
+    resource_func: str,
+    resource_id: str,
+    resource_args: Tuple[str],
+    **kwargs,
+):
+    ...
+
+
+def pre_request(hub, ctx):
+    """
+    Verify that the ctx has all the information it needs from the profile
+    """
+    kwargs = ctx.get_arguments()
+    func_ctx = kwargs["ctx"]
+    if not func_ctx.get("acct"):
+        raise ConnectionError("missing acct profile")
+    elif not func_ctx["acct"].get("session"):
+        raise ConnectionError("Incomplete profile information: missing session")
+
+
+async def call_request(hub, ctx):
+    kwargs = ctx.get_arguments()
+    camel = hub.tool.aws.dict.camelize(kwargs["kwargs"])
+    try:
+        return await ctx.func(
+            hub,
+            kwargs["ctx"],
+            resource=kwargs["resource"],
+            resource_type=kwargs["resource_type"],
+            resource_func=kwargs["resource_func"],
+            resource_id=kwargs["resource_id"],
+            resource_args=kwargs["resource_args"],
+            **camel,
+        )
+    except Exception as e:
+        return data.NamespaceDict({"exception": str(e), "http_status_code": None})
+
+
+def _http_success(ctx, response: data.NamespaceDict) -> bool:
+    kwargs = ctx.get_arguments()
+    if kwargs["resource"] == "s3" and "delete" in kwargs["func"]:
+        # Boto's S3 delete_bucket returns the wrong status code: https://github.com/boto/boto3/issues/759
+        return response.get("http_status_code", None) in (200, 204)
+
+    return response.get("http_status_code", None) == 200
+
+
+def post_request(hub, ctx):
+    ret = ctx.ret
+    if isinstance(ret, dict):
+        # TODO Put this behind a command line switch and only do it when printing?
+        ret = hub.tool.aws.dict.de_camelize(ret)
+        ret = hub.tool.aws.dict.flatten_tags(ret)
+        response = ret.pop("response_metadata", {})
+        return _http_success(ctx, response), ret
+    return None, ret
