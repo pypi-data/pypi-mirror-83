@@ -1,0 +1,1584 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>faust.transport.base &#8212; Faust 1.11.0a1 documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="copyright" title="Copyright" href="../copyright.html" />
+    <link rel="next" title="faust.transport.conductor" href="faust.transport.conductor.html" />
+    <link rel="prev" title="faust.transport" href="faust.transport.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="faust-transport-base">
+<h1><code class="docutils literal notranslate"><span class="pre">faust.transport.base</span></code><a class="headerlink" href="#faust-transport-base" title="Permalink to this headline">¶</a></h1>
+<span class="target" id="module-faust.transport.base"></span><p>Base message transport implementation.</p>
+<p>The Transport is responsible for:</p>
+<ul class="simple">
+<li><p>Holds reference to the app that created it.</p></li>
+<li><p>Creates new consumers/producers.</p></li>
+</ul>
+<p>To see a reference transport implementation go to:
+<code class="file docutils literal notranslate"><span class="pre">faust/transport/drivers/aiokafka.py</span></code></p>
+<dl class="class">
+<dt id="faust.transport.base.Conductor">
+<em class="property">class </em><code class="sig-prename descclassname">faust.transport.base.</code><code class="sig-name descname">Conductor</code><span class="sig-paren">(</span><em class="sig-param">app: faust.types.app.AppT</em>, <em class="sig-param">**kwargs: Any</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/transport/conductor.html#Conductor"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.transport.base.Conductor" title="Permalink to this definition">¶</a></dt>
+<dd><p>Manages the channels that subscribe to topics.</p>
+<ul class="simple">
+<li><p>Consumes messages from topic using a single consumer.</p></li>
+<li><p>Forwards messages to all channels subscribing to a topic.</p></li>
+</ul>
+<dl class="attribute">
+<dt id="faust.transport.base.Conductor.logger">
+<code class="sig-name descname">logger</code><em class="property"> = &lt;Logger faust.transport.conductor (WARNING)&gt;</em><a class="headerlink" href="#faust.transport.base.Conductor.logger" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Conductor.commit">
+<em class="property">async </em><code class="sig-name descname">commit</code><span class="sig-paren">(</span><em class="sig-param">topics: AbstractSet[Union[str, faust.types.tuples.TP]]</em><span class="sig-paren">)</span> &#x2192; bool<a class="reference internal" href="../_modules/faust/transport/conductor.html#Conductor.commit"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.transport.base.Conductor.commit" title="Permalink to this definition">¶</a></dt>
+<dd><p>Commit offsets in topics.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/functions.html#bool" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Conductor.acks_enabled_for">
+<code class="sig-name descname">acks_enabled_for</code><span class="sig-paren">(</span><em class="sig-param">topic: str</em><span class="sig-paren">)</span> &#x2192; bool<a class="reference internal" href="../_modules/faust/transport/conductor.html#Conductor.acks_enabled_for"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.transport.base.Conductor.acks_enabled_for" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return <code class="xref py py-const docutils literal notranslate"><span class="pre">True</span></code> if acks are enabled for topic by name.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/functions.html#bool" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Conductor.wait_for_subscriptions">
+<em class="property">async </em><code class="sig-name descname">wait_for_subscriptions</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/transport/conductor.html#Conductor.wait_for_subscriptions"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.transport.base.Conductor.wait_for_subscriptions" title="Permalink to this definition">¶</a></dt>
+<dd><p>Wait for consumer to be subscribed.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Conductor.maybe_wait_for_subscriptions">
+<em class="property">async </em><code class="sig-name descname">maybe_wait_for_subscriptions</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/transport/conductor.html#Conductor.maybe_wait_for_subscriptions"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.transport.base.Conductor.maybe_wait_for_subscriptions" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Conductor.on_partitions_assigned">
+<em class="property">async </em><code class="sig-name descname">on_partitions_assigned</code><span class="sig-paren">(</span><em class="sig-param">assigned: Set[faust.types.tuples.TP]</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/transport/conductor.html#Conductor.on_partitions_assigned"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.transport.base.Conductor.on_partitions_assigned" title="Permalink to this definition">¶</a></dt>
+<dd><p>Call when cluster is rebalancing and partitions are assigned.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Conductor.on_client_only_start">
+<em class="property">async </em><code class="sig-name descname">on_client_only_start</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/transport/conductor.html#Conductor.on_client_only_start"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.transport.base.Conductor.on_client_only_start" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Conductor.clear">
+<code class="sig-name descname">clear</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/transport/conductor.html#Conductor.clear"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.transport.base.Conductor.clear" title="Permalink to this definition">¶</a></dt>
+<dd><p>Clear all subscriptions.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Conductor.add">
+<code class="sig-name descname">add</code><span class="sig-paren">(</span><em class="sig-param">topic: faust.types.topics.TopicT</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/transport/conductor.html#Conductor.add"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.transport.base.Conductor.add" title="Permalink to this definition">¶</a></dt>
+<dd><p>Register topic to be subscribed.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Conductor.discard">
+<code class="sig-name descname">discard</code><span class="sig-paren">(</span><em class="sig-param">topic: Any</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/transport/conductor.html#Conductor.discard"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.transport.base.Conductor.discard" title="Permalink to this definition">¶</a></dt>
+<dd><p>Unregister topic from conductor.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Conductor.label">
+<em class="property">property </em><code class="sig-name descname">label</code><a class="headerlink" href="#faust.transport.base.Conductor.label" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return label for use in logs.
+:rtype: <a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Conductor.shortlabel">
+<em class="property">property </em><code class="sig-name descname">shortlabel</code><a class="headerlink" href="#faust.transport.base.Conductor.shortlabel" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return short label for use in logs.
+:rtype: <a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Conductor.acking_topics">
+<em class="property">property </em><code class="sig-name descname">acking_topics</code><a class="headerlink" href="#faust.transport.base.Conductor.acking_topics" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Set" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Set</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="faust.transport.base.Consumer">
+<em class="property">class </em><code class="sig-prename descclassname">faust.transport.base.</code><code class="sig-name descname">Consumer</code><span class="sig-paren">(</span><em class="sig-param">transport: faust.types.transports.TransportT, callback: Callable[faust.types.tuples.Message, Awaitable], on_partitions_revoked: Callable[Set[faust.types.tuples.TP], Awaitable[None]], on_partitions_assigned: Callable[Set[faust.types.tuples.TP], Awaitable[None]], *, commit_interval: float = None, commit_livelock_soft_timeout: float = None, loop: asyncio.events.AbstractEventLoop = None, **kwargs: Any</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/transport/consumer.html#Consumer"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.transport.base.Consumer" title="Permalink to this definition">¶</a></dt>
+<dd><p>Base Consumer.</p>
+<dl class="attribute">
+<dt id="faust.transport.base.Consumer.logger">
+<code class="sig-name descname">logger</code><em class="property"> = &lt;Logger faust.transport.consumer (WARNING)&gt;</em><a class="headerlink" href="#faust.transport.base.Consumer.logger" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="faust.transport.base.Consumer.consumer_stopped_errors">
+<code class="sig-name descname">consumer_stopped_errors</code><em class="property"> = ()</em><a class="headerlink" href="#faust.transport.base.Consumer.consumer_stopped_errors" title="Permalink to this definition">¶</a></dt>
+<dd><p>Tuple of exception types that may be raised when the
+underlying consumer driver is stopped.</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.transport.base.Consumer.flow_active">
+<code class="sig-name descname">flow_active</code><em class="property"> = True</em><a class="headerlink" href="#faust.transport.base.Consumer.flow_active" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Consumer.on_init_dependencies">
+<code class="sig-name descname">on_init_dependencies</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; Iterable[mode.types.services.ServiceT]<a class="reference internal" href="../_modules/faust/transport/consumer.html#Consumer.on_init_dependencies"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.transport.base.Consumer.on_init_dependencies" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return list of services this consumer depends on.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Iterable" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Iterable</span></code></a>[<a class="reference external" href="https://mode.readthedocs.io/en/latest/reference/mode.types.services.html#mode.types.services.ServiceT" title="(in Mode v4.3)"><code class="xref py py-class docutils literal notranslate"><span class="pre">ServiceT</span></code></a>[]]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Consumer.on_restart">
+<em class="property">async </em><code class="sig-name descname">on_restart</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/transport/consumer.html#Consumer.on_restart"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.transport.base.Consumer.on_restart" title="Permalink to this definition">¶</a></dt>
+<dd><p>Call when the consumer is restarted.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Consumer.perform_seek">
+<em class="property">async </em><code class="sig-name descname">perform_seek</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/transport/consumer.html#Consumer.perform_seek"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.transport.base.Consumer.perform_seek" title="Permalink to this definition">¶</a></dt>
+<dd><p>Seek all partitions to their current committed position.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Consumer.seek_to_committed">
+<em class="property">abstract async </em><code class="sig-name descname">seek_to_committed</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; Mapping[faust.types.tuples.TP, int]<a class="reference internal" href="../_modules/faust/transport/consumer.html#Consumer.seek_to_committed"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.transport.base.Consumer.seek_to_committed" title="Permalink to this definition">¶</a></dt>
+<dd><p>Seek all partitions to their committed offsets.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Mapping" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Mapping</span></code></a>[<a class="reference internal" href="faust.types.tuples.html#faust.types.tuples.TP" title="faust.types.tuples.TP"><code class="xref py py-class docutils literal notranslate"><span class="pre">TP</span></code></a>, <a class="reference external" href="https://docs.python.org/dev/library/functions.html#int" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Consumer.seek">
+<em class="property">async </em><code class="sig-name descname">seek</code><span class="sig-paren">(</span><em class="sig-param">partition: faust.types.tuples.TP</em>, <em class="sig-param">offset: int</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/transport/consumer.html#Consumer.seek"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.transport.base.Consumer.seek" title="Permalink to this definition">¶</a></dt>
+<dd><p>Seek partition to specific offset.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Consumer.stop_flow">
+<code class="sig-name descname">stop_flow</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/transport/consumer.html#Consumer.stop_flow"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.transport.base.Consumer.stop_flow" title="Permalink to this definition">¶</a></dt>
+<dd><p>Block consumer from processing any more messages.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Consumer.resume_flow">
+<code class="sig-name descname">resume_flow</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/transport/consumer.html#Consumer.resume_flow"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.transport.base.Consumer.resume_flow" title="Permalink to this definition">¶</a></dt>
+<dd><p>Allow consumer to process messages.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Consumer.pause_partitions">
+<code class="sig-name descname">pause_partitions</code><span class="sig-paren">(</span><em class="sig-param">tps: Iterable[faust.types.tuples.TP]</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/transport/consumer.html#Consumer.pause_partitions"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.transport.base.Consumer.pause_partitions" title="Permalink to this definition">¶</a></dt>
+<dd><p>Pause fetching from partitions.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Consumer.resume_partitions">
+<code class="sig-name descname">resume_partitions</code><span class="sig-paren">(</span><em class="sig-param">tps: Iterable[faust.types.tuples.TP]</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/transport/consumer.html#Consumer.resume_partitions"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.transport.base.Consumer.resume_partitions" title="Permalink to this definition">¶</a></dt>
+<dd><p>Resume fetching from partitions.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Consumer.on_partitions_revoked">
+<em class="property">async </em><code class="sig-name descname">on_partitions_revoked</code><span class="sig-paren">(</span><em class="sig-param">revoked: Set[faust.types.tuples.TP]</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/transport/consumer.html#Consumer.on_partitions_revoked"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.transport.base.Consumer.on_partitions_revoked" title="Permalink to this definition">¶</a></dt>
+<dd><p>Call during rebalancing when partitions are being revoked.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Consumer.on_partitions_assigned">
+<em class="property">async </em><code class="sig-name descname">on_partitions_assigned</code><span class="sig-paren">(</span><em class="sig-param">assigned: Set[faust.types.tuples.TP]</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/transport/consumer.html#Consumer.on_partitions_assigned"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.transport.base.Consumer.on_partitions_assigned" title="Permalink to this definition">¶</a></dt>
+<dd><p>Call during rebalancing when partitions are being assigned.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Consumer.getmany">
+<code class="sig-name descname">getmany</code><span class="sig-paren">(</span><em class="sig-param">timeout: float</em><span class="sig-paren">)</span> &#x2192; AsyncIterator[Tuple[faust.types.tuples.TP, faust.types.tuples.Message]]<a class="reference internal" href="../_modules/faust/transport/consumer.html#Consumer.getmany"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.transport.base.Consumer.getmany" title="Permalink to this definition">¶</a></dt>
+<dd><p>Fetch batch of messages from server.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.AsyncIterator" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">AsyncIterator</span></code></a>[<code class="xref py py-class docutils literal notranslate"><span class="pre">Tuple</span></code>[<a class="reference internal" href="faust.types.tuples.html#faust.types.tuples.TP" title="faust.types.tuples.TP"><code class="xref py py-class docutils literal notranslate"><span class="pre">TP</span></code></a>, <a class="reference internal" href="faust.types.tuples.html#faust.types.tuples.Message" title="faust.types.tuples.Message"><code class="xref py py-class docutils literal notranslate"><span class="pre">Message</span></code></a>]]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Consumer.track_message">
+<code class="sig-name descname">track_message</code><span class="sig-paren">(</span><em class="sig-param">message: faust.types.tuples.Message</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/transport/consumer.html#Consumer.track_message"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.transport.base.Consumer.track_message" title="Permalink to this definition">¶</a></dt>
+<dd><p>Track message and mark it as pending ack.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Consumer.ack">
+<code class="sig-name descname">ack</code><span class="sig-paren">(</span><em class="sig-param">message: faust.types.tuples.Message</em><span class="sig-paren">)</span> &#x2192; bool<a class="reference internal" href="../_modules/faust/transport/consumer.html#Consumer.ack"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.transport.base.Consumer.ack" title="Permalink to this definition">¶</a></dt>
+<dd><p>Mark message as being acknowledged by stream.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/functions.html#bool" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Consumer.wait_empty">
+<em class="property">async </em><code class="sig-name descname">wait_empty</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/transport/consumer.html#Consumer.wait_empty"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.transport.base.Consumer.wait_empty" title="Permalink to this definition">¶</a></dt>
+<dd><p>Wait for all messages that started processing to be acked.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Consumer.commit_and_end_transactions">
+<em class="property">async </em><code class="sig-name descname">commit_and_end_transactions</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/transport/consumer.html#Consumer.commit_and_end_transactions"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.transport.base.Consumer.commit_and_end_transactions" title="Permalink to this definition">¶</a></dt>
+<dd><p>Commit all safe offsets and end transaction.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Consumer.on_stop">
+<em class="property">async </em><code class="sig-name descname">on_stop</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/transport/consumer.html#Consumer.on_stop"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.transport.base.Consumer.on_stop" title="Permalink to this definition">¶</a></dt>
+<dd><p>Call when consumer is stopping.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Consumer.verify_all_partitions_active">
+<em class="property">async </em><code class="sig-name descname">verify_all_partitions_active</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/transport/consumer.html#Consumer.verify_all_partitions_active"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.transport.base.Consumer.verify_all_partitions_active" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Consumer.verify_event_path">
+<code class="sig-name descname">verify_event_path</code><span class="sig-paren">(</span><em class="sig-param">now: float</em>, <em class="sig-param">tp: faust.types.tuples.TP</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/transport/consumer.html#Consumer.verify_event_path"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.transport.base.Consumer.verify_event_path" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Consumer.verify_recovery_event_path">
+<code class="sig-name descname">verify_recovery_event_path</code><span class="sig-paren">(</span><em class="sig-param">now: float</em>, <em class="sig-param">tp: faust.types.tuples.TP</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/transport/consumer.html#Consumer.verify_recovery_event_path"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.transport.base.Consumer.verify_recovery_event_path" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Consumer.commit">
+<em class="property">async </em><code class="sig-name descname">commit</code><span class="sig-paren">(</span><em class="sig-param">topics: AbstractSet[Union[str</em>, <em class="sig-param">faust.types.tuples.TP]] = None</em>, <em class="sig-param">start_new_transaction: bool = True</em><span class="sig-paren">)</span> &#x2192; bool<a class="reference internal" href="../_modules/faust/transport/consumer.html#Consumer.commit"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.transport.base.Consumer.commit" title="Permalink to this definition">¶</a></dt>
+<dd><p>Maybe commit the offset for all or specific topics.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>topics</strong> (<a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Optional" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.AbstractSet" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">AbstractSet</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Union" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference internal" href="faust.types.tuples.html#faust.types.tuples.TP" title="faust.types.tuples.TP"><code class="xref py py-class docutils literal notranslate"><span class="pre">TP</span></code></a>]]]) – Set containing topics and/or TopicPartitions to commit.</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/dev/library/functions.html#bool" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Consumer.maybe_wait_for_commit_to_finish">
+<em class="property">async </em><code class="sig-name descname">maybe_wait_for_commit_to_finish</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; bool<a class="reference internal" href="../_modules/faust/transport/consumer.html#Consumer.maybe_wait_for_commit_to_finish"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.transport.base.Consumer.maybe_wait_for_commit_to_finish" title="Permalink to this definition">¶</a></dt>
+<dd><p>Wait for any existing commit operation to finish.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/functions.html#bool" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Consumer.force_commit">
+<em class="property">async </em><code class="sig-name descname">force_commit</code><span class="sig-paren">(</span><em class="sig-param">topics: AbstractSet[Union[str</em>, <em class="sig-param">faust.types.tuples.TP]] = None</em>, <em class="sig-param">start_new_transaction: bool = True</em><span class="sig-paren">)</span> &#x2192; bool<a class="reference internal" href="../_modules/faust/transport/consumer.html#Consumer.force_commit"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.transport.base.Consumer.force_commit" title="Permalink to this definition">¶</a></dt>
+<dd><p>Force offset commit.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/functions.html#bool" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Consumer.on_task_error">
+<em class="property">async </em><code class="sig-name descname">on_task_error</code><span class="sig-paren">(</span><em class="sig-param">exc: BaseException</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/transport/consumer.html#Consumer.on_task_error"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.transport.base.Consumer.on_task_error" title="Permalink to this definition">¶</a></dt>
+<dd><p>Call when processing a message failed.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Consumer.close">
+<code class="sig-name descname">close</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/transport/consumer.html#Consumer.close"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.transport.base.Consumer.close" title="Permalink to this definition">¶</a></dt>
+<dd><p>Close consumer for graceful shutdown.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Consumer.unacked">
+<em class="property">property </em><code class="sig-name descname">unacked</code><a class="headerlink" href="#faust.transport.base.Consumer.unacked" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return the set of currently unacknowledged messages.
+:rtype: <a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Set" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Set</span></code></a>[<a class="reference internal" href="faust.types.tuples.html#faust.types.tuples.Message" title="faust.types.tuples.Message"><code class="xref py py-class docutils literal notranslate"><span class="pre">Message</span></code></a>]</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="faust.transport.base.Fetcher">
+<em class="property">class </em><code class="sig-prename descclassname">faust.transport.base.</code><code class="sig-name descname">Fetcher</code><span class="sig-paren">(</span><em class="sig-param">app: faust.types.app.AppT</em>, <em class="sig-param">**kwargs: Any</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/transport/consumer.html#Fetcher"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.transport.base.Fetcher" title="Permalink to this definition">¶</a></dt>
+<dd><p>Service fetching messages from Kafka.</p>
+<dl class="attribute">
+<dt id="faust.transport.base.Fetcher.logger">
+<code class="sig-name descname">logger</code><em class="property"> = &lt;Logger faust.transport.consumer (WARNING)&gt;</em><a class="headerlink" href="#faust.transport.base.Fetcher.logger" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Fetcher.on_stop">
+<em class="property">async </em><code class="sig-name descname">on_stop</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/transport/consumer.html#Fetcher.on_stop"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.transport.base.Fetcher.on_stop" title="Permalink to this definition">¶</a></dt>
+<dd><p>Call when the fetcher is stopping.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="faust.transport.base.Producer">
+<em class="property">class </em><code class="sig-prename descclassname">faust.transport.base.</code><code class="sig-name descname">Producer</code><span class="sig-paren">(</span><em class="sig-param">transport: faust.types.transports.TransportT</em>, <em class="sig-param">loop: asyncio.events.AbstractEventLoop = None</em>, <em class="sig-param">**kwargs: Any</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/transport/producer.html#Producer"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.transport.base.Producer" title="Permalink to this definition">¶</a></dt>
+<dd><p>Base Producer.</p>
+<dl class="method">
+<dt id="faust.transport.base.Producer.on_start">
+<em class="property">async </em><code class="sig-name descname">on_start</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/transport/producer.html#Producer.on_start"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.transport.base.Producer.on_start" title="Permalink to this definition">¶</a></dt>
+<dd><p>Service is starting.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Producer.send">
+<em class="property">async </em><code class="sig-name descname">send</code><span class="sig-paren">(</span><em class="sig-param">topic: str, key: Optional[bytes], value: Optional[bytes], partition: Optional[int], timestamp: Optional[float], headers: Union[List[Tuple[str, bytes]], Mapping[str, bytes], None], *, transactional_id: str = None</em><span class="sig-paren">)</span> &#x2192; Awaitable[faust.types.tuples.RecordMetadata]<a class="reference internal" href="../_modules/faust/transport/producer.html#Producer.send"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.transport.base.Producer.send" title="Permalink to this definition">¶</a></dt>
+<dd><p>Schedule message to be sent by producer.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Awaitable" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Awaitable</span></code></a>[<a class="reference internal" href="faust.types.tuples.html#faust.types.tuples.RecordMetadata" title="faust.types.tuples.RecordMetadata"><code class="xref py py-class docutils literal notranslate"><span class="pre">RecordMetadata</span></code></a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Producer.send_soon">
+<code class="sig-name descname">send_soon</code><span class="sig-paren">(</span><em class="sig-param">fut: faust.types.tuples.FutureMessage</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/transport/producer.html#Producer.send_soon"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.transport.base.Producer.send_soon" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Producer.send_and_wait">
+<em class="property">async </em><code class="sig-name descname">send_and_wait</code><span class="sig-paren">(</span><em class="sig-param">topic: str, key: Optional[bytes], value: Optional[bytes], partition: Optional[int], timestamp: Optional[float], headers: Union[List[Tuple[str, bytes]], Mapping[str, bytes], None], *, transactional_id: str = None</em><span class="sig-paren">)</span> &#x2192; faust.types.tuples.RecordMetadata<a class="reference internal" href="../_modules/faust/transport/producer.html#Producer.send_and_wait"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.transport.base.Producer.send_and_wait" title="Permalink to this definition">¶</a></dt>
+<dd><p>Send message and wait for it to be transmitted.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="faust.types.tuples.html#faust.types.tuples.RecordMetadata" title="faust.types.tuples.RecordMetadata"><code class="xref py py-class docutils literal notranslate"><span class="pre">RecordMetadata</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Producer.flush">
+<em class="property">async </em><code class="sig-name descname">flush</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/transport/producer.html#Producer.flush"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.transport.base.Producer.flush" title="Permalink to this definition">¶</a></dt>
+<dd><p>Flush all in-flight messages.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Producer.create_topic">
+<em class="property">async </em><code class="sig-name descname">create_topic</code><span class="sig-paren">(</span><em class="sig-param">topic: str</em>, <em class="sig-param">partitions: int</em>, <em class="sig-param">replication: int</em>, <em class="sig-param">*</em>, <em class="sig-param">config: Mapping[str</em>, <em class="sig-param">Any] = None</em>, <em class="sig-param">timeout: Union[datetime.timedelta</em>, <em class="sig-param">float</em>, <em class="sig-param">str] = 1000.0</em>, <em class="sig-param">retention: Union[datetime.timedelta</em>, <em class="sig-param">float</em>, <em class="sig-param">str] = None</em>, <em class="sig-param">compacting: bool = None</em>, <em class="sig-param">deleting: bool = None</em>, <em class="sig-param">ensure_created: bool = False</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/transport/producer.html#Producer.create_topic"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.transport.base.Producer.create_topic" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create/declare topic on server.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Producer.key_partition">
+<code class="sig-name descname">key_partition</code><span class="sig-paren">(</span><em class="sig-param">topic: str</em>, <em class="sig-param">key: bytes</em><span class="sig-paren">)</span> &#x2192; faust.types.tuples.TP<a class="reference internal" href="../_modules/faust/transport/producer.html#Producer.key_partition"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.transport.base.Producer.key_partition" title="Permalink to this definition">¶</a></dt>
+<dd><p>Hash key to determine partition.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="faust.types.tuples.html#faust.types.tuples.TP" title="faust.types.tuples.TP"><code class="xref py py-class docutils literal notranslate"><span class="pre">TP</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Producer.begin_transaction">
+<em class="property">async </em><code class="sig-name descname">begin_transaction</code><span class="sig-paren">(</span><em class="sig-param">transactional_id: str</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/transport/producer.html#Producer.begin_transaction"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.transport.base.Producer.begin_transaction" title="Permalink to this definition">¶</a></dt>
+<dd><p>Begin transaction by id.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Producer.commit_transaction">
+<em class="property">async </em><code class="sig-name descname">commit_transaction</code><span class="sig-paren">(</span><em class="sig-param">transactional_id: str</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/transport/producer.html#Producer.commit_transaction"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.transport.base.Producer.commit_transaction" title="Permalink to this definition">¶</a></dt>
+<dd><p>Commit transaction by id.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Producer.abort_transaction">
+<em class="property">async </em><code class="sig-name descname">abort_transaction</code><span class="sig-paren">(</span><em class="sig-param">transactional_id: str</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/transport/producer.html#Producer.abort_transaction"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.transport.base.Producer.abort_transaction" title="Permalink to this definition">¶</a></dt>
+<dd><p>Abort and rollback transaction by id.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Producer.stop_transaction">
+<em class="property">async </em><code class="sig-name descname">stop_transaction</code><span class="sig-paren">(</span><em class="sig-param">transactional_id: str</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/transport/producer.html#Producer.stop_transaction"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.transport.base.Producer.stop_transaction" title="Permalink to this definition">¶</a></dt>
+<dd><p>Stop transaction by id.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Producer.maybe_begin_transaction">
+<em class="property">async </em><code class="sig-name descname">maybe_begin_transaction</code><span class="sig-paren">(</span><em class="sig-param">transactional_id: str</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/transport/producer.html#Producer.maybe_begin_transaction"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.transport.base.Producer.maybe_begin_transaction" title="Permalink to this definition">¶</a></dt>
+<dd><p>Begin transaction by id, if not already started.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Producer.commit_transactions">
+<em class="property">async </em><code class="sig-name descname">commit_transactions</code><span class="sig-paren">(</span><em class="sig-param">tid_to_offset_map: Mapping[str, Mapping[faust.types.tuples.TP, int]], group_id: str, start_new_transaction: bool = True</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/transport/producer.html#Producer.commit_transactions"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.transport.base.Producer.commit_transactions" title="Permalink to this definition">¶</a></dt>
+<dd><p>Commit transactions.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.transport.base.Producer.logger">
+<code class="sig-name descname">logger</code><em class="property"> = &lt;Logger faust.transport.producer (WARNING)&gt;</em><a class="headerlink" href="#faust.transport.base.Producer.logger" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Producer.supports_headers">
+<code class="sig-name descname">supports_headers</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; bool<a class="reference internal" href="../_modules/faust/transport/producer.html#Producer.supports_headers"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.transport.base.Producer.supports_headers" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return <code class="xref py py-const docutils literal notranslate"><span class="pre">True</span></code> if headers are supported by this transport.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/functions.html#bool" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="faust.transport.base.Transport">
+<em class="property">class </em><code class="sig-prename descclassname">faust.transport.base.</code><code class="sig-name descname">Transport</code><span class="sig-paren">(</span><em class="sig-param">url: List[yarl.URL], app: faust.types.app.AppT, loop: asyncio.events.AbstractEventLoop = None</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/transport/base.html#Transport"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.transport.base.Transport" title="Permalink to this definition">¶</a></dt>
+<dd><p>Message transport implementation.</p>
+<dl class="class">
+<dt id="faust.transport.base.Transport.Consumer">
+<em class="property">class </em><code class="sig-name descname">Consumer</code><span class="sig-paren">(</span><em class="sig-param">transport: faust.types.transports.TransportT, callback: Callable[faust.types.tuples.Message, Awaitable], on_partitions_revoked: Callable[Set[faust.types.tuples.TP], Awaitable[None]], on_partitions_assigned: Callable[Set[faust.types.tuples.TP], Awaitable[None]], *, commit_interval: float = None, commit_livelock_soft_timeout: float = None, loop: asyncio.events.AbstractEventLoop = None, **kwargs: Any</em><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#faust.transport.base.Transport.Consumer" title="Permalink to this definition">¶</a></dt>
+<dd><p>Base Consumer.</p>
+<dl class="method">
+<dt id="faust.transport.base.Transport.Consumer.ack">
+<code class="sig-name descname">ack</code><span class="sig-paren">(</span><em class="sig-param">message: faust.types.tuples.Message</em><span class="sig-paren">)</span> &#x2192; bool<a class="headerlink" href="#faust.transport.base.Transport.Consumer.ack" title="Permalink to this definition">¶</a></dt>
+<dd><p>Mark message as being acknowledged by stream.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/functions.html#bool" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Transport.Consumer.close">
+<code class="sig-name descname">close</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#faust.transport.base.Transport.Consumer.close" title="Permalink to this definition">¶</a></dt>
+<dd><p>Close consumer for graceful shutdown.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Transport.Consumer.commit">
+<em class="property">async </em><code class="sig-name descname">commit</code><span class="sig-paren">(</span><em class="sig-param">topics: AbstractSet[Union[str</em>, <em class="sig-param">faust.types.tuples.TP]] = None</em>, <em class="sig-param">start_new_transaction: bool = True</em><span class="sig-paren">)</span> &#x2192; bool<a class="headerlink" href="#faust.transport.base.Transport.Consumer.commit" title="Permalink to this definition">¶</a></dt>
+<dd><p>Maybe commit the offset for all or specific topics.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>topics</strong> (<a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Optional" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.AbstractSet" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">AbstractSet</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Union" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference internal" href="faust.types.tuples.html#faust.types.tuples.TP" title="faust.types.tuples.TP"><code class="xref py py-class docutils literal notranslate"><span class="pre">TP</span></code></a>]]]) – Set containing topics and/or TopicPartitions to commit.</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/dev/library/functions.html#bool" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Transport.Consumer.commit_and_end_transactions">
+<em class="property">async </em><code class="sig-name descname">commit_and_end_transactions</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#faust.transport.base.Transport.Consumer.commit_and_end_transactions" title="Permalink to this definition">¶</a></dt>
+<dd><p>Commit all safe offsets and end transaction.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.transport.base.Transport.Consumer.consumer_stopped_errors">
+<code class="sig-name descname">consumer_stopped_errors</code><em class="property"> = ()</em><a class="headerlink" href="#faust.transport.base.Transport.Consumer.consumer_stopped_errors" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="faust.transport.base.Transport.Consumer.flow_active">
+<code class="sig-name descname">flow_active</code><em class="property"> = True</em><a class="headerlink" href="#faust.transport.base.Transport.Consumer.flow_active" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Transport.Consumer.force_commit">
+<em class="property">async </em><code class="sig-name descname">force_commit</code><span class="sig-paren">(</span><em class="sig-param">topics: AbstractSet[Union[str</em>, <em class="sig-param">faust.types.tuples.TP]] = None</em>, <em class="sig-param">start_new_transaction: bool = True</em><span class="sig-paren">)</span> &#x2192; bool<a class="headerlink" href="#faust.transport.base.Transport.Consumer.force_commit" title="Permalink to this definition">¶</a></dt>
+<dd><p>Force offset commit.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/functions.html#bool" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Transport.Consumer.getmany">
+<code class="sig-name descname">getmany</code><span class="sig-paren">(</span><em class="sig-param">timeout: float</em><span class="sig-paren">)</span> &#x2192; AsyncIterator[Tuple[faust.types.tuples.TP, faust.types.tuples.Message]]<a class="headerlink" href="#faust.transport.base.Transport.Consumer.getmany" title="Permalink to this definition">¶</a></dt>
+<dd><p>Fetch batch of messages from server.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.AsyncIterator" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">AsyncIterator</span></code></a>[<code class="xref py py-class docutils literal notranslate"><span class="pre">Tuple</span></code>[<a class="reference internal" href="faust.types.tuples.html#faust.types.tuples.TP" title="faust.types.tuples.TP"><code class="xref py py-class docutils literal notranslate"><span class="pre">TP</span></code></a>, <a class="reference internal" href="faust.types.tuples.html#faust.types.tuples.Message" title="faust.types.tuples.Message"><code class="xref py py-class docutils literal notranslate"><span class="pre">Message</span></code></a>]]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.transport.base.Transport.Consumer.logger">
+<code class="sig-name descname">logger</code><em class="property"> = &lt;Logger faust.transport.consumer (WARNING)&gt;</em><a class="headerlink" href="#faust.transport.base.Transport.Consumer.logger" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Transport.Consumer.maybe_wait_for_commit_to_finish">
+<em class="property">async </em><code class="sig-name descname">maybe_wait_for_commit_to_finish</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; bool<a class="headerlink" href="#faust.transport.base.Transport.Consumer.maybe_wait_for_commit_to_finish" title="Permalink to this definition">¶</a></dt>
+<dd><p>Wait for any existing commit operation to finish.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/functions.html#bool" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Transport.Consumer.on_init_dependencies">
+<code class="sig-name descname">on_init_dependencies</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; Iterable[mode.types.services.ServiceT]<a class="headerlink" href="#faust.transport.base.Transport.Consumer.on_init_dependencies" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return list of services this consumer depends on.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Iterable" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Iterable</span></code></a>[<a class="reference external" href="https://mode.readthedocs.io/en/latest/reference/mode.types.services.html#mode.types.services.ServiceT" title="(in Mode v4.3)"><code class="xref py py-class docutils literal notranslate"><span class="pre">ServiceT</span></code></a>[]]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Transport.Consumer.on_partitions_assigned">
+<em class="property">async </em><code class="sig-name descname">on_partitions_assigned</code><span class="sig-paren">(</span><em class="sig-param">assigned: Set[faust.types.tuples.TP]</em><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#faust.transport.base.Transport.Consumer.on_partitions_assigned" title="Permalink to this definition">¶</a></dt>
+<dd><p>Call during rebalancing when partitions are being assigned.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Transport.Consumer.on_partitions_revoked">
+<em class="property">async </em><code class="sig-name descname">on_partitions_revoked</code><span class="sig-paren">(</span><em class="sig-param">revoked: Set[faust.types.tuples.TP]</em><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#faust.transport.base.Transport.Consumer.on_partitions_revoked" title="Permalink to this definition">¶</a></dt>
+<dd><p>Call during rebalancing when partitions are being revoked.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Transport.Consumer.on_restart">
+<em class="property">async </em><code class="sig-name descname">on_restart</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#faust.transport.base.Transport.Consumer.on_restart" title="Permalink to this definition">¶</a></dt>
+<dd><p>Call when the consumer is restarted.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Transport.Consumer.on_stop">
+<em class="property">async </em><code class="sig-name descname">on_stop</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#faust.transport.base.Transport.Consumer.on_stop" title="Permalink to this definition">¶</a></dt>
+<dd><p>Call when consumer is stopping.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Transport.Consumer.on_task_error">
+<em class="property">async </em><code class="sig-name descname">on_task_error</code><span class="sig-paren">(</span><em class="sig-param">exc: BaseException</em><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#faust.transport.base.Transport.Consumer.on_task_error" title="Permalink to this definition">¶</a></dt>
+<dd><p>Call when processing a message failed.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Transport.Consumer.pause_partitions">
+<code class="sig-name descname">pause_partitions</code><span class="sig-paren">(</span><em class="sig-param">tps: Iterable[faust.types.tuples.TP]</em><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#faust.transport.base.Transport.Consumer.pause_partitions" title="Permalink to this definition">¶</a></dt>
+<dd><p>Pause fetching from partitions.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Transport.Consumer.perform_seek">
+<em class="property">async </em><code class="sig-name descname">perform_seek</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#faust.transport.base.Transport.Consumer.perform_seek" title="Permalink to this definition">¶</a></dt>
+<dd><p>Seek all partitions to their current committed position.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Transport.Consumer.resume_flow">
+<code class="sig-name descname">resume_flow</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#faust.transport.base.Transport.Consumer.resume_flow" title="Permalink to this definition">¶</a></dt>
+<dd><p>Allow consumer to process messages.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Transport.Consumer.resume_partitions">
+<code class="sig-name descname">resume_partitions</code><span class="sig-paren">(</span><em class="sig-param">tps: Iterable[faust.types.tuples.TP]</em><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#faust.transport.base.Transport.Consumer.resume_partitions" title="Permalink to this definition">¶</a></dt>
+<dd><p>Resume fetching from partitions.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Transport.Consumer.seek">
+<em class="property">async </em><code class="sig-name descname">seek</code><span class="sig-paren">(</span><em class="sig-param">partition: faust.types.tuples.TP</em>, <em class="sig-param">offset: int</em><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#faust.transport.base.Transport.Consumer.seek" title="Permalink to this definition">¶</a></dt>
+<dd><p>Seek partition to specific offset.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Transport.Consumer.seek_to_committed">
+<em class="property">abstract async </em><code class="sig-name descname">seek_to_committed</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; Mapping[faust.types.tuples.TP, int]<a class="headerlink" href="#faust.transport.base.Transport.Consumer.seek_to_committed" title="Permalink to this definition">¶</a></dt>
+<dd><p>Seek all partitions to their committed offsets.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Mapping" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Mapping</span></code></a>[<a class="reference internal" href="faust.types.tuples.html#faust.types.tuples.TP" title="faust.types.tuples.TP"><code class="xref py py-class docutils literal notranslate"><span class="pre">TP</span></code></a>, <a class="reference external" href="https://docs.python.org/dev/library/functions.html#int" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Transport.Consumer.stop_flow">
+<code class="sig-name descname">stop_flow</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#faust.transport.base.Transport.Consumer.stop_flow" title="Permalink to this definition">¶</a></dt>
+<dd><p>Block consumer from processing any more messages.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Transport.Consumer.track_message">
+<code class="sig-name descname">track_message</code><span class="sig-paren">(</span><em class="sig-param">message: faust.types.tuples.Message</em><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#faust.transport.base.Transport.Consumer.track_message" title="Permalink to this definition">¶</a></dt>
+<dd><p>Track message and mark it as pending ack.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Transport.Consumer.unacked">
+<em class="property">property </em><code class="sig-name descname">unacked</code><a class="headerlink" href="#faust.transport.base.Transport.Consumer.unacked" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return the set of currently unacknowledged messages.
+:rtype: <a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Set" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Set</span></code></a>[<a class="reference internal" href="faust.types.tuples.html#faust.types.tuples.Message" title="faust.types.tuples.Message"><code class="xref py py-class docutils literal notranslate"><span class="pre">Message</span></code></a>]</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Transport.Consumer.verify_all_partitions_active">
+<em class="property">async </em><code class="sig-name descname">verify_all_partitions_active</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#faust.transport.base.Transport.Consumer.verify_all_partitions_active" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Transport.Consumer.verify_event_path">
+<code class="sig-name descname">verify_event_path</code><span class="sig-paren">(</span><em class="sig-param">now: float</em>, <em class="sig-param">tp: faust.types.tuples.TP</em><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#faust.transport.base.Transport.Consumer.verify_event_path" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Transport.Consumer.verify_recovery_event_path">
+<code class="sig-name descname">verify_recovery_event_path</code><span class="sig-paren">(</span><em class="sig-param">now: float</em>, <em class="sig-param">tp: faust.types.tuples.TP</em><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#faust.transport.base.Transport.Consumer.verify_recovery_event_path" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Transport.Consumer.wait_empty">
+<em class="property">async </em><code class="sig-name descname">wait_empty</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#faust.transport.base.Transport.Consumer.wait_empty" title="Permalink to this definition">¶</a></dt>
+<dd><p>Wait for all messages that started processing to be acked.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="faust.transport.base.Transport.Producer">
+<em class="property">class </em><code class="sig-name descname">Producer</code><span class="sig-paren">(</span><em class="sig-param">transport: faust.types.transports.TransportT</em>, <em class="sig-param">loop: asyncio.events.AbstractEventLoop = None</em>, <em class="sig-param">**kwargs: Any</em><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#faust.transport.base.Transport.Producer" title="Permalink to this definition">¶</a></dt>
+<dd><p>Base Producer.</p>
+<dl class="method">
+<dt id="faust.transport.base.Transport.Producer.abort_transaction">
+<em class="property">async </em><code class="sig-name descname">abort_transaction</code><span class="sig-paren">(</span><em class="sig-param">transactional_id: str</em><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#faust.transport.base.Transport.Producer.abort_transaction" title="Permalink to this definition">¶</a></dt>
+<dd><p>Abort and rollback transaction by id.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Transport.Producer.begin_transaction">
+<em class="property">async </em><code class="sig-name descname">begin_transaction</code><span class="sig-paren">(</span><em class="sig-param">transactional_id: str</em><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#faust.transport.base.Transport.Producer.begin_transaction" title="Permalink to this definition">¶</a></dt>
+<dd><p>Begin transaction by id.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Transport.Producer.commit_transaction">
+<em class="property">async </em><code class="sig-name descname">commit_transaction</code><span class="sig-paren">(</span><em class="sig-param">transactional_id: str</em><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#faust.transport.base.Transport.Producer.commit_transaction" title="Permalink to this definition">¶</a></dt>
+<dd><p>Commit transaction by id.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Transport.Producer.commit_transactions">
+<em class="property">async </em><code class="sig-name descname">commit_transactions</code><span class="sig-paren">(</span><em class="sig-param">tid_to_offset_map: Mapping[str, Mapping[faust.types.tuples.TP, int]], group_id: str, start_new_transaction: bool = True</em><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#faust.transport.base.Transport.Producer.commit_transactions" title="Permalink to this definition">¶</a></dt>
+<dd><p>Commit transactions.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Transport.Producer.create_topic">
+<em class="property">async </em><code class="sig-name descname">create_topic</code><span class="sig-paren">(</span><em class="sig-param">topic: str</em>, <em class="sig-param">partitions: int</em>, <em class="sig-param">replication: int</em>, <em class="sig-param">*</em>, <em class="sig-param">config: Mapping[str</em>, <em class="sig-param">Any] = None</em>, <em class="sig-param">timeout: Union[datetime.timedelta</em>, <em class="sig-param">float</em>, <em class="sig-param">str] = 1000.0</em>, <em class="sig-param">retention: Union[datetime.timedelta</em>, <em class="sig-param">float</em>, <em class="sig-param">str] = None</em>, <em class="sig-param">compacting: bool = None</em>, <em class="sig-param">deleting: bool = None</em>, <em class="sig-param">ensure_created: bool = False</em><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#faust.transport.base.Transport.Producer.create_topic" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create/declare topic on server.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Transport.Producer.flush">
+<em class="property">async </em><code class="sig-name descname">flush</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#faust.transport.base.Transport.Producer.flush" title="Permalink to this definition">¶</a></dt>
+<dd><p>Flush all in-flight messages.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Transport.Producer.key_partition">
+<code class="sig-name descname">key_partition</code><span class="sig-paren">(</span><em class="sig-param">topic: str</em>, <em class="sig-param">key: bytes</em><span class="sig-paren">)</span> &#x2192; faust.types.tuples.TP<a class="headerlink" href="#faust.transport.base.Transport.Producer.key_partition" title="Permalink to this definition">¶</a></dt>
+<dd><p>Hash key to determine partition.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="faust.types.tuples.html#faust.types.tuples.TP" title="faust.types.tuples.TP"><code class="xref py py-class docutils literal notranslate"><span class="pre">TP</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.transport.base.Transport.Producer.logger">
+<code class="sig-name descname">logger</code><em class="property"> = &lt;Logger faust.transport.producer (WARNING)&gt;</em><a class="headerlink" href="#faust.transport.base.Transport.Producer.logger" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Transport.Producer.maybe_begin_transaction">
+<em class="property">async </em><code class="sig-name descname">maybe_begin_transaction</code><span class="sig-paren">(</span><em class="sig-param">transactional_id: str</em><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#faust.transport.base.Transport.Producer.maybe_begin_transaction" title="Permalink to this definition">¶</a></dt>
+<dd><p>Begin transaction by id, if not already started.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Transport.Producer.on_start">
+<em class="property">async </em><code class="sig-name descname">on_start</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#faust.transport.base.Transport.Producer.on_start" title="Permalink to this definition">¶</a></dt>
+<dd><p>Service is starting.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Transport.Producer.send">
+<em class="property">async </em><code class="sig-name descname">send</code><span class="sig-paren">(</span><em class="sig-param">topic: str, key: Optional[bytes], value: Optional[bytes], partition: Optional[int], timestamp: Optional[float], headers: Union[List[Tuple[str, bytes]], Mapping[str, bytes], None], *, transactional_id: str = None</em><span class="sig-paren">)</span> &#x2192; Awaitable[faust.types.tuples.RecordMetadata]<a class="headerlink" href="#faust.transport.base.Transport.Producer.send" title="Permalink to this definition">¶</a></dt>
+<dd><p>Schedule message to be sent by producer.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Awaitable" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Awaitable</span></code></a>[<a class="reference internal" href="faust.types.tuples.html#faust.types.tuples.RecordMetadata" title="faust.types.tuples.RecordMetadata"><code class="xref py py-class docutils literal notranslate"><span class="pre">RecordMetadata</span></code></a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Transport.Producer.send_and_wait">
+<em class="property">async </em><code class="sig-name descname">send_and_wait</code><span class="sig-paren">(</span><em class="sig-param">topic: str, key: Optional[bytes], value: Optional[bytes], partition: Optional[int], timestamp: Optional[float], headers: Union[List[Tuple[str, bytes]], Mapping[str, bytes], None], *, transactional_id: str = None</em><span class="sig-paren">)</span> &#x2192; faust.types.tuples.RecordMetadata<a class="headerlink" href="#faust.transport.base.Transport.Producer.send_and_wait" title="Permalink to this definition">¶</a></dt>
+<dd><p>Send message and wait for it to be transmitted.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="faust.types.tuples.html#faust.types.tuples.RecordMetadata" title="faust.types.tuples.RecordMetadata"><code class="xref py py-class docutils literal notranslate"><span class="pre">RecordMetadata</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Transport.Producer.send_soon">
+<code class="sig-name descname">send_soon</code><span class="sig-paren">(</span><em class="sig-param">fut: faust.types.tuples.FutureMessage</em><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#faust.transport.base.Transport.Producer.send_soon" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Transport.Producer.stop_transaction">
+<em class="property">async </em><code class="sig-name descname">stop_transaction</code><span class="sig-paren">(</span><em class="sig-param">transactional_id: str</em><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#faust.transport.base.Transport.Producer.stop_transaction" title="Permalink to this definition">¶</a></dt>
+<dd><p>Stop transaction by id.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Transport.Producer.supports_headers">
+<code class="sig-name descname">supports_headers</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; bool<a class="headerlink" href="#faust.transport.base.Transport.Producer.supports_headers" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return <code class="xref py py-const docutils literal notranslate"><span class="pre">True</span></code> if headers are supported by this transport.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/functions.html#bool" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="faust.transport.base.Transport.TransactionManager">
+<em class="property">class </em><code class="sig-name descname">TransactionManager</code><span class="sig-paren">(</span><em class="sig-param">transport: faust.types.transports.TransportT</em>, <em class="sig-param">*</em>, <em class="sig-param">consumer: faust.types.transports.ConsumerT</em>, <em class="sig-param">producer: faust.types.transports.ProducerT</em>, <em class="sig-param">**kwargs: Any</em><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#faust.transport.base.Transport.TransactionManager" title="Permalink to this definition">¶</a></dt>
+<dd><p>Manage producer transactions.</p>
+<dl class="method">
+<dt id="faust.transport.base.Transport.TransactionManager.commit">
+<em class="property">async </em><code class="sig-name descname">commit</code><span class="sig-paren">(</span><em class="sig-param">offsets: Mapping[faust.types.tuples.TP, int], start_new_transaction: bool = True</em><span class="sig-paren">)</span> &#x2192; bool<a class="headerlink" href="#faust.transport.base.Transport.TransactionManager.commit" title="Permalink to this definition">¶</a></dt>
+<dd><p>Commit offsets for partitions.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/functions.html#bool" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Transport.TransactionManager.create_topic">
+<em class="property">async </em><code class="sig-name descname">create_topic</code><span class="sig-paren">(</span><em class="sig-param">topic: str</em>, <em class="sig-param">partitions: int</em>, <em class="sig-param">replication: int</em>, <em class="sig-param">*</em>, <em class="sig-param">config: Mapping[str</em>, <em class="sig-param">Any] = None</em>, <em class="sig-param">timeout: Union[datetime.timedelta</em>, <em class="sig-param">float</em>, <em class="sig-param">str] = 30.0</em>, <em class="sig-param">retention: Union[datetime.timedelta</em>, <em class="sig-param">float</em>, <em class="sig-param">str] = None</em>, <em class="sig-param">compacting: bool = None</em>, <em class="sig-param">deleting: bool = None</em>, <em class="sig-param">ensure_created: bool = False</em><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#faust.transport.base.Transport.TransactionManager.create_topic" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create/declare topic on server.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Transport.TransactionManager.flush">
+<em class="property">async </em><code class="sig-name descname">flush</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#faust.transport.base.Transport.TransactionManager.flush" title="Permalink to this definition">¶</a></dt>
+<dd><p>Wait for producer to transmit all pending messages.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Transport.TransactionManager.key_partition">
+<code class="sig-name descname">key_partition</code><span class="sig-paren">(</span><em class="sig-param">topic: str</em>, <em class="sig-param">key: bytes</em><span class="sig-paren">)</span> &#x2192; faust.types.tuples.TP<a class="headerlink" href="#faust.transport.base.Transport.TransactionManager.key_partition" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="faust.types.tuples.html#faust.types.tuples.TP" title="faust.types.tuples.TP"><code class="xref py py-class docutils literal notranslate"><span class="pre">TP</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.transport.base.Transport.TransactionManager.logger">
+<code class="sig-name descname">logger</code><em class="property"> = &lt;Logger faust.transport.consumer (WARNING)&gt;</em><a class="headerlink" href="#faust.transport.base.Transport.TransactionManager.logger" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Transport.TransactionManager.on_partitions_revoked">
+<em class="property">async </em><code class="sig-name descname">on_partitions_revoked</code><span class="sig-paren">(</span><em class="sig-param">revoked: Set[faust.types.tuples.TP]</em><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#faust.transport.base.Transport.TransactionManager.on_partitions_revoked" title="Permalink to this definition">¶</a></dt>
+<dd><p>Call when the cluster is rebalancing and partitions are revoked.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Transport.TransactionManager.on_rebalance">
+<em class="property">async </em><code class="sig-name descname">on_rebalance</code><span class="sig-paren">(</span><em class="sig-param">assigned: Set[faust.types.tuples.TP], revoked: Set[faust.types.tuples.TP], newly_assigned: Set[faust.types.tuples.TP]</em><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#faust.transport.base.Transport.TransactionManager.on_rebalance" title="Permalink to this definition">¶</a></dt>
+<dd><p>Call when the cluster is rebalancing.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Transport.TransactionManager.send">
+<em class="property">async </em><code class="sig-name descname">send</code><span class="sig-paren">(</span><em class="sig-param">topic: str, key: Optional[bytes], value: Optional[bytes], partition: Optional[int], timestamp: Optional[float], headers: Union[List[Tuple[str, bytes]], Mapping[str, bytes], None], *, transactional_id: str = None</em><span class="sig-paren">)</span> &#x2192; Awaitable[faust.types.tuples.RecordMetadata]<a class="headerlink" href="#faust.transport.base.Transport.TransactionManager.send" title="Permalink to this definition">¶</a></dt>
+<dd><p>Schedule message to be sent by producer.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Awaitable" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Awaitable</span></code></a>[<a class="reference internal" href="faust.types.tuples.html#faust.types.tuples.RecordMetadata" title="faust.types.tuples.RecordMetadata"><code class="xref py py-class docutils literal notranslate"><span class="pre">RecordMetadata</span></code></a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Transport.TransactionManager.send_and_wait">
+<em class="property">async </em><code class="sig-name descname">send_and_wait</code><span class="sig-paren">(</span><em class="sig-param">topic: str, key: Optional[bytes], value: Optional[bytes], partition: Optional[int], timestamp: Optional[float], headers: Union[List[Tuple[str, bytes]], Mapping[str, bytes], None], *, transactional_id: str = None</em><span class="sig-paren">)</span> &#x2192; faust.types.tuples.RecordMetadata<a class="headerlink" href="#faust.transport.base.Transport.TransactionManager.send_and_wait" title="Permalink to this definition">¶</a></dt>
+<dd><p>Send message and wait for it to be transmitted.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="faust.types.tuples.html#faust.types.tuples.RecordMetadata" title="faust.types.tuples.RecordMetadata"><code class="xref py py-class docutils literal notranslate"><span class="pre">RecordMetadata</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Transport.TransactionManager.send_soon">
+<code class="sig-name descname">send_soon</code><span class="sig-paren">(</span><em class="sig-param">fut: faust.types.tuples.FutureMessage</em><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#faust.transport.base.Transport.TransactionManager.send_soon" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Transport.TransactionManager.supports_headers">
+<code class="sig-name descname">supports_headers</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; bool<a class="headerlink" href="#faust.transport.base.Transport.TransactionManager.supports_headers" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return <code class="xref py py-const docutils literal notranslate"><span class="pre">True</span></code> if the Kafka server supports headers.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/functions.html#bool" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.transport.base.Transport.TransactionManager.transactional_id_format">
+<code class="sig-name descname">transactional_id_format</code><em class="property"> = '{group_id}-{tpg.group}-{tpg.partition}'</em><a class="headerlink" href="#faust.transport.base.Transport.TransactionManager.transactional_id_format" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="faust.transport.base.Transport.Conductor">
+<em class="property">class </em><code class="sig-name descname">Conductor</code><span class="sig-paren">(</span><em class="sig-param">app: faust.types.app.AppT</em>, <em class="sig-param">**kwargs: Any</em><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#faust.transport.base.Transport.Conductor" title="Permalink to this definition">¶</a></dt>
+<dd><p>Manages the channels that subscribe to topics.</p>
+<ul class="simple">
+<li><p>Consumes messages from topic using a single consumer.</p></li>
+<li><p>Forwards messages to all channels subscribing to a topic.</p></li>
+</ul>
+<dl class="method">
+<dt id="faust.transport.base.Transport.Conductor.acking_topics">
+<em class="property">property </em><code class="sig-name descname">acking_topics</code><a class="headerlink" href="#faust.transport.base.Transport.Conductor.acking_topics" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Set" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Set</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Transport.Conductor.acks_enabled_for">
+<code class="sig-name descname">acks_enabled_for</code><span class="sig-paren">(</span><em class="sig-param">topic: str</em><span class="sig-paren">)</span> &#x2192; bool<a class="headerlink" href="#faust.transport.base.Transport.Conductor.acks_enabled_for" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return <code class="xref py py-const docutils literal notranslate"><span class="pre">True</span></code> if acks are enabled for topic by name.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/functions.html#bool" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Transport.Conductor.add">
+<code class="sig-name descname">add</code><span class="sig-paren">(</span><em class="sig-param">topic: faust.types.topics.TopicT</em><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#faust.transport.base.Transport.Conductor.add" title="Permalink to this definition">¶</a></dt>
+<dd><p>Register topic to be subscribed.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Transport.Conductor.clear">
+<code class="sig-name descname">clear</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#faust.transport.base.Transport.Conductor.clear" title="Permalink to this definition">¶</a></dt>
+<dd><p>Clear all subscriptions.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Transport.Conductor.commit">
+<em class="property">async </em><code class="sig-name descname">commit</code><span class="sig-paren">(</span><em class="sig-param">topics: AbstractSet[Union[str, faust.types.tuples.TP]]</em><span class="sig-paren">)</span> &#x2192; bool<a class="headerlink" href="#faust.transport.base.Transport.Conductor.commit" title="Permalink to this definition">¶</a></dt>
+<dd><p>Commit offsets in topics.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/functions.html#bool" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Transport.Conductor.discard">
+<code class="sig-name descname">discard</code><span class="sig-paren">(</span><em class="sig-param">topic: Any</em><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#faust.transport.base.Transport.Conductor.discard" title="Permalink to this definition">¶</a></dt>
+<dd><p>Unregister topic from conductor.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Transport.Conductor.label">
+<em class="property">property </em><code class="sig-name descname">label</code><a class="headerlink" href="#faust.transport.base.Transport.Conductor.label" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return label for use in logs.
+:rtype: <a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.transport.base.Transport.Conductor.logger">
+<code class="sig-name descname">logger</code><em class="property"> = &lt;Logger faust.transport.conductor (WARNING)&gt;</em><a class="headerlink" href="#faust.transport.base.Transport.Conductor.logger" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Transport.Conductor.maybe_wait_for_subscriptions">
+<em class="property">async </em><code class="sig-name descname">maybe_wait_for_subscriptions</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#faust.transport.base.Transport.Conductor.maybe_wait_for_subscriptions" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Transport.Conductor.on_client_only_start">
+<em class="property">async </em><code class="sig-name descname">on_client_only_start</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#faust.transport.base.Transport.Conductor.on_client_only_start" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Transport.Conductor.on_partitions_assigned">
+<em class="property">async </em><code class="sig-name descname">on_partitions_assigned</code><span class="sig-paren">(</span><em class="sig-param">assigned: Set[faust.types.tuples.TP]</em><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#faust.transport.base.Transport.Conductor.on_partitions_assigned" title="Permalink to this definition">¶</a></dt>
+<dd><p>Call when cluster is rebalancing and partitions are assigned.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Transport.Conductor.shortlabel">
+<em class="property">property </em><code class="sig-name descname">shortlabel</code><a class="headerlink" href="#faust.transport.base.Transport.Conductor.shortlabel" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return short label for use in logs.
+:rtype: <a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Transport.Conductor.wait_for_subscriptions">
+<em class="property">async </em><code class="sig-name descname">wait_for_subscriptions</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#faust.transport.base.Transport.Conductor.wait_for_subscriptions" title="Permalink to this definition">¶</a></dt>
+<dd><p>Wait for consumer to be subscribed.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="faust.transport.base.Transport.Fetcher">
+<em class="property">class </em><code class="sig-name descname">Fetcher</code><span class="sig-paren">(</span><em class="sig-param">app: faust.types.app.AppT</em>, <em class="sig-param">**kwargs: Any</em><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#faust.transport.base.Transport.Fetcher" title="Permalink to this definition">¶</a></dt>
+<dd><p>Service fetching messages from Kafka.</p>
+<dl class="attribute">
+<dt id="faust.transport.base.Transport.Fetcher.logger">
+<code class="sig-name descname">logger</code><em class="property"> = &lt;Logger faust.transport.consumer (WARNING)&gt;</em><a class="headerlink" href="#faust.transport.base.Transport.Fetcher.logger" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Transport.Fetcher.on_stop">
+<em class="property">async </em><code class="sig-name descname">on_stop</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#faust.transport.base.Transport.Fetcher.on_stop" title="Permalink to this definition">¶</a></dt>
+<dd><p>Call when the fetcher is stopping.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Transport.create_consumer">
+<code class="sig-name descname">create_consumer</code><span class="sig-paren">(</span><em class="sig-param">callback: Callable[faust.types.tuples.Message, Awaitable], **kwargs: Any</em><span class="sig-paren">)</span> &#x2192; faust.types.transports.ConsumerT<a class="reference internal" href="../_modules/faust/transport/base.html#Transport.create_consumer"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.transport.base.Transport.create_consumer" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create new consumer.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="faust.types.transports.html#faust.types.transports.ConsumerT" title="faust.types.transports.ConsumerT"><code class="xref py py-class docutils literal notranslate"><span class="pre">ConsumerT</span></code></a>[]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Transport.create_producer">
+<code class="sig-name descname">create_producer</code><span class="sig-paren">(</span><em class="sig-param">**kwargs: Any</em><span class="sig-paren">)</span> &#x2192; faust.types.transports.ProducerT<a class="reference internal" href="../_modules/faust/transport/base.html#Transport.create_producer"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.transport.base.Transport.create_producer" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create new producer.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="faust.types.transports.html#faust.types.transports.ProducerT" title="faust.types.transports.ProducerT"><code class="xref py py-class docutils literal notranslate"><span class="pre">ProducerT</span></code></a>[]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Transport.create_transaction_manager">
+<code class="sig-name descname">create_transaction_manager</code><span class="sig-paren">(</span><em class="sig-param">consumer: faust.types.transports.ConsumerT</em>, <em class="sig-param">producer: faust.types.transports.ProducerT</em>, <em class="sig-param">**kwargs: Any</em><span class="sig-paren">)</span> &#x2192; faust.types.transports.TransactionManagerT<a class="reference internal" href="../_modules/faust/transport/base.html#Transport.create_transaction_manager"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.transport.base.Transport.create_transaction_manager" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create new transaction manager.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="faust.types.transports.html#faust.types.transports.TransactionManagerT" title="faust.types.transports.TransactionManagerT"><code class="xref py py-class docutils literal notranslate"><span class="pre">TransactionManagerT</span></code></a>[]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.base.Transport.create_conductor">
+<code class="sig-name descname">create_conductor</code><span class="sig-paren">(</span><em class="sig-param">**kwargs: Any</em><span class="sig-paren">)</span> &#x2192; faust.types.transports.ConductorT<a class="reference internal" href="../_modules/faust/transport/base.html#Transport.create_conductor"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.transport.base.Transport.create_conductor" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create new consumer conductor.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="faust.types.transports.html#faust.types.transports.ConductorT" title="faust.types.transports.ConductorT"><code class="xref py py-class docutils literal notranslate"><span class="pre">ConductorT</span></code></a>[]</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../playbooks/index.html">Playbooks</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../userguide/index.html">User Guide</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../history/index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">API Reference</a><ul>
+      <li>Previous: <a href="faust.transport.html" title="previous chapter"><code class="docutils literal notranslate"><span class="pre">faust.transport</span></code></a></li>
+      <li>Next: <a href="faust.transport.conductor.html" title="next chapter"><code class="docutils literal notranslate"><span class="pre">faust.transport.conductor</span></code></a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2020, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../_sources/reference/faust.transport.base.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

@@ -1,0 +1,285 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>Tutorial: Count page views &#8212; Faust 1.11.0a1 documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="copyright" title="Copyright" href="../copyright.html" />
+    <link rel="next" title="Tutorial: Leader Election" href="leaderelection.html" />
+    <link rel="prev" title="Quick Start" href="quickstart.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="tutorial-count-page-views">
+<span id="playbooks-pageviews"></span><h1>Tutorial: Count page views<a class="headerlink" href="#tutorial-count-page-views" title="Permalink to this headline">¶</a></h1>
+<div class="contents local topic" id="contents">
+<ul class="simple">
+<li><p><a class="reference internal" href="#application" id="id1">Application</a></p></li>
+<li><p><a class="reference internal" href="#page-view" id="id2">Page View</a></p></li>
+<li><p><a class="reference internal" href="#input-stream" id="id3">Input Stream</a></p></li>
+<li><p><a class="reference internal" href="#counts-table" id="id4">Counts Table</a></p></li>
+<li><p><a class="reference internal" href="#count-page-views" id="id5">Count Page Views</a></p></li>
+<li><p><a class="reference internal" href="#starting-kafka" id="id6">Starting Kafka</a></p></li>
+<li><p><a class="reference internal" href="#starting-the-faust-worker" id="id7">Starting the Faust worker</a></p></li>
+<li><p><a class="reference internal" href="#seeing-it-in-action" id="id8">Seeing it in action</a></p></li>
+</ul>
+</div>
+<p>In the <a class="reference internal" href="quickstart.html#quickstart"><span class="std std-ref">Quick Start</span></a> tutorial, we went over a simple example
+reading through a stream of greetings and printing them to the console.
+In this playbook we do something more meaningful with an incoming stream,
+we’ll maintain real-time counts of page views from a stream of page views.</p>
+<div class="section" id="application">
+<h2><a class="toc-backref" href="#id1">Application</a><a class="headerlink" href="#application" title="Permalink to this headline">¶</a></h2>
+<p>As we did in the <a class="reference internal" href="quickstart.html#quickstart"><span class="std std-ref">Quick Start</span></a> tutorial, we first define our application.
+Let’s create the module <code class="file docutils literal notranslate"><span class="pre">page_views.py</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">faust</span>
+
+<span class="n">app</span> <span class="o">=</span> <span class="n">faust</span><span class="o">.</span><span class="n">App</span><span class="p">(</span>
+    <span class="s1">&#39;page_views&#39;</span><span class="p">,</span>
+    <span class="n">broker</span><span class="o">=</span><span class="s1">&#39;kafka://localhost:9092&#39;</span><span class="p">,</span>
+    <span class="n">topic_partitions</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>The <a class="reference internal" href="../userguide/settings.html#std:setting-topic_partitions"><code class="xref std std-setting docutils literal notranslate"><span class="pre">topic_partitions</span></code></a> setting defines the maximum number
+of workers we can distribute the workload to (also sometimes referred as
+the “sharding factor”). In this example, we set this to 4, but in a
+production app, we ideally use a higher number.</p>
+</div>
+<div class="section" id="page-view">
+<h2><a class="toc-backref" href="#id2">Page View</a><a class="headerlink" href="#page-view" title="Permalink to this headline">¶</a></h2>
+<p>Let’s now define a <a class="reference internal" href="../userguide/models.html#guide-models"><span class="std std-ref">model</span></a> that each page view event
+from the stream deserializes into. The record is used for JSON dictionaries
+and describes fields much like the new dataclasses in Python 3.7:</p>
+<p>Create a model for our page view event:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">PageView</span><span class="p">(</span><span class="n">faust</span><span class="o">.</span><span class="n">Record</span><span class="p">):</span>
+    <span class="nb">id</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">user</span><span class="p">:</span> <span class="nb">str</span>
+</pre></div>
+</div>
+<p>Type annotations are used not only for defining static types, but also
+to define how fields are deserialized, and lets you specify models
+that contains other models, and so on.  See the <a class="reference internal" href="../userguide/models.html#guide-models"><span class="std std-ref">Models, Serialization, and Codecs</span></a> guide
+for more information.</p>
+</div>
+<div class="section" id="input-stream">
+<h2><a class="toc-backref" href="#id3">Input Stream</a><a class="headerlink" href="#input-stream" title="Permalink to this headline">¶</a></h2>
+<p>Next we define the source topic to read the “page view” events from,
+and we specify that every value in this topic is of the PageView type.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">page_view_topic</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">topic</span><span class="p">(</span><span class="s1">&#39;page_views&#39;</span><span class="p">,</span> <span class="n">value_type</span><span class="o">=</span><span class="n">PageView</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="counts-table">
+<h2><a class="toc-backref" href="#id4">Counts Table</a><a class="headerlink" href="#counts-table" title="Permalink to this headline">¶</a></h2>
+<p>Then we define a <a class="reference internal" href="../userguide/tables.html#guide-tables"><span class="std std-ref">Table</span></a>. This is like a Python
+dictionary, but is distributed across the cluster, partitioned by the
+dictionary key.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">page_views</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">Table</span><span class="p">(</span><span class="s1">&#39;page_views&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="count-page-views">
+<h2><a class="toc-backref" href="#id5">Count Page Views</a><a class="headerlink" href="#count-page-views" title="Permalink to this headline">¶</a></h2>
+<p>Now that we have defined our input stream, as well as a table to maintain
+counts, we define an agent reading each page view event coming into the
+stream, always incrementing the count for that page in the table.</p>
+<p>Create the agent:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@app.agent</span><span class="p">(</span><span class="n">page_view_topic</span><span class="p">)</span>
+<span class="n">async</span> <span class="k">def</span> <span class="nf">count_page_views</span><span class="p">(</span><span class="n">views</span><span class="p">):</span>
+    <span class="n">async</span> <span class="k">for</span> <span class="n">view</span> <span class="ow">in</span> <span class="n">views</span><span class="o">.</span><span class="n">group_by</span><span class="p">(</span><span class="n">PageView</span><span class="o">.</span><span class="n">id</span><span class="p">):</span>
+        <span class="n">page_views</span><span class="p">[</span><span class="n">view</span><span class="o">.</span><span class="n">id</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Here we use <a class="reference internal" href="../reference/faust.html#faust.Stream.group_by" title="faust.Stream.group_by"><code class="xref py py-class docutils literal notranslate"><span class="pre">group_by</span></code></a> to repartition the input stream by
+the page id. This is so that we maintain counts on each instance sharded
+by the page id. This way in the case of failure, when we move the
+processing of some partition to another node, the counts for that
+partition (hence, those page ids) also move together.</p>
+</div>
+<p>Now that we written our project, let’s try running it to see the counts
+update in the changelog topic for the table.</p>
+</div>
+<div class="section" id="starting-kafka">
+<h2><a class="toc-backref" href="#id6">Starting Kafka</a><a class="headerlink" href="#starting-kafka" title="Permalink to this headline">¶</a></h2>
+<p>Before starting a worker, you need to start Zookeeper and Kafka.</p>
+<p>First start Zookeeper:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> <span class="nv">$KAFKA_HOME</span>/bin/zookeeper-server-start <span class="nv">$KAFKA_HOME</span>/etc/kafka/zookeeper.properties
+</pre></div>
+</div>
+<p>Then start Kafka:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> <span class="nv">$KAFKA_HOME</span>/bin/kafka-server-start <span class="nv">$KAFKA_HOME</span>/etc/kafka/server.properties
+</pre></div>
+</div>
+</div>
+<div class="section" id="starting-the-faust-worker">
+<h2><a class="toc-backref" href="#id7">Starting the Faust worker</a><a class="headerlink" href="#starting-the-faust-worker" title="Permalink to this headline">¶</a></h2>
+<p>Start the worker, similar to what we did in the <a class="reference internal" href="quickstart.html#quickstart"><span class="std std-ref">Quick Start</span></a> tutorial:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> faust -A page_views worker -l info
+</pre></div>
+</div>
+</div>
+<div class="section" id="seeing-it-in-action">
+<h2><a class="toc-backref" href="#id8">Seeing it in action</a><a class="headerlink" href="#seeing-it-in-action" title="Permalink to this headline">¶</a></h2>
+<p>Now let’s produce some fake page views to see things in action. Send
+this data to the <code class="docutils literal notranslate"><span class="pre">page_views</span></code> topic:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> faust -A page_views send page_views <span class="s1">&#39;{&quot;id&quot;: &quot;foo&quot;, &quot;user&quot;: &quot;bar&quot;}&#39;</span>
+</pre></div>
+</div>
+<p>Look at the changelog topic to see the counts. To look at the
+changelog topic we will use the Kafka console consumer.</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> <span class="nv">$KAFKA_HOME</span>/bin/kafka-console-consumer --topic page_views-page_views-changelog --bootstrap-server localhost:9092 --property print.key<span class="o">=</span>True --from-beginning
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>By default the changelog topic for a given <code class="docutils literal notranslate"><span class="pre">Table</span></code> has the format
+<code class="docutils literal notranslate"><span class="pre">&lt;app_id&gt;-&lt;table_name&gt;-changelog</span></code></p>
+</div>
+</div>
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Playbooks</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="quickstart.html">Quick Start</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Tutorial: Count page views</a></li>
+<li class="toctree-l2"><a class="reference internal" href="leaderelection.html">Tutorial: Leader Election</a></li>
+<li class="toctree-l2"><a class="reference internal" href="vskafka.html">Overview: Faust vs Kafka Streams</a></li>
+<li class="toctree-l2"><a class="reference internal" href="vscelery.html">Overview: Faust vs. Celery</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cheatsheet.html">Cheat Sheet</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../userguide/index.html">User Guide</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../history/index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">Playbooks</a><ul>
+      <li>Previous: <a href="quickstart.html" title="previous chapter">Quick Start</a></li>
+      <li>Next: <a href="leaderelection.html" title="next chapter">Tutorial: Leader Election</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2020, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../_sources/playbooks/pageviews.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

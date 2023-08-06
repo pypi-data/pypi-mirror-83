@@ -1,0 +1,311 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>faust.serializers.schemas &#8212; Faust 1.11.0a1 documentation</title>
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../../../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <link rel="copyright" title="Copyright" href="../../../copyright.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for faust.serializers.schemas</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">typing</span>
+<span class="kn">from</span> <span class="nn">contextlib</span> <span class="k">import</span> <span class="n">suppress</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="k">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Awaitable</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">cast</span>
+<span class="kn">from</span> <span class="nn">faust.exceptions</span> <span class="k">import</span> <span class="n">KeyDecodeError</span><span class="p">,</span> <span class="n">ValueDecodeError</span>
+<span class="kn">from</span> <span class="nn">faust.types.app</span> <span class="k">import</span> <span class="n">AppT</span>
+<span class="kn">from</span> <span class="nn">faust.types.core</span> <span class="k">import</span> <span class="n">K</span><span class="p">,</span> <span class="n">OpenHeadersArg</span><span class="p">,</span> <span class="n">V</span>
+<span class="kn">from</span> <span class="nn">faust.types.codecs</span> <span class="k">import</span> <span class="n">CodecArg</span>
+<span class="kn">from</span> <span class="nn">faust.types.events</span> <span class="k">import</span> <span class="n">EventT</span>
+<span class="kn">from</span> <span class="nn">faust.types.models</span> <span class="k">import</span> <span class="n">ModelArg</span>
+<span class="kn">from</span> <span class="nn">faust.types.serializers</span> <span class="k">import</span> <span class="n">KT</span><span class="p">,</span> <span class="n">SchemaT</span><span class="p">,</span> <span class="n">VT</span>
+<span class="kn">from</span> <span class="nn">faust.types.tuples</span> <span class="k">import</span> <span class="n">Message</span>
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;Schema&#39;</span><span class="p">]</span>
+
+<span class="k">if</span> <span class="n">typing</span><span class="o">.</span><span class="n">TYPE_CHECKING</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+    <span class="kn">from</span> <span class="nn">mypy_extensions</span> <span class="k">import</span> <span class="n">DefaultNamedArg</span>
+
+    <span class="n">DecodeFunction</span> <span class="o">=</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">Message</span><span class="p">,</span> <span class="n">DefaultNamedArg</span><span class="p">(</span><span class="nb">bool</span><span class="p">,</span> <span class="s1">&#39;propagate&#39;</span><span class="p">)],</span>
+                              <span class="n">Awaitable</span><span class="p">[</span><span class="n">EventT</span><span class="p">]]</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="n">DecodeFunction</span> <span class="o">=</span> <span class="n">Callable</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">Awaitable</span><span class="p">[</span><span class="n">EventT</span><span class="p">]]</span>
+
+<span class="n">OnKeyDecodeErrorFun</span> <span class="o">=</span> <span class="n">Callable</span><span class="p">[[</span><span class="ne">Exception</span><span class="p">,</span> <span class="n">Message</span><span class="p">],</span> <span class="n">Awaitable</span><span class="p">[</span><span class="kc">None</span><span class="p">]]</span>
+<span class="n">OnValueDecodeErrorFun</span> <span class="o">=</span> <span class="n">Callable</span><span class="p">[[</span><span class="ne">Exception</span><span class="p">,</span> <span class="n">Message</span><span class="p">],</span> <span class="n">Awaitable</span><span class="p">[</span><span class="kc">None</span><span class="p">]]</span>
+
+
+<span class="k">async</span> <span class="k">def</span> <span class="nf">_noop_decode_error</span><span class="p">(</span><span class="n">exc</span><span class="p">:</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">message</span><span class="p">:</span> <span class="n">Message</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="o">...</span>
+
+
+<div class="viewcode-block" id="Schema"><a class="viewcode-back" href="../../../reference/faust.serializers.schemas.html#faust.Schema">[docs]</a><span class="k">class</span> <span class="nc">Schema</span><span class="p">(</span><span class="n">SchemaT</span><span class="p">):</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span>
+                 <span class="n">key_type</span><span class="p">:</span> <span class="n">ModelArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">value_type</span><span class="p">:</span> <span class="n">ModelArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">key_serializer</span><span class="p">:</span> <span class="n">CodecArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">value_serializer</span><span class="p">:</span> <span class="n">CodecArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">allow_empty</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
+            <span class="n">key_type</span><span class="o">=</span><span class="n">key_type</span><span class="p">,</span>
+            <span class="n">value_type</span><span class="o">=</span><span class="n">value_type</span><span class="p">,</span>
+            <span class="n">key_serializer</span><span class="o">=</span><span class="n">key_serializer</span><span class="p">,</span>
+            <span class="n">value_serializer</span><span class="o">=</span><span class="n">value_serializer</span><span class="p">,</span>
+            <span class="n">allow_empty</span><span class="o">=</span><span class="n">allow_empty</span><span class="p">,</span>
+        <span class="p">)</span>
+
+<div class="viewcode-block" id="Schema.update"><a class="viewcode-back" href="../../../reference/faust.serializers.schemas.html#faust.Schema.update">[docs]</a>    <span class="k">def</span> <span class="nf">update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span>
+               <span class="n">key_type</span><span class="p">:</span> <span class="n">ModelArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+               <span class="n">value_type</span><span class="p">:</span> <span class="n">ModelArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+               <span class="n">key_serializer</span><span class="p">:</span> <span class="n">CodecArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+               <span class="n">value_serializer</span><span class="p">:</span> <span class="n">CodecArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+               <span class="n">allow_empty</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">key_type</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">key_type</span> <span class="o">=</span> <span class="n">key_type</span>
+        <span class="k">if</span> <span class="n">value_type</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">value_type</span> <span class="o">=</span> <span class="n">value_type</span>
+        <span class="k">if</span> <span class="n">key_serializer</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">key_serializer</span> <span class="o">=</span> <span class="n">key_serializer</span>
+        <span class="k">if</span> <span class="n">value_serializer</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">value_serializer</span> <span class="o">=</span> <span class="n">value_serializer</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">key_serializer</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">key_type</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">key_serializer</span> <span class="o">=</span> <span class="n">_model_serializer</span><span class="p">(</span><span class="n">key_type</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">value_serializer</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">value_type</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">value_serializer</span> <span class="o">=</span> <span class="n">_model_serializer</span><span class="p">(</span><span class="n">value_type</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">allow_empty</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">allow_empty</span> <span class="o">=</span> <span class="n">allow_empty</span></div>
+
+<div class="viewcode-block" id="Schema.loads_key"><a class="viewcode-back" href="../../../reference/faust.serializers.schemas.html#faust.Schema.loads_key">[docs]</a>    <span class="k">def</span> <span class="nf">loads_key</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">app</span><span class="p">:</span> <span class="n">AppT</span><span class="p">,</span> <span class="n">message</span><span class="p">:</span> <span class="n">Message</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span>
+                  <span class="n">loads</span><span class="p">:</span> <span class="n">Callable</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                  <span class="n">serializer</span><span class="p">:</span> <span class="n">CodecArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">KT</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">loads</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">loads</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">serializers</span><span class="o">.</span><span class="n">loads_key</span>
+        <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="n">KT</span><span class="p">,</span> <span class="n">loads</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">key_type</span><span class="p">,</span> <span class="n">message</span><span class="o">.</span><span class="n">key</span><span class="p">,</span>
+            <span class="n">serializer</span><span class="o">=</span><span class="n">serializer</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">key_serializer</span><span class="p">,</span>
+        <span class="p">))</span></div>
+
+<div class="viewcode-block" id="Schema.loads_value"><a class="viewcode-back" href="../../../reference/faust.serializers.schemas.html#faust.Schema.loads_value">[docs]</a>    <span class="k">def</span> <span class="nf">loads_value</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">app</span><span class="p">:</span> <span class="n">AppT</span><span class="p">,</span> <span class="n">message</span><span class="p">:</span> <span class="n">Message</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span>
+                    <span class="n">loads</span><span class="p">:</span> <span class="n">Callable</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                    <span class="n">serializer</span><span class="p">:</span> <span class="n">CodecArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">VT</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">loads</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">loads</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">serializers</span><span class="o">.</span><span class="n">loads_value</span>
+        <span class="k">return</span> <span class="n">loads</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">value_type</span><span class="p">,</span> <span class="n">message</span><span class="o">.</span><span class="n">value</span><span class="p">,</span>
+            <span class="n">serializer</span><span class="o">=</span><span class="n">serializer</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">value_serializer</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="Schema.dumps_key"><a class="viewcode-back" href="../../../reference/faust.serializers.schemas.html#faust.Schema.dumps_key">[docs]</a>    <span class="k">def</span> <span class="nf">dumps_key</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">app</span><span class="p">:</span> <span class="n">AppT</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="n">K</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span>
+                  <span class="n">serializer</span><span class="p">:</span> <span class="n">CodecArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                  <span class="n">headers</span><span class="p">:</span> <span class="n">OpenHeadersArg</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">OpenHeadersArg</span><span class="p">]:</span>
+        <span class="n">payload</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">serializers</span><span class="o">.</span><span class="n">dumps_key</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">key_type</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span>
+            <span class="n">serializer</span><span class="o">=</span><span class="n">serializer</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">key_serializer</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">payload</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">on_dumps_key_prepare_headers</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">headers</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Schema.dumps_value"><a class="viewcode-back" href="../../../reference/faust.serializers.schemas.html#faust.Schema.dumps_value">[docs]</a>    <span class="k">def</span> <span class="nf">dumps_value</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">app</span><span class="p">:</span> <span class="n">AppT</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">V</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span>
+                    <span class="n">serializer</span><span class="p">:</span> <span class="n">CodecArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                    <span class="n">headers</span><span class="p">:</span> <span class="n">OpenHeadersArg</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">OpenHeadersArg</span><span class="p">]:</span>
+        <span class="n">payload</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">serializers</span><span class="o">.</span><span class="n">dumps_value</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">value_type</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span>
+            <span class="n">serializer</span><span class="o">=</span><span class="n">serializer</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">value_serializer</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">payload</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">on_dumps_value_prepare_headers</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">headers</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Schema.on_dumps_key_prepare_headers"><a class="viewcode-back" href="../../../reference/faust.serializers.schemas.html#faust.Schema.on_dumps_key_prepare_headers">[docs]</a>    <span class="k">def</span> <span class="nf">on_dumps_key_prepare_headers</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="n">V</span><span class="p">,</span> <span class="n">headers</span><span class="p">:</span> <span class="n">OpenHeadersArg</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OpenHeadersArg</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">headers</span></div>
+
+<div class="viewcode-block" id="Schema.on_dumps_value_prepare_headers"><a class="viewcode-back" href="../../../reference/faust.serializers.schemas.html#faust.Schema.on_dumps_value_prepare_headers">[docs]</a>    <span class="k">def</span> <span class="nf">on_dumps_value_prepare_headers</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">V</span><span class="p">,</span> <span class="n">headers</span><span class="p">:</span> <span class="n">OpenHeadersArg</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OpenHeadersArg</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">headers</span></div>
+
+<div class="viewcode-block" id="Schema.decode"><a class="viewcode-back" href="../../../reference/faust.serializers.schemas.html#faust.Schema.decode">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">decode</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">app</span><span class="p">:</span> <span class="n">AppT</span><span class="p">,</span> <span class="n">message</span><span class="p">:</span> <span class="n">Message</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span>
+                     <span class="n">propagate</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">EventT</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Decode message from topic (compiled function not cached).&quot;&quot;&quot;</span>
+        <span class="n">decode</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="n">app</span><span class="p">)</span>
+        <span class="k">return</span> <span class="k">await</span> <span class="n">decode</span><span class="p">(</span><span class="n">message</span><span class="p">,</span> <span class="n">propagate</span><span class="o">=</span><span class="n">propagate</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Schema.compile"><a class="viewcode-back" href="../../../reference/faust.serializers.schemas.html#faust.Schema.compile">[docs]</a>    <span class="k">def</span> <span class="nf">compile</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span> <span class="n">app</span><span class="p">:</span> <span class="n">AppT</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span>
+            <span class="n">on_key_decode_error</span><span class="p">:</span> <span class="n">OnKeyDecodeErrorFun</span> <span class="o">=</span> <span class="n">_noop_decode_error</span><span class="p">,</span>
+            <span class="n">on_value_decode_error</span><span class="p">:</span> <span class="n">OnValueDecodeErrorFun</span> <span class="o">=</span> <span class="n">_noop_decode_error</span><span class="p">,</span>
+            <span class="n">default_propagate</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DecodeFunction</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Compile function used to decode event.&quot;&quot;&quot;</span>
+        <span class="n">allow_empty</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">allow_empty</span>
+        <span class="n">loads_key</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">serializers</span><span class="o">.</span><span class="n">loads_key</span>
+        <span class="n">loads_value</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">serializers</span><span class="o">.</span><span class="n">loads_value</span>
+        <span class="n">create_event</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">create_event</span>
+
+        <span class="n">schema_loads_key</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">loads_key</span>
+        <span class="n">schema_loads_value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">loads_value</span>
+
+        <span class="k">async</span> <span class="k">def</span> <span class="nf">decode</span><span class="p">(</span><span class="n">message</span><span class="p">:</span> <span class="n">Message</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span>
+                         <span class="n">propagate</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="n">default_propagate</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">k</span><span class="p">:</span> <span class="n">K</span> <span class="o">=</span> <span class="n">schema_loads_key</span><span class="p">(</span><span class="n">app</span><span class="p">,</span> <span class="n">message</span><span class="p">,</span> <span class="n">loads</span><span class="o">=</span><span class="n">loads_key</span><span class="p">)</span>
+            <span class="k">except</span> <span class="n">KeyDecodeError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">propagate</span><span class="p">:</span>
+                    <span class="k">raise</span>
+                <span class="k">await</span> <span class="n">on_key_decode_error</span><span class="p">(</span><span class="n">exc</span><span class="p">,</span> <span class="n">message</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">message</span><span class="o">.</span><span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">allow_empty</span><span class="p">:</span>
+                        <span class="k">return</span> <span class="n">create_event</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">message</span><span class="o">.</span><span class="n">headers</span><span class="p">,</span> <span class="n">message</span><span class="p">)</span>
+                    <span class="n">v</span><span class="p">:</span> <span class="n">V</span> <span class="o">=</span> <span class="n">schema_loads_value</span><span class="p">(</span><span class="n">app</span><span class="p">,</span> <span class="n">message</span><span class="p">,</span> <span class="n">loads</span><span class="o">=</span><span class="n">loads_value</span><span class="p">)</span>
+                <span class="k">except</span> <span class="n">ValueDecodeError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">propagate</span><span class="p">:</span>
+                        <span class="k">raise</span>
+                    <span class="k">await</span> <span class="n">on_value_decode_error</span><span class="p">(</span><span class="n">exc</span><span class="p">,</span> <span class="n">message</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="n">create_event</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">message</span><span class="o">.</span><span class="n">headers</span><span class="p">,</span> <span class="n">message</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">decode</span></div>
+
+    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="n">KT</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">key_type</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">key_type</span> <span class="k">else</span> <span class="s1">&#39;*default*&#39;</span>
+        <span class="n">VT</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">key_type</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">value_type</span> <span class="k">else</span> <span class="s1">&#39;*default*&#39;</span>
+        <span class="n">ks</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">key_serializer</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">key_serializer</span> <span class="k">else</span> <span class="s1">&#39;*default*&#39;</span>
+        <span class="n">vs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">value_serializer</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">value_serializer</span> <span class="k">else</span> <span class="s1">&#39;*default*&#39;</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">f</span><span class="s1">&#39;&lt;{type(self).__name__}: &#39;</span>
+                <span class="n">f</span><span class="s1">&#39;KT=</span><span class="si">{KT}</span><span class="s1"> (</span><span class="si">{ks}</span><span class="s1">) &#39;</span>
+                <span class="n">f</span><span class="s1">&#39;VT=</span><span class="si">{VT}</span><span class="s1"> (</span><span class="si">{vs}</span><span class="s1">)&#39;</span>
+                <span class="n">f</span><span class="s1">&#39;&gt;&#39;</span><span class="p">)</span></div>
+
+
+<span class="k">def</span> <span class="nf">_model_serializer</span><span class="p">(</span><span class="n">typ</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">CodecArg</span><span class="p">]:</span>
+    <span class="k">with</span> <span class="n">suppress</span><span class="p">(</span><span class="ne">AttributeError</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">typ</span><span class="o">.</span><span class="n">_options</span><span class="o">.</span><span class="n">serializer</span>
+    <span class="k">return</span> <span class="kc">None</span>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../../index.html">
+              <img class="logo" src="../../../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../../../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../playbooks/index.html">Playbooks</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../userguide/index.html">User Guide</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../reference/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../history/index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2020, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

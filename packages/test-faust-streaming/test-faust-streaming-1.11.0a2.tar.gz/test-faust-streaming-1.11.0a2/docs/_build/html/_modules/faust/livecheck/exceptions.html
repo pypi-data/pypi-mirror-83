@@ -1,0 +1,193 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>faust.livecheck.exceptions &#8212; Faust 1.9.0 documentation</title>
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../../../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <link rel="copyright" title="Copyright" href="../../../copyright.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for faust.livecheck.exceptions</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;LiveCheck - related exceptions.&quot;&quot;&quot;</span>
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="s1">&#39;LiveCheckError&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;SuiteFailed&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;ServiceDown&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;SuiteStalled&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;TestSkipped&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;TestFailed&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;TestRaised&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;TestTimeout&#39;</span><span class="p">,</span>
+<span class="p">]</span>
+
+
+<div class="viewcode-block" id="LiveCheckError"><a class="viewcode-back" href="../../../reference/faust.livecheck.exceptions.html#faust.livecheck.exceptions.LiveCheckError">[docs]</a><span class="k">class</span> <span class="nc">LiveCheckError</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Generic base class for LiveCheck test errors.&quot;&quot;&quot;</span></div>
+
+
+<div class="viewcode-block" id="SuiteFailed"><a class="viewcode-back" href="../../../reference/faust.livecheck.exceptions.html#faust.livecheck.exceptions.SuiteFailed">[docs]</a><span class="k">class</span> <span class="nc">SuiteFailed</span><span class="p">(</span><span class="n">LiveCheckError</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;The whole test suite failed (not just a test).&quot;&quot;&quot;</span></div>
+
+
+<div class="viewcode-block" id="ServiceDown"><a class="viewcode-back" href="../../../reference/faust.livecheck.exceptions.html#faust.livecheck.exceptions.ServiceDown">[docs]</a><span class="k">class</span> <span class="nc">ServiceDown</span><span class="p">(</span><span class="n">SuiteFailed</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Suite failed after a depending service is not responding.</span>
+
+<span class="sd">    Used when for example a test case is periodically sending</span>
+<span class="sd">    requests to a HTTP service, and that HTTP server is not responding.</span>
+<span class="sd">    &quot;&quot;&quot;</span></div>
+
+
+<div class="viewcode-block" id="SuiteStalled"><a class="viewcode-back" href="../../../reference/faust.livecheck.exceptions.html#faust.livecheck.exceptions.SuiteStalled">[docs]</a><span class="k">class</span> <span class="nc">SuiteStalled</span><span class="p">(</span><span class="n">SuiteFailed</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;The suite is not running.</span>
+
+<span class="sd">    Raised when ``warn_stalled_after=3600`` is set and there has not</span>
+<span class="sd">    been any execution requests in the last hour.</span>
+<span class="sd">    &quot;&quot;&quot;</span></div>
+
+
+<div class="viewcode-block" id="TestSkipped"><a class="viewcode-back" href="../../../reference/faust.livecheck.exceptions.html#faust.livecheck.exceptions.TestSkipped">[docs]</a><span class="k">class</span> <span class="nc">TestSkipped</span><span class="p">(</span><span class="n">LiveCheckError</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Test was skipped.&quot;&quot;&quot;</span></div>
+
+
+<div class="viewcode-block" id="TestFailed"><a class="viewcode-back" href="../../../reference/faust.livecheck.exceptions.html#faust.livecheck.exceptions.TestFailed">[docs]</a><span class="k">class</span> <span class="nc">TestFailed</span><span class="p">(</span><span class="n">LiveCheckError</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;The test failed an assertion.&quot;&quot;&quot;</span></div>
+
+
+<div class="viewcode-block" id="TestRaised"><a class="viewcode-back" href="../../../reference/faust.livecheck.exceptions.html#faust.livecheck.exceptions.TestRaised">[docs]</a><span class="k">class</span> <span class="nc">TestRaised</span><span class="p">(</span><span class="n">LiveCheckError</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;The test raised an exception.&quot;&quot;&quot;</span></div>
+
+
+<div class="viewcode-block" id="TestTimeout"><a class="viewcode-back" href="../../../reference/faust.livecheck.exceptions.html#faust.livecheck.exceptions.TestTimeout">[docs]</a><span class="k">class</span> <span class="nc">TestTimeout</span><span class="p">(</span><span class="n">LiveCheckError</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;The test timed out waiting for an event or during processing.&quot;&quot;&quot;</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../../index.html">
+              <img class="logo" src="../../../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../../../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../playbooks/index.html">Playbooks</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../userguide/index.html">User Guide</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../reference/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../history/index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2019, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

@@ -1,0 +1,268 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>Tutorial: Leader Election &#8212; Faust 1.11.0a1 documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="copyright" title="Copyright" href="../copyright.html" />
+    <link rel="next" title="Overview: Faust vs Kafka Streams" href="vskafka.html" />
+    <link rel="prev" title="Tutorial: Count page views" href="pageviews.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="tutorial-leader-election">
+<span id="playbooks-leader-election"></span><h1>Tutorial: Leader Election<a class="headerlink" href="#tutorial-leader-election" title="Permalink to this headline">¶</a></h1>
+<div class="contents local topic" id="contents">
+<ul class="simple">
+<li><p><a class="reference internal" href="#application" id="id1">Application</a></p></li>
+<li><p><a class="reference internal" href="#greetings-agent" id="id2">Greetings Agent</a></p></li>
+<li><p><a class="reference internal" href="#leader-timer" id="id3">Leader Timer</a></p></li>
+<li><p><a class="reference internal" href="#starting-kafka" id="id4">Starting Kafka</a></p></li>
+<li><p><a class="reference internal" href="#starting-the-faust-worker" id="id5">Starting the Faust worker</a></p></li>
+<li><p><a class="reference internal" href="#seeing-things-in-action" id="id6">Seeing things in Action</a></p></li>
+</ul>
+</div>
+<p>Faust processes streams of data forming pipelines. Sometimes steps in
+the pipeline require synchronization, but instead of using mutexes,
+a better solution is to have one of the workers elected as the leader.</p>
+<p>An example of such an application is a news crawler. We can elect one
+of the workers to be the leader, and the leader maintains
+all subscriptions (the sources to crawl), then periodically tells the
+other workers in the cluster to process them.</p>
+<p>To demonstrate this we implement a straightforward example where we
+elect one of our workers as the leader. This leader then periodically
+sends out random greetings to be printed out by available workers.</p>
+<div class="section" id="application">
+<h2><a class="toc-backref" href="#id1">Application</a><a class="headerlink" href="#application" title="Permalink to this headline">¶</a></h2>
+<p>As we did in the <a class="reference internal" href="pageviews.html#playbooks-pageviews"><span class="std std-ref">Tutorial: Count page views</span></a> tutorial, we first define your
+application.</p>
+<p>Create a module named <code class="file docutils literal notranslate"><span class="pre">leader.py</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># examples/leader.py</span>
+
+<span class="kn">import</span> <span class="nn">faust</span>
+
+<span class="n">app</span> <span class="o">=</span> <span class="n">faust</span><span class="o">.</span><span class="n">App</span><span class="p">(</span>
+    <span class="s1">&#39;leader-example&#39;</span><span class="p">,</span>
+    <span class="n">broker</span><span class="o">=</span><span class="s1">&#39;kafka://localhost:9092&#39;</span><span class="p">,</span>
+    <span class="n">value_serializer</span><span class="o">=</span><span class="s1">&#39;raw&#39;</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="greetings-agent">
+<h2><a class="toc-backref" href="#id2">Greetings Agent</a><a class="headerlink" href="#greetings-agent" title="Permalink to this headline">¶</a></h2>
+<p>Next we define the <code class="docutils literal notranslate"><span class="pre">say</span></code> <code class="xref py py-class docutils literal notranslate"><span class="pre">agent</span></code> that will get greetings from the
+leader and print them out to the console.</p>
+<p>Create the agent:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@app.agent</span><span class="p">()</span>
+<span class="n">async</span> <span class="k">def</span> <span class="nf">say</span><span class="p">(</span><span class="n">greetings</span><span class="p">):</span>
+    <span class="n">async</span> <span class="k">for</span> <span class="n">greeting</span> <span class="ow">in</span> <span class="n">greetings</span><span class="p">:</span>
+        <span class="k">print</span><span class="p">(</span><span class="n">greeting</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<ul class="simple">
+<li><p>The <a class="reference internal" href="../userguide/agents.html#guide-agents"><span class="std std-ref">Agents - Self-organizing Stream Processors</span></a> guide – for more information about agents.</p></li>
+</ul>
+</div>
+</div>
+<div class="section" id="leader-timer">
+<h2><a class="toc-backref" href="#id3">Leader Timer</a><a class="headerlink" href="#leader-timer" title="Permalink to this headline">¶</a></h2>
+<p>Now define a <code class="xref py py-class docutils literal notranslate"><span class="pre">timer</span></code> with the <code class="docutils literal notranslate"><span class="pre">on_leader</span></code> flag enabled
+so it only executes on the leader.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">timer</span></code> will periodically send out a random greeting, to be printed
+by one of the workers in the cluster.</p>
+<p>Create the leader timer:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">random</span>
+
+<span class="nd">@app.timer</span><span class="p">(</span><span class="mf">2.0</span><span class="p">,</span> <span class="n">on_leader</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+<span class="n">async</span> <span class="k">def</span> <span class="nf">publish_greetings</span><span class="p">():</span>
+    <span class="k">print</span><span class="p">(</span><span class="s1">&#39;PUBLISHING ON LEADER!&#39;</span><span class="p">)</span>
+    <span class="n">greeting</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">random</span><span class="o">.</span><span class="n">random</span><span class="p">())</span>
+    <span class="n">await</span> <span class="n">say</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">value</span><span class="o">=</span><span class="n">greeting</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The greeting could be picked up by the agent <code class="docutils literal notranslate"><span class="pre">say</span></code> on any one of the
+running instances.</p>
+</div>
+</div>
+<div class="section" id="starting-kafka">
+<h2><a class="toc-backref" href="#id4">Starting Kafka</a><a class="headerlink" href="#starting-kafka" title="Permalink to this headline">¶</a></h2>
+<p>To run the project you first need to start Zookeeper and Kafka.</p>
+<p>Start Zookeeper:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> <span class="nv">$KAFKA_HOME</span>/bin/zookeeper-server-start <span class="nv">$KAFKA_HOME</span>/etc/kafka/zookeeper.properties
+</pre></div>
+</div>
+<p>Then start Kafka:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> <span class="nv">$KAFKA_HOME</span>/bin/kafka-server-start <span class="nv">$KAFKA_HOME</span>/etc/kafka/server.properties
+</pre></div>
+</div>
+</div>
+<div class="section" id="starting-the-faust-worker">
+<h2><a class="toc-backref" href="#id5">Starting the Faust worker</a><a class="headerlink" href="#starting-the-faust-worker" title="Permalink to this headline">¶</a></h2>
+<p>Start the Faust worker, similarly to how we do it in the <a class="reference internal" href="quickstart.html#quickstart"><span class="std std-ref">Quick Start</span></a>
+tutorial:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> faust -A leader worker -l info --web-port <span class="m">6066</span>
+</pre></div>
+</div>
+<p>Let’s start two more workers in different terminals on the same machine:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> faust -A leader worker -l info --web-port <span class="m">6067</span>
+</pre></div>
+</div>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> faust -A leader worker -l info --web-port <span class="m">6068</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="seeing-things-in-action">
+<h2><a class="toc-backref" href="#id6">Seeing things in Action</a><a class="headerlink" href="#seeing-things-in-action" title="Permalink to this headline">¶</a></h2>
+<p>Next try to arbitrary shut down (<kbd class="kbd docutils literal notranslate">Control-c</kbd>) some of the workers,
+to see how the leader stays at just <em>one</em> worker - electing a new leader
+upon killing a leader – and to see the greetings printed by the workers.</p>
+</div>
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Playbooks</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="quickstart.html">Quick Start</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pageviews.html">Tutorial: Count page views</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Tutorial: Leader Election</a></li>
+<li class="toctree-l2"><a class="reference internal" href="vskafka.html">Overview: Faust vs Kafka Streams</a></li>
+<li class="toctree-l2"><a class="reference internal" href="vscelery.html">Overview: Faust vs. Celery</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cheatsheet.html">Cheat Sheet</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../userguide/index.html">User Guide</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../history/index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">Playbooks</a><ul>
+      <li>Previous: <a href="pageviews.html" title="previous chapter">Tutorial: Count page views</a></li>
+      <li>Next: <a href="vskafka.html" title="next chapter">Overview: Faust vs Kafka Streams</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2020, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../_sources/playbooks/leaderelection.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

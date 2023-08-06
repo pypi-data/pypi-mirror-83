@@ -1,0 +1,282 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>faust.livecheck.models &#8212; Faust 1.9.0 documentation</title>
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../../../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <link rel="copyright" title="Copyright" href="../../../copyright.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for faust.livecheck.models</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;LiveCheck - Models.&quot;&quot;&quot;</span>
+<span class="kn">from</span> <span class="nn">datetime</span> <span class="k">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timezone</span>
+<span class="kn">from</span> <span class="nn">enum</span> <span class="k">import</span> <span class="n">Enum</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="k">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">,</span> <span class="n">Optional</span>
+
+<span class="kn">from</span> <span class="nn">mode.utils.compat</span> <span class="k">import</span> <span class="n">want_str</span>
+<span class="kn">from</span> <span class="nn">mode.utils.objects</span> <span class="k">import</span> <span class="n">cached_property</span>
+<span class="kn">from</span> <span class="nn">mode.utils.text</span> <span class="k">import</span> <span class="n">abbr</span>
+
+<span class="kn">from</span> <span class="nn">faust</span> <span class="k">import</span> <span class="n">Record</span>
+<span class="kn">from</span> <span class="nn">faust.utils.iso8601</span> <span class="k">import</span> <span class="n">parse</span> <span class="k">as</span> <span class="n">parse_iso8601</span>
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;State&#39;</span><span class="p">,</span> <span class="s1">&#39;SignalEvent&#39;</span><span class="p">,</span> <span class="s1">&#39;TestExecution&#39;</span><span class="p">,</span> <span class="s1">&#39;TestReport&#39;</span><span class="p">]</span>
+
+<span class="n">HEADER_TEST_ID</span> <span class="o">=</span> <span class="s1">&#39;LiveCheck-Test-Id&#39;</span>
+<span class="n">HEADER_TEST_NAME</span> <span class="o">=</span> <span class="s1">&#39;LiveCheck-Test-Name&#39;</span>
+<span class="n">HEADER_TEST_TIMESTAMP</span> <span class="o">=</span> <span class="s1">&#39;LiveCheck-Test-Timestamp&#39;</span>
+<span class="n">HEADER_TEST_EXPIRES</span> <span class="o">=</span> <span class="s1">&#39;LiveCheck-Test-Expires&#39;</span>
+
+
+<div class="viewcode-block" id="State"><a class="viewcode-back" href="../../../reference/faust.livecheck.models.html#faust.livecheck.State">[docs]</a><span class="k">class</span> <span class="nc">State</span><span class="p">(</span><span class="n">Enum</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Test execution status.&quot;&quot;&quot;</span>
+
+    <span class="n">INIT</span> <span class="o">=</span> <span class="s1">&#39;INIT&#39;</span>
+    <span class="n">PASS</span> <span class="o">=</span> <span class="s1">&#39;PASS&#39;</span>
+    <span class="n">FAIL</span> <span class="o">=</span> <span class="s1">&#39;FAIL&#39;</span>
+    <span class="n">ERROR</span> <span class="o">=</span> <span class="s1">&#39;ERROR&#39;</span>
+    <span class="n">TIMEOUT</span> <span class="o">=</span> <span class="s1">&#39;TIMEOUT&#39;</span>
+    <span class="n">STALL</span> <span class="o">=</span> <span class="s1">&#39;STALL&#39;</span>
+    <span class="n">SKIP</span> <span class="o">=</span> <span class="s1">&#39;SKIP&#39;</span>
+
+<div class="viewcode-block" id="State.is_ok"><a class="viewcode-back" href="../../../reference/faust.livecheck.models.html#faust.livecheck.State.is_ok">[docs]</a>    <span class="k">def</span> <span class="nf">is_ok</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Return :const:`True` if this is considered an OK state.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span> <span class="ow">in</span> <span class="n">OK_STATES</span></div></div>
+
+
+<span class="n">OK_STATES</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="n">State</span><span class="o">.</span><span class="n">INIT</span><span class="p">,</span> <span class="n">State</span><span class="o">.</span><span class="n">PASS</span><span class="p">,</span> <span class="n">State</span><span class="o">.</span><span class="n">SKIP</span><span class="p">})</span>
+
+
+<div class="viewcode-block" id="SignalEvent"><a class="viewcode-back" href="../../../reference/faust.livecheck.models.html#faust.livecheck.SignalEvent">[docs]</a><span class="k">class</span> <span class="nc">SignalEvent</span><span class="p">(</span><span class="n">Record</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Signal sent to test (see :class:`faust.livecheck.signals.Signal`).&quot;&quot;&quot;</span>
+
+    <span class="n">signal_name</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">case_name</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">key</span><span class="p">:</span> <span class="n">Any</span>
+    <span class="n">value</span><span class="p">:</span> <span class="n">Any</span></div>
+
+
+<div class="viewcode-block" id="TestExecution"><a class="viewcode-back" href="../../../reference/faust.livecheck.models.html#faust.livecheck.TestExecution">[docs]</a><span class="k">class</span> <span class="nc">TestExecution</span><span class="p">(</span><span class="n">Record</span><span class="p">,</span> <span class="n">isodates</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Requested test execution.&quot;&quot;&quot;</span>
+
+    <span class="nb">id</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">case_name</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">timestamp</span><span class="p">:</span> <span class="n">datetime</span>
+    <span class="n">test_args</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Any</span><span class="p">]</span>
+    <span class="n">test_kwargs</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span>
+    <span class="n">expires</span><span class="p">:</span> <span class="n">datetime</span>
+
+<div class="viewcode-block" id="TestExecution.from_headers"><a class="viewcode-back" href="../../../reference/faust.livecheck.models.html#faust.livecheck.TestExecution.from_headers">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">from_headers</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">headers</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="s1">&#39;TestExecution&#39;</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;Create instance from mapping of HTTP/Kafka headers.&quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">test_id</span> <span class="o">=</span> <span class="n">want_str</span><span class="p">(</span><span class="n">headers</span><span class="p">[</span><span class="n">HEADER_TEST_ID</span><span class="p">])</span>
+        <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">test_name</span> <span class="o">=</span> <span class="n">headers</span><span class="p">[</span><span class="n">HEADER_TEST_NAME</span><span class="p">]</span>
+            <span class="n">timestamp</span> <span class="o">=</span> <span class="n">headers</span><span class="p">[</span><span class="n">HEADER_TEST_TIMESTAMP</span><span class="p">]</span>
+            <span class="n">expires</span> <span class="o">=</span> <span class="n">headers</span><span class="p">[</span><span class="n">HEADER_TEST_EXPIRES</span><span class="p">]</span>
+
+            <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span>
+                <span class="nb">id</span><span class="o">=</span><span class="n">test_id</span><span class="p">,</span>
+                <span class="n">case_name</span><span class="o">=</span><span class="n">want_str</span><span class="p">(</span><span class="n">test_name</span><span class="p">),</span>
+                <span class="n">timestamp</span><span class="o">=</span><span class="n">parse_iso8601</span><span class="p">(</span><span class="n">want_str</span><span class="p">(</span><span class="n">timestamp</span><span class="p">)),</span>
+                <span class="n">expires</span><span class="o">=</span><span class="n">parse_iso8601</span><span class="p">(</span><span class="n">want_str</span><span class="p">(</span><span class="n">expires</span><span class="p">)),</span>
+                <span class="n">test_args</span><span class="o">=</span><span class="p">(),</span>
+                <span class="n">test_kwargs</span><span class="o">=</span><span class="p">{},</span>
+            <span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestExecution.as_headers"><a class="viewcode-back" href="../../../reference/faust.livecheck.models.html#faust.livecheck.TestExecution.as_headers">[docs]</a>    <span class="k">def</span> <span class="nf">as_headers</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Mapping</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Return test metadata as mapping of HTTP/Kafka headers.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="n">HEADER_TEST_ID</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+            <span class="n">HEADER_TEST_NAME</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">case_name</span><span class="p">,</span>
+            <span class="n">HEADER_TEST_TIMESTAMP</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">timestamp</span><span class="o">.</span><span class="n">isoformat</span><span class="p">(),</span>
+            <span class="n">HEADER_TEST_EXPIRES</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">expires</span><span class="o">.</span><span class="n">isoformat</span><span class="p">(),</span>
+        <span class="p">}</span></div>
+
+<div class="viewcode-block" id="TestExecution.ident"><a class="viewcode-back" href="../../../reference/faust.livecheck.models.html#faust.livecheck.TestExecution.ident">[docs]</a>    <span class="nd">@cached_property</span>
+    <span class="k">def</span> <span class="nf">ident</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Return long identifier for this test used in logs.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_build_ident</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">case_name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestExecution.shortident"><a class="viewcode-back" href="../../../reference/faust.livecheck.models.html#faust.livecheck.TestExecution.shortident">[docs]</a>    <span class="nd">@cached_property</span>
+    <span class="k">def</span> <span class="nf">shortident</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Return short identifier for this test used in logs.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_build_ident</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">short_case_name</span><span class="p">,</span>
+            <span class="n">abbr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="nb">max</span><span class="o">=</span><span class="mi">15</span><span class="p">,</span> <span class="n">suffix</span><span class="o">=</span><span class="s1">&#39;[...]&#39;</span><span class="p">),</span>
+        <span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_build_ident</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">case_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="nb">id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">f</span><span class="s1">&#39;</span><span class="si">{case_name}</span><span class="s1">:</span><span class="si">{id}</span><span class="s1">&#39;</span>
+
+    <span class="k">def</span> <span class="nf">_now</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">datetime</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span><span class="o">.</span><span class="n">astimezone</span><span class="p">(</span><span class="n">timezone</span><span class="o">.</span><span class="n">utc</span><span class="p">)</span>
+
+<div class="viewcode-block" id="TestExecution.human_date"><a class="viewcode-back" href="../../../reference/faust.livecheck.models.html#faust.livecheck.TestExecution.human_date">[docs]</a>    <span class="nd">@cached_property</span>
+    <span class="k">def</span> <span class="nf">human_date</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Return human-readable description of test timestamp.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">was_issued_today</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">f</span><span class="s1">&#39;&#39;&#39;Today {self.timestamp.strftime(&#39;%H:%M:%S&#39;)}&#39;&#39;&#39;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">timestamp</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestExecution.was_issued_today"><a class="viewcode-back" href="../../../reference/faust.livecheck.models.html#faust.livecheck.TestExecution.was_issued_today">[docs]</a>    <span class="nd">@cached_property</span>
+    <span class="k">def</span> <span class="nf">was_issued_today</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Return :const:`True` if test was issued on todays date.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">timestamp</span><span class="o">.</span><span class="n">date</span><span class="p">()</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">_now</span><span class="p">()</span><span class="o">.</span><span class="n">date</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="TestExecution.is_expired"><a class="viewcode-back" href="../../../reference/faust.livecheck.models.html#faust.livecheck.TestExecution.is_expired">[docs]</a>    <span class="nd">@cached_property</span>
+    <span class="k">def</span> <span class="nf">is_expired</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Return :const:`True` if this test already expired.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_now</span><span class="p">()</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">expires</span></div>
+
+<div class="viewcode-block" id="TestExecution.short_case_name"><a class="viewcode-back" href="../../../reference/faust.livecheck.models.html#faust.livecheck.TestExecution.short_case_name">[docs]</a>    <span class="nd">@cached_property</span>
+    <span class="k">def</span> <span class="nf">short_case_name</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Return abbreviated case name.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">case_name</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;.&#39;</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span></div></div>
+
+
+<div class="viewcode-block" id="TestReport"><a class="viewcode-back" href="../../../reference/faust.livecheck.models.html#faust.livecheck.TestReport">[docs]</a><span class="k">class</span> <span class="nc">TestReport</span><span class="p">(</span><span class="n">Record</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Report after test execution.&quot;&quot;&quot;</span>
+
+    <span class="n">case_name</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">state</span><span class="p">:</span> <span class="n">State</span>
+    <span class="n">test</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">TestExecution</span><span class="p">]</span>
+    <span class="n">runtime</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span>
+    <span class="n">signal_latency</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span>
+    <span class="n">error</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
+    <span class="n">traceback</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../../index.html">
+              <img class="logo" src="../../../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../../../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../playbooks/index.html">Playbooks</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../userguide/index.html">User Guide</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../reference/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../history/index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2019, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

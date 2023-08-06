@@ -1,0 +1,328 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>faust.utils.terminal &#8212; Faust 1.11.0a1 documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="copyright" title="Copyright" href="../copyright.html" />
+    <link rel="next" title="faust.utils.terminal.spinners" href="faust.utils.terminal.spinners.html" />
+    <link rel="prev" title="faust.utils.venusian" href="faust.utils.venusian.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="faust-utils-terminal">
+<h1><code class="docutils literal notranslate"><span class="pre">faust.utils.terminal</span></code><a class="headerlink" href="#faust-utils-terminal" title="Permalink to this headline">¶</a></h1>
+<span class="target" id="module-faust.utils.terminal"></span><p>Terminal utilities.</p>
+<dl class="function">
+<dt id="faust.utils.terminal.isatty">
+<code class="sig-prename descclassname">faust.utils.terminal.</code><code class="sig-name descname">isatty</code><span class="sig-paren">(</span><em class="sig-param">fh: IO</em><span class="sig-paren">)</span> &#x2192; bool<a class="reference internal" href="../_modules/mode/utils/compat.html#isatty"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.utils.terminal.isatty" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return True if fh has a controlling terminal.</p>
+<p class="rubric">Notes</p>
+<p>Use with e.g. <a class="reference external" href="https://docs.python.org/dev/library/sys.html#sys.stdin" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">sys.stdin</span></code></a>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/functions.html#bool" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="class">
+<dt id="faust.utils.terminal.Spinner">
+<em class="property">class </em><code class="sig-prename descclassname">faust.utils.terminal.</code><code class="sig-name descname">Spinner</code><span class="sig-paren">(</span><em class="sig-param">file: IO = &lt;_io.TextIOWrapper name='&lt;stderr&gt;' mode='w' encoding='UTF-8'&gt;</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/utils/terminal/spinners.html#Spinner"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.utils.terminal.Spinner" title="Permalink to this definition">¶</a></dt>
+<dd><p>Progress bar spinner.</p>
+<dl class="attribute">
+<dt id="faust.utils.terminal.Spinner.bell">
+<code class="sig-name descname">bell</code><em class="property"> = '\x08'</em><a class="headerlink" href="#faust.utils.terminal.Spinner.bell" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="faust.utils.terminal.Spinner.sprites">
+<code class="sig-name descname">sprites</code><em class="property"> = ['◢', '◣', '◤', '◥']</em><a class="headerlink" href="#faust.utils.terminal.Spinner.sprites" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="faust.utils.terminal.Spinner.cursor_hide">
+<code class="sig-name descname">cursor_hide</code><em class="property"> = '\x1b[?25l'</em><a class="headerlink" href="#faust.utils.terminal.Spinner.cursor_hide" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="faust.utils.terminal.Spinner.cursor_show">
+<code class="sig-name descname">cursor_show</code><em class="property"> = '\x1b[?25h'</em><a class="headerlink" href="#faust.utils.terminal.Spinner.cursor_show" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="faust.utils.terminal.Spinner.hide_cursor">
+<code class="sig-name descname">hide_cursor</code><em class="property"> = True</em><a class="headerlink" href="#faust.utils.terminal.Spinner.hide_cursor" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="faust.utils.terminal.Spinner.stopped">
+<code class="sig-name descname">stopped</code><em class="property"> = False</em><a class="headerlink" href="#faust.utils.terminal.Spinner.stopped" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="faust.utils.terminal.Spinner.update">
+<code class="sig-name descname">update</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/utils/terminal/spinners.html#Spinner.update"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.utils.terminal.Spinner.update" title="Permalink to this definition">¶</a></dt>
+<dd><p>Draw spinner, single iteration.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.utils.terminal.Spinner.stop">
+<code class="sig-name descname">stop</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/utils/terminal/spinners.html#Spinner.stop"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.utils.terminal.Spinner.stop" title="Permalink to this definition">¶</a></dt>
+<dd><p>Stop spinner from being emitted.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.utils.terminal.Spinner.reset">
+<code class="sig-name descname">reset</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/utils/terminal/spinners.html#Spinner.reset"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.utils.terminal.Spinner.reset" title="Permalink to this definition">¶</a></dt>
+<dd><p>Reset state or allow restart.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.utils.terminal.Spinner.write">
+<code class="sig-name descname">write</code><span class="sig-paren">(</span><em class="sig-param">s: str</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/utils/terminal/spinners.html#Spinner.write"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.utils.terminal.Spinner.write" title="Permalink to this definition">¶</a></dt>
+<dd><p>Write spinner character to terminal.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.utils.terminal.Spinner.begin">
+<code class="sig-name descname">begin</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/utils/terminal/spinners.html#Spinner.begin"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.utils.terminal.Spinner.begin" title="Permalink to this definition">¶</a></dt>
+<dd><p>Prepare terminal for spinner starting.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.utils.terminal.Spinner.finish">
+<code class="sig-name descname">finish</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/utils/terminal/spinners.html#Spinner.finish"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.utils.terminal.Spinner.finish" title="Permalink to this definition">¶</a></dt>
+<dd><p>Finish spinner and reset terminal.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="faust.utils.terminal.SpinnerHandler">
+<em class="property">class </em><code class="sig-prename descclassname">faust.utils.terminal.</code><code class="sig-name descname">SpinnerHandler</code><span class="sig-paren">(</span><em class="sig-param">spinner: faust.utils.terminal.spinners.Spinner</em>, <em class="sig-param">**kwargs: Any</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/utils/terminal/spinners.html#SpinnerHandler"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.utils.terminal.SpinnerHandler" title="Permalink to this definition">¶</a></dt>
+<dd><p>A logger handler that iterates our progress spinner for each log.</p>
+<dl class="method">
+<dt id="faust.utils.terminal.SpinnerHandler.emit">
+<code class="sig-name descname">emit</code><span class="sig-paren">(</span><em class="sig-param">_record: logging.LogRecord</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/utils/terminal/spinners.html#SpinnerHandler.emit"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.utils.terminal.SpinnerHandler.emit" title="Permalink to this definition">¶</a></dt>
+<dd><p>Emit the next spinner character.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.utils.terminal.Table">
+<code class="sig-prename descclassname">faust.utils.terminal.</code><code class="sig-name descname">Table</code><a class="headerlink" href="#faust.utils.terminal.Table" title="Permalink to this definition">¶</a></dt>
+<dd><p>alias of <code class="xref py py-class docutils literal notranslate"><span class="pre">terminaltables.base_table.BaseTable</span></code></p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.utils.terminal.TableDataT">
+<code class="sig-prename descclassname">faust.utils.terminal.</code><code class="sig-name descname">TableDataT</code><a class="headerlink" href="#faust.utils.terminal.TableDataT" title="Permalink to this definition">¶</a></dt>
+<dd><p>alias of <a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Sequence" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">typing.Sequence</span></code></a></p>
+</dd></dl>
+
+<dl class="function">
+<dt id="faust.utils.terminal.logtable">
+<code class="sig-prename descclassname">faust.utils.terminal.</code><code class="sig-name descname">logtable</code><span class="sig-paren">(</span><em class="sig-param">data: Sequence[Sequence[str]], *, title: str, target: IO = None, tty: bool = None, headers: Sequence[str] = None, **kwargs: Any</em><span class="sig-paren">)</span> &#x2192; str<a class="reference internal" href="../_modules/faust/utils/terminal/tables.html#logtable"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.utils.terminal.logtable" title="Permalink to this definition">¶</a></dt>
+<dd><p>Prepare table for logging.</p>
+<p>Will use ANSI escape codes if the log file is a tty.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="faust.utils.terminal.table">
+<code class="sig-prename descclassname">faust.utils.terminal.</code><code class="sig-name descname">table</code><span class="sig-paren">(</span><em class="sig-param">data: Sequence[Sequence[str]], *, title: str, target: IO = None, tty: bool = None, **kwargs: Any</em><span class="sig-paren">)</span> &#x2192; terminaltables.base_table.BaseTable<a class="reference internal" href="../_modules/faust/utils/terminal/tables.html#table"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.utils.terminal.table" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create suitable <a class="reference external" href="https://pypi.python.org/pypi/terminaltables/">terminaltables</a> table for target.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>data</strong> (<em>Sequence</em><em>[</em><em>Sequence</em><em>[</em><a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a><em>]</em><em>]</em>) – Table data.</p></li>
+<li><p><strong>target</strong> (<em>IO</em>) – Target should be the destination output file
+for your table, and defaults to <a class="reference external" href="https://docs.python.org/dev/library/sys.html#sys.stdout" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">sys.stdout</span></code></a>.
+ANSI codes will be used if the target has a controlling
+terminal, but not otherwise, which is why it’s important
+to pass the correct output file.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">BaseTable</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../playbooks/index.html">Playbooks</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../userguide/index.html">User Guide</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../history/index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">API Reference</a><ul>
+      <li>Previous: <a href="faust.utils.venusian.html" title="previous chapter"><code class="docutils literal notranslate"><span class="pre">faust.utils.venusian</span></code></a></li>
+      <li>Next: <a href="faust.utils.terminal.spinners.html" title="next chapter"><code class="docutils literal notranslate"><span class="pre">faust.utils.terminal.spinners</span></code></a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2020, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../_sources/reference/faust.utils.terminal.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

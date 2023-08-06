@@ -1,0 +1,1300 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>faust.types.settings &#8212; Faust 1.9.0 documentation</title>
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../../../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <link rel="copyright" title="Copyright" href="../../../copyright.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for faust.types.settings</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">abc</span>
+<span class="kn">import</span> <span class="nn">inspect</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">socket</span>
+<span class="kn">import</span> <span class="nn">ssl</span>
+<span class="kn">import</span> <span class="nn">typing</span>
+<span class="kn">import</span> <span class="nn">warnings</span>
+<span class="kn">from</span> <span class="nn">datetime</span> <span class="k">import</span> <span class="n">timedelta</span><span class="p">,</span> <span class="n">timezone</span><span class="p">,</span> <span class="n">tzinfo</span>
+<span class="kn">from</span> <span class="nn">pathlib</span> <span class="k">import</span> <span class="n">Path</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">Any</span><span class="p">,</span>
+    <span class="n">Callable</span><span class="p">,</span>
+    <span class="n">Dict</span><span class="p">,</span>
+    <span class="n">Iterable</span><span class="p">,</span>
+    <span class="n">List</span><span class="p">,</span>
+    <span class="n">Mapping</span><span class="p">,</span>
+    <span class="n">Optional</span><span class="p">,</span>
+    <span class="n">Set</span><span class="p">,</span>
+    <span class="n">Type</span><span class="p">,</span>
+    <span class="n">Union</span><span class="p">,</span>
+    <span class="n">cast</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">uuid</span> <span class="k">import</span> <span class="n">uuid4</span>
+
+<span class="kn">from</span> <span class="nn">mode</span> <span class="k">import</span> <span class="n">Seconds</span><span class="p">,</span> <span class="n">SupervisorStrategyT</span><span class="p">,</span> <span class="n">want_seconds</span>
+<span class="kn">from</span> <span class="nn">mode.utils.imports</span> <span class="k">import</span> <span class="n">SymbolArg</span><span class="p">,</span> <span class="n">symbol_by_name</span>
+<span class="kn">from</span> <span class="nn">mode.utils.logging</span> <span class="k">import</span> <span class="n">Severity</span>
+<span class="kn">from</span> <span class="nn">yarl</span> <span class="k">import</span> <span class="n">URL</span>
+
+<span class="kn">from</span> <span class="nn">faust.exceptions</span> <span class="k">import</span> <span class="n">AlreadyConfiguredWarning</span><span class="p">,</span> <span class="n">ImproperlyConfigured</span>
+<span class="kn">from</span> <span class="nn">faust.utils.urls</span> <span class="k">import</span> <span class="n">urllist</span>
+
+<span class="kn">from</span> <span class="nn">._env</span> <span class="k">import</span> <span class="n">DATADIR</span><span class="p">,</span> <span class="n">WEB_BIND</span><span class="p">,</span> <span class="n">WEB_PORT</span><span class="p">,</span> <span class="n">WEB_TRANSPORT</span>
+<span class="kn">from</span> <span class="nn">.agents</span> <span class="k">import</span> <span class="n">AgentT</span>
+<span class="kn">from</span> <span class="nn">.assignor</span> <span class="k">import</span> <span class="n">LeaderAssignorT</span><span class="p">,</span> <span class="n">PartitionAssignorT</span>
+<span class="kn">from</span> <span class="nn">.auth</span> <span class="k">import</span> <span class="n">CredentialsArg</span><span class="p">,</span> <span class="n">CredentialsT</span><span class="p">,</span> <span class="n">to_credentials</span>
+<span class="kn">from</span> <span class="nn">.codecs</span> <span class="k">import</span> <span class="n">CodecArg</span>
+<span class="kn">from</span> <span class="nn">.enums</span> <span class="k">import</span> <span class="n">ProcessingGuarantee</span>
+<span class="kn">from</span> <span class="nn">.events</span> <span class="k">import</span> <span class="n">EventT</span>
+<span class="kn">from</span> <span class="nn">.router</span> <span class="k">import</span> <span class="n">RouterT</span>
+<span class="kn">from</span> <span class="nn">.sensors</span> <span class="k">import</span> <span class="n">SensorT</span>
+<span class="kn">from</span> <span class="nn">.serializers</span> <span class="k">import</span> <span class="n">RegistryT</span><span class="p">,</span> <span class="n">SchemaT</span>
+<span class="kn">from</span> <span class="nn">.streams</span> <span class="k">import</span> <span class="n">StreamT</span>
+<span class="kn">from</span> <span class="nn">.transports</span> <span class="k">import</span> <span class="n">PartitionerT</span><span class="p">,</span> <span class="n">SchedulingStrategyT</span>
+<span class="kn">from</span> <span class="nn">.tables</span> <span class="k">import</span> <span class="n">GlobalTableT</span><span class="p">,</span> <span class="n">TableManagerT</span><span class="p">,</span> <span class="n">TableT</span>
+<span class="kn">from</span> <span class="nn">.topics</span> <span class="k">import</span> <span class="n">TopicT</span>
+<span class="kn">from</span> <span class="nn">.web</span> <span class="k">import</span> <span class="n">HttpClientT</span><span class="p">,</span> <span class="n">ResourceOptions</span>
+
+<span class="k">if</span> <span class="n">typing</span><span class="o">.</span><span class="n">TYPE_CHECKING</span><span class="p">:</span>
+    <span class="kn">from</span> <span class="nn">.worker</span> <span class="k">import</span> <span class="n">Worker</span> <span class="k">as</span> <span class="n">_WorkerT</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="k">class</span> <span class="nc">_WorkerT</span><span class="p">:</span> <span class="o">...</span>      <span class="c1"># noqa</span>
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;AutodiscoverArg&#39;</span><span class="p">,</span> <span class="s1">&#39;Settings&#39;</span><span class="p">]</span>
+
+<span class="n">W_ALREADY_CONFIGURED</span> <span class="o">=</span> <span class="s1">&#39;&#39;&#39;</span><span class="se">\</span>
+<span class="s1">App is already configured.</span>
+
+<span class="s1">Reconfiguring late may mean parts of your program are still</span>
+<span class="s1">using the old configuration.</span>
+
+<span class="s1">Code such as:</span>
+
+<span class="s1">app.conf.config_from_object(&#39;my.config&#39;)</span>
+
+<span class="s1">Should appear before calling app.topic/@app.agent/etc.</span>
+<span class="s1">&#39;&#39;&#39;</span>
+
+<span class="n">W_ALREADY_CONFIGURED_KEY</span> <span class="o">=</span> <span class="s1">&#39;&#39;&#39;</span><span class="se">\</span>
+<span class="s1">Setting new value for configuration key </span><span class="si">{key!r}</span><span class="s1"> that was already used.</span>
+
+<span class="s1">Reconfiguring late may mean parts of your program are still</span>
+<span class="s1">using the old value of </span><span class="si">{old_value!r}</span><span class="s1">.</span>
+
+<span class="s1">Code such as:</span>
+
+<span class="s1">app.conf.</span><span class="si">{key}</span><span class="s1"> = </span><span class="si">{value!r}</span><span class="s1"></span>
+
+<span class="s1">Should appear before calling app.topic/@app.agent/etc.</span>
+<span class="s1">&#39;&#39;&#39;</span>
+
+
+<span class="c1"># XXX mypy borks if we do `from faust import __version__`</span>
+<span class="n">faust_version</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">symbol_by_name</span><span class="p">(</span><span class="s1">&#39;faust:__version__&#39;</span><span class="p">)</span>
+
+<span class="n">TIMEZONE</span> <span class="o">=</span> <span class="n">timezone</span><span class="o">.</span><span class="n">utc</span>
+
+<span class="c1">#: Broker URL, used as default for :setting:`broker`.</span>
+<span class="n">BROKER_URL</span> <span class="o">=</span> <span class="s1">&#39;kafka://localhost:9092&#39;</span>
+
+<span class="c1">#: Default transport used when no scheme specified.</span>
+<span class="n">DEFAULT_BROKER_SCHEME</span> <span class="o">=</span> <span class="s1">&#39;kafka&#39;</span>
+
+<span class="c1">#: Table storage URL, used as default for :setting:`store`.</span>
+<span class="n">STORE_URL</span> <span class="o">=</span> <span class="s1">&#39;memory://&#39;</span>
+
+<span class="c1">#: Cache storage URL, used as default for :setting:`cache`.</span>
+<span class="n">CACHE_URL</span> <span class="o">=</span> <span class="s1">&#39;memory://&#39;</span>
+
+<span class="c1">#: Web driver URL, used as default for :setting:`web`.</span>
+<span class="n">WEB_URL</span> <span class="o">=</span> <span class="s1">&#39;aiohttp://&#39;</span>
+
+<span class="n">PROCESSING_GUARANTEE</span> <span class="o">=</span> <span class="n">ProcessingGuarantee</span><span class="o">.</span><span class="n">AT_LEAST_ONCE</span>
+
+<span class="c1">#: Table state directory path used as default for :setting:`tabledir`.</span>
+<span class="c1">#: This path will be treated as relative to datadir, unless the provided</span>
+<span class="c1">#: poth is absolute.</span>
+<span class="n">TABLEDIR</span> <span class="o">=</span> <span class="s1">&#39;tables&#39;</span>
+
+<span class="c1">#: Path to agent class, used as default for :setting:`Agent`.</span>
+<span class="n">AGENT_TYPE</span> <span class="o">=</span> <span class="s1">&#39;faust.Agent&#39;</span>
+
+<span class="c1">#: Default agent supervisor type, used as default for</span>
+<span class="c1">#: :setting:`agent_supervisor`.</span>
+<span class="n">AGENT_SUPERVISOR_TYPE</span> <span class="o">=</span> <span class="s1">&#39;mode.OneForOneSupervisor&#39;</span>
+
+<span class="n">CONSUMER_SCHEDULER_TYPE</span> <span class="o">=</span> <span class="s1">&#39;faust.transport.utils.DefaultSchedulingStrategy&#39;</span>
+
+<span class="c1">#: Default event class type, used as default for :setting:`Event`.</span>
+<span class="n">EVENT_TYPE</span> <span class="o">=</span> <span class="s1">&#39;faust.Event&#39;</span>
+
+<span class="c1">#: Default schema class type, used as default for :setting:`Schema`.</span>
+<span class="n">SCHEMA_TYPE</span> <span class="o">=</span> <span class="s1">&#39;faust.Schema&#39;</span>
+
+<span class="c1">#: Path to stream class, used as default for :setting:`Stream`.</span>
+<span class="n">STREAM_TYPE</span> <span class="o">=</span> <span class="s1">&#39;faust.Stream&#39;</span>
+
+<span class="c1">#: Path to table manager class, used as default for :setting:`TableManager`.</span>
+<span class="n">TABLE_MANAGER_TYPE</span> <span class="o">=</span> <span class="s1">&#39;faust.tables.TableManager&#39;</span>
+
+<span class="c1">#: Path to table class, used as default for :setting:`Table`.</span>
+<span class="n">TABLE_TYPE</span> <span class="o">=</span> <span class="s1">&#39;faust.Table&#39;</span>
+
+<span class="c1">#: Tables keep a cache of key to partition number. This value</span>
+<span class="c1">#: configures the maximum size of that cache.</span>
+<span class="n">TABLE_KEY_INDEX_SIZE</span> <span class="o">=</span> <span class="mi">1000</span>
+
+<span class="c1">#: Path to &quot;table of sets&quot; class, used as default for :setting:`SetTable`.</span>
+<span class="n">SET_TABLE_TYPE</span> <span class="o">=</span> <span class="s1">&#39;faust.SetTable&#39;</span>
+
+<span class="c1">#: Path to global table class, used as default for :setting:`GlobalTable`.</span>
+<span class="n">GLOBAL_TABLE_TYPE</span> <span class="o">=</span> <span class="s1">&#39;faust.GlobalTable&#39;</span>
+
+<span class="c1">#: Path to &quot;global table of sets&quot; class,</span>
+<span class="c1">#: used as default for :setting:`SetGlobalTable`.</span>
+<span class="n">SET_GLOBAL_TABLE_TYPE</span> <span class="o">=</span> <span class="s1">&#39;faust.SetGlobalTable&#39;</span>
+
+<span class="c1">#: Path to serializer registry class, used as the default for</span>
+<span class="c1">#: :setting:`Serializers`.</span>
+<span class="n">REGISTRY_TYPE</span> <span class="o">=</span> <span class="s1">&#39;faust.serializers.Registry&#39;</span>
+
+<span class="c1">#: Path to worker class, providing the default for :setting:`Worker`.</span>
+<span class="n">WORKER_TYPE</span> <span class="o">=</span> <span class="s1">&#39;faust.worker.Worker&#39;</span>
+
+<span class="c1">#: Path to partition assignor class, providing the default for</span>
+<span class="c1">#: :setting:`PartitionAssignor`.</span>
+<span class="n">PARTITION_ASSIGNOR_TYPE</span> <span class="o">=</span> <span class="s1">&#39;faust.assignor:PartitionAssignor&#39;</span>
+
+<span class="c1">#: Path to leader assignor class, providing the default for</span>
+<span class="c1">#: :setting:`LeaderAssignor`.</span>
+<span class="n">LEADER_ASSIGNOR_TYPE</span> <span class="o">=</span> <span class="s1">&#39;faust.assignor:LeaderAssignor&#39;</span>
+
+<span class="c1">#: Path to router class, providing the default for :setting:`Router`.</span>
+<span class="n">ROUTER_TYPE</span> <span class="o">=</span> <span class="s1">&#39;faust.app.router:Router&#39;</span>
+
+<span class="c1">#: Path to topic class, providing the default for :setting:`Topic`.</span>
+<span class="n">TOPIC_TYPE</span> <span class="o">=</span> <span class="s1">&#39;faust:Topic&#39;</span>
+
+<span class="c1">#: Path to HTTP client class, providing the default for :setting:`HttpClient`.</span>
+<span class="n">HTTP_CLIENT_TYPE</span> <span class="o">=</span> <span class="s1">&#39;aiohttp.client:ClientSession&#39;</span>
+
+<span class="c1">#: Path to Monitor sensor class, providing the default for :setting:`Monitor`.</span>
+<span class="n">MONITOR_TYPE</span> <span class="o">=</span> <span class="s1">&#39;faust.sensors:Monitor&#39;</span>
+
+<span class="c1">#: Default Kafka Client ID.</span>
+<span class="n">BROKER_CLIENT_ID</span> <span class="o">=</span> <span class="n">f</span><span class="s1">&#39;faust-</span><span class="si">{faust_version}</span><span class="s1">&#39;</span>
+
+<span class="c1">#: Kafka consumer request timeout (``request_timeout_ms``).</span>
+<span class="n">BROKER_REQUEST_TIMEOUT</span> <span class="o">=</span> <span class="mf">90.0</span>
+
+<span class="c1">#: How often we commit acknowledged messages: every n messages.</span>
+<span class="c1">#: Used as the default value for :setting:`broker_commit_every`.</span>
+<span class="n">BROKER_COMMIT_EVERY</span> <span class="o">=</span> <span class="mi">10_000</span>
+
+<span class="c1">#: How often we commit acknowledged messages on a timer.</span>
+<span class="c1">#: Used as the default value for :setting:`broker_commit_interval`.</span>
+<span class="n">BROKER_COMMIT_INTERVAL</span> <span class="o">=</span> <span class="mf">2.8</span>
+
+<span class="c1">#: Kafka consumer session timeout (``session_timeout_ms`` in seconds).</span>
+<span class="n">BROKER_SESSION_TIMEOUT</span> <span class="o">=</span> <span class="mf">60.0</span>
+
+<span class="c1">#: Kafka consumer heartbeat timeout (``rebalance_timeout_ms`` in seconds).</span>
+<span class="n">BROKER_REBALANCE_TIMEOUT</span> <span class="o">=</span> <span class="mf">60.0</span>
+
+<span class="c1">#: Kafka consumer heartbeat (``heartbeat_interval_ms``).</span>
+<span class="n">BROKER_HEARTBEAT_INTERVAL</span> <span class="o">=</span> <span class="mf">3.0</span>
+
+<span class="c1">#: How long time it takes before we warn that the commit offset has</span>
+<span class="c1">#: not advanced.</span>
+<span class="n">BROKER_LIVELOCK_SOFT</span> <span class="o">=</span> <span class="n">want_seconds</span><span class="p">(</span><span class="n">timedelta</span><span class="p">(</span><span class="n">minutes</span><span class="o">=</span><span class="mi">5</span><span class="p">))</span>
+
+<span class="c1">#: The maximum number of records returned in a single call to poll().</span>
+<span class="c1">#: If you find that your application needs more time to process messages</span>
+<span class="c1">#: you may want to adjust max_poll_records to tune the number of records</span>
+<span class="c1">#: that must be handled on every loop iteration.</span>
+<span class="n">BROKER_MAX_POLL_RECORDS</span> <span class="o">=</span> <span class="kc">None</span>
+
+<span class="c1">#: Maximum allowed time between calls to consume messages</span>
+<span class="c1">#: (e.g., consumer.getmany()).If this interval is exceeded the consumer</span>
+<span class="c1">#: is considered failed and the group will rebalance in order to reassign</span>
+<span class="c1">#: the partitions to another consumer group member. If API methods block</span>
+<span class="c1">#: waiting for messages, that time does not count against this timeout.</span>
+<span class="c1">#: See KIP-62 for more information.</span>
+<span class="n">BROKER_MAX_POLL_INTERVAL</span> <span class="o">=</span> <span class="mf">1000.0</span>
+
+<span class="c1">#: How often we clean up expired items in windowed tables.</span>
+<span class="c1">#: Used as the default value for :setting:`table_cleanup_interval`.</span>
+<span class="n">TABLE_CLEANUP_INTERVAL</span> <span class="o">=</span> <span class="mf">30.0</span>
+
+<span class="c1">#: Prefix used for reply topics.</span>
+<span class="n">REPLY_TO_PREFIX</span> <span class="o">=</span> <span class="s1">&#39;f-reply-&#39;</span>
+
+<span class="c1">#: Default expiry time for replies, in seconds (float).</span>
+<span class="n">REPLY_EXPIRES</span> <span class="o">=</span> <span class="n">want_seconds</span><span class="p">(</span><span class="n">timedelta</span><span class="p">(</span><span class="n">days</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span>
+
+<span class="c1">#: Max number of messages channels/streams/topics can &quot;prefetch&quot;.</span>
+<span class="n">STREAM_BUFFER_MAXSIZE</span> <span class="o">=</span> <span class="mi">4096</span>
+
+<span class="c1">#: Number of seconds to sleep before continuing after rebalance.</span>
+<span class="c1">#: We wait for a bit to allow for more nodes to join/leave before</span>
+<span class="c1">#: starting to reprocess, to minimize the chance of errors and rebalancing</span>
+<span class="c1">#: loops.</span>
+<span class="n">STREAM_RECOVERY_DELAY</span> <span class="o">=</span> <span class="mf">0.0</span>
+
+<span class="c1">#: We buffer up sending messages until the</span>
+<span class="c1">#: source topic offset related to that processing is committed.</span>
+<span class="c1">#: This means when we do commit, we may have buffered up a LOT of messages</span>
+<span class="c1">#: so commit frequently.</span>
+<span class="c1">#:</span>
+<span class="c1">#: This setting is deprecated and will be removed once transaction support</span>
+<span class="c1">#: is added in a later version.</span>
+<span class="n">STREAM_PUBLISH_ON_COMMIT</span> <span class="o">=</span> <span class="kc">False</span>
+
+<span class="c1">#: Maximum size of a request in bytes in the consumer.</span>
+<span class="c1">#: Used as the default value for :setting:`max_fetch_size`.</span>
+<span class="n">CONSUMER_MAX_FETCH_SIZE</span> <span class="o">=</span> <span class="mi">4</span> <span class="o">*</span> <span class="mi">1024</span> <span class="o">**</span> <span class="mi">2</span>
+
+<span class="c1">#: Where the consumer should start reading offsets when there is no initial</span>
+<span class="c1">#: offset, or the stored offset no longer exists, e.g. when starting a new</span>
+<span class="c1">#: consumer for the first time. Options include &#39;earliest&#39;, &#39;latest&#39;, &#39;none&#39;.</span>
+<span class="c1">#: Used as default value for :setting:`consumer_auto_offset_reset`.</span>
+<span class="n">CONSUMER_AUTO_OFFSET_RESET</span> <span class="o">=</span> <span class="s1">&#39;earliest&#39;</span>
+
+<span class="c1">#: Minimum time to batch before sending out messages from the producer.</span>
+<span class="c1">#: Used as the default value for :setting:`linger_ms`.</span>
+<span class="n">PRODUCER_LINGER_MS</span> <span class="o">=</span> <span class="mi">0</span>
+
+<span class="c1">#: Maximum size of buffered data per partition in bytes in the producer.</span>
+<span class="c1">#: Used as the default value for :setting:`max_batch_size`.</span>
+<span class="n">PRODUCER_MAX_BATCH_SIZE</span> <span class="o">=</span> <span class="mi">16384</span>
+
+<span class="c1">#: Maximum size of a request in bytes in the producer.</span>
+<span class="c1">#: Used as the default value for :setting:`max_request_size`.</span>
+<span class="n">PRODUCER_MAX_REQUEST_SIZE</span> <span class="o">=</span> <span class="mi">1_000_000</span>
+
+<span class="c1">#: The compression type for all data generated by</span>
+<span class="c1">#: the producer. Valid values are &#39;gzip&#39;, &#39;snappy&#39;, &#39;lz4&#39;, or None.</span>
+<span class="c1">#: Compression is of full batches of data, so the efficacy of batching</span>
+<span class="c1">#: will also impact the compression ratio (more batching means better</span>
+<span class="c1">#: compression). Default: None.</span>
+<span class="n">PRODUCER_COMPRESSION_TYPE</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+
+<span class="c1">#: Producer request timeout is the number of seconds before we give</span>
+<span class="c1">#: up sending message batches.</span>
+<span class="n">PRODUCER_REQUEST_TIMEOUT</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1200.0</span>  <span class="c1"># 20 minutes.</span>
+
+<span class="c1">#: The number of acknowledgments the producer requires the leader to have</span>
+<span class="c1">#: received before considering a request complete. This controls the</span>
+<span class="c1">#: durability of records that are sent. The following settings are common:</span>
+<span class="c1">#:     0: Producer will not wait for any acknowledgment from the server</span>
+<span class="c1">#:         at all. The message will immediately be considered sent.</span>
+<span class="c1">#:         (Not recommended)</span>
+<span class="c1">#:     1: The broker leader will write the record to its local log but</span>
+<span class="c1">#:         will respond without awaiting full acknowledgment from all</span>
+<span class="c1">#:         followers. In this case should the leader fail immediately</span>
+<span class="c1">#:         after acknowledging the record but before the followers have</span>
+<span class="c1">#:         replicated it then the record will be lost.</span>
+<span class="c1">#:     -1: The broker leader will wait for the full set of in-sync</span>
+<span class="c1">#:         replicas to acknowledge the record. This guarantees that the</span>
+<span class="c1">#:         record will not be lost as long as at least one in-sync replica</span>
+<span class="c1">#:         remains alive. This is the strongest available guarantee.</span>
+<span class="n">PRODUCER_ACKS</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
+
+<span class="c1">#: Set of settings added for backwards compatibility</span>
+<span class="n">SETTINGS_COMPAT</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">&#39;stream_ack_exceptions&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;stream_ack_cancelled_tasks&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;url&#39;</span><span class="p">,</span>
+<span class="p">}</span>
+
+<span class="c1">#: Set of :func:`inspect.signature` parameter types to ignore</span>
+<span class="c1">#: when building the list of supported seting names.</span>
+<span class="n">SETTINGS_SKIP</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="n">inspect</span><span class="o">.</span><span class="n">_ParameterKind</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="n">inspect</span><span class="o">.</span><span class="n">Parameter</span><span class="o">.</span><span class="n">VAR_KEYWORD</span><span class="p">,</span>
+<span class="p">}</span>
+
+<span class="n">AutodiscoverArg</span> <span class="o">=</span> <span class="n">Union</span><span class="p">[</span>
+    <span class="nb">bool</span><span class="p">,</span>
+    <span class="n">Iterable</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+    <span class="n">Callable</span><span class="p">[[],</span> <span class="n">Iterable</span><span class="p">[</span><span class="nb">str</span><span class="p">]],</span>
+<span class="p">]</span>
+
+
+<div class="viewcode-block" id="Settings"><a class="viewcode-back" href="../../../reference/faust.types.settings.html#faust.Settings">[docs]</a><span class="k">class</span> <span class="nc">Settings</span><span class="p">(</span><span class="n">abc</span><span class="o">.</span><span class="n">ABC</span><span class="p">):</span>
+    <span class="n">debug</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">autodiscover</span><span class="p">:</span> <span class="n">AutodiscoverArg</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">broker_client_id</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">BROKER_CLIENT_ID</span>
+    <span class="n">broker_commit_every</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">BROKER_COMMIT_EVERY</span>
+    <span class="n">broker_check_crcs</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">broker_max_poll_interval</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">BROKER_MAX_POLL_INTERVAL</span>
+    <span class="n">_broker_credentials</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">CredentialsT</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">id_format</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;</span><span class="si">{id}</span><span class="s1">-v</span><span class="si">{self.version}</span><span class="s1">&#39;</span>
+    <span class="n">key_serializer</span><span class="p">:</span> <span class="n">CodecArg</span> <span class="o">=</span> <span class="s1">&#39;raw&#39;</span>
+    <span class="n">value_serializer</span><span class="p">:</span> <span class="n">CodecArg</span> <span class="o">=</span> <span class="s1">&#39;json&#39;</span>
+    <span class="n">reply_to</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">reply_to_prefix</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">REPLY_TO_PREFIX</span>
+    <span class="n">reply_create_topic</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">stream_buffer_maxsize</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">STREAM_BUFFER_MAXSIZE</span>
+    <span class="n">stream_wait_empty</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">stream_ack_cancelled_tasks</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">stream_ack_exceptions</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">stream_publish_on_commit</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="n">STREAM_PUBLISH_ON_COMMIT</span>
+    <span class="n">ssl_context</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">ssl</span><span class="o">.</span><span class="n">SSLContext</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">table_standby_replicas</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">table_key_index_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">TABLE_KEY_INDEX_SIZE</span>
+    <span class="n">topic_replication_factor</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">topic_partitions</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">8</span>  <span class="c1"># noqa: E704</span>
+    <span class="n">topic_allow_declare</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">topic_disable_leader</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">logging_config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">loghandlers</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">logging</span><span class="o">.</span><span class="n">Handler</span><span class="p">]</span>
+    <span class="n">producer_linger_ms</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">PRODUCER_LINGER_MS</span>
+    <span class="n">producer_max_batch_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">PRODUCER_MAX_BATCH_SIZE</span>
+    <span class="n">producer_acks</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">PRODUCER_ACKS</span>
+    <span class="n">producer_max_request_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">PRODUCER_MAX_REQUEST_SIZE</span>
+    <span class="n">producer_api_version</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;auto&#39;</span>
+    <span class="n">consumer_max_fetch_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">CONSUMER_MAX_FETCH_SIZE</span>
+    <span class="n">consumer_auto_offset_reset</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">CONSUMER_AUTO_OFFSET_RESET</span>
+    <span class="n">producer_compression_type</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">PRODUCER_COMPRESSION_TYPE</span>
+    <span class="n">timezone</span><span class="p">:</span> <span class="n">tzinfo</span> <span class="o">=</span> <span class="n">TIMEZONE</span>
+    <span class="n">web_enabled</span><span class="p">:</span> <span class="nb">bool</span>
+    <span class="n">web_bind</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">WEB_BIND</span>
+    <span class="n">web_port</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">WEB_PORT</span>
+    <span class="n">web_host</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">socket</span><span class="o">.</span><span class="n">gethostname</span><span class="p">()</span>
+    <span class="n">web_in_thread</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">web_cors_options</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">ResourceOptions</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">worker_redirect_stdouts</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">worker_redirect_stdouts_level</span><span class="p">:</span> <span class="n">Severity</span> <span class="o">=</span> <span class="s1">&#39;WARN&#39;</span>
+
+    <span class="n">_id</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">_origin</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">_name</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">_version</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">_broker</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">URL</span><span class="p">]</span>
+    <span class="n">_broker_consumer</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">URL</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">_broker_producer</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">URL</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">_store</span><span class="p">:</span> <span class="n">URL</span>
+    <span class="n">_cache</span><span class="p">:</span> <span class="n">URL</span>
+    <span class="n">_web</span><span class="p">:</span> <span class="n">URL</span>
+    <span class="n">_canonical_url</span><span class="p">:</span> <span class="n">URL</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">URL</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="n">_datadir</span><span class="p">:</span> <span class="n">Path</span>
+    <span class="n">_tabledir</span><span class="p">:</span> <span class="n">Path</span>
+    <span class="n">_processing_guarantee</span><span class="p">:</span> <span class="n">ProcessingGuarantee</span> <span class="o">=</span> <span class="n">PROCESSING_GUARANTEE</span>
+    <span class="n">_agent_supervisor</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">SupervisorStrategyT</span><span class="p">]</span>
+    <span class="n">_broker_request_timeout</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">BROKER_REQUEST_TIMEOUT</span>
+    <span class="n">_broker_session_timeout</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">BROKER_SESSION_TIMEOUT</span>
+    <span class="n">_broker_rebalance_timeout</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">BROKER_REBALANCE_TIMEOUT</span>
+    <span class="n">_broker_heartbeat_interval</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">BROKER_HEARTBEAT_INTERVAL</span>
+    <span class="n">_broker_commit_interval</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">BROKER_COMMIT_INTERVAL</span>
+    <span class="n">_broker_commit_livelock_soft_timeout</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">BROKER_LIVELOCK_SOFT</span>
+    <span class="n">_broker_max_poll_records</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="n">BROKER_MAX_POLL_RECORDS</span>
+    <span class="n">_producer_partitioner</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">PartitionerT</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">_producer_request_timeout</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">PRODUCER_REQUEST_TIMEOUT</span>
+    <span class="n">_stream_recovery_delay</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">STREAM_RECOVERY_DELAY</span>
+    <span class="n">_table_cleanup_interval</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">TABLE_CLEANUP_INTERVAL</span>
+    <span class="n">_reply_expires</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">REPLY_EXPIRES</span>
+    <span class="n">_web_transport</span><span class="p">:</span> <span class="n">URL</span> <span class="o">=</span> <span class="n">WEB_TRANSPORT</span>
+    <span class="n">_Agent</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">AgentT</span><span class="p">]</span>
+    <span class="n">_ConsumerScheduler</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">SchedulingStrategyT</span><span class="p">]</span>
+    <span class="n">_Event</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">EventT</span><span class="p">]</span>
+    <span class="n">_Schema</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">SchemaT</span><span class="p">]</span>
+    <span class="n">_Stream</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">StreamT</span><span class="p">]</span>
+    <span class="n">_Table</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">TableT</span><span class="p">]</span>
+    <span class="n">_SetTable</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">TableT</span><span class="p">]</span>
+    <span class="n">_GlobalTable</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">GlobalTableT</span><span class="p">]</span>
+    <span class="n">_SetGlobalTable</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">GlobalTableT</span><span class="p">]</span>
+    <span class="n">_TableManager</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">TableManagerT</span><span class="p">]</span>
+    <span class="n">_Serializers</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">RegistryT</span><span class="p">]</span>
+    <span class="n">_Worker</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">_WorkerT</span><span class="p">]</span>
+    <span class="n">_PartitionAssignor</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">PartitionAssignorT</span><span class="p">]</span>
+    <span class="n">_LeaderAssignor</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">LeaderAssignorT</span><span class="p">]</span>
+    <span class="n">_Router</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">RouterT</span><span class="p">]</span>
+    <span class="n">_Topic</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">TopicT</span><span class="p">]</span>
+    <span class="n">_HttpClient</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">HttpClientT</span><span class="p">]</span>
+    <span class="n">_Monitor</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">SensorT</span><span class="p">]</span>
+
+    <span class="n">_initializing</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">_accessed</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">Set</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="kc">None</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Settings.setting_names"><a class="viewcode-back" href="../../../reference/faust.types.settings.html#faust.Settings.setting_names">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">setting_names</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Set</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="n">k</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">inspect</span><span class="o">.</span><span class="n">signature</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">v</span><span class="o">.</span><span class="n">kind</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">SETTINGS_SKIP</span>
+        <span class="p">}</span> <span class="o">-</span> <span class="n">SETTINGS_COMPAT</span></div>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_warn_already_configured</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="n">AlreadyConfiguredWarning</span><span class="p">(</span><span class="n">W_ALREADY_CONFIGURED</span><span class="p">),</span>
+                      <span class="n">stacklevel</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_warn_already_configured_key</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span>
+                                     <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+                                     <span class="n">value</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+                                     <span class="n">old_value</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+            <span class="n">AlreadyConfiguredWarning</span><span class="p">(</span><span class="n">W_ALREADY_CONFIGURED_KEY</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                <span class="n">key</span><span class="o">=</span><span class="n">key</span><span class="p">,</span>
+                <span class="n">value</span><span class="o">=</span><span class="n">value</span><span class="p">,</span>
+                <span class="n">old_value</span><span class="o">=</span><span class="n">old_value</span><span class="p">,</span>
+            <span class="p">)),</span>
+            <span class="n">stacklevel</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span>  <span class="c1"># noqa: C901</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="nb">id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+            <span class="o">*</span><span class="p">,</span>
+            <span class="n">debug</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">version</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">broker</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">URL</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="n">URL</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">broker_client_id</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">broker_request_timeout</span><span class="p">:</span> <span class="n">Seconds</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">broker_credentials</span><span class="p">:</span> <span class="n">CredentialsArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">broker_commit_every</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">broker_commit_interval</span><span class="p">:</span> <span class="n">Seconds</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">broker_commit_livelock_soft_timeout</span><span class="p">:</span> <span class="n">Seconds</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">broker_session_timeout</span><span class="p">:</span> <span class="n">Seconds</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">broker_rebalance_timeout</span><span class="p">:</span> <span class="n">Seconds</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">broker_heartbeat_interval</span><span class="p">:</span> <span class="n">Seconds</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">broker_check_crcs</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">broker_max_poll_records</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">broker_max_poll_interval</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">broker_consumer</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">URL</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="n">URL</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">broker_producer</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">URL</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="n">URL</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">agent_supervisor</span><span class="p">:</span> <span class="n">SymbolArg</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">SupervisorStrategyT</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">store</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">URL</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">cache</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">URL</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">web</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">URL</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">web_enabled</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+            <span class="n">processing_guarantee</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">ProcessingGuarantee</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">timezone</span><span class="p">:</span> <span class="n">tzinfo</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">autodiscover</span><span class="p">:</span> <span class="n">AutodiscoverArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">origin</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">canonical_url</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">URL</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">datadir</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Path</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">tabledir</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Path</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">key_serializer</span><span class="p">:</span> <span class="n">CodecArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">value_serializer</span><span class="p">:</span> <span class="n">CodecArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">logging_config</span><span class="p">:</span> <span class="n">Dict</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">loghandlers</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">logging</span><span class="o">.</span><span class="n">Handler</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">table_cleanup_interval</span><span class="p">:</span> <span class="n">Seconds</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">table_standby_replicas</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">table_key_index_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">topic_replication_factor</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">topic_partitions</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">topic_allow_declare</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">topic_disable_leader</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">id_format</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">reply_to</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">reply_to_prefix</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">reply_create_topic</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">reply_expires</span><span class="p">:</span> <span class="n">Seconds</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">ssl_context</span><span class="p">:</span> <span class="n">ssl</span><span class="o">.</span><span class="n">SSLContext</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">stream_buffer_maxsize</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">stream_wait_empty</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">stream_ack_cancelled_tasks</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">stream_ack_exceptions</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">stream_publish_on_commit</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">stream_recovery_delay</span><span class="p">:</span> <span class="n">Seconds</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">producer_linger_ms</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">producer_max_batch_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">producer_acks</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">producer_max_request_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">producer_compression_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">producer_partitioner</span><span class="p">:</span> <span class="n">SymbolArg</span><span class="p">[</span><span class="n">PartitionerT</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">producer_request_timeout</span><span class="p">:</span> <span class="n">Seconds</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">producer_api_version</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">consumer_max_fetch_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">consumer_auto_offset_reset</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">web_bind</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">web_port</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">web_host</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">web_transport</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">URL</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">web_in_thread</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">web_cors_options</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">ResourceOptions</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">worker_redirect_stdouts</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">worker_redirect_stdouts_level</span><span class="p">:</span> <span class="n">Severity</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">Agent</span><span class="p">:</span> <span class="n">SymbolArg</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">AgentT</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">ConsumerScheduler</span><span class="p">:</span> <span class="n">SymbolArg</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">SchedulingStrategyT</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">Event</span><span class="p">:</span> <span class="n">SymbolArg</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">EventT</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">Schema</span><span class="p">:</span> <span class="n">SymbolArg</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">SchemaT</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">Stream</span><span class="p">:</span> <span class="n">SymbolArg</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">StreamT</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">Table</span><span class="p">:</span> <span class="n">SymbolArg</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">TableT</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">SetTable</span><span class="p">:</span> <span class="n">SymbolArg</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">TableT</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">GlobalTable</span><span class="p">:</span> <span class="n">SymbolArg</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">GlobalTableT</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">SetGlobalTable</span><span class="p">:</span> <span class="n">SymbolArg</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">GlobalTableT</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">TableManager</span><span class="p">:</span> <span class="n">SymbolArg</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">TableManagerT</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">Serializers</span><span class="p">:</span> <span class="n">SymbolArg</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">RegistryT</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">Worker</span><span class="p">:</span> <span class="n">SymbolArg</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">_WorkerT</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">PartitionAssignor</span><span class="p">:</span> <span class="n">SymbolArg</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">PartitionAssignorT</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">LeaderAssignor</span><span class="p">:</span> <span class="n">SymbolArg</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">LeaderAssignorT</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">Router</span><span class="p">:</span> <span class="n">SymbolArg</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">RouterT</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">Topic</span><span class="p">:</span> <span class="n">SymbolArg</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">TopicT</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">HttpClient</span><span class="p">:</span> <span class="n">SymbolArg</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">HttpClientT</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">Monitor</span><span class="p">:</span> <span class="n">SymbolArg</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">SensorT</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="c1"># XXX backward compat (remove for Faust 1.0)</span>
+            <span class="n">url</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">URL</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;_accessed&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">version</span> <span class="o">=</span> <span class="n">version</span> <span class="k">if</span> <span class="n">version</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">_version</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">id_format</span> <span class="o">=</span> <span class="n">id_format</span> <span class="k">if</span> <span class="n">id_format</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">id_format</span>
+        <span class="k">if</span> <span class="n">origin</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">origin</span> <span class="o">=</span> <span class="n">origin</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">id</span> <span class="o">=</span> <span class="nb">id</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">broker</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_first_not_none</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">broker</span><span class="p">,</span> <span class="n">BROKER_URL</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">debug</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">debug</span> <span class="o">=</span> <span class="n">debug</span>
+        <span class="k">if</span> <span class="n">broker_consumer</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># XXX have to cast to silence mypy bug</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">broker_consumer</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">List</span><span class="p">[</span><span class="n">URL</span><span class="p">],</span> <span class="n">broker_consumer</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">broker_producer</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># XXX have to cast to silence mypy bug</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">broker_producer</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">List</span><span class="p">[</span><span class="n">URL</span><span class="p">],</span> <span class="n">broker_producer</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ssl_context</span> <span class="o">=</span> <span class="n">ssl_context</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">store</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_first_not_none</span><span class="p">(</span><span class="n">store</span><span class="p">,</span> <span class="n">STORE_URL</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cache</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_first_not_none</span><span class="p">(</span><span class="n">cache</span><span class="p">,</span> <span class="n">CACHE_URL</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">web</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_first_not_none</span><span class="p">(</span><span class="n">web</span><span class="p">,</span> <span class="n">WEB_URL</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">web_enabled</span> <span class="o">=</span> <span class="n">web_enabled</span>
+        <span class="k">if</span> <span class="n">processing_guarantee</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># XXX have to cast to silence mypy bug</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">processing_guarantee</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span>
+                <span class="n">ProcessingGuarantee</span><span class="p">,</span> <span class="n">processing_guarantee</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">autodiscover</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">autodiscover</span> <span class="o">=</span> <span class="n">autodiscover</span>
+        <span class="k">if</span> <span class="n">broker_client_id</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">broker_client_id</span> <span class="o">=</span> <span class="n">broker_client_id</span>
+        <span class="k">if</span> <span class="n">canonical_url</span><span class="p">:</span>
+            <span class="c1"># XXX have to cast to silence mypy bug</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">canonical_url</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">URL</span><span class="p">,</span> <span class="n">canonical_url</span><span class="p">)</span>
+        <span class="c1"># datadir is a format string that can contain e.g. {conf.id}</span>
+        <span class="c1"># XXX have to cast to silence mypy bug</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">datadir</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">Path</span><span class="p">,</span> <span class="n">datadir</span> <span class="ow">or</span> <span class="n">DATADIR</span><span class="p">)</span>
+        <span class="c1"># XXX have to cast to silence mypy bug</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">tabledir</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">Path</span><span class="p">,</span> <span class="n">tabledir</span> <span class="ow">or</span> <span class="n">TABLEDIR</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">broker_credentials</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># XXX have to cast to silence mypy bug</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">broker_credentials</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">CredentialsT</span><span class="p">,</span> <span class="n">broker_credentials</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">broker_request_timeout</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">broker_request_timeout</span> <span class="o">=</span> <span class="n">want_seconds</span><span class="p">(</span><span class="n">broker_request_timeout</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">broker_commit_interval</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="nb">float</span><span class="p">,</span> <span class="p">(</span>
+            <span class="n">broker_commit_interval</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_broker_commit_interval</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">broker_commit_livelock_soft_timeout</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="nb">float</span><span class="p">,</span> <span class="p">(</span>
+            <span class="n">broker_commit_livelock_soft_timeout</span> <span class="ow">or</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_broker_commit_livelock_soft_timeout</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">broker_session_timeout</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">broker_session_timeout</span> <span class="o">=</span> <span class="n">want_seconds</span><span class="p">(</span><span class="n">broker_session_timeout</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">broker_rebalance_timeout</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">broker_rebalance_timeout</span> <span class="o">=</span> <span class="n">want_seconds</span><span class="p">(</span>
+                <span class="n">broker_rebalance_timeout</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">broker_heartbeat_interval</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">broker_heartbeat_interval</span> <span class="o">=</span> <span class="n">want_seconds</span><span class="p">(</span>
+                <span class="n">broker_heartbeat_interval</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">table_cleanup_interval</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="nb">float</span><span class="p">,</span> <span class="p">(</span>
+            <span class="n">table_cleanup_interval</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_table_cleanup_interval</span><span class="p">))</span>
+
+        <span class="k">if</span> <span class="n">timezone</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">timezone</span> <span class="o">=</span> <span class="n">timezone</span>
+
+        <span class="k">if</span> <span class="n">broker_commit_every</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">broker_commit_every</span> <span class="o">=</span> <span class="n">broker_commit_every</span>
+        <span class="k">if</span> <span class="n">broker_check_crcs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">broker_check_crcs</span> <span class="o">=</span> <span class="n">broker_check_crcs</span>
+        <span class="k">if</span> <span class="n">broker_max_poll_records</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">broker_max_poll_records</span> <span class="o">=</span> <span class="n">broker_max_poll_records</span>
+        <span class="k">if</span> <span class="n">broker_max_poll_interval</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">broker_max_poll_interval</span> <span class="o">=</span> <span class="n">broker_max_poll_interval</span>
+        <span class="k">if</span> <span class="n">key_serializer</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">key_serializer</span> <span class="o">=</span> <span class="n">key_serializer</span>
+        <span class="k">if</span> <span class="n">value_serializer</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">value_serializer</span> <span class="o">=</span> <span class="n">value_serializer</span>
+        <span class="k">if</span> <span class="n">table_standby_replicas</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">table_standby_replicas</span> <span class="o">=</span> <span class="n">table_standby_replicas</span>
+        <span class="k">if</span> <span class="n">table_key_index_size</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">table_key_index_size</span> <span class="o">=</span> <span class="n">table_key_index_size</span>
+        <span class="k">if</span> <span class="n">topic_replication_factor</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">topic_replication_factor</span> <span class="o">=</span> <span class="n">topic_replication_factor</span>
+        <span class="k">if</span> <span class="n">topic_partitions</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">topic_partitions</span> <span class="o">=</span> <span class="n">topic_partitions</span>
+        <span class="k">if</span> <span class="n">topic_allow_declare</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">topic_allow_declare</span> <span class="o">=</span> <span class="n">topic_allow_declare</span>
+        <span class="k">if</span> <span class="n">topic_disable_leader</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">topic_disable_leader</span> <span class="o">=</span> <span class="n">topic_disable_leader</span>
+        <span class="k">if</span> <span class="n">reply_create_topic</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">reply_create_topic</span> <span class="o">=</span> <span class="n">reply_create_topic</span>
+        <span class="k">if</span> <span class="n">logging_config</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logging_config</span> <span class="o">=</span> <span class="n">logging_config</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">loghandlers</span> <span class="o">=</span> <span class="n">loghandlers</span> <span class="k">if</span> <span class="n">loghandlers</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="p">[]</span>
+        <span class="k">if</span> <span class="n">stream_buffer_maxsize</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">stream_buffer_maxsize</span> <span class="o">=</span> <span class="n">stream_buffer_maxsize</span>
+        <span class="k">if</span> <span class="n">stream_wait_empty</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">stream_wait_empty</span> <span class="o">=</span> <span class="n">stream_wait_empty</span>
+        <span class="k">if</span> <span class="n">stream_ack_cancelled_tasks</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="ne">UserWarning</span><span class="p">(</span>
+                <span class="s1">&#39;deprecated stream_ack_cancelled_tasks will have no effect&#39;</span><span class="p">))</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">stream_ack_cancelled_tasks</span> <span class="o">=</span> <span class="n">stream_ack_cancelled_tasks</span>
+        <span class="k">if</span> <span class="n">stream_ack_exceptions</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="ne">UserWarning</span><span class="p">(</span>
+                <span class="s1">&#39;deprecated stream_ack_exceptions will have no effect&#39;</span><span class="p">))</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">stream_ack_exceptions</span> <span class="o">=</span> <span class="n">stream_ack_exceptions</span>
+        <span class="k">if</span> <span class="n">stream_publish_on_commit</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">stream_publish_on_commit</span> <span class="o">=</span> <span class="n">stream_publish_on_commit</span>
+        <span class="k">if</span> <span class="n">stream_recovery_delay</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">stream_recovery_delay</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="nb">float</span><span class="p">,</span> <span class="n">stream_recovery_delay</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">producer_linger_ms</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">producer_linger_ms</span> <span class="o">=</span> <span class="n">producer_linger_ms</span>
+        <span class="k">if</span> <span class="n">producer_max_batch_size</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">producer_max_batch_size</span> <span class="o">=</span> <span class="n">producer_max_batch_size</span>
+        <span class="k">if</span> <span class="n">producer_acks</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">producer_acks</span> <span class="o">=</span> <span class="n">producer_acks</span>
+        <span class="k">if</span> <span class="n">producer_max_request_size</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">producer_max_request_size</span> <span class="o">=</span> <span class="n">producer_max_request_size</span>
+        <span class="k">if</span> <span class="n">producer_compression_type</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">producer_compression_type</span> <span class="o">=</span> <span class="n">producer_compression_type</span>
+        <span class="k">if</span> <span class="n">producer_partitioner</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">producer_partitioner</span> <span class="o">=</span> <span class="n">producer_partitioner</span>  <span class="c1"># type: ignore</span>
+        <span class="k">if</span> <span class="n">producer_request_timeout</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">producer_request_timeout</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span>
+                <span class="nb">float</span><span class="p">,</span> <span class="n">producer_request_timeout</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">producer_api_version</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">producer_api_version</span> <span class="o">=</span> <span class="n">producer_api_version</span>
+        <span class="k">if</span> <span class="n">consumer_max_fetch_size</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">consumer_max_fetch_size</span> <span class="o">=</span> <span class="n">consumer_max_fetch_size</span>
+        <span class="k">if</span> <span class="n">consumer_auto_offset_reset</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">consumer_auto_offset_reset</span> <span class="o">=</span> <span class="n">consumer_auto_offset_reset</span>
+        <span class="k">if</span> <span class="n">web_bind</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">web_bind</span> <span class="o">=</span> <span class="n">web_bind</span>
+        <span class="k">if</span> <span class="n">web_port</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">web_port</span> <span class="o">=</span> <span class="n">web_port</span>
+        <span class="k">if</span> <span class="n">web_host</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">web_host</span> <span class="o">=</span> <span class="n">web_host</span>
+        <span class="k">if</span> <span class="n">web_transport</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># XXX have to cast to silence mypy bug</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">web_transport</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">URL</span><span class="p">,</span> <span class="n">web_transport</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">web_in_thread</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">web_in_thread</span> <span class="o">=</span> <span class="n">web_in_thread</span>
+        <span class="k">if</span> <span class="n">web_cors_options</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">web_cors_options</span> <span class="o">=</span> <span class="n">web_cors_options</span>
+        <span class="k">if</span> <span class="n">worker_redirect_stdouts</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">worker_redirect_stdouts</span> <span class="o">=</span> <span class="n">worker_redirect_stdouts</span>
+        <span class="k">if</span> <span class="n">worker_redirect_stdouts_level</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">worker_redirect_stdouts_level</span> <span class="o">=</span> <span class="n">worker_redirect_stdouts_level</span>
+
+        <span class="k">if</span> <span class="n">reply_to_prefix</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">reply_to_prefix</span> <span class="o">=</span> <span class="n">reply_to_prefix</span>
+        <span class="k">if</span> <span class="n">reply_to</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">reply_to</span> <span class="o">=</span> <span class="n">reply_to</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">reply_to</span> <span class="o">=</span> <span class="n">f</span><span class="s1">&#39;</span><span class="si">{self.reply_to_prefix}</span><span class="s1">{uuid4()}&#39;</span>
+        <span class="k">if</span> <span class="n">reply_expires</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">reply_expires</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="nb">float</span><span class="p">,</span> <span class="n">reply_expires</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">GlobalTable</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span>
+            <span class="n">Type</span><span class="p">[</span><span class="n">GlobalTableT</span><span class="p">],</span> <span class="n">GlobalTable</span> <span class="ow">or</span> <span class="n">GLOBAL_TABLE_TYPE</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">SetGlobalTable</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span>
+            <span class="n">Type</span><span class="p">[</span><span class="n">GlobalTableT</span><span class="p">],</span> <span class="n">SetGlobalTable</span> <span class="ow">or</span> <span class="n">SET_GLOBAL_TABLE_TYPE</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">agent_supervisor</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span>
+            <span class="n">Type</span><span class="p">[</span><span class="n">SupervisorStrategyT</span><span class="p">],</span>
+            <span class="n">agent_supervisor</span> <span class="ow">or</span> <span class="n">AGENT_SUPERVISOR_TYPE</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">Agent</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">Type</span><span class="p">[</span><span class="n">AgentT</span><span class="p">],</span> <span class="n">Agent</span> <span class="ow">or</span> <span class="n">AGENT_TYPE</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ConsumerScheduler</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span>
+            <span class="n">Type</span><span class="p">[</span><span class="n">SchedulingStrategyT</span><span class="p">],</span>
+            <span class="n">ConsumerScheduler</span> <span class="ow">or</span> <span class="n">CONSUMER_SCHEDULER_TYPE</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">Event</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">Type</span><span class="p">[</span><span class="n">EventT</span><span class="p">],</span> <span class="n">Event</span> <span class="ow">or</span> <span class="n">EVENT_TYPE</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">Schema</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">Type</span><span class="p">[</span><span class="n">SchemaT</span><span class="p">],</span> <span class="n">Schema</span> <span class="ow">or</span> <span class="n">SCHEMA_TYPE</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">Stream</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">Type</span><span class="p">[</span><span class="n">StreamT</span><span class="p">],</span> <span class="n">Stream</span> <span class="ow">or</span> <span class="n">STREAM_TYPE</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">Table</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">Type</span><span class="p">[</span><span class="n">TableT</span><span class="p">],</span> <span class="n">Table</span> <span class="ow">or</span> <span class="n">TABLE_TYPE</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">SetTable</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">Type</span><span class="p">[</span><span class="n">TableT</span><span class="p">],</span> <span class="n">SetTable</span> <span class="ow">or</span> <span class="n">SET_TABLE_TYPE</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">TableManager</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span>
+            <span class="n">Type</span><span class="p">[</span><span class="n">TableManagerT</span><span class="p">],</span>
+            <span class="n">TableManager</span> <span class="ow">or</span> <span class="n">TABLE_MANAGER_TYPE</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">Serializers</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">Type</span><span class="p">[</span><span class="n">RegistryT</span><span class="p">],</span> <span class="n">Serializers</span> <span class="ow">or</span> <span class="n">REGISTRY_TYPE</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">Worker</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">Type</span><span class="p">[</span><span class="n">_WorkerT</span><span class="p">],</span> <span class="n">Worker</span> <span class="ow">or</span> <span class="n">WORKER_TYPE</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">PartitionAssignor</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span>
+            <span class="n">Type</span><span class="p">[</span><span class="n">PartitionAssignorT</span><span class="p">],</span>
+            <span class="n">PartitionAssignor</span> <span class="ow">or</span> <span class="n">PARTITION_ASSIGNOR_TYPE</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">LeaderAssignor</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span>
+            <span class="n">Type</span><span class="p">[</span><span class="n">LeaderAssignorT</span><span class="p">],</span>
+            <span class="n">LeaderAssignor</span> <span class="ow">or</span> <span class="n">LEADER_ASSIGNOR_TYPE</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">Router</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">Type</span><span class="p">[</span><span class="n">RouterT</span><span class="p">],</span> <span class="n">Router</span> <span class="ow">or</span> <span class="n">ROUTER_TYPE</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">Topic</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">Type</span><span class="p">[</span><span class="n">TopicT</span><span class="p">],</span> <span class="n">Topic</span> <span class="ow">or</span> <span class="n">TOPIC_TYPE</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">HttpClient</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span>
+            <span class="n">Type</span><span class="p">[</span><span class="n">HttpClientT</span><span class="p">],</span> <span class="n">HttpClient</span> <span class="ow">or</span> <span class="n">HTTP_CLIENT_TYPE</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">Monitor</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">Type</span><span class="p">[</span><span class="n">SensorT</span><span class="p">],</span> <span class="n">Monitor</span> <span class="ow">or</span> <span class="n">MONITOR_TYPE</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">kwargs</span><span class="p">)</span>  <span class="c1"># arbitrary configuration</span>
+        <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;_accessed&#39;</span><span class="p">,</span> <span class="nb">set</span><span class="p">())</span>
+        <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;_initializing&#39;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__getattribute__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+        <span class="n">accessed</span> <span class="o">=</span> <span class="nb">object</span><span class="o">.</span><span class="fm">__getattribute__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;_accessed&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">key</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;_&#39;</span><span class="p">):</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">object</span><span class="o">.</span><span class="fm">__getattribute__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;_initializing&#39;</span><span class="p">):</span>
+                <span class="n">accessed</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">object</span><span class="o">.</span><span class="fm">__getattribute__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__setattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">xsd</span> <span class="o">=</span> <span class="nb">object</span><span class="o">.</span><span class="fm">__getattribute__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;_accessed&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">xsd</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">key</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;_&#39;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">xsd</span><span class="p">:</span>
+            <span class="n">old_value</span> <span class="o">=</span> <span class="nb">object</span><span class="o">.</span><span class="fm">__getattribute__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_warn_already_configured_key</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">old_value</span><span class="p">)</span>
+        <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_first_not_none</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">args</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">v</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">v</span>
+
+    <span class="k">def</span> <span class="nf">_prepare_id</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">version</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">id_format</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="nb">id</span><span class="p">,</span> <span class="bp">self</span><span class="o">=</span><span class="bp">self</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">id</span>
+
+    <span class="k">def</span> <span class="nf">_prepare_datadir</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">datadir</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_Path</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">datadir</span><span class="p">)</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">conf</span><span class="o">=</span><span class="bp">self</span><span class="p">))</span>
+
+    <span class="k">def</span> <span class="nf">_prepare_tabledir</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tabledir</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_appdir_path</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_Path</span><span class="p">(</span><span class="n">tabledir</span><span class="p">))</span>
+
+    <span class="k">def</span> <span class="nf">_Path</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">parts</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">Path</span><span class="p">(</span><span class="o">*</span><span class="n">parts</span><span class="p">)</span><span class="o">.</span><span class="n">expanduser</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">_appdir_path</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">path</span> <span class="k">if</span> <span class="n">path</span><span class="o">.</span><span class="n">is_absolute</span><span class="p">()</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">appdir</span> <span class="o">/</span> <span class="n">path</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">name</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="c1"># name is a read-only property</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_name</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">id</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_id</span>
+
+    <span class="nd">@id</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">id</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_name</span> <span class="o">=</span> <span class="n">name</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_prepare_id</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>  <span class="c1"># id is name+version</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">origin</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_origin</span>
+
+    <span class="nd">@origin</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">origin</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">origin</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_origin</span> <span class="o">=</span> <span class="n">origin</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">version</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_version</span>
+
+    <span class="nd">@version</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">version</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">version</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">version</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">ImproperlyConfigured</span><span class="p">(</span>
+                <span class="n">f</span><span class="s1">&#39;Version cannot be </span><span class="si">{version}</span><span class="s1">, please start at 1&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_version</span> <span class="o">=</span> <span class="n">version</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">broker</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">URL</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_broker</span>
+
+    <span class="nd">@broker</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">broker</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">broker</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">URL</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="n">URL</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_broker</span> <span class="o">=</span> <span class="n">urllist</span><span class="p">(</span><span class="n">broker</span><span class="p">,</span> <span class="n">default_scheme</span><span class="o">=</span><span class="n">DEFAULT_BROKER_SCHEME</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">broker_consumer</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">URL</span><span class="p">]:</span>
+        <span class="n">consumer</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_broker_consumer</span>
+        <span class="k">return</span> <span class="n">consumer</span> <span class="k">if</span> <span class="n">consumer</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">broker</span>
+
+    <span class="nd">@broker_consumer</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">broker_consumer</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">broker</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">URL</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="n">URL</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_broker_consumer</span> <span class="o">=</span> <span class="n">urllist</span><span class="p">(</span>
+            <span class="n">broker</span><span class="p">,</span> <span class="n">default_scheme</span><span class="o">=</span><span class="n">DEFAULT_BROKER_SCHEME</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">broker_producer</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">URL</span><span class="p">]:</span>
+        <span class="n">producer</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_broker_producer</span>
+        <span class="k">return</span> <span class="n">producer</span> <span class="k">if</span> <span class="n">producer</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">broker</span>
+
+    <span class="nd">@broker_producer</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">broker_producer</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">broker</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">URL</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="n">URL</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_broker_producer</span> <span class="o">=</span> <span class="n">urllist</span><span class="p">(</span>
+            <span class="n">broker</span><span class="p">,</span> <span class="n">default_scheme</span><span class="o">=</span><span class="n">DEFAULT_BROKER_SCHEME</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">store</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">URL</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_store</span>
+
+    <span class="nd">@store</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">store</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">store</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">URL</span><span class="p">,</span> <span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_store</span> <span class="o">=</span> <span class="n">URL</span><span class="p">(</span><span class="n">store</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">web</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">URL</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_web</span>
+
+    <span class="nd">@web</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">web</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">web</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">URL</span><span class="p">,</span> <span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_web</span> <span class="o">=</span> <span class="n">URL</span><span class="p">(</span><span class="n">web</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">cache</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">URL</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span>
+
+    <span class="nd">@cache</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">cache</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cache</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">URL</span><span class="p">,</span> <span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span> <span class="o">=</span> <span class="n">URL</span><span class="p">(</span><span class="n">cache</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">canonical_url</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">URL</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_canonical_url</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_canonical_url</span> <span class="o">=</span> <span class="n">URL</span><span class="p">(</span>
+                <span class="n">f</span><span class="s1">&#39;http://</span><span class="si">{self.web_host}</span><span class="s1">:</span><span class="si">{self.web_port}</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_canonical_url</span>
+
+    <span class="nd">@canonical_url</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">canonical_url</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">canonical_url</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">URL</span><span class="p">,</span> <span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_canonical_url</span> <span class="o">=</span> <span class="n">URL</span><span class="p">(</span><span class="n">canonical_url</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">datadir</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_datadir</span>
+
+    <span class="nd">@datadir</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">datadir</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">datadir</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Path</span><span class="p">,</span> <span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_datadir</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_prepare_datadir</span><span class="p">(</span><span class="n">datadir</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">appdir</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_versiondir</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">version</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_versiondir</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">version</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">datadir</span> <span class="o">/</span> <span class="n">f</span><span class="s1">&#39;v</span><span class="si">{version}</span><span class="s1">&#39;</span>
+
+<div class="viewcode-block" id="Settings.find_old_versiondirs"><a class="viewcode-back" href="../../../reference/faust.types.settings.html#faust.Settings.find_old_versiondirs">[docs]</a>    <span class="k">def</span> <span class="nf">find_old_versiondirs</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Path</span><span class="p">]:</span>
+        <span class="k">for</span> <span class="n">version</span> <span class="ow">in</span> <span class="nb">reversed</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">version</span><span class="p">)):</span>
+            <span class="n">path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_versiondir</span><span class="p">(</span><span class="n">version</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">path</span><span class="o">.</span><span class="n">is_dir</span><span class="p">():</span>
+                <span class="k">yield</span> <span class="n">path</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">tabledir</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tabledir</span>
+
+    <span class="nd">@tabledir</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">tabledir</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tabledir</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Path</span><span class="p">,</span> <span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_tabledir</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_prepare_tabledir</span><span class="p">(</span><span class="n">tabledir</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">processing_guarantee</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ProcessingGuarantee</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_processing_guarantee</span>
+
+    <span class="nd">@processing_guarantee</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">processing_guarantee</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                             <span class="n">value</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">ProcessingGuarantee</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_processing_guarantee</span> <span class="o">=</span> <span class="n">ProcessingGuarantee</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">broker_credentials</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">CredentialsT</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_broker_credentials</span>
+
+    <span class="nd">@broker_credentials</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">broker_credentials</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">creds</span><span class="p">:</span> <span class="n">CredentialsArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_broker_credentials</span> <span class="o">=</span> <span class="n">to_credentials</span><span class="p">(</span><span class="n">creds</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">broker_request_timeout</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_broker_request_timeout</span>
+
+    <span class="nd">@broker_request_timeout</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">broker_request_timeout</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">Seconds</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_broker_request_timeout</span> <span class="o">=</span> <span class="n">want_seconds</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">broker_session_timeout</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_broker_session_timeout</span>
+
+    <span class="nd">@broker_session_timeout</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">broker_session_timeout</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">Seconds</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_broker_session_timeout</span> <span class="o">=</span> <span class="n">want_seconds</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">broker_rebalance_timeout</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_broker_rebalance_timeout</span>
+
+    <span class="nd">@broker_rebalance_timeout</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">broker_rebalance_timeout</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">Seconds</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_broker_rebalance_timeout</span> <span class="o">=</span> <span class="n">want_seconds</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">broker_heartbeat_interval</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_broker_heartbeat_interval</span>
+
+    <span class="nd">@broker_heartbeat_interval</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">broker_heartbeat_interval</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">Seconds</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_broker_heartbeat_interval</span> <span class="o">=</span> <span class="n">want_seconds</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">broker_commit_interval</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_broker_commit_interval</span>
+
+    <span class="nd">@broker_commit_interval</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">broker_commit_interval</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">Seconds</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_broker_commit_interval</span> <span class="o">=</span> <span class="n">want_seconds</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">broker_commit_livelock_soft_timeout</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_broker_commit_livelock_soft_timeout</span>
+
+    <span class="nd">@broker_commit_livelock_soft_timeout</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">broker_commit_livelock_soft_timeout</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">Seconds</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_broker_commit_livelock_soft_timeout</span> <span class="o">=</span> <span class="n">want_seconds</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">broker_max_poll_records</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_broker_max_poll_records</span>
+
+    <span class="nd">@broker_max_poll_records</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">broker_max_poll_records</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_broker_max_poll_records</span> <span class="o">=</span> <span class="n">value</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">producer_partitioner</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">PartitionerT</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_producer_partitioner</span>
+
+    <span class="nd">@producer_partitioner</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">producer_partitioner</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span> <span class="n">handler</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">SymbolArg</span><span class="p">[</span><span class="n">PartitionerT</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_producer_partitioner</span> <span class="o">=</span> <span class="n">symbol_by_name</span><span class="p">(</span><span class="n">handler</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">producer_request_timeout</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_producer_request_timeout</span>
+
+    <span class="nd">@producer_request_timeout</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">producer_request_timeout</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">timeout</span><span class="p">:</span> <span class="n">Seconds</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_producer_request_timeout</span> <span class="o">=</span> <span class="n">want_seconds</span><span class="p">(</span><span class="n">timeout</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">table_cleanup_interval</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_table_cleanup_interval</span>
+
+    <span class="nd">@table_cleanup_interval</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">table_cleanup_interval</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">Seconds</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_table_cleanup_interval</span> <span class="o">=</span> <span class="n">want_seconds</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">reply_expires</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_reply_expires</span>
+
+    <span class="nd">@reply_expires</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">reply_expires</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">reply_expires</span><span class="p">:</span> <span class="n">Seconds</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_reply_expires</span> <span class="o">=</span> <span class="n">want_seconds</span><span class="p">(</span><span class="n">reply_expires</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">stream_recovery_delay</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stream_recovery_delay</span>
+
+    <span class="nd">@stream_recovery_delay</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">stream_recovery_delay</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">delay</span><span class="p">:</span> <span class="n">Seconds</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_stream_recovery_delay</span> <span class="o">=</span> <span class="n">want_seconds</span><span class="p">(</span><span class="n">delay</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">agent_supervisor</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Type</span><span class="p">[</span><span class="n">SupervisorStrategyT</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_agent_supervisor</span>
+
+    <span class="nd">@agent_supervisor</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">agent_supervisor</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span> <span class="n">sup</span><span class="p">:</span> <span class="n">SymbolArg</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">SupervisorStrategyT</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_agent_supervisor</span> <span class="o">=</span> <span class="n">symbol_by_name</span><span class="p">(</span><span class="n">sup</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">web_transport</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">URL</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_web_transport</span>
+
+    <span class="nd">@web_transport</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">web_transport</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">url</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">URL</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_web_transport</span> <span class="o">=</span> <span class="n">URL</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">Agent</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Type</span><span class="p">[</span><span class="n">AgentT</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_Agent</span>
+
+    <span class="nd">@Agent</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">Agent</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">Agent</span><span class="p">:</span> <span class="n">SymbolArg</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">AgentT</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_Agent</span> <span class="o">=</span> <span class="n">symbol_by_name</span><span class="p">(</span><span class="n">Agent</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">ConsumerScheduler</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Type</span><span class="p">[</span><span class="n">SchedulingStrategyT</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ConsumerScheduler</span>
+
+    <span class="nd">@ConsumerScheduler</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">ConsumerScheduler</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">SymbolArg</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">SchedulingStrategyT</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_ConsumerScheduler</span> <span class="o">=</span> <span class="n">symbol_by_name</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">Event</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Type</span><span class="p">[</span><span class="n">EventT</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_Event</span>
+
+    <span class="nd">@Event</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">Event</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">Event</span><span class="p">:</span> <span class="n">SymbolArg</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">EventT</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_Event</span> <span class="o">=</span> <span class="n">symbol_by_name</span><span class="p">(</span><span class="n">Event</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">Schema</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Type</span><span class="p">[</span><span class="n">SchemaT</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_Schema</span>
+
+    <span class="nd">@Schema</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">Schema</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">Schema</span><span class="p">:</span> <span class="n">SymbolArg</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">SchemaT</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_Schema</span> <span class="o">=</span> <span class="n">symbol_by_name</span><span class="p">(</span><span class="n">Schema</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">Stream</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Type</span><span class="p">[</span><span class="n">StreamT</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_Stream</span>
+
+    <span class="nd">@Stream</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">Stream</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">Stream</span><span class="p">:</span> <span class="n">SymbolArg</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">StreamT</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_Stream</span> <span class="o">=</span> <span class="n">symbol_by_name</span><span class="p">(</span><span class="n">Stream</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">Table</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Type</span><span class="p">[</span><span class="n">TableT</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_Table</span>
+
+    <span class="nd">@Table</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">Table</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">Table</span><span class="p">:</span> <span class="n">SymbolArg</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">TableT</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_Table</span> <span class="o">=</span> <span class="n">symbol_by_name</span><span class="p">(</span><span class="n">Table</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">SetTable</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Type</span><span class="p">[</span><span class="n">TableT</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_SetTable</span>
+
+    <span class="nd">@SetTable</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">SetTable</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">SetTable</span><span class="p">:</span> <span class="n">SymbolArg</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">TableT</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_SetTable</span> <span class="o">=</span> <span class="n">symbol_by_name</span><span class="p">(</span><span class="n">SetTable</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">GlobalTable</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Type</span><span class="p">[</span><span class="n">GlobalTableT</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_GlobalTable</span>
+
+    <span class="nd">@GlobalTable</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">GlobalTable</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">GlobalTable</span><span class="p">:</span> <span class="n">SymbolArg</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">GlobalTableT</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_GlobalTable</span> <span class="o">=</span> <span class="n">symbol_by_name</span><span class="p">(</span><span class="n">GlobalTable</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">SetGlobalTable</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Type</span><span class="p">[</span><span class="n">GlobalTableT</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_SetGlobalTable</span>
+
+    <span class="nd">@SetGlobalTable</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">SetGlobalTable</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span> <span class="n">SetGlobalTable</span><span class="p">:</span> <span class="n">SymbolArg</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">GlobalTableT</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_SetGlobalTable</span> <span class="o">=</span> <span class="n">symbol_by_name</span><span class="p">(</span><span class="n">SetGlobalTable</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">TableManager</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Type</span><span class="p">[</span><span class="n">TableManagerT</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_TableManager</span>
+
+    <span class="nd">@TableManager</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">TableManager</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">Manager</span><span class="p">:</span> <span class="n">SymbolArg</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">TableManagerT</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_TableManager</span> <span class="o">=</span> <span class="n">symbol_by_name</span><span class="p">(</span><span class="n">Manager</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">Serializers</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Type</span><span class="p">[</span><span class="n">RegistryT</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_Serializers</span>
+
+    <span class="nd">@Serializers</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">Serializers</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">Serializers</span><span class="p">:</span> <span class="n">SymbolArg</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">RegistryT</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_Serializers</span> <span class="o">=</span> <span class="n">symbol_by_name</span><span class="p">(</span><span class="n">Serializers</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">Worker</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Type</span><span class="p">[</span><span class="n">_WorkerT</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_Worker</span>
+
+    <span class="nd">@Worker</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">Worker</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">Worker</span><span class="p">:</span> <span class="n">SymbolArg</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">_WorkerT</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_Worker</span> <span class="o">=</span> <span class="n">symbol_by_name</span><span class="p">(</span><span class="n">Worker</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">PartitionAssignor</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Type</span><span class="p">[</span><span class="n">PartitionAssignorT</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_PartitionAssignor</span>
+
+    <span class="nd">@PartitionAssignor</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">PartitionAssignor</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span> <span class="n">Assignor</span><span class="p">:</span> <span class="n">SymbolArg</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">PartitionAssignorT</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_PartitionAssignor</span> <span class="o">=</span> <span class="n">symbol_by_name</span><span class="p">(</span><span class="n">Assignor</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">LeaderAssignor</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Type</span><span class="p">[</span><span class="n">LeaderAssignorT</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_LeaderAssignor</span>
+
+    <span class="nd">@LeaderAssignor</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">LeaderAssignor</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span> <span class="n">Assignor</span><span class="p">:</span> <span class="n">SymbolArg</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">LeaderAssignorT</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_LeaderAssignor</span> <span class="o">=</span> <span class="n">symbol_by_name</span><span class="p">(</span><span class="n">Assignor</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">Router</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Type</span><span class="p">[</span><span class="n">RouterT</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_Router</span>
+
+    <span class="nd">@Router</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">Router</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">Router</span><span class="p">:</span> <span class="n">SymbolArg</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">RouterT</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_Router</span> <span class="o">=</span> <span class="n">symbol_by_name</span><span class="p">(</span><span class="n">Router</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">Topic</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Type</span><span class="p">[</span><span class="n">TopicT</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_Topic</span>
+
+    <span class="nd">@Topic</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">Topic</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">Topic</span><span class="p">:</span> <span class="n">SymbolArg</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">TopicT</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_Topic</span> <span class="o">=</span> <span class="n">symbol_by_name</span><span class="p">(</span><span class="n">Topic</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">HttpClient</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Type</span><span class="p">[</span><span class="n">HttpClientT</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_HttpClient</span>
+
+    <span class="nd">@HttpClient</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">HttpClient</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">HttpClient</span><span class="p">:</span> <span class="n">SymbolArg</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">HttpClientT</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_HttpClient</span> <span class="o">=</span> <span class="n">symbol_by_name</span><span class="p">(</span><span class="n">HttpClient</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">Monitor</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Type</span><span class="p">[</span><span class="n">SensorT</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_Monitor</span>
+
+    <span class="nd">@Monitor</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">Monitor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">Monitor</span><span class="p">:</span> <span class="n">SymbolArg</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">SensorT</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_Monitor</span> <span class="o">=</span> <span class="n">symbol_by_name</span><span class="p">(</span><span class="n">Monitor</span><span class="p">)</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../../index.html">
+              <img class="logo" src="../../../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../../../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../playbooks/index.html">Playbooks</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../userguide/index.html">User Guide</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../reference/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../history/index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2019, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

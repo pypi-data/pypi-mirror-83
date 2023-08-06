@@ -1,0 +1,709 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>faust.types.app &#8212; Faust 1.11.0a1 documentation</title>
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../../../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <link rel="copyright" title="Copyright" href="../../../copyright.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for faust.types.app</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">abc</span>
+<span class="kn">import</span> <span class="nn">asyncio</span>
+<span class="kn">import</span> <span class="nn">typing</span>
+<span class="kn">from</span> <span class="nn">datetime</span> <span class="k">import</span> <span class="n">tzinfo</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">Any</span><span class="p">,</span>
+    <span class="n">AsyncIterable</span><span class="p">,</span>
+    <span class="n">Awaitable</span><span class="p">,</span>
+    <span class="n">Callable</span><span class="p">,</span>
+    <span class="n">ClassVar</span><span class="p">,</span>
+    <span class="n">ContextManager</span><span class="p">,</span>
+    <span class="n">Iterable</span><span class="p">,</span>
+    <span class="n">Mapping</span><span class="p">,</span>
+    <span class="n">MutableSequence</span><span class="p">,</span>
+    <span class="n">Optional</span><span class="p">,</span>
+    <span class="n">Pattern</span><span class="p">,</span>
+    <span class="n">Set</span><span class="p">,</span>
+    <span class="n">Tuple</span><span class="p">,</span>
+    <span class="n">Type</span><span class="p">,</span>
+    <span class="n">TypeVar</span><span class="p">,</span>
+    <span class="n">Union</span><span class="p">,</span>
+    <span class="n">no_type_check</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="kn">import</span> <span class="nn">opentracing</span>
+<span class="kn">from</span> <span class="nn">mode</span> <span class="k">import</span> <span class="n">Seconds</span><span class="p">,</span> <span class="n">ServiceT</span><span class="p">,</span> <span class="n">Signal</span><span class="p">,</span> <span class="n">SupervisorStrategyT</span><span class="p">,</span> <span class="n">SyncSignal</span>
+<span class="kn">from</span> <span class="nn">mode.utils.futures</span> <span class="k">import</span> <span class="n">stampede</span>
+<span class="kn">from</span> <span class="nn">mode.utils.objects</span> <span class="k">import</span> <span class="n">cached_property</span>
+<span class="kn">from</span> <span class="nn">mode.utils.queues</span> <span class="k">import</span> <span class="n">FlowControlEvent</span><span class="p">,</span> <span class="n">ThrowableQueue</span>
+<span class="kn">from</span> <span class="nn">mode.utils.types.trees</span> <span class="k">import</span> <span class="n">NodeT</span>
+<span class="kn">from</span> <span class="nn">mode.utils.typing</span> <span class="k">import</span> <span class="n">NoReturn</span>
+
+
+<span class="kn">from</span> <span class="nn">.agents</span> <span class="k">import</span> <span class="n">AgentFun</span><span class="p">,</span> <span class="n">AgentManagerT</span><span class="p">,</span> <span class="n">AgentT</span><span class="p">,</span> <span class="n">SinkT</span>
+<span class="kn">from</span> <span class="nn">.assignor</span> <span class="k">import</span> <span class="n">PartitionAssignorT</span>
+<span class="kn">from</span> <span class="nn">.codecs</span> <span class="k">import</span> <span class="n">CodecArg</span>
+<span class="kn">from</span> <span class="nn">.core</span> <span class="k">import</span> <span class="n">HeadersArg</span><span class="p">,</span> <span class="n">K</span><span class="p">,</span> <span class="n">V</span>
+<span class="kn">from</span> <span class="nn">.fixups</span> <span class="k">import</span> <span class="n">FixupT</span>
+<span class="kn">from</span> <span class="nn">.router</span> <span class="k">import</span> <span class="n">RouterT</span>
+<span class="kn">from</span> <span class="nn">.sensors</span> <span class="k">import</span> <span class="n">SensorDelegateT</span>
+<span class="kn">from</span> <span class="nn">.serializers</span> <span class="k">import</span> <span class="n">RegistryT</span>
+<span class="kn">from</span> <span class="nn">.streams</span> <span class="k">import</span> <span class="n">StreamT</span>
+<span class="kn">from</span> <span class="nn">.tables</span> <span class="k">import</span> <span class="n">CollectionT</span><span class="p">,</span> <span class="n">TableManagerT</span><span class="p">,</span> <span class="n">TableT</span>
+<span class="kn">from</span> <span class="nn">.topics</span> <span class="k">import</span> <span class="n">ChannelT</span><span class="p">,</span> <span class="n">TopicT</span>
+<span class="kn">from</span> <span class="nn">.transports</span> <span class="k">import</span> <span class="n">ConductorT</span><span class="p">,</span> <span class="n">ConsumerT</span><span class="p">,</span> <span class="n">ProducerT</span><span class="p">,</span> <span class="n">TransportT</span>
+<span class="kn">from</span> <span class="nn">.tuples</span> <span class="k">import</span> <span class="n">Message</span><span class="p">,</span> <span class="n">MessageSentCallback</span><span class="p">,</span> <span class="n">RecordMetadata</span><span class="p">,</span> <span class="n">TP</span>
+<span class="kn">from</span> <span class="nn">.web</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">CacheBackendT</span><span class="p">,</span>
+    <span class="n">HttpClientT</span><span class="p">,</span>
+    <span class="n">PageArg</span><span class="p">,</span>
+    <span class="n">ResourceOptions</span><span class="p">,</span>
+    <span class="n">View</span><span class="p">,</span>
+    <span class="n">ViewDecorator</span><span class="p">,</span>
+    <span class="n">Web</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">.windows</span> <span class="k">import</span> <span class="n">WindowT</span>
+
+<span class="k">if</span> <span class="n">typing</span><span class="o">.</span><span class="n">TYPE_CHECKING</span><span class="p">:</span>
+    <span class="kn">from</span> <span class="nn">faust.cli.base</span> <span class="k">import</span> <span class="n">AppCommand</span> <span class="k">as</span> <span class="n">_AppCommand</span>
+    <span class="kn">from</span> <span class="nn">faust.livecheck.app</span> <span class="k">import</span> <span class="n">LiveCheck</span> <span class="k">as</span> <span class="n">_LiveCheck</span>
+    <span class="kn">from</span> <span class="nn">faust.sensors.monitor</span> <span class="k">import</span> <span class="n">Monitor</span> <span class="k">as</span> <span class="n">_Monitor</span>
+    <span class="kn">from</span> <span class="nn">faust.worker</span> <span class="k">import</span> <span class="n">Worker</span> <span class="k">as</span> <span class="n">_Worker</span>
+    <span class="kn">from</span> <span class="nn">.events</span> <span class="k">import</span> <span class="n">EventT</span> <span class="k">as</span> <span class="n">_EventT</span>
+    <span class="kn">from</span> <span class="nn">.models</span> <span class="k">import</span> <span class="n">ModelArg</span> <span class="k">as</span> <span class="n">_ModelArg</span>
+    <span class="kn">from</span> <span class="nn">.serializers</span> <span class="k">import</span> <span class="n">SchemaT</span> <span class="k">as</span> <span class="n">_SchemaT</span>
+    <span class="kn">from</span> <span class="nn">.settings</span> <span class="k">import</span> <span class="n">Settings</span> <span class="k">as</span> <span class="n">_Settings</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="k">class</span> <span class="nc">_AppCommand</span><span class="p">:</span> <span class="o">...</span>     <span class="c1"># noqa</span>
+    <span class="k">class</span> <span class="nc">_SchemaT</span><span class="p">:</span> <span class="o">...</span>        <span class="c1"># noqa</span>
+    <span class="k">class</span> <span class="nc">_LiveCheck</span><span class="p">:</span> <span class="o">...</span>      <span class="c1"># noqa</span>
+    <span class="k">class</span> <span class="nc">_Monitor</span><span class="p">:</span> <span class="o">...</span>        <span class="c1"># noqa</span>
+    <span class="k">class</span> <span class="nc">_Worker</span><span class="p">:</span> <span class="o">...</span>         <span class="c1"># noqa</span>
+    <span class="k">class</span> <span class="nc">_EventT</span><span class="p">:</span> <span class="o">...</span>         <span class="c1"># noqa</span>
+    <span class="k">class</span> <span class="nc">_ModelArg</span><span class="p">:</span> <span class="o">...</span>       <span class="c1"># noqa</span>
+    <span class="k">class</span> <span class="nc">_Settings</span><span class="p">:</span> <span class="o">...</span>       <span class="c1"># noqa</span>
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="s1">&#39;TaskArg&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;AppT&#39;</span><span class="p">,</span>
+<span class="p">]</span>
+
+<span class="n">TaskArg</span> <span class="o">=</span> <span class="n">Union</span><span class="p">[</span><span class="n">Callable</span><span class="p">[[</span><span class="s1">&#39;AppT&#39;</span><span class="p">],</span> <span class="n">Awaitable</span><span class="p">],</span> <span class="n">Callable</span><span class="p">[[],</span> <span class="n">Awaitable</span><span class="p">]]</span>
+<span class="n">_T</span> <span class="o">=</span> <span class="n">TypeVar</span><span class="p">(</span><span class="s1">&#39;_T&#39;</span><span class="p">)</span>
+
+
+<span class="k">class</span> <span class="nc">TracerT</span><span class="p">(</span><span class="n">abc</span><span class="o">.</span><span class="n">ABC</span><span class="p">):</span>
+
+    <span class="nd">@property</span>
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">default_tracer</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">opentracing</span><span class="o">.</span><span class="n">Tracer</span><span class="p">:</span>
+        <span class="o">...</span>
+
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">trace</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+              <span class="n">sample_rate</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+              <span class="o">**</span><span class="n">extra_context</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ContextManager</span><span class="p">:</span>
+        <span class="o">...</span>
+
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">get_tracer</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">service_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">opentracing</span><span class="o">.</span><span class="n">Tracer</span><span class="p">:</span>
+        <span class="o">...</span>
+
+
+<span class="k">class</span> <span class="nc">BootStrategyT</span><span class="p">:</span>
+    <span class="n">app</span><span class="p">:</span> <span class="s1">&#39;AppT&#39;</span>
+
+    <span class="n">enable_kafka</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="c1"># We want these to take default from `enable_kafka`</span>
+    <span class="c1"># attribute, but still want to allow subclasses to define</span>
+    <span class="c1"># them like this:</span>
+    <span class="c1">#   class MyBoot(BootStrategy):</span>
+    <span class="c1">#       enable_kafka_consumer = False</span>
+    <span class="n">enable_kafka_consumer</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">enable_kafka_producer</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="n">enable_web</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">enable_sensors</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">app</span><span class="p">:</span> <span class="s1">&#39;AppT&#39;</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span>
+                 <span class="n">enable_web</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">enable_kafka</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+                 <span class="n">enable_kafka_producer</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">enable_kafka_consumer</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">enable_sensors</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span>
+
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">server</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">ServiceT</span><span class="p">]:</span>
+        <span class="o">...</span>
+
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">client_only</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">ServiceT</span><span class="p">]:</span>
+        <span class="o">...</span>
+
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">producer_only</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">ServiceT</span><span class="p">]:</span>
+        <span class="o">...</span>
+
+
+<div class="viewcode-block" id="AppT"><a class="viewcode-back" href="../../../reference/faust.types.app.html#faust.types.app.AppT">[docs]</a><span class="k">class</span> <span class="nc">AppT</span><span class="p">(</span><span class="n">ServiceT</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Abstract type for the Faust application.</span>
+
+<span class="sd">    See Also:</span>
+<span class="sd">        :class:`faust.App`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">Settings</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">_Settings</span><span class="p">]]</span>
+
+    <span class="n">BootStrategy</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">BootStrategyT</span><span class="p">]]</span>
+    <span class="n">boot_strategy</span><span class="p">:</span> <span class="n">BootStrategyT</span>
+
+    <span class="c1">#: Set to true when the app is finalized (can read configuration).</span>
+    <span class="n">finalized</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="c1">#: Set to true when the app has read configuration.</span>
+    <span class="n">configured</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="c1">#: Set to true if the worker is currently rebalancing.</span>
+    <span class="n">rebalancing</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">rebalancing_count</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="c1">#: Set to true if the assignment is empty</span>
+    <span class="c1"># This flag is set by App._on_partitions_assigned</span>
+    <span class="n">unassigned</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="c1">#: Set to true when app is executing within a worker instance.</span>
+    <span class="c1"># This flag is set in faust/worker.py</span>
+    <span class="n">in_worker</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="n">on_configured</span><span class="p">:</span> <span class="n">SyncSignal</span><span class="p">[</span><span class="n">_Settings</span><span class="p">]</span> <span class="o">=</span> <span class="n">SyncSignal</span><span class="p">()</span>
+    <span class="n">on_before_configured</span><span class="p">:</span> <span class="n">SyncSignal</span> <span class="o">=</span> <span class="n">SyncSignal</span><span class="p">()</span>
+    <span class="n">on_after_configured</span><span class="p">:</span> <span class="n">SyncSignal</span> <span class="o">=</span> <span class="n">SyncSignal</span><span class="p">()</span>
+    <span class="n">on_partitions_assigned</span><span class="p">:</span> <span class="n">Signal</span><span class="p">[</span><span class="n">Set</span><span class="p">[</span><span class="n">TP</span><span class="p">]]</span> <span class="o">=</span> <span class="n">Signal</span><span class="p">()</span>
+    <span class="n">on_partitions_revoked</span><span class="p">:</span> <span class="n">Signal</span><span class="p">[</span><span class="n">Set</span><span class="p">[</span><span class="n">TP</span><span class="p">]]</span> <span class="o">=</span> <span class="n">Signal</span><span class="p">()</span>
+    <span class="n">on_rebalance_complete</span><span class="p">:</span> <span class="n">Signal</span> <span class="o">=</span> <span class="n">Signal</span><span class="p">()</span>
+    <span class="n">on_before_shutdown</span><span class="p">:</span> <span class="n">Signal</span> <span class="o">=</span> <span class="n">Signal</span><span class="p">()</span>
+    <span class="n">on_worker_init</span><span class="p">:</span> <span class="n">SyncSignal</span> <span class="o">=</span> <span class="n">SyncSignal</span><span class="p">()</span>
+    <span class="n">on_produce_message</span><span class="p">:</span> <span class="n">SyncSignal</span> <span class="o">=</span> <span class="n">SyncSignal</span><span class="p">()</span>
+
+    <span class="n">client_only</span><span class="p">:</span> <span class="nb">bool</span>
+    <span class="n">producer_only</span><span class="p">:</span> <span class="nb">bool</span>
+
+    <span class="n">agents</span><span class="p">:</span> <span class="n">AgentManagerT</span>
+    <span class="n">sensors</span><span class="p">:</span> <span class="n">SensorDelegateT</span>
+
+    <span class="n">fixups</span><span class="p">:</span> <span class="n">MutableSequence</span><span class="p">[</span><span class="n">FixupT</span><span class="p">]</span>
+
+    <span class="n">tracer</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">TracerT</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="c1">#: Original id argument + kwargs passed to App.__init__</span>
+    <span class="n">_default_options</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span>
+
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                 <span class="nb">id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+                 <span class="o">*</span><span class="p">,</span>
+                 <span class="n">monitor</span><span class="p">:</span> <span class="n">_Monitor</span><span class="p">,</span>
+                 <span class="n">config_source</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="o">**</span><span class="n">options</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">on_startup_finished</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Callable</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="AppT.config_from_object"><a class="viewcode-back" href="../../../reference/faust.types.app.html#faust.types.app.AppT.config_from_object">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">config_from_object</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                           <span class="n">obj</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+                           <span class="o">*</span><span class="p">,</span>
+                           <span class="n">silent</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+                           <span class="n">force</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="AppT.finalize"><a class="viewcode-back" href="../../../reference/faust.types.app.html#faust.types.app.AppT.finalize">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">finalize</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="AppT.main"><a class="viewcode-back" href="../../../reference/faust.types.app.html#faust.types.app.AppT.main">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">main</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">NoReturn</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="AppT.worker_init"><a class="viewcode-back" href="../../../reference/faust.types.app.html#faust.types.app.AppT.worker_init">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">worker_init</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="AppT.worker_init_post_autodiscover"><a class="viewcode-back" href="../../../reference/faust.types.app.html#faust.types.app.AppT.worker_init_post_autodiscover">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">worker_init_post_autodiscover</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="AppT.discover"><a class="viewcode-back" href="../../../reference/faust.types.app.html#faust.types.app.AppT.discover">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">discover</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                 <span class="o">*</span><span class="n">extra_modules</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+                 <span class="n">categories</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="s1">&#39;a&#39;</span><span class="p">,</span> <span class="s1">&#39;b&#39;</span><span class="p">,</span> <span class="s1">&#39;c&#39;</span><span class="p">),</span>
+                 <span class="n">ignore</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="s1">&#39;foo&#39;</span><span class="p">,</span> <span class="s1">&#39;bar&#39;</span><span class="p">))</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="AppT.topic"><a class="viewcode-back" href="../../../reference/faust.types.app.html#faust.types.app.AppT.topic">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">topic</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+              <span class="o">*</span><span class="n">topics</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+              <span class="n">pattern</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Pattern</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+              <span class="n">schema</span><span class="p">:</span> <span class="n">_SchemaT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+              <span class="n">key_type</span><span class="p">:</span> <span class="n">_ModelArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+              <span class="n">value_type</span><span class="p">:</span> <span class="n">_ModelArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+              <span class="n">key_serializer</span><span class="p">:</span> <span class="n">CodecArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+              <span class="n">value_serializer</span><span class="p">:</span> <span class="n">CodecArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+              <span class="n">partitions</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+              <span class="n">retention</span><span class="p">:</span> <span class="n">Seconds</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+              <span class="n">compacting</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+              <span class="n">deleting</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+              <span class="n">replicas</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+              <span class="n">acks</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+              <span class="n">internal</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+              <span class="n">config</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+              <span class="n">maxsize</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+              <span class="n">allow_empty</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+              <span class="n">has_prefix</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+              <span class="n">loop</span><span class="p">:</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">AbstractEventLoop</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TopicT</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="AppT.channel"><a class="viewcode-back" href="../../../reference/faust.types.app.html#faust.types.app.AppT.channel">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">channel</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                <span class="o">*</span><span class="p">,</span>
+                <span class="n">schema</span><span class="p">:</span> <span class="n">_SchemaT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                <span class="n">key_type</span><span class="p">:</span> <span class="n">_ModelArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                <span class="n">value_type</span><span class="p">:</span> <span class="n">_ModelArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                <span class="n">maxsize</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                <span class="n">loop</span><span class="p">:</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">AbstractEventLoop</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ChannelT</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="AppT.agent"><a class="viewcode-back" href="../../../reference/faust.types.app.html#faust.types.app.AppT.agent">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">agent</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+              <span class="n">channel</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">ChannelT</span><span class="p">[</span><span class="n">_T</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+              <span class="o">*</span><span class="p">,</span>
+              <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+              <span class="n">concurrency</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+              <span class="n">supervisor_strategy</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">SupervisorStrategyT</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+              <span class="n">sink</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">SinkT</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+              <span class="n">isolated_partitions</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+              <span class="n">use_reply_headers</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+              <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">AgentFun</span><span class="p">[</span><span class="n">_T</span><span class="p">]],</span> <span class="n">AgentT</span><span class="p">[</span><span class="n">_T</span><span class="p">]]:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="AppT.task"><a class="viewcode-back" href="../../../reference/faust.types.app.html#faust.types.app.AppT.task">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="nd">@no_type_check</span>
+    <span class="k">def</span> <span class="nf">task</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fun</span><span class="p">:</span> <span class="n">TaskArg</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span>
+             <span class="n">on_leader</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+             <span class="n">traced</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="AppT.timer"><a class="viewcode-back" href="../../../reference/faust.types.app.html#faust.types.app.AppT.timer">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">timer</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">interval</span><span class="p">:</span> <span class="n">Seconds</span><span class="p">,</span>
+              <span class="n">on_leader</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+              <span class="n">traced</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+              <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+              <span class="n">max_drift_correction</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="AppT.crontab"><a class="viewcode-back" href="../../../reference/faust.types.app.html#faust.types.app.AppT.crontab">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">crontab</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cron_format</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span>
+                <span class="n">timezone</span><span class="p">:</span> <span class="n">tzinfo</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                <span class="n">on_leader</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+                <span class="n">traced</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="AppT.service"><a class="viewcode-back" href="../../../reference/faust.types.app.html#faust.types.app.AppT.service">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">service</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="bp">cls</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">ServiceT</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Type</span><span class="p">[</span><span class="n">ServiceT</span><span class="p">]:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="AppT.stream"><a class="viewcode-back" href="../../../reference/faust.types.app.html#faust.types.app.AppT.stream">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">stream</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+               <span class="n">channel</span><span class="p">:</span> <span class="n">AsyncIterable</span><span class="p">,</span>
+               <span class="n">beacon</span><span class="p">:</span> <span class="n">NodeT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+               <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">StreamT</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="AppT.Table"><a class="viewcode-back" href="../../../reference/faust.types.app.html#faust.types.app.AppT.Table">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">Table</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+              <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+              <span class="o">*</span><span class="p">,</span>
+              <span class="n">default</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[],</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+              <span class="n">window</span><span class="p">:</span> <span class="n">WindowT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+              <span class="n">partitions</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+              <span class="n">help</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+              <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TableT</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="AppT.GlobalTable"><a class="viewcode-back" href="../../../reference/faust.types.app.html#faust.types.app.AppT.GlobalTable">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">GlobalTable</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+                    <span class="o">*</span><span class="p">,</span>
+                    <span class="n">default</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[],</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                    <span class="n">window</span><span class="p">:</span> <span class="n">WindowT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                    <span class="n">partitions</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                    <span class="n">help</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                    <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TableT</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="AppT.SetTable"><a class="viewcode-back" href="../../../reference/faust.types.app.html#faust.types.app.AppT.SetTable">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">SetTable</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                 <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+                 <span class="o">*</span><span class="p">,</span>
+                 <span class="n">window</span><span class="p">:</span> <span class="n">WindowT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">partitions</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">start_manager</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+                 <span class="n">help</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TableT</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="AppT.SetGlobalTable"><a class="viewcode-back" href="../../../reference/faust.types.app.html#faust.types.app.AppT.SetGlobalTable">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">SetGlobalTable</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                       <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+                       <span class="o">*</span><span class="p">,</span>
+                       <span class="n">window</span><span class="p">:</span> <span class="n">WindowT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                       <span class="n">partitions</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                       <span class="n">start_manager</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+                       <span class="n">help</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                       <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TableT</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="AppT.page"><a class="viewcode-back" href="../../../reference/faust.types.app.html#faust.types.app.AppT.page">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">page</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span>
+             <span class="n">base</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">View</span><span class="p">]</span> <span class="o">=</span> <span class="n">View</span><span class="p">,</span>
+             <span class="n">cors_options</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">ResourceOptions</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+             <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">PageArg</span><span class="p">],</span> <span class="n">Type</span><span class="p">[</span><span class="n">View</span><span class="p">]]:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="AppT.table_route"><a class="viewcode-back" href="../../../reference/faust.types.app.html#faust.types.app.AppT.table_route">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">table_route</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">table</span><span class="p">:</span> <span class="n">CollectionT</span><span class="p">,</span>
+                    <span class="n">shard_param</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                    <span class="o">*</span><span class="p">,</span>
+                    <span class="n">query_param</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                    <span class="n">match_info</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                    <span class="n">exact_key</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ViewDecorator</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="AppT.command"><a class="viewcode-back" href="../../../reference/faust.types.app.html#faust.types.app.AppT.command">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">command</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                <span class="o">*</span><span class="n">options</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+                <span class="n">base</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">_AppCommand</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">Callable</span><span class="p">],</span> <span class="n">Type</span><span class="p">[</span><span class="n">_AppCommand</span><span class="p">]]:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="AppT.create_event"><a class="viewcode-back" href="../../../reference/faust.types.app.html#faust.types.app.AppT.create_event">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">create_event</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                     <span class="n">key</span><span class="p">:</span> <span class="n">K</span><span class="p">,</span>
+                     <span class="n">value</span><span class="p">:</span> <span class="n">V</span><span class="p">,</span>
+                     <span class="n">headers</span><span class="p">:</span> <span class="n">HeadersArg</span><span class="p">,</span>
+                     <span class="n">message</span><span class="p">:</span> <span class="n">Message</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_EventT</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="AppT.start_client"><a class="viewcode-back" href="../../../reference/faust.types.app.html#faust.types.app.AppT.start_client">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">start_client</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="AppT.maybe_start_client"><a class="viewcode-back" href="../../../reference/faust.types.app.html#faust.types.app.AppT.maybe_start_client">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">maybe_start_client</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="AppT.trace"><a class="viewcode-back" href="../../../reference/faust.types.app.html#faust.types.app.AppT.trace">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">trace</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+              <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+              <span class="n">trace_enabled</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+              <span class="o">**</span><span class="n">extra_context</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ContextManager</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="AppT.send"><a class="viewcode-back" href="../../../reference/faust.types.app.html#faust.types.app.AppT.send">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">send</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">channel</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">ChannelT</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span>
+            <span class="n">key</span><span class="p">:</span> <span class="n">K</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">value</span><span class="p">:</span> <span class="n">V</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">partition</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">timestamp</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">headers</span><span class="p">:</span> <span class="n">HeadersArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">schema</span><span class="p">:</span> <span class="n">_SchemaT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">key_serializer</span><span class="p">:</span> <span class="n">CodecArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">value_serializer</span><span class="p">:</span> <span class="n">CodecArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">callback</span><span class="p">:</span> <span class="n">MessageSentCallback</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Awaitable</span><span class="p">[</span><span class="n">RecordMetadata</span><span class="p">]:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="AppT.LiveCheck"><a class="viewcode-back" href="../../../reference/faust.types.app.html#faust.types.app.AppT.LiveCheck">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">LiveCheck</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_LiveCheck</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="AppT.maybe_start_producer"><a class="viewcode-back" href="../../../reference/faust.types.app.html#faust.types.app.AppT.maybe_start_producer">[docs]</a>    <span class="nd">@stampede</span>
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">maybe_start_producer</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ProducerT</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="AppT.is_leader"><a class="viewcode-back" href="../../../reference/faust.types.app.html#faust.types.app.AppT.is_leader">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">is_leader</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="AppT.FlowControlQueue"><a class="viewcode-back" href="../../../reference/faust.types.app.html#faust.types.app.AppT.FlowControlQueue">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">FlowControlQueue</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">maxsize</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="o">*</span><span class="p">,</span>
+            <span class="n">clear_on_resume</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+            <span class="n">loop</span><span class="p">:</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">AbstractEventLoop</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ThrowableQueue</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="AppT.Worker"><a class="viewcode-back" href="../../../reference/faust.types.app.html#faust.types.app.AppT.Worker">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">Worker</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_Worker</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="AppT.on_webserver_init"><a class="viewcode-back" href="../../../reference/faust.types.app.html#faust.types.app.AppT.on_webserver_init">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">on_webserver_init</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">web</span><span class="p">:</span> <span class="n">Web</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="AppT.on_rebalance_start"><a class="viewcode-back" href="../../../reference/faust.types.app.html#faust.types.app.AppT.on_rebalance_start">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">on_rebalance_start</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="AppT.on_rebalance_return"><a class="viewcode-back" href="../../../reference/faust.types.app.html#faust.types.app.AppT.on_rebalance_return">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">on_rebalance_return</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="AppT.on_rebalance_end"><a class="viewcode-back" href="../../../reference/faust.types.app.html#faust.types.app.AppT.on_rebalance_end">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">on_rebalance_end</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">conf</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_Settings</span><span class="p">:</span>
+        <span class="o">...</span>
+
+    <span class="nd">@conf</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">conf</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">settings</span><span class="p">:</span> <span class="n">_Settings</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span>
+
+    <span class="nd">@property</span>
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">transport</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TransportT</span><span class="p">:</span>
+        <span class="o">...</span>
+
+    <span class="nd">@transport</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">transport</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">transport</span><span class="p">:</span> <span class="n">TransportT</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span>
+
+    <span class="nd">@property</span>
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">producer_transport</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TransportT</span><span class="p">:</span>
+        <span class="o">...</span>
+
+    <span class="nd">@producer_transport</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">producer_transport</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">transport</span><span class="p">:</span> <span class="n">TransportT</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span>
+
+    <span class="nd">@property</span>
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">cache</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CacheBackendT</span><span class="p">:</span>
+        <span class="o">...</span>
+
+    <span class="nd">@cache</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">cache</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cache</span><span class="p">:</span> <span class="n">CacheBackendT</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span>
+
+    <span class="nd">@property</span>
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">producer</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ProducerT</span><span class="p">:</span>
+        <span class="o">...</span>
+
+    <span class="nd">@property</span>
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">consumer</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ConsumerT</span><span class="p">:</span>
+        <span class="o">...</span>
+
+<div class="viewcode-block" id="AppT.tables"><a class="viewcode-back" href="../../../reference/faust.types.app.html#faust.types.app.AppT.tables">[docs]</a>    <span class="nd">@cached_property</span>
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">tables</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TableManagerT</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="AppT.topics"><a class="viewcode-back" href="../../../reference/faust.types.app.html#faust.types.app.AppT.topics">[docs]</a>    <span class="nd">@cached_property</span>
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">topics</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ConductorT</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+    <span class="nd">@property</span>
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">monitor</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_Monitor</span><span class="p">:</span>
+        <span class="o">...</span>
+
+    <span class="nd">@monitor</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">monitor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">_Monitor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span>
+
+<div class="viewcode-block" id="AppT.flow_control"><a class="viewcode-back" href="../../../reference/faust.types.app.html#faust.types.app.AppT.flow_control">[docs]</a>    <span class="nd">@cached_property</span>
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">flow_control</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">FlowControlEvent</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">FlowControlEvent</span><span class="p">(</span><span class="n">loop</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">loop</span><span class="p">)</span></div>
+
+    <span class="nd">@property</span>
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">http_client</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">HttpClientT</span><span class="p">:</span>
+        <span class="o">...</span>
+
+    <span class="nd">@http_client</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">http_client</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">client</span><span class="p">:</span> <span class="n">HttpClientT</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span>
+
+<div class="viewcode-block" id="AppT.assignor"><a class="viewcode-back" href="../../../reference/faust.types.app.html#faust.types.app.AppT.assignor">[docs]</a>    <span class="nd">@cached_property</span>
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">assignor</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PartitionAssignorT</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="AppT.router"><a class="viewcode-back" href="../../../reference/faust.types.app.html#faust.types.app.AppT.router">[docs]</a>    <span class="nd">@cached_property</span>
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">router</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RouterT</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="AppT.serializers"><a class="viewcode-back" href="../../../reference/faust.types.app.html#faust.types.app.AppT.serializers">[docs]</a>    <span class="nd">@cached_property</span>
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">serializers</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RegistryT</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="AppT.web"><a class="viewcode-back" href="../../../reference/faust.types.app.html#faust.types.app.AppT.web">[docs]</a>    <span class="nd">@cached_property</span>
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">web</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Web</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="AppT.in_transaction"><a class="viewcode-back" href="../../../reference/faust.types.app.html#faust.types.app.AppT.in_transaction">[docs]</a>    <span class="nd">@cached_property</span>
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">in_transaction</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">_span_add_default_tags</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">span</span><span class="p">:</span> <span class="n">opentracing</span><span class="o">.</span><span class="n">Span</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span>
+
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">_start_span_from_rebalancing</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">opentracing</span><span class="o">.</span><span class="n">Span</span><span class="p">:</span>
+        <span class="o">...</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../../index.html">
+              <img class="logo" src="../../../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../../../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../playbooks/index.html">Playbooks</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../userguide/index.html">User Guide</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../reference/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../history/index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2020, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

@@ -1,0 +1,268 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>Quick Start &#8212; Faust 1.11.0a1 documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="copyright" title="Copyright" href="../copyright.html" />
+    <link rel="next" title="Tutorial: Count page views" href="pageviews.html" />
+    <link rel="prev" title="Playbooks" href="index.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="quick-start">
+<span id="quickstart"></span><h1>Quick Start<a class="headerlink" href="#quick-start" title="Permalink to this headline">¶</a></h1>
+<div class="contents local topic" id="contents">
+<ul class="simple">
+<li><p><a class="reference internal" href="#hello-world" id="id1">Hello World</a></p>
+<ul>
+<li><p><a class="reference internal" href="#application" id="id2">Application</a></p></li>
+<li><p><a class="reference internal" href="#starting-kafka" id="id3">Starting Kafka</a></p></li>
+<li><p><a class="reference internal" href="#running-the-faust-worker" id="id4">Running the Faust worker</a></p></li>
+<li><p><a class="reference internal" href="#seeing-things-in-action" id="id5">Seeing things in Action</a></p></li>
+<li><p><a class="reference internal" href="#where-to-go-from-here" id="id6">Where to go from here…</a></p></li>
+</ul>
+</li>
+</ul>
+</div>
+<div class="section" id="hello-world">
+<h2><a class="toc-backref" href="#id1">Hello World</a><a class="headerlink" href="#hello-world" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="application">
+<h3><a class="toc-backref" href="#id2">Application</a><a class="headerlink" href="#application" title="Permalink to this headline">¶</a></h3>
+<p>The first thing you need to get up and running with Faust is to define
+an application.</p>
+<p>The application (or app for short) configures your project and implements
+common functionality. We also define a topic description, and an agent
+to process messages in that topic.</p>
+<p>Lets create the file <cite>hello_world.py</cite>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">faust</span>
+
+<span class="n">app</span> <span class="o">=</span> <span class="n">faust</span><span class="o">.</span><span class="n">App</span><span class="p">(</span>
+    <span class="s1">&#39;hello-world&#39;</span><span class="p">,</span>
+    <span class="n">broker</span><span class="o">=</span><span class="s1">&#39;kafka://localhost:9092&#39;</span><span class="p">,</span>
+    <span class="n">value_serializer</span><span class="o">=</span><span class="s1">&#39;raw&#39;</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">greetings_topic</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">topic</span><span class="p">(</span><span class="s1">&#39;greetings&#39;</span><span class="p">)</span>
+
+<span class="nd">@app.agent</span><span class="p">(</span><span class="n">greetings_topic</span><span class="p">)</span>
+<span class="n">async</span> <span class="k">def</span> <span class="nf">greet</span><span class="p">(</span><span class="n">greetings</span><span class="p">):</span>
+    <span class="n">async</span> <span class="k">for</span> <span class="n">greeting</span> <span class="ow">in</span> <span class="n">greetings</span><span class="p">:</span>
+        <span class="k">print</span><span class="p">(</span><span class="n">greeting</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>In this tutorial, we keep everything in a single module, but for larger
+projects, you can create a dedicated package with a submodule layout.</p>
+<p>The first argument passed to the app is the <code class="docutils literal notranslate"><span class="pre">id</span></code> of the application, needed
+for internal bookkeeping and to distribute work among worker instances.</p>
+<p>By default Faust will use JSON serialization, so we specify <code class="docutils literal notranslate"><span class="pre">value_serializer</span></code>
+here as <code class="docutils literal notranslate"><span class="pre">raw</span></code> to avoid deserializing incoming greetings.  For real
+applications you should define models (see <a class="reference internal" href="../userguide/models.html#guide-models"><span class="std std-ref">Models, Serialization, and Codecs</span></a>).</p>
+<p>Here you defined a Kafka topic <code class="docutils literal notranslate"><span class="pre">greetings</span></code> and then an agent that
+iterates over the messages in the topic and prints each one of them.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The application <a class="reference internal" href="../userguide/settings.html#std:setting-id"><code class="xref std std-setting docutils literal notranslate"><span class="pre">id</span></code></a> setting (i.e. <code class="docutils literal notranslate"><span class="pre">'hello-world'</span></code> in
+the example above), should be unique per Faust app in your Kafka
+cluster.</p>
+</div>
+</div>
+<div class="section" id="starting-kafka">
+<h3><a class="toc-backref" href="#id3">Starting Kafka</a><a class="headerlink" href="#starting-kafka" title="Permalink to this headline">¶</a></h3>
+<p>Before running your app, you need to start Zookeeper and Kafka.</p>
+<p>Start Zookeeper first:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> <span class="nv">$KAFKA_HOME</span>/bin/zookeeper-server-start <span class="nv">$KAFKA_HOME</span>/etc/kafka/zookeeper.properties
+</pre></div>
+</div>
+<p>Then start Kafka:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> <span class="nv">$KAFKA_HOME</span>/bin/kafka-server-start <span class="nv">$KAFKA_HOME</span>/etc/kafka/server.properties
+</pre></div>
+</div>
+</div>
+<div class="section" id="running-the-faust-worker">
+<h3><a class="toc-backref" href="#id4">Running the Faust worker</a><a class="headerlink" href="#running-the-faust-worker" title="Permalink to this headline">¶</a></h3>
+<p>Now that you have created a simple Faust application and have Kafka and
+Zookeeper running, you need to run a worker instance for the application.</p>
+<p>Start a worker:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> faust -A hello_world worker -l info
+</pre></div>
+</div>
+<p>Multiple instances of a Faust worker can be started independently to distribute
+stream processing across machines and CPU cores.</p>
+<p>In production, you’ll want to run the worker in the
+background as a daemon. Use the tools provided
+by your platform, or use something like <a class="reference external" href="http://supervisord.org">supervisord</a>.</p>
+<p>Use <code class="docutils literal notranslate"><span class="pre">--help</span></code> to get a complete listing of available command-line options:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> faust worker --help
+</pre></div>
+</div>
+</div>
+<div class="section" id="seeing-things-in-action">
+<h3><a class="toc-backref" href="#id5">Seeing things in Action</a><a class="headerlink" href="#seeing-things-in-action" title="Permalink to this headline">¶</a></h3>
+<p>At this point, you have an application running, but not much is happening.
+You need to feed data into the Kafka topic to see Faust print the greetings
+as it processes the stream, and right now that topic is probably empty.</p>
+<p>Let’s use the <strong class="program">faust send</strong> command to push some messages into the
+<code class="docutils literal notranslate"><span class="pre">greetings</span></code> topic:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> faust -A hello_world send @greet <span class="s2">&quot;Hello Faust&quot;</span>
+</pre></div>
+</div>
+<p>The above command sends a message to the <code class="docutils literal notranslate"><span class="pre">greet</span></code> agent by using the <code class="docutils literal notranslate"><span class="pre">&#64;</span></code>
+prefix. If you don’t use the prefix, it will be treated as the name of a topic:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> faust -A hello_world send greetings <span class="s2">&quot;Hello Kafka topic&quot;</span>
+</pre></div>
+</div>
+<p>After sending the messages, you can see your worker start processing them
+and print the greetings to the console.</p>
+</div>
+<div class="section" id="where-to-go-from-here">
+<h3><a class="toc-backref" href="#id6">Where to go from here…</a><a class="headerlink" href="#where-to-go-from-here" title="Permalink to this headline">¶</a></h3>
+<p>Now that you have seen a simple Faust application in action,
+you should dive into the other sections of the <a class="reference internal" href="../userguide/index.html#guide"><span class="std std-ref">User Guide</span></a> or jump right
+into the <a class="reference internal" href="index.html#playbooks"><span class="std std-ref">Playbooks</span></a> for tutorials and solutions to common patterns.</p>
+</div>
+</div>
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Playbooks</a><ul class="current">
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Quick Start</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pageviews.html">Tutorial: Count page views</a></li>
+<li class="toctree-l2"><a class="reference internal" href="leaderelection.html">Tutorial: Leader Election</a></li>
+<li class="toctree-l2"><a class="reference internal" href="vskafka.html">Overview: Faust vs Kafka Streams</a></li>
+<li class="toctree-l2"><a class="reference internal" href="vscelery.html">Overview: Faust vs. Celery</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cheatsheet.html">Cheat Sheet</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../userguide/index.html">User Guide</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../history/index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">Playbooks</a><ul>
+      <li>Previous: <a href="index.html" title="previous chapter">Playbooks</a></li>
+      <li>Next: <a href="pageviews.html" title="next chapter">Tutorial: Count page views</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2020, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../_sources/playbooks/quickstart.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

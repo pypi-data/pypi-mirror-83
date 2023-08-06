@@ -1,0 +1,350 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>Testing &#8212; Faust 1.11.0a1 documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="copyright" title="Copyright" href="../copyright.html" />
+    <link rel="next" title="LiveCheck: End-to-end test for production/staging." href="livecheck.html" />
+    <link rel="prev" title="Sensors - Monitors and Statistics" href="sensors.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="testing">
+<span id="guide-testing"></span><h1>Testing<a class="headerlink" href="#testing" title="Permalink to this headline">¶</a></h1>
+<div class="contents local topic" id="contents">
+<ul class="simple">
+<li><p><a class="reference internal" href="#basics" id="id1">Basics</a></p></li>
+<li><p><a class="reference internal" href="#testing-with-pytest" id="id2">Testing with pytest</a></p>
+<ul>
+<li><p><a class="reference internal" href="#testing-that-an-agent-sends-to-topic-calls-another-agent" id="id3">Testing that an agent sends to topic/calls another agent.</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#testing-and-windowed-tables" id="id4">Testing and windowed tables</a></p></li>
+</ul>
+</div>
+<div class="section" id="basics">
+<h2><a class="toc-backref" href="#id1">Basics</a><a class="headerlink" href="#basics" title="Permalink to this headline">¶</a></h2>
+<p>To test an agent when unit testing or functional testing, use the special
+<code class="docutils literal notranslate"><span class="pre">Agent.test()</span></code> mode to send items to the stream while processing it locally:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">app</span> <span class="o">=</span> <span class="n">faust</span><span class="o">.</span><span class="n">App</span><span class="p">(</span><span class="s1">&#39;test-example&#39;</span><span class="p">)</span>
+
+<span class="k">class</span> <span class="nc">Order</span><span class="p">(</span><span class="n">faust</span><span class="o">.</span><span class="n">Record</span><span class="p">,</span> <span class="n">serializer</span><span class="o">=</span><span class="s1">&#39;json&#39;</span><span class="p">):</span>
+    <span class="n">account_id</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">product_id</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">amount</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">price</span><span class="p">:</span> <span class="nb">float</span>
+
+<span class="n">orders_topic</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">topic</span><span class="p">(</span><span class="s1">&#39;orders&#39;</span><span class="p">,</span> <span class="n">value_type</span><span class="o">=</span><span class="n">Order</span><span class="p">)</span>
+<span class="n">orders_for_account</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">Table</span><span class="p">(</span><span class="s1">&#39;order-count-by-account&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+
+<span class="nd">@app.agent</span><span class="p">(</span><span class="n">orders_topic</span><span class="p">)</span>
+<span class="n">async</span> <span class="k">def</span> <span class="nf">order</span><span class="p">(</span><span class="n">orders</span><span class="p">):</span>
+    <span class="n">async</span> <span class="k">for</span> <span class="n">order</span> <span class="ow">in</span> <span class="n">orders</span><span class="o">.</span><span class="n">group_by</span><span class="p">(</span><span class="n">Order</span><span class="o">.</span><span class="n">account_id</span><span class="p">):</span>
+        <span class="n">orders_for_account</span><span class="p">[</span><span class="n">order</span><span class="o">.</span><span class="n">account_id</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="k">yield</span> <span class="n">order</span>
+</pre></div>
+</div>
+<p>Our agent reads a stream of orders and keeps a count of them by account id
+in a distributed table also partitioned by the account id.</p>
+<p>To test this agent we use <code class="docutils literal notranslate"><span class="pre">order.test_context()</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">async</span> <span class="k">def</span> <span class="nf">test_order</span><span class="p">():</span>
+    <span class="c1"># start and stop the agent in this block</span>
+    <span class="n">async</span> <span class="k">with</span> <span class="n">order</span><span class="o">.</span><span class="n">test_context</span><span class="p">()</span> <span class="k">as</span> <span class="n">agent</span><span class="p">:</span>
+        <span class="n">order</span> <span class="o">=</span> <span class="n">Order</span><span class="p">(</span><span class="n">account_id</span><span class="o">=</span><span class="s1">&#39;1&#39;</span><span class="p">,</span> <span class="n">product_id</span><span class="o">=</span><span class="s1">&#39;2&#39;</span><span class="p">,</span> <span class="n">amount</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">price</span><span class="o">=</span><span class="mi">300</span><span class="p">)</span>
+        <span class="c1"># sent order to the test agents local channel, and wait</span>
+        <span class="c1"># the agent to process it.</span>
+        <span class="n">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">put</span><span class="p">(</span><span class="n">order</span><span class="p">)</span>
+        <span class="c1"># at this point the agent already updated the table</span>
+        <span class="k">assert</span> <span class="n">orders_for_account</span><span class="p">[</span><span class="n">order</span><span class="o">.</span><span class="n">account_id</span><span class="p">]</span> <span class="o">==</span> <span class="mi">1</span>
+        <span class="n">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">put</span><span class="p">(</span><span class="n">order</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="n">orders_for_account</span><span class="p">[</span><span class="n">order</span><span class="o">.</span><span class="n">account_id</span><span class="p">]</span> <span class="o">==</span> <span class="mi">2</span>
+
+<span class="n">async</span> <span class="k">def</span> <span class="nf">run_tests</span><span class="p">():</span>
+    <span class="n">app</span><span class="o">.</span><span class="n">conf</span><span class="o">.</span><span class="n">store</span> <span class="o">=</span> <span class="s1">&#39;memory://&#39;</span>   <span class="c1"># tables must be in-memory</span>
+    <span class="n">await</span> <span class="n">test_order</span><span class="p">()</span>
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s1">&#39;__main__&#39;</span><span class="p">:</span>
+    <span class="kn">import</span> <span class="nn">asyncio</span>
+    <span class="n">loop</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">get_event_loop</span><span class="p">()</span>
+    <span class="n">loop</span><span class="o">.</span><span class="n">run_until_complete</span><span class="p">(</span><span class="n">run_tests</span><span class="p">())</span>
+</pre></div>
+</div>
+<p>For the rest of this guide we’ll be using <a class="reference external" href="https://pypi.python.org/pypi/pytest/">pytest</a> and
+<a class="reference external" href="https://pypi.python.org/pypi/pytest-asyncio/">pytest-asyncio</a> for our examples. If you’re using a different
+testing framework you may have to adapt them a bit to work.</p>
+</div>
+<div class="section" id="testing-with-pytest">
+<h2>Testing with <a class="reference external" href="https://pypi.python.org/pypi/pytest/">pytest</a><a class="headerlink" href="#testing-with-pytest" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="testing-that-an-agent-sends-to-topic-calls-another-agent">
+<h3><a class="toc-backref" href="#id3">Testing that an agent sends to topic/calls another agent.</a><a class="headerlink" href="#testing-that-an-agent-sends-to-topic-calls-another-agent" title="Permalink to this headline">¶</a></h3>
+<p>When unit testing you should mock any dependencies of the agent being tested,</p>
+<ul class="simple">
+<li><p>If your agent calls another function: mock that function to verify it was
+called.</p></li>
+<li><p>If your agent sends a message to a topic: mock that topic to verify
+a message was sent.</p></li>
+<li><p>If your agent calls another agent: mock the other agent to verify it
+was called.</p></li>
+</ul>
+<p>Here’s an example agent that calls another agent:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">faust</span>
+
+<span class="n">app</span> <span class="o">=</span> <span class="n">faust</span><span class="o">.</span><span class="n">App</span><span class="p">(</span><span class="s1">&#39;example-test-agent-call&#39;</span><span class="p">)</span>
+
+<span class="nd">@app.agent</span><span class="p">()</span>
+<span class="n">async</span> <span class="k">def</span> <span class="nf">foo</span><span class="p">(</span><span class="n">stream</span><span class="p">):</span>
+    <span class="n">async</span> <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">stream</span><span class="p">:</span>
+        <span class="n">await</span> <span class="n">bar</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+        <span class="k">yield</span> <span class="n">value</span>
+
+<span class="nd">@app.agent</span><span class="p">()</span>
+<span class="n">async</span> <span class="k">def</span> <span class="nf">bar</span><span class="p">(</span><span class="n">stream</span><span class="p">):</span>
+    <span class="n">async</span> <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">stream</span><span class="p">:</span>
+        <span class="k">yield</span> <span class="n">value</span> <span class="o">+</span> <span class="s1">&#39;YOLO&#39;</span>
+</pre></div>
+</div>
+<p>To test these two agents you have to test them in isolation of each other:
+first test <code class="docutils literal notranslate"><span class="pre">foo</span></code> with <code class="docutils literal notranslate"><span class="pre">bar</span></code> mocked, then in a different test do <code class="docutils literal notranslate"><span class="pre">bar</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">pytest</span>
+<span class="kn">from</span> <span class="nn">unittest.mock</span> <span class="kn">import</span> <span class="n">Mock</span><span class="p">,</span> <span class="n">patch</span>
+
+<span class="kn">from</span> <span class="nn">example</span> <span class="kn">import</span> <span class="n">app</span><span class="p">,</span> <span class="n">foo</span><span class="p">,</span> <span class="n">bar</span>
+
+<span class="nd">@pytest.fixture</span><span class="p">()</span>
+<span class="k">def</span> <span class="nf">test_app</span><span class="p">(</span><span class="n">event_loop</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;passing in event_loop helps avoid &#39;attached to a different loop&#39; error&quot;&quot;&quot;</span>
+    <span class="n">app</span><span class="o">.</span><span class="n">finalize</span><span class="p">()</span>
+    <span class="n">app</span><span class="o">.</span><span class="n">conf</span><span class="o">.</span><span class="n">store</span> <span class="o">=</span> <span class="s1">&#39;memory://&#39;</span>
+    <span class="n">app</span><span class="o">.</span><span class="n">flow_control</span><span class="o">.</span><span class="n">resume</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">app</span>
+
+<span class="nd">@pytest.mark.asyncio</span><span class="p">()</span>
+<span class="n">async</span> <span class="k">def</span> <span class="nf">test_foo</span><span class="p">(</span><span class="n">test_app</span><span class="p">):</span>
+    <span class="k">with</span> <span class="n">patch</span><span class="p">(</span><span class="vm">__name__</span> <span class="o">+</span> <span class="s1">&#39;.bar&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">mocked_bar</span><span class="p">:</span>
+        <span class="n">mocked_bar</span><span class="o">.</span><span class="n">send</span> <span class="o">=</span> <span class="n">mock_coro</span><span class="p">()</span>
+        <span class="n">async</span> <span class="k">with</span> <span class="n">foo</span><span class="o">.</span><span class="n">test_context</span><span class="p">()</span> <span class="k">as</span> <span class="n">agent</span><span class="p">:</span>
+            <span class="n">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">put</span><span class="p">(</span><span class="s1">&#39;hey&#39;</span><span class="p">)</span>
+            <span class="n">mocked_bar</span><span class="o">.</span><span class="n">send</span><span class="o">.</span><span class="n">assert_called_with</span><span class="p">(</span><span class="s1">&#39;hey&#39;</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">mock_coro</span><span class="p">(</span><span class="n">return_value</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Create mock coroutine function.&quot;&quot;&quot;</span>
+    <span class="n">async</span> <span class="k">def</span> <span class="nf">wrapped</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">return_value</span>
+    <span class="k">return</span> <span class="n">Mock</span><span class="p">(</span><span class="n">wraps</span><span class="o">=</span><span class="n">wrapped</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+<span class="nd">@pytest.mark.asyncio</span><span class="p">()</span>
+<span class="n">async</span> <span class="k">def</span> <span class="nf">test_bar</span><span class="p">(</span><span class="n">test_app</span><span class="p">):</span>
+    <span class="n">async</span> <span class="k">with</span> <span class="n">bar</span><span class="o">.</span><span class="n">test_context</span><span class="p">()</span> <span class="k">as</span> <span class="n">agent</span><span class="p">:</span>
+        <span class="n">event</span> <span class="o">=</span> <span class="n">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">put</span><span class="p">(</span><span class="s1">&#39;hey&#39;</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="n">agent</span><span class="o">.</span><span class="n">results</span><span class="p">[</span><span class="n">event</span><span class="o">.</span><span class="n">message</span><span class="o">.</span><span class="n">offset</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;heyYOLO&#39;</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The <a class="reference external" href="https://pypi.python.org/pypi/pytest-asyncio/">pytest-asyncio</a> extension must be installed to run these tests.
+If you don’t have it use <strong class="program">pip</strong> to install it:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> pip install -U pytest-asyncio
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="testing-and-windowed-tables">
+<h2><a class="toc-backref" href="#id4">Testing and windowed tables</a><a class="headerlink" href="#testing-and-windowed-tables" title="Permalink to this headline">¶</a></h2>
+<p>If your table is windowed and you want to verify that the value for a key is
+correctly set, use <code class="docutils literal notranslate"><span class="pre">table[k].current(event)</span></code> to get the value placed within
+the window of the current event:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">faust</span>
+<span class="kn">import</span> <span class="nn">pytest</span>
+
+<span class="nd">@pytest.mark.asyncio</span><span class="p">()</span>
+<span class="n">async</span> <span class="k">def</span> <span class="nf">test_process_order</span><span class="p">():</span>
+    <span class="n">app</span><span class="o">.</span><span class="n">conf</span><span class="o">.</span><span class="n">store</span> <span class="o">=</span> <span class="s1">&#39;memory://&#39;</span>
+    <span class="n">async</span> <span class="k">with</span> <span class="n">process_order</span><span class="o">.</span><span class="n">test_context</span><span class="p">()</span> <span class="k">as</span> <span class="n">agent</span><span class="p">:</span>
+        <span class="n">order</span> <span class="o">=</span> <span class="n">Order</span><span class="p">(</span><span class="n">account_id</span><span class="o">=</span><span class="s1">&#39;1&#39;</span><span class="p">,</span> <span class="n">product_id</span><span class="o">=</span><span class="s1">&#39;2&#39;</span><span class="p">,</span> <span class="n">amount</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">price</span><span class="o">=</span><span class="mi">300</span><span class="p">)</span>
+        <span class="n">event</span> <span class="o">=</span> <span class="n">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">put</span><span class="p">(</span><span class="n">order</span><span class="p">)</span>
+
+        <span class="c1"># windowed table: we select window relative to the current event</span>
+        <span class="k">assert</span> <span class="n">orders_for_account</span><span class="p">[</span><span class="s1">&#39;1&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">current</span><span class="p">(</span><span class="n">event</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span>
+
+        <span class="c1"># in the window 3 hours ago there were no orders:</span>
+        <span class="k">assert</span> <span class="n">orders_for_account</span><span class="p">[</span><span class="s1">&#39;1&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">delta</span><span class="p">(</span><span class="mi">3600</span> <span class="o">*</span> <span class="mi">3</span><span class="p">,</span> <span class="n">event</span><span class="p">)</span>
+
+
+<span class="k">class</span> <span class="nc">Order</span><span class="p">(</span><span class="n">faust</span><span class="o">.</span><span class="n">Record</span><span class="p">,</span> <span class="n">serializer</span><span class="o">=</span><span class="s1">&#39;json&#39;</span><span class="p">):</span>
+    <span class="n">account_id</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">product_id</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">amount</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">price</span><span class="p">:</span> <span class="nb">float</span>
+
+<span class="n">app</span> <span class="o">=</span> <span class="n">faust</span><span class="o">.</span><span class="n">App</span><span class="p">(</span><span class="s1">&#39;test-example&#39;</span><span class="p">)</span>
+<span class="n">orders_topic</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">topic</span><span class="p">(</span><span class="s1">&#39;orders&#39;</span><span class="p">,</span> <span class="n">value_type</span><span class="o">=</span><span class="n">Order</span><span class="p">)</span>
+
+<span class="c1"># order count within the last hour (window is a 1-hour TumblingWindow).</span>
+<span class="n">orders_for_account</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">Table</span><span class="p">(</span>
+    <span class="s1">&#39;order-count-by-account&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span>
+<span class="p">)</span><span class="o">.</span><span class="n">tumbling</span><span class="p">(</span><span class="mi">3600</span><span class="p">)</span><span class="o">.</span><span class="n">relative_to_stream</span><span class="p">()</span>
+
+<span class="nd">@app.agent</span><span class="p">(</span><span class="n">orders_topic</span><span class="p">)</span>
+<span class="n">async</span> <span class="k">def</span> <span class="nf">process_order</span><span class="p">(</span><span class="n">orders</span><span class="p">):</span>
+    <span class="n">async</span> <span class="k">for</span> <span class="n">order</span> <span class="ow">in</span> <span class="n">orders</span><span class="o">.</span><span class="n">group_by</span><span class="p">(</span><span class="n">Order</span><span class="o">.</span><span class="n">account_id</span><span class="p">):</span>
+        <span class="n">orders_for_account</span><span class="p">[</span><span class="n">order</span><span class="o">.</span><span class="n">account_id</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="k">yield</span> <span class="n">order</span>
+</pre></div>
+</div>
+</div>
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../playbooks/index.html">Playbooks</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">User Guide</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="application.html">The App - Define your Faust project</a></li>
+<li class="toctree-l2"><a class="reference internal" href="agents.html">Agents - Self-organizing Stream Processors</a></li>
+<li class="toctree-l2"><a class="reference internal" href="streams.html">Streams - Infinite Data Structures</a></li>
+<li class="toctree-l2"><a class="reference internal" href="channels.html">Channels &amp; Topics - Data Sources</a></li>
+<li class="toctree-l2"><a class="reference internal" href="models.html">Models, Serialization, and Codecs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tables.html">Tables and Windowing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tasks.html">Tasks, Timers, Cron Jobs, Web Views, and CLI Commands</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cli.html">Command-line Interface</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sensors.html">Sensors - Monitors and Statistics</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Testing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="livecheck.html">LiveCheck: End-to-end test for production/staging.</a></li>
+<li class="toctree-l2"><a class="reference internal" href="settings.html">Configuration Reference</a></li>
+<li class="toctree-l2"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="kafka.html">Kafka - The basics you need to know</a></li>
+<li class="toctree-l2"><a class="reference internal" href="debugging.html">Debugging</a></li>
+<li class="toctree-l2"><a class="reference internal" href="workers.html">Workers Guide</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../history/index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">User Guide</a><ul>
+      <li>Previous: <a href="sensors.html" title="previous chapter">Sensors - Monitors and Statistics</a></li>
+      <li>Next: <a href="livecheck.html" title="next chapter">LiveCheck: End-to-end test for production/staging.</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2020, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../_sources/userguide/testing.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

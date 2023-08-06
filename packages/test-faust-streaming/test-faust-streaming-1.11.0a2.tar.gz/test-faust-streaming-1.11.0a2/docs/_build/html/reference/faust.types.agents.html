@@ -1,0 +1,508 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>faust.types.agents &#8212; Faust 1.11.0a1 documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="copyright" title="Copyright" href="../copyright.html" />
+    <link rel="next" title="faust.types.app" href="faust.types.app.html" />
+    <link rel="prev" title="faust.assignor.partition_assignor" href="faust.assignor.partition_assignor.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="faust-types-agents">
+<h1><code class="docutils literal notranslate"><span class="pre">faust.types.agents</span></code><a class="headerlink" href="#faust-types-agents" title="Permalink to this headline">¶</a></h1>
+<span class="target" id="module-faust.types.agents"></span><dl class="attribute">
+<dt id="faust.types.agents.AgentErrorHandler">
+<code class="sig-prename descclassname">faust.types.agents.</code><code class="sig-name descname">AgentErrorHandler</code><a class="headerlink" href="#faust.types.agents.AgentErrorHandler" title="Permalink to this definition">¶</a></dt>
+<dd><p>alias of <code class="xref py py-class docutils literal notranslate"><span class="pre">typing.Callable</span></code></p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.types.agents.AgentFun">
+<code class="sig-prename descclassname">faust.types.agents.</code><code class="sig-name descname">AgentFun</code><a class="headerlink" href="#faust.types.agents.AgentFun" title="Permalink to this definition">¶</a></dt>
+<dd><p>alias of <code class="xref py py-class docutils literal notranslate"><span class="pre">typing.Callable</span></code></p>
+</dd></dl>
+
+<dl class="data">
+<dt id="faust.types.agents.SinkT">
+<code class="sig-prename descclassname">faust.types.agents.</code><code class="sig-name descname">SinkT</code><em class="property"> = typing.Union[_ForwardRef('AgentT'), faust.types.channels.ChannelT, typing.Callable[[typing.Any], typing.Union[typing.Awaitable, NoneType]]]</em><a class="headerlink" href="#faust.types.agents.SinkT" title="Permalink to this definition">¶</a></dt>
+<dd><p>Agent, Channel
+or callable/async callable taking value as argument.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>A sink can be</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="class">
+<dt id="faust.types.agents.ActorT">
+<em class="property">class </em><code class="sig-prename descclassname">faust.types.agents.</code><code class="sig-name descname">ActorT</code><span class="sig-paren">(</span><em class="sig-param">agent: faust.types.agents.AgentT</em>, <em class="sig-param">stream: faust.types.streams.StreamT</em>, <em class="sig-param">it: _T</em>, <em class="sig-param">active_partitions: Set[faust.types.tuples.TP] = None</em>, <em class="sig-param">**kwargs: Any</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/types/agents.html#ActorT"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.agents.ActorT" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="attribute">
+<dt id="faust.types.agents.ActorT.index">
+<code class="sig-name descname">index</code><em class="property"> = None</em><a class="headerlink" href="#faust.types.agents.ActorT.index" title="Permalink to this definition">¶</a></dt>
+<dd><p>If multiple instance are started for concurrency, this is its index.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.agents.ActorT.cancel">
+<em class="property">abstract </em><code class="sig-name descname">cancel</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/types/agents.html#ActorT.cancel"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.agents.ActorT.cancel" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.agents.ActorT.on_isolated_partition_revoked">
+<em class="property">abstract async </em><code class="sig-name descname">on_isolated_partition_revoked</code><span class="sig-paren">(</span><em class="sig-param">tp: faust.types.tuples.TP</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/types/agents.html#ActorT.on_isolated_partition_revoked"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.agents.ActorT.on_isolated_partition_revoked" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.agents.ActorT.on_isolated_partition_assigned">
+<em class="property">abstract async </em><code class="sig-name descname">on_isolated_partition_assigned</code><span class="sig-paren">(</span><em class="sig-param">tp: faust.types.tuples.TP</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/types/agents.html#ActorT.on_isolated_partition_assigned"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.agents.ActorT.on_isolated_partition_assigned" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.agents.ActorT.traceback">
+<em class="property">abstract </em><code class="sig-name descname">traceback</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; str<a class="reference internal" href="../_modules/faust/types/agents.html#ActorT.traceback"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.agents.ActorT.traceback" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="faust.types.agents.AsyncIterableActorT">
+<em class="property">class </em><code class="sig-prename descclassname">faust.types.agents.</code><code class="sig-name descname">AsyncIterableActorT</code><span class="sig-paren">(</span><em class="sig-param">agent: faust.types.agents.AgentT</em>, <em class="sig-param">stream: faust.types.streams.StreamT</em>, <em class="sig-param">it: _T</em>, <em class="sig-param">active_partitions: Set[faust.types.tuples.TP] = None</em>, <em class="sig-param">**kwargs: Any</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/types/agents.html#AsyncIterableActorT"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.agents.AsyncIterableActorT" title="Permalink to this definition">¶</a></dt>
+<dd><p>Used for agent function that yields.</p>
+</dd></dl>
+
+<dl class="class">
+<dt id="faust.types.agents.AwaitableActorT">
+<em class="property">class </em><code class="sig-prename descclassname">faust.types.agents.</code><code class="sig-name descname">AwaitableActorT</code><span class="sig-paren">(</span><em class="sig-param">agent: faust.types.agents.AgentT</em>, <em class="sig-param">stream: faust.types.streams.StreamT</em>, <em class="sig-param">it: _T</em>, <em class="sig-param">active_partitions: Set[faust.types.tuples.TP] = None</em>, <em class="sig-param">**kwargs: Any</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/types/agents.html#AwaitableActorT"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.agents.AwaitableActorT" title="Permalink to this definition">¶</a></dt>
+<dd><p>Used for agent function that do not yield.</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.types.agents.ActorRefT">
+<code class="sig-prename descclassname">faust.types.agents.</code><code class="sig-name descname">ActorRefT</code><a class="headerlink" href="#faust.types.agents.ActorRefT" title="Permalink to this definition">¶</a></dt>
+<dd><p>alias of <a class="reference internal" href="#faust.types.agents.ActorT" title="faust.types.agents.ActorT"><code class="xref py py-class docutils literal notranslate"><span class="pre">faust.types.agents.ActorT</span></code></a></p>
+</dd></dl>
+
+<dl class="class">
+<dt id="faust.types.agents.AgentT">
+<em class="property">class </em><code class="sig-prename descclassname">faust.types.agents.</code><code class="sig-name descname">AgentT</code><span class="sig-paren">(</span><em class="sig-param">fun: Callable[faust.types.streams.StreamT[_T], Union[Coroutine[[Any, Any], None], Awaitable[None], AsyncIterable]], *, name: str = None, app: faust.types.agents._AppT = None, channel: Union[str, faust.types.channels.ChannelT] = None, concurrency: int = 1, sink: Iterable[Union[AgentT, faust.types.channels.ChannelT, Callable[Any, Optional[Awaitable]]]] = None, on_error: Callable[[AgentT, BaseException], Awaitable] = None, supervisor_strategy: Type[mode.types.supervisors.SupervisorStrategyT] = None, help: str = None, schema: faust.types.serializers.SchemaT = None, key_type: Union[Type[faust.types.models.ModelT], Type[bytes], Type[str]] = None, value_type: Union[Type[faust.types.models.ModelT], Type[bytes], Type[str]] = None, isolated_partitions: bool = False, **kwargs: Any</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/types/agents.html#AgentT"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.agents.AgentT" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="method">
+<dt id="faust.types.agents.AgentT.actor_tracebacks">
+<em class="property">abstract </em><code class="sig-name descname">actor_tracebacks</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; List[str]<a class="reference internal" href="../_modules/faust/types/agents.html#AgentT.actor_tracebacks"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.agents.AgentT.actor_tracebacks" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.List" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">List</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.agents.AgentT.test_context">
+<em class="property">abstract </em><code class="sig-name descname">test_context</code><span class="sig-paren">(</span><em class="sig-param">channel: faust.types.channels.ChannelT = None</em>, <em class="sig-param">supervisor_strategy: mode.types.supervisors.SupervisorStrategyT = None</em>, <em class="sig-param">**kwargs: Any</em><span class="sig-paren">)</span> &#x2192; faust.types.agents.AgentTestWrapperT<a class="reference internal" href="../_modules/faust/types/agents.html#AgentT.test_context"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.agents.AgentT.test_context" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="#faust.types.agents.AgentTestWrapperT" title="faust.types.agents.AgentTestWrapperT"><code class="xref py py-class docutils literal notranslate"><span class="pre">AgentTestWrapperT</span></code></a>[]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.agents.AgentT.add_sink">
+<em class="property">abstract </em><code class="sig-name descname">add_sink</code><span class="sig-paren">(</span><em class="sig-param">sink: Union[AgentT, faust.types.channels.ChannelT, Callable[Any, Optional[Awaitable]]]</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/types/agents.html#AgentT.add_sink"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.agents.AgentT.add_sink" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.agents.AgentT.stream">
+<em class="property">abstract </em><code class="sig-name descname">stream</code><span class="sig-paren">(</span><em class="sig-param">**kwargs: Any</em><span class="sig-paren">)</span> &#x2192; faust.types.streams.StreamT<a class="reference internal" href="../_modules/faust/types/agents.html#AgentT.stream"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.agents.AgentT.stream" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="faust.types.streams.html#faust.types.streams.StreamT" title="faust.types.streams.StreamT"><code class="xref py py-class docutils literal notranslate"><span class="pre">StreamT</span></code></a>[+T_co]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.agents.AgentT.on_partitions_assigned">
+<em class="property">abstract async </em><code class="sig-name descname">on_partitions_assigned</code><span class="sig-paren">(</span><em class="sig-param">assigned: Set[faust.types.tuples.TP]</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/types/agents.html#AgentT.on_partitions_assigned"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.agents.AgentT.on_partitions_assigned" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.agents.AgentT.on_partitions_revoked">
+<em class="property">abstract async </em><code class="sig-name descname">on_partitions_revoked</code><span class="sig-paren">(</span><em class="sig-param">revoked: Set[faust.types.tuples.TP]</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/types/agents.html#AgentT.on_partitions_revoked"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.agents.AgentT.on_partitions_revoked" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.agents.AgentT.cast">
+<em class="property">abstract async </em><code class="sig-name descname">cast</code><span class="sig-paren">(</span><em class="sig-param">value: Union[bytes, faust.types.core._ModelT, Any] = None, *, key: Union[bytes, faust.types.core._ModelT, Any, None] = None, partition: int = None, timestamp: float = None, headers: Union[List[Tuple[str, bytes]], Mapping[str, bytes], None] = None</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/types/agents.html#AgentT.cast"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.agents.AgentT.cast" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.agents.AgentT.ask">
+<em class="property">abstract async </em><code class="sig-name descname">ask</code><span class="sig-paren">(</span><em class="sig-param">value: Union[bytes, faust.types.core._ModelT, Any] = None, *, key: Union[bytes, faust.types.core._ModelT, Any, None] = None, partition: int = None, timestamp: float = None, headers: Union[List[Tuple[str, bytes]], Mapping[str, bytes], None] = None, reply_to: Union[AgentT, faust.types.channels.ChannelT, str] = None, correlation_id: str = None</em><span class="sig-paren">)</span> &#x2192; Any<a class="reference internal" href="../_modules/faust/types/agents.html#AgentT.ask"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.agents.AgentT.ask" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Any" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.agents.AgentT.send">
+<em class="property">abstract async </em><code class="sig-name descname">send</code><span class="sig-paren">(</span><em class="sig-param">*, key: Union[bytes, faust.types.core._ModelT, Any, None] = None, value: Union[bytes, faust.types.core._ModelT, Any] = None, partition: int = None, timestamp: float = None, headers: Union[List[Tuple[str, bytes]], Mapping[str, bytes], None] = None, key_serializer: Union[faust.types.codecs.CodecT, str, None] = None, value_serializer: Union[faust.types.codecs.CodecT, str, None] = None, reply_to: Union[AgentT, faust.types.channels.ChannelT, str] = None, correlation_id: str = None</em><span class="sig-paren">)</span> &#x2192; Awaitable[faust.types.tuples.RecordMetadata]<a class="reference internal" href="../_modules/faust/types/agents.html#AgentT.send"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.agents.AgentT.send" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Awaitable" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Awaitable</span></code></a>[<a class="reference internal" href="faust.types.tuples.html#faust.types.tuples.RecordMetadata" title="faust.types.tuples.RecordMetadata"><code class="xref py py-class docutils literal notranslate"><span class="pre">RecordMetadata</span></code></a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.agents.AgentT.map">
+<em class="property">abstract async </em><code class="sig-name descname">map</code><span class="sig-paren">(</span><em class="sig-param">values: Union[AsyncIterable, Iterable], key: Union[bytes, faust.types.core._ModelT, Any, None] = None, reply_to: Union[AgentT, faust.types.channels.ChannelT, str] = None</em><span class="sig-paren">)</span> &#x2192; AsyncIterator<a class="reference internal" href="../_modules/faust/types/agents.html#AgentT.map"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.agents.AgentT.map" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="faust.types.agents.AgentT.kvmap">
+<em class="property">abstract async </em><code class="sig-name descname">kvmap</code><span class="sig-paren">(</span><em class="sig-param">items: Union[AsyncIterable[Tuple[Union[bytes, faust.types.core._ModelT, Any, None], Union[bytes, faust.types.core._ModelT, Any]]], Iterable[Tuple[Union[bytes, faust.types.core._ModelT, Any, None], Union[bytes, faust.types.core._ModelT, Any]]]], reply_to: Union[AgentT, faust.types.channels.ChannelT, str] = None</em><span class="sig-paren">)</span> &#x2192; AsyncIterator[str]<a class="reference internal" href="../_modules/faust/types/agents.html#AgentT.kvmap"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.agents.AgentT.kvmap" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="faust.types.agents.AgentT.join">
+<em class="property">abstract async </em><code class="sig-name descname">join</code><span class="sig-paren">(</span><em class="sig-param">values: Union[AsyncIterable[Union[bytes, faust.types.core._ModelT, Any]], Iterable[Union[bytes, faust.types.core._ModelT, Any]]], key: Union[bytes, faust.types.core._ModelT, Any, None] = None, reply_to: Union[AgentT, faust.types.channels.ChannelT, str] = None</em><span class="sig-paren">)</span> &#x2192; List[Any]<a class="reference internal" href="../_modules/faust/types/agents.html#AgentT.join"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.agents.AgentT.join" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.List" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">List</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Any" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code></a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.agents.AgentT.kvjoin">
+<em class="property">abstract async </em><code class="sig-name descname">kvjoin</code><span class="sig-paren">(</span><em class="sig-param">items: Union[AsyncIterable[Tuple[Union[bytes, faust.types.core._ModelT, Any, None], Union[bytes, faust.types.core._ModelT, Any]]], Iterable[Tuple[Union[bytes, faust.types.core._ModelT, Any, None], Union[bytes, faust.types.core._ModelT, Any]]]], reply_to: Union[AgentT, faust.types.channels.ChannelT, str] = None</em><span class="sig-paren">)</span> &#x2192; List[Any]<a class="reference internal" href="../_modules/faust/types/agents.html#AgentT.kvjoin"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.agents.AgentT.kvjoin" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.List" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">List</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Any" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code></a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.agents.AgentT.info">
+<em class="property">abstract </em><code class="sig-name descname">info</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; Mapping<a class="reference internal" href="../_modules/faust/types/agents.html#AgentT.info"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.agents.AgentT.info" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Mapping" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Mapping</span></code></a>[~KT, +VT_co]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.agents.AgentT.clone">
+<em class="property">abstract </em><code class="sig-name descname">clone</code><span class="sig-paren">(</span><em class="sig-param">*</em>, <em class="sig-param">cls: Type[AgentT] = None</em>, <em class="sig-param">**kwargs: Any</em><span class="sig-paren">)</span> &#x2192; faust.types.agents.AgentT<a class="reference internal" href="../_modules/faust/types/agents.html#AgentT.clone"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.agents.AgentT.clone" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="#faust.types.agents.AgentT" title="faust.types.agents.AgentT"><code class="xref py py-class docutils literal notranslate"><span class="pre">AgentT</span></code></a>[~_T]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.agents.AgentT.get_topic_names">
+<em class="property">abstract </em><code class="sig-name descname">get_topic_names</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; Iterable[str]<a class="reference internal" href="../_modules/faust/types/agents.html#AgentT.get_topic_names"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.agents.AgentT.get_topic_names" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Iterable" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Iterable</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.agents.AgentT.channel">
+<em class="property">abstract property </em><code class="sig-name descname">channel</code><a class="headerlink" href="#faust.types.agents.AgentT.channel" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="faust.types.channels.html#faust.types.channels.ChannelT" title="faust.types.channels.ChannelT"><code class="xref py py-class docutils literal notranslate"><span class="pre">ChannelT</span></code></a>[~_T]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.agents.AgentT.channel_iterator">
+<em class="property">abstract property </em><code class="sig-name descname">channel_iterator</code><a class="headerlink" href="#faust.types.agents.AgentT.channel_iterator" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.AsyncIterator" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">AsyncIterator</span></code></a>[+T_co]</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="faust.types.agents.AgentManagerT">
+<em class="property">class </em><code class="sig-prename descclassname">faust.types.agents.</code><code class="sig-name descname">AgentManagerT</code><span class="sig-paren">(</span><em class="sig-param">*</em>, <em class="sig-param">beacon: mode.utils.types.trees.NodeT = None</em>, <em class="sig-param">loop: asyncio.events.AbstractEventLoop = None</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/types/agents.html#AgentManagerT"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.agents.AgentManagerT" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="method">
+<dt id="faust.types.agents.AgentManagerT.wait_until_agents_started">
+<em class="property">abstract async </em><code class="sig-name descname">wait_until_agents_started</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/types/agents.html#AgentManagerT.wait_until_agents_started"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.agents.AgentManagerT.wait_until_agents_started" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.agents.AgentManagerT.on_rebalance">
+<em class="property">abstract async </em><code class="sig-name descname">on_rebalance</code><span class="sig-paren">(</span><em class="sig-param">revoked: Set[faust.types.tuples.TP], newly_assigned: Set[faust.types.tuples.TP]</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/types/agents.html#AgentManagerT.on_rebalance"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.agents.AgentManagerT.on_rebalance" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.agents.AgentManagerT.tracebacks">
+<em class="property">abstract </em><code class="sig-name descname">tracebacks</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; Mapping[str, List[str]]<a class="reference internal" href="../_modules/faust/types/agents.html#AgentManagerT.tracebacks"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.agents.AgentManagerT.tracebacks" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Mapping" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Mapping</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.List" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">List</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>]]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.agents.AgentManagerT.human_tracebacks">
+<em class="property">abstract </em><code class="sig-name descname">human_tracebacks</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; str<a class="reference internal" href="../_modules/faust/types/agents.html#AgentManagerT.human_tracebacks"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.agents.AgentManagerT.human_tracebacks" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="faust.types.agents.AgentTestWrapperT">
+<em class="property">class </em><code class="sig-prename descclassname">faust.types.agents.</code><code class="sig-name descname">AgentTestWrapperT</code><span class="sig-paren">(</span><em class="sig-param">*args: Any</em>, <em class="sig-param">original_channel: faust.types.channels.ChannelT = None</em>, <em class="sig-param">**kwargs: Any</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/types/agents.html#AgentTestWrapperT"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.agents.AgentTestWrapperT" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="attribute">
+<dt id="faust.types.agents.AgentTestWrapperT.sent_offset">
+<code class="sig-name descname">sent_offset</code><em class="property"> = 0</em><a class="headerlink" href="#faust.types.agents.AgentTestWrapperT.sent_offset" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="faust.types.agents.AgentTestWrapperT.processed_offset">
+<code class="sig-name descname">processed_offset</code><em class="property"> = 0</em><a class="headerlink" href="#faust.types.agents.AgentTestWrapperT.processed_offset" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="faust.types.agents.AgentTestWrapperT.put">
+<em class="property">abstract async </em><code class="sig-name descname">put</code><span class="sig-paren">(</span><em class="sig-param">value: Union[bytes, faust.types.core._ModelT, Any] = None, key: Union[bytes, faust.types.core._ModelT, Any, None] = None, partition: int = None, timestamp: float = None, headers: Union[List[Tuple[str, bytes]], Mapping[str, bytes], None] = None, key_serializer: Union[faust.types.codecs.CodecT, str, None] = None, value_serializer: Union[faust.types.codecs.CodecT, str, None] = None, *, reply_to: Union[AgentT, faust.types.channels.ChannelT, str] = None, correlation_id: str = None, wait: bool = True</em><span class="sig-paren">)</span> &#x2192; faust.types.events.EventT<a class="reference internal" href="../_modules/faust/types/agents.html#AgentTestWrapperT.put"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.agents.AgentTestWrapperT.put" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="faust.types.events.html#faust.types.events.EventT" title="faust.types.events.EventT"><code class="xref py py-class docutils literal notranslate"><span class="pre">EventT</span></code></a>[~T]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.agents.AgentTestWrapperT.to_message">
+<em class="property">abstract </em><code class="sig-name descname">to_message</code><span class="sig-paren">(</span><em class="sig-param">key: Union[bytes, faust.types.core._ModelT, Any, None], value: Union[bytes, faust.types.core._ModelT, Any], *, partition: int = 0, offset: int = 0, timestamp: float = None, timestamp_type: int = 0, headers: Union[List[Tuple[str, bytes]], Mapping[str, bytes], None] = None</em><span class="sig-paren">)</span> &#x2192; faust.types.tuples.Message<a class="reference internal" href="../_modules/faust/types/agents.html#AgentTestWrapperT.to_message"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.agents.AgentTestWrapperT.to_message" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="faust.types.tuples.html#faust.types.tuples.Message" title="faust.types.tuples.Message"><code class="xref py py-class docutils literal notranslate"><span class="pre">Message</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.agents.AgentTestWrapperT.throw">
+<em class="property">abstract async </em><code class="sig-name descname">throw</code><span class="sig-paren">(</span><em class="sig-param">exc: BaseException</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/types/agents.html#AgentTestWrapperT.throw"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.agents.AgentTestWrapperT.throw" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../playbooks/index.html">Playbooks</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../userguide/index.html">User Guide</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../history/index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">API Reference</a><ul>
+      <li>Previous: <a href="faust.assignor.partition_assignor.html" title="previous chapter"><code class="docutils literal notranslate"><span class="pre">faust.assignor.partition_assignor</span></code></a></li>
+      <li>Next: <a href="faust.types.app.html" title="next chapter"><code class="docutils literal notranslate"><span class="pre">faust.types.app</span></code></a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2020, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../_sources/reference/faust.types.agents.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

@@ -1,0 +1,228 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>faust.utils.tracing &#8212; Faust 1.11.0a1 documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="copyright" title="Copyright" href="../copyright.html" />
+    <link rel="next" title="faust.utils.urls" href="faust.utils.urls.html" />
+    <link rel="prev" title="faust.utils.platforms" href="faust.utils.platforms.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="faust-utils-tracing">
+<h1><code class="docutils literal notranslate"><span class="pre">faust.utils.tracing</span></code><a class="headerlink" href="#faust-utils-tracing" title="Permalink to this headline">¶</a></h1>
+<span class="target" id="module-faust.utils.tracing"></span><p>OpenTracing utilities.</p>
+<dl class="function">
+<dt id="faust.utils.tracing.current_span">
+<code class="sig-prename descclassname">faust.utils.tracing.</code><code class="sig-name descname">current_span</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; Optional[opentracing.span.Span]<a class="reference internal" href="../_modules/faust/utils/tracing.html#current_span"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.utils.tracing.current_span" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get the current span for this context (if any).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Optional" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<code class="xref py py-class docutils literal notranslate"><span class="pre">Span</span></code>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="faust.utils.tracing.set_current_span">
+<code class="sig-prename descclassname">faust.utils.tracing.</code><code class="sig-name descname">set_current_span</code><span class="sig-paren">(</span><em class="sig-param">span: opentracing.span.Span</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/utils/tracing.html#set_current_span"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.utils.tracing.set_current_span" title="Permalink to this definition">¶</a></dt>
+<dd><p>Set the current span for the current context.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="faust.utils.tracing.noop_span">
+<code class="sig-prename descclassname">faust.utils.tracing.</code><code class="sig-name descname">noop_span</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; opentracing.span.Span<a class="reference internal" href="../_modules/faust/utils/tracing.html#noop_span"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.utils.tracing.noop_span" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return a span that does nothing when traced.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">Span</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="faust.utils.tracing.finish_span">
+<code class="sig-prename descclassname">faust.utils.tracing.</code><code class="sig-name descname">finish_span</code><span class="sig-paren">(</span><em class="sig-param">span: Optional[opentracing.span.Span], *, error: BaseException = None</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/utils/tracing.html#finish_span"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.utils.tracing.finish_span" title="Permalink to this definition">¶</a></dt>
+<dd><p>Finish span, and optionally set error tag.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="faust.utils.tracing.operation_name_from_fun">
+<code class="sig-prename descclassname">faust.utils.tracing.</code><code class="sig-name descname">operation_name_from_fun</code><span class="sig-paren">(</span><em class="sig-param">fun: Any</em><span class="sig-paren">)</span> &#x2192; str<a class="reference internal" href="../_modules/faust/utils/tracing.html#operation_name_from_fun"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.utils.tracing.operation_name_from_fun" title="Permalink to this definition">¶</a></dt>
+<dd><p>Generate opentracing name from function.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="faust.utils.tracing.traced_from_parent_span">
+<code class="sig-prename descclassname">faust.utils.tracing.</code><code class="sig-name descname">traced_from_parent_span</code><span class="sig-paren">(</span><em class="sig-param">parent_span: opentracing.span.Span = None</em>, <em class="sig-param">callback: Callable = None</em>, <em class="sig-param">**extra_context: Any</em><span class="sig-paren">)</span> &#x2192; Callable<a class="reference internal" href="../_modules/faust/utils/tracing.html#traced_from_parent_span"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.utils.tracing.traced_from_parent_span" title="Permalink to this definition">¶</a></dt>
+<dd><p>Decorate function to be traced from parent span.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Callable" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Callable</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="faust.utils.tracing.call_with_trace">
+<code class="sig-prename descclassname">faust.utils.tracing.</code><code class="sig-name descname">call_with_trace</code><span class="sig-paren">(</span><em class="sig-param">span: opentracing.span.Span, fun: Callable, callback: Optional[Tuple[Callable, Tuple[Any, ...]]], *args: Any, **kwargs: Any</em><span class="sig-paren">)</span> &#x2192; Any<a class="reference internal" href="../_modules/faust/utils/tracing.html#call_with_trace"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.utils.tracing.call_with_trace" title="Permalink to this definition">¶</a></dt>
+<dd><p>Call function and trace it from parent span.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Any" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../playbooks/index.html">Playbooks</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../userguide/index.html">User Guide</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../history/index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">API Reference</a><ul>
+      <li>Previous: <a href="faust.utils.platforms.html" title="previous chapter"><code class="docutils literal notranslate"><span class="pre">faust.utils.platforms</span></code></a></li>
+      <li>Next: <a href="faust.utils.urls.html" title="next chapter"><code class="docutils literal notranslate"><span class="pre">faust.utils.urls</span></code></a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2020, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../_sources/reference/faust.utils.tracing.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

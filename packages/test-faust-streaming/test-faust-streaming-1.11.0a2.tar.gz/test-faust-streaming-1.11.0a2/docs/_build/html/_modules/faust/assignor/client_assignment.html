@@ -1,0 +1,300 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>faust.assignor.client_assignment &#8212; Faust 1.11.0a1 documentation</title>
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../../../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <link rel="copyright" title="Copyright" href="../../../copyright.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for faust.assignor.client_assignment</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Client Assignment.&quot;&quot;&quot;</span>
+<span class="kn">import</span> <span class="nn">copy</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="k">import</span> <span class="n">List</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">,</span> <span class="n">MutableMapping</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">,</span> <span class="n">Set</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">cast</span>
+<span class="kn">from</span> <span class="nn">faust.models</span> <span class="k">import</span> <span class="n">Record</span>
+<span class="kn">from</span> <span class="nn">faust.types</span> <span class="k">import</span> <span class="n">TP</span>
+<span class="kn">from</span> <span class="nn">faust.types.assignor</span> <span class="k">import</span> <span class="n">HostToPartitionMap</span>
+<span class="kn">from</span> <span class="nn">faust.types.tables</span> <span class="k">import</span> <span class="n">TableManagerT</span>
+
+<span class="n">R_COPART_ASSIGNMENT</span> <span class="o">=</span> <span class="s1">&#39;&#39;&#39;</span>
+<span class="s1">&lt;</span><span class="si">{name}</span><span class="s1"> actives=</span><span class="si">{self.actives}</span><span class="s1"> standbys=</span><span class="si">{self.standbys}</span><span class="s1"> topics=</span><span class="si">{self.topics}</span><span class="s1">&gt;</span>
+<span class="s1">&#39;&#39;&#39;</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+
+
+<div class="viewcode-block" id="CopartitionedAssignment"><a class="viewcode-back" href="../../../reference/faust.assignor.client_assignment.html#faust.assignor.client_assignment.CopartitionedAssignment">[docs]</a><span class="k">class</span> <span class="nc">CopartitionedAssignment</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Copartitioned Assignment.&quot;&quot;&quot;</span>
+
+    <span class="n">actives</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span>
+    <span class="n">standbys</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span>
+    <span class="n">topics</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                 <span class="n">actives</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">standbys</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">topics</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">actives</span> <span class="o">=</span> <span class="n">actives</span> <span class="ow">or</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">standbys</span> <span class="o">=</span> <span class="n">standbys</span> <span class="ow">or</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">topics</span> <span class="o">=</span> <span class="n">topics</span> <span class="ow">or</span> <span class="nb">set</span><span class="p">()</span>
+
+<div class="viewcode-block" id="CopartitionedAssignment.validate"><a class="viewcode-back" href="../../../reference/faust.assignor.client_assignment.html#faust.assignor.client_assignment.CopartitionedAssignment.validate">[docs]</a>    <span class="k">def</span> <span class="nf">validate</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">actives</span><span class="o">.</span><span class="n">isdisjoint</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">standbys</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">standbys</span><span class="o">.</span><span class="n">difference_update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">actives</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="CopartitionedAssignment.num_assigned"><a class="viewcode-back" href="../../../reference/faust.assignor.client_assignment.html#faust.assignor.client_assignment.CopartitionedAssignment.num_assigned">[docs]</a>    <span class="k">def</span> <span class="nf">num_assigned</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">active</span><span class="p">:</span> <span class="nb">bool</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_assigned_partitions</span><span class="p">(</span><span class="n">active</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="CopartitionedAssignment.get_unassigned"><a class="viewcode-back" href="../../../reference/faust.assignor.client_assignment.html#faust.assignor.client_assignment.CopartitionedAssignment.get_unassigned">[docs]</a>    <span class="k">def</span> <span class="nf">get_unassigned</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">num_partitions</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">active</span><span class="p">:</span> <span class="nb">bool</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Set</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
+        <span class="n">partitions</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_assigned_partitions</span><span class="p">(</span><span class="n">active</span><span class="p">)</span>
+        <span class="n">all_partitions</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">num_partitions</span><span class="p">))</span>
+        <span class="k">assert</span> <span class="n">partitions</span><span class="o">.</span><span class="n">issubset</span><span class="p">(</span><span class="n">all_partitions</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">all_partitions</span><span class="o">.</span><span class="n">difference</span><span class="p">(</span><span class="n">partitions</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="CopartitionedAssignment.pop_partition"><a class="viewcode-back" href="../../../reference/faust.assignor.client_assignment.html#faust.assignor.client_assignment.CopartitionedAssignment.pop_partition">[docs]</a>    <span class="k">def</span> <span class="nf">pop_partition</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">active</span><span class="p">:</span> <span class="nb">bool</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_assigned_partitions</span><span class="p">(</span><span class="n">active</span><span class="p">)</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="CopartitionedAssignment.unassign_partition"><a class="viewcode-back" href="../../../reference/faust.assignor.client_assignment.html#faust.assignor.client_assignment.CopartitionedAssignment.unassign_partition">[docs]</a>    <span class="k">def</span> <span class="nf">unassign_partition</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">partition</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">active</span><span class="p">:</span> <span class="nb">bool</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_assigned_partitions</span><span class="p">(</span><span class="n">active</span><span class="p">)</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">partition</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="CopartitionedAssignment.assign_partition"><a class="viewcode-back" href="../../../reference/faust.assignor.client_assignment.html#faust.assignor.client_assignment.CopartitionedAssignment.assign_partition">[docs]</a>    <span class="k">def</span> <span class="nf">assign_partition</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">partition</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">active</span><span class="p">:</span> <span class="nb">bool</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">get_assigned_partitions</span><span class="p">(</span><span class="n">active</span><span class="p">)</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">partition</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="CopartitionedAssignment.unassign_extras"><a class="viewcode-back" href="../../../reference/faust.assignor.client_assignment.html#faust.assignor.client_assignment.CopartitionedAssignment.unassign_extras">[docs]</a>    <span class="k">def</span> <span class="nf">unassign_extras</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">capacity</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">replicas</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">while</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">actives</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">capacity</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">actives</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span>
+        <span class="k">while</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">standbys</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">capacity</span> <span class="o">*</span> <span class="n">replicas</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">standbys</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="CopartitionedAssignment.partition_assigned"><a class="viewcode-back" href="../../../reference/faust.assignor.client_assignment.html#faust.assignor.client_assignment.CopartitionedAssignment.partition_assigned">[docs]</a>    <span class="k">def</span> <span class="nf">partition_assigned</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">partition</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">active</span><span class="p">:</span> <span class="nb">bool</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">partition</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_assigned_partitions</span><span class="p">(</span><span class="n">active</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="CopartitionedAssignment.promote_standby_to_active"><a class="viewcode-back" href="../../../reference/faust.assignor.client_assignment.html#faust.assignor.client_assignment.CopartitionedAssignment.promote_standby_to_active">[docs]</a>    <span class="k">def</span> <span class="nf">promote_standby_to_active</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">standby_partition</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">assert</span> <span class="n">standby_partition</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">standbys</span><span class="p">,</span> <span class="s1">&#39;Not standby for partition&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">standbys</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">standby_partition</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">actives</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">standby_partition</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="CopartitionedAssignment.get_assigned_partitions"><a class="viewcode-back" href="../../../reference/faust.assignor.client_assignment.html#faust.assignor.client_assignment.CopartitionedAssignment.get_assigned_partitions">[docs]</a>    <span class="k">def</span> <span class="nf">get_assigned_partitions</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">active</span><span class="p">:</span> <span class="nb">bool</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Set</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">actives</span> <span class="k">if</span> <span class="n">active</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">standbys</span></div>
+
+<div class="viewcode-block" id="CopartitionedAssignment.can_assign"><a class="viewcode-back" href="../../../reference/faust.assignor.client_assignment.html#faust.assignor.client_assignment.CopartitionedAssignment.can_assign">[docs]</a>    <span class="k">def</span> <span class="nf">can_assign</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">partition</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">active</span><span class="p">:</span> <span class="nb">bool</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">(</span><span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">partition_assigned</span><span class="p">(</span><span class="n">partition</span><span class="p">,</span> <span class="n">active</span><span class="p">)</span> <span class="ow">and</span>
+                <span class="p">(</span><span class="n">active</span> <span class="ow">or</span>
+                 <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">partition_assigned</span><span class="p">(</span><span class="n">partition</span><span class="p">,</span> <span class="n">active</span><span class="o">=</span><span class="kc">True</span><span class="p">)))</span></div>
+
+    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">R_COPART_ASSIGNMENT</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+            <span class="n">name</span><span class="o">=</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">=</span><span class="bp">self</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ClientAssignment"><a class="viewcode-back" href="../../../reference/faust.assignor.client_assignment.html#faust.assignor.client_assignment.ClientAssignment">[docs]</a><span class="k">class</span> <span class="nc">ClientAssignment</span><span class="p">(</span><span class="n">Record</span><span class="p">,</span>
+                       <span class="n">serializer</span><span class="o">=</span><span class="s1">&#39;json&#39;</span><span class="p">,</span>
+                       <span class="n">include_metadata</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                       <span class="n">namespace</span><span class="o">=</span><span class="s1">&#39;@ClientAssignment&#39;</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Client Assignment data model.&quot;&quot;&quot;</span>
+
+    <span class="n">actives</span><span class="p">:</span> <span class="n">MutableMapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]]</span>   <span class="c1"># Topic -&gt; Partition</span>
+    <span class="n">standbys</span><span class="p">:</span> <span class="n">MutableMapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]]</span>  <span class="c1"># Topic -&gt; Partition</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">active_tps</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Set</span><span class="p">[</span><span class="n">TP</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_tps</span><span class="p">(</span><span class="n">active</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">standby_tps</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Set</span><span class="p">[</span><span class="n">TP</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_tps</span><span class="p">(</span><span class="n">active</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_get_tps</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">active</span><span class="p">:</span> <span class="nb">bool</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Set</span><span class="p">[</span><span class="n">TP</span><span class="p">]:</span>
+        <span class="n">assignment</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">actives</span> <span class="k">if</span> <span class="n">active</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">standbys</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="n">TP</span><span class="p">(</span><span class="n">topic</span><span class="o">=</span><span class="n">topic</span><span class="p">,</span> <span class="n">partition</span><span class="o">=</span><span class="n">partition</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">topic</span><span class="p">,</span> <span class="n">partitions</span> <span class="ow">in</span> <span class="n">assignment</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+            <span class="k">for</span> <span class="n">partition</span> <span class="ow">in</span> <span class="n">partitions</span>
+        <span class="p">}</span>
+
+<div class="viewcode-block" id="ClientAssignment.kafka_protocol_assignment"><a class="viewcode-back" href="../../../reference/faust.assignor.client_assignment.html#faust.assignor.client_assignment.ClientAssignment.kafka_protocol_assignment">[docs]</a>    <span class="k">def</span> <span class="nf">kafka_protocol_assignment</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">table_manager</span><span class="p">:</span> <span class="n">TableManagerT</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]]]:</span>
+        <span class="n">assignment</span><span class="p">:</span> <span class="n">MutableMapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">actives</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">topic</span><span class="p">,</span> <span class="n">partitions</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">standbys</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">topic</span> <span class="ow">in</span> <span class="n">table_manager</span><span class="o">.</span><span class="n">changelog_topics</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">topic</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">assignment</span><span class="p">:</span>
+                    <span class="n">assignment</span><span class="p">[</span><span class="n">topic</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="n">assignment</span><span class="p">[</span><span class="n">topic</span><span class="p">]</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">partitions</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="n">assignment</span><span class="o">.</span><span class="n">items</span><span class="p">())</span></div>
+
+<div class="viewcode-block" id="ClientAssignment.add_copartitioned_assignment"><a class="viewcode-back" href="../../../reference/faust.assignor.client_assignment.html#faust.assignor.client_assignment.ClientAssignment.add_copartitioned_assignment">[docs]</a>    <span class="k">def</span> <span class="nf">add_copartitioned_assignment</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span> <span class="n">assignment</span><span class="p">:</span> <span class="n">CopartitionedAssignment</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">assigned</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">actives</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span><span class="o">.</span><span class="n">union</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">standbys</span><span class="o">.</span><span class="n">keys</span><span class="p">()))</span>
+        <span class="k">assert</span> <span class="ow">not</span> <span class="nb">any</span><span class="p">(</span><span class="n">topic</span> <span class="ow">in</span> <span class="n">assigned</span> <span class="k">for</span> <span class="n">topic</span> <span class="ow">in</span> <span class="n">assignment</span><span class="o">.</span><span class="n">topics</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">topic</span> <span class="ow">in</span> <span class="n">assignment</span><span class="o">.</span><span class="n">topics</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">actives</span><span class="p">[</span><span class="n">topic</span><span class="p">]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">assignment</span><span class="o">.</span><span class="n">actives</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">standbys</span><span class="p">[</span><span class="n">topic</span><span class="p">]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">assignment</span><span class="o">.</span><span class="n">standbys</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="ClientAssignment.copartitioned_assignment"><a class="viewcode-back" href="../../../reference/faust.assignor.client_assignment.html#faust.assignor.client_assignment.ClientAssignment.copartitioned_assignment">[docs]</a>    <span class="k">def</span> <span class="nf">copartitioned_assignment</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span> <span class="n">topics</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">CopartitionedAssignment</span><span class="p">:</span>
+        <span class="n">assignment</span> <span class="o">=</span> <span class="n">CopartitionedAssignment</span><span class="p">(</span>
+            <span class="n">actives</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_colocated_partitions</span><span class="p">(</span><span class="n">topics</span><span class="p">,</span> <span class="n">active</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
+            <span class="n">standbys</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_colocated_partitions</span><span class="p">(</span><span class="n">topics</span><span class="p">,</span> <span class="n">active</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+            <span class="n">topics</span><span class="o">=</span><span class="n">topics</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">assignment</span><span class="o">.</span><span class="n">validate</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">assignment</span></div>
+
+    <span class="k">def</span> <span class="nf">_colocated_partitions</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span> <span class="n">topics</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">active</span><span class="p">:</span> <span class="nb">bool</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Set</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
+        <span class="n">assignment</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">actives</span> <span class="k">if</span> <span class="n">active</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">standbys</span>
+        <span class="c1"># We take the first partition set for a topic which has a valid</span>
+        <span class="c1"># assignment assuming subscription changes with co-partitioned topic</span>
+        <span class="c1"># groups will be rare.</span>
+        <span class="n">topic_assignments</span> <span class="o">=</span> <span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">assignment</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="nb">set</span><span class="p">()))</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">topics</span><span class="p">)</span>
+        <span class="n">valid_partitions</span> <span class="o">=</span> <span class="p">(</span><span class="n">p</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">topic_assignments</span> <span class="k">if</span> <span class="n">p</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">next</span><span class="p">(</span><span class="n">valid_partitions</span><span class="p">,</span> <span class="nb">set</span><span class="p">())</span></div>
+
+
+<div class="viewcode-block" id="ClientMetadata"><a class="viewcode-back" href="../../../reference/faust.assignor.client_assignment.html#faust.assignor.client_assignment.ClientMetadata">[docs]</a><span class="k">class</span> <span class="nc">ClientMetadata</span><span class="p">(</span><span class="n">Record</span><span class="p">,</span>
+                     <span class="n">serializer</span><span class="o">=</span><span class="s1">&#39;json&#39;</span><span class="p">,</span>
+                     <span class="n">include_metadata</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                     <span class="n">namespace</span><span class="o">=</span><span class="s1">&#39;@ClientMetadata&#39;</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Client Metadata data model.&quot;&quot;&quot;</span>
+
+    <span class="n">assignment</span><span class="p">:</span> <span class="n">ClientAssignment</span>
+    <span class="n">url</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">changelog_distribution</span><span class="p">:</span> <span class="n">HostToPartitionMap</span>
+    <span class="n">topic_groups</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="kc">None</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">topic_groups</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">topic_groups</span> <span class="o">=</span> <span class="p">{}</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../../index.html">
+              <img class="logo" src="../../../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../../../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../playbooks/index.html">Playbooks</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../userguide/index.html">User Guide</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../reference/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../history/index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2020, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

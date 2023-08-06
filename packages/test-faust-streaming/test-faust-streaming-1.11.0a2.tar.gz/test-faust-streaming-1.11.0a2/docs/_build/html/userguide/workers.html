@@ -1,0 +1,332 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>Workers Guide &#8212; Faust 1.11.0a1 documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="copyright" title="Copyright" href="../copyright.html" />
+    <link rel="next" title="Frequently Asked Questions (FAQ)" href="../faq.html" />
+    <link rel="prev" title="Debugging" href="debugging.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="workers-guide">
+<span id="guide-workers"></span><h1>Workers Guide<a class="headerlink" href="#workers-guide" title="Permalink to this headline">¶</a></h1>
+<div class="contents local topic" id="contents">
+<ul class="simple">
+<li><p><a class="reference internal" href="#managing-individual-instances" id="id1">Managing individual instances</a></p></li>
+<li><p><a class="reference internal" href="#managing-a-cluster" id="id2">Managing a cluster</a></p></li>
+</ul>
+</div>
+<div class="section" id="managing-individual-instances">
+<span id="worker-individual"></span><h2><a class="toc-backref" href="#id1">Managing individual instances</a><a class="headerlink" href="#managing-individual-instances" title="Permalink to this headline">¶</a></h2>
+<p>This part describes managing individual instances and is more
+relevant in development.</p>
+<p>Make sure you also read the <a class="reference internal" href="#worker-cluster"><span class="std std-ref">Managing a cluster</span></a> section of this guide
+for production deployments.</p>
+<div class="section" id="starting-a-worker">
+<span id="worker-starting"></span><h3>Starting a worker<a class="headerlink" href="#starting-a-worker" title="Permalink to this headline">¶</a></h3>
+<div class="sidebar">
+<p class="sidebar-title">Daemonizing</p>
+<p>You probably want to use a daemonization tool to start
+the worker in the background. Use <cite>systemd</cite>, <cite>supervisord</cite> or
+any of the tools you usually use to start services.
+We hope to have a detailed guide for each of these soon.</p>
+</div>
+<p>If you have defined a Faust app in the module <code class="docutils literal notranslate"><span class="pre">proj.py</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># proj.py</span>
+<span class="kn">import</span> <span class="nn">faust</span>
+
+<span class="n">app</span> <span class="o">=</span> <span class="n">faust</span><span class="o">.</span><span class="n">App</span><span class="p">(</span><span class="s1">&#39;proj&#39;</span><span class="p">,</span> <span class="n">broker</span><span class="o">=</span><span class="s1">&#39;kafka://localhost:9092&#39;</span><span class="p">)</span>
+
+<span class="nd">@app.agent</span><span class="p">()</span>
+<span class="n">async</span> <span class="k">def</span> <span class="nf">process</span><span class="p">(</span><span class="n">stream</span><span class="p">):</span>
+    <span class="n">async</span> <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">stream</span><span class="p">:</span>
+        <span class="k">print</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>You can start the worker in the foreground by executing the command:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> faust -A proj worker -l info
+</pre></div>
+</div>
+<p>For a full list of available command-line options simply do:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> faust worker --help
+</pre></div>
+</div>
+<p>You can start multiple workers for the same app on the same machine, but
+be sure to provide a unique web server port to each worker, and also
+a unique data directory.</p>
+<p>Start first worker:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> faust --datadir<span class="o">=</span>/var/faust/worker1 -A proj -l info worker --web-port<span class="o">=</span><span class="m">6066</span>
+</pre></div>
+</div>
+<p>Then start the second worker:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> faust --datadir<span class="o">=</span>/var/faust/worker2 -A proj -l info worker --web-port<span class="o">=</span><span class="m">6067</span>
+</pre></div>
+</div>
+<div class="admonition-sharing-data-directories admonition">
+<p class="admonition-title">Sharing Data Directories</p>
+<p>Worker instances should not share data directories,
+so make sure to specify a different data directory for every worker
+instance.</p>
+</div>
+</div>
+<div class="section" id="stopping-a-worker">
+<span id="worker-stopping"></span><h3>Stopping a worker<a class="headerlink" href="#stopping-a-worker" title="Permalink to this headline">¶</a></h3>
+<p>Shutdown is accomplished using the <code class="xref std std-sig docutils literal notranslate"><span class="pre">TERM</span></code> signal.</p>
+<p>When shutdown is initiated the worker will finish all currently executing
+tasks before it actually terminates. If these tasks are important, you should
+wait for it to finish before doing anything drastic, like sending the <code class="xref std std-sig docutils literal notranslate"><span class="pre">KILL</span></code>
+signal.</p>
+<p>If the worker won’t shutdown after considerate time, for being
+stuck in an infinite-loop or similar, you can use the <code class="xref std std-sig docutils literal notranslate"><span class="pre">KILL</span></code> signal to
+force terminate the worker.  The tasks that did not complete will be executed
+again by another worker.</p>
+<div class="admonition-starting-subprocesses admonition">
+<p class="admonition-title">Starting subprocesses</p>
+<p>For Faust applications that start subprocesses as a side
+effect of processing the stream, you should know that the “double-fork”
+problem on Unix means that the worker will not be able to reap its children
+when killed using the <code class="xref std std-sig docutils literal notranslate"><span class="pre">KILL</span></code> signal.</p>
+<p>To kill the worker and any child processes, this command usually does
+the trick:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> pkill -9 -f <span class="s1">&#39;faust&#39;</span>
+</pre></div>
+</div>
+<p>If you don’t have the <strong class="command">pkill</strong> command on your system, you can use the slightly
+longer version:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> ps auxww <span class="p">|</span> grep <span class="s1">&#39;faust&#39;</span> <span class="p">|</span> awk <span class="s1">&#39;{print $2}&#39;</span> <span class="p">|</span> xargs <span class="nb">kill</span> -9
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="restarting-a-worker">
+<span id="worker-restarting"></span><h3>Restarting a worker<a class="headerlink" href="#restarting-a-worker" title="Permalink to this headline">¶</a></h3>
+<p>To restart the worker you should send the <cite>TERM</cite> signal and start a new
+instance.</p>
+<div class="admonition-kafka-rebalancing admonition">
+<p class="admonition-title">Kafka Rebalancing</p>
+<p>When using Kafka, stopping or starting new workers will trigger a
+rebalancing operation that require all workers to stop stream processing.</p>
+<p>See <a class="reference internal" href="#worker-cluster"><span class="std std-ref">Managing a cluster</span></a> for more information.</p>
+</div>
+</div>
+<div class="section" id="process-signals">
+<span id="worker-process-signals"></span><h3>Process Signals<a class="headerlink" href="#process-signals" title="Permalink to this headline">¶</a></h3>
+<p>The worker’s main process overrides the following signals:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 22%" />
+<col style="width: 78%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><code class="xref std std-sig docutils literal notranslate"><span class="pre">TERM</span></code></p></td>
+<td><p>Warm shutdown, wait for tasks to complete.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref std std-sig docutils literal notranslate"><span class="pre">QUIT</span></code></p></td>
+<td><p>Cold shutdown, terminate ASAP</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref std std-sig docutils literal notranslate"><span class="pre">USR1</span></code></p></td>
+<td><p>Dump traceback for all active threads in logs</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="section" id="managing-a-cluster">
+<span id="worker-cluster"></span><h2><a class="toc-backref" href="#id2">Managing a cluster</a><a class="headerlink" href="#managing-a-cluster" title="Permalink to this headline">¶</a></h2>
+<p>In production deployments the management of a cluster of worker instances
+is complicated by the Kafka rebalancing strategy.</p>
+<p>Every time a new worker instance joins or leaves, the Kafka broker will ask
+all instances to perform a “rebalance” of available partitions.</p>
+<p>This “stop the world” process will temporarily halt processing of all streams,
+and if this rebalancing operation is not managed properly, you may end up
+in a state of perpetual rebalancing: the workers will continually
+trigger rebalances to occur, effectively halting processing of the stream.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The Faust web server is not affected by rebalancing, and will
+still serve web requests.</p>
+<p>This is important to consider when using tables and serving
+table data over HTTP.  Tables exposed in this manner will be eventually
+consistent and may serve stale data during a rebalancing operation.</p>
+</div>
+<p>When will rebalancing occur? It will occur should you restart one of the
+workers, or when restarting workers to deploy changes, and also if you
+change the number of partitions for a topic to scale a cluster up or down.</p>
+<div class="section" id="restarting-a-cluster">
+<h3>Restarting a cluster<a class="headerlink" href="#restarting-a-cluster" title="Permalink to this headline">¶</a></h3>
+<p>To minimize the chance of rebalancing problems we suggest you use
+the following strategy to restart all the workers:</p>
+<ol class="arabic simple">
+<li><p>Stop 50% of the workers (and wait for them to shut down).</p></li>
+<li><p>Start the workers you just stopped and wait for them to fully start.</p></li>
+<li><p>Stop the other half of the workers (and wait for them to shut down).</p></li>
+<li><p>Start the other half of the workers.</p></li>
+</ol>
+<p>This should both minimize rebalancing issues and also keep the built-in web
+servers up and available to serve HTTP requests.</p>
+<div class="admonition-kip-441-and-the-future admonition">
+<p class="admonition-title">KIP-441 and the future…</p>
+<p>The Kafka developer community have proposed a solution to this problem,
+so in the future we may have an easier way to deploy code changes
+and even support autoscaling of workers.</p>
+<p>See <a class="reference external" href="https://cwiki.apache.org/confluence/display/KAFKA/KIP-441%3A+Smooth+Scaling+Out+for+Kafka+Streams">KIP-441: Smooth Scaling Out for Kafka Streams</a>
+for more information.</p>
+</div>
+</div>
+</div>
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../playbooks/index.html">Playbooks</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">User Guide</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="application.html">The App - Define your Faust project</a></li>
+<li class="toctree-l2"><a class="reference internal" href="agents.html">Agents - Self-organizing Stream Processors</a></li>
+<li class="toctree-l2"><a class="reference internal" href="streams.html">Streams - Infinite Data Structures</a></li>
+<li class="toctree-l2"><a class="reference internal" href="channels.html">Channels &amp; Topics - Data Sources</a></li>
+<li class="toctree-l2"><a class="reference internal" href="models.html">Models, Serialization, and Codecs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tables.html">Tables and Windowing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tasks.html">Tasks, Timers, Cron Jobs, Web Views, and CLI Commands</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cli.html">Command-line Interface</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sensors.html">Sensors - Monitors and Statistics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="testing.html">Testing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="livecheck.html">LiveCheck: End-to-end test for production/staging.</a></li>
+<li class="toctree-l2"><a class="reference internal" href="settings.html">Configuration Reference</a></li>
+<li class="toctree-l2"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="kafka.html">Kafka - The basics you need to know</a></li>
+<li class="toctree-l2"><a class="reference internal" href="debugging.html">Debugging</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Workers Guide</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../history/index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">User Guide</a><ul>
+      <li>Previous: <a href="debugging.html" title="previous chapter">Debugging</a></li>
+      <li>Next: <a href="../faq.html" title="next chapter">Frequently Asked Questions (FAQ)</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2020, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../_sources/userguide/workers.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

@@ -1,0 +1,323 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>faust.transport.producer &#8212; Faust 1.11.0a1 documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="copyright" title="Copyright" href="../copyright.html" />
+    <link rel="next" title="faust.transport.drivers" href="faust.transport.drivers.html" />
+    <link rel="prev" title="faust.transport.consumer" href="faust.transport.consumer.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="faust-transport-producer">
+<h1><code class="docutils literal notranslate"><span class="pre">faust.transport.producer</span></code><a class="headerlink" href="#faust-transport-producer" title="Permalink to this headline">¶</a></h1>
+<span class="target" id="module-faust.transport.producer"></span><p>Producer.</p>
+<p>The Producer is responsible for:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Holds reference to the transport that created it</p></li>
+<li><p>… and the app via <code class="docutils literal notranslate"><span class="pre">self.transport.app</span></code>.</p></li>
+<li><p>Sending messages.</p></li>
+</ul>
+</div></blockquote>
+<dl class="class">
+<dt id="faust.transport.producer.Producer">
+<em class="property">class </em><code class="sig-prename descclassname">faust.transport.producer.</code><code class="sig-name descname">Producer</code><span class="sig-paren">(</span><em class="sig-param">transport: faust.types.transports.TransportT</em>, <em class="sig-param">loop: asyncio.events.AbstractEventLoop = None</em>, <em class="sig-param">**kwargs: Any</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/transport/producer.html#Producer"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.transport.producer.Producer" title="Permalink to this definition">¶</a></dt>
+<dd><p>Base Producer.</p>
+<dl class="method">
+<dt id="faust.transport.producer.Producer.on_start">
+<em class="property">async </em><code class="sig-name descname">on_start</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/transport/producer.html#Producer.on_start"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.transport.producer.Producer.on_start" title="Permalink to this definition">¶</a></dt>
+<dd><p>Service is starting.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.producer.Producer.send">
+<em class="property">async </em><code class="sig-name descname">send</code><span class="sig-paren">(</span><em class="sig-param">topic: str, key: Optional[bytes], value: Optional[bytes], partition: Optional[int], timestamp: Optional[float], headers: Union[List[Tuple[str, bytes]], Mapping[str, bytes], None], *, transactional_id: str = None</em><span class="sig-paren">)</span> &#x2192; Awaitable[faust.types.tuples.RecordMetadata]<a class="reference internal" href="../_modules/faust/transport/producer.html#Producer.send"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.transport.producer.Producer.send" title="Permalink to this definition">¶</a></dt>
+<dd><p>Schedule message to be sent by producer.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Awaitable" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Awaitable</span></code></a>[<a class="reference internal" href="faust.types.tuples.html#faust.types.tuples.RecordMetadata" title="faust.types.tuples.RecordMetadata"><code class="xref py py-class docutils literal notranslate"><span class="pre">RecordMetadata</span></code></a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.producer.Producer.send_soon">
+<code class="sig-name descname">send_soon</code><span class="sig-paren">(</span><em class="sig-param">fut: faust.types.tuples.FutureMessage</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/transport/producer.html#Producer.send_soon"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.transport.producer.Producer.send_soon" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.producer.Producer.send_and_wait">
+<em class="property">async </em><code class="sig-name descname">send_and_wait</code><span class="sig-paren">(</span><em class="sig-param">topic: str, key: Optional[bytes], value: Optional[bytes], partition: Optional[int], timestamp: Optional[float], headers: Union[List[Tuple[str, bytes]], Mapping[str, bytes], None], *, transactional_id: str = None</em><span class="sig-paren">)</span> &#x2192; faust.types.tuples.RecordMetadata<a class="reference internal" href="../_modules/faust/transport/producer.html#Producer.send_and_wait"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.transport.producer.Producer.send_and_wait" title="Permalink to this definition">¶</a></dt>
+<dd><p>Send message and wait for it to be transmitted.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="faust.types.tuples.html#faust.types.tuples.RecordMetadata" title="faust.types.tuples.RecordMetadata"><code class="xref py py-class docutils literal notranslate"><span class="pre">RecordMetadata</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.producer.Producer.flush">
+<em class="property">async </em><code class="sig-name descname">flush</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/transport/producer.html#Producer.flush"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.transport.producer.Producer.flush" title="Permalink to this definition">¶</a></dt>
+<dd><p>Flush all in-flight messages.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.producer.Producer.create_topic">
+<em class="property">async </em><code class="sig-name descname">create_topic</code><span class="sig-paren">(</span><em class="sig-param">topic: str</em>, <em class="sig-param">partitions: int</em>, <em class="sig-param">replication: int</em>, <em class="sig-param">*</em>, <em class="sig-param">config: Mapping[str</em>, <em class="sig-param">Any] = None</em>, <em class="sig-param">timeout: Union[datetime.timedelta</em>, <em class="sig-param">float</em>, <em class="sig-param">str] = 1000.0</em>, <em class="sig-param">retention: Union[datetime.timedelta</em>, <em class="sig-param">float</em>, <em class="sig-param">str] = None</em>, <em class="sig-param">compacting: bool = None</em>, <em class="sig-param">deleting: bool = None</em>, <em class="sig-param">ensure_created: bool = False</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/transport/producer.html#Producer.create_topic"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.transport.producer.Producer.create_topic" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create/declare topic on server.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.producer.Producer.key_partition">
+<code class="sig-name descname">key_partition</code><span class="sig-paren">(</span><em class="sig-param">topic: str</em>, <em class="sig-param">key: bytes</em><span class="sig-paren">)</span> &#x2192; faust.types.tuples.TP<a class="reference internal" href="../_modules/faust/transport/producer.html#Producer.key_partition"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.transport.producer.Producer.key_partition" title="Permalink to this definition">¶</a></dt>
+<dd><p>Hash key to determine partition.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="faust.types.tuples.html#faust.types.tuples.TP" title="faust.types.tuples.TP"><code class="xref py py-class docutils literal notranslate"><span class="pre">TP</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.producer.Producer.begin_transaction">
+<em class="property">async </em><code class="sig-name descname">begin_transaction</code><span class="sig-paren">(</span><em class="sig-param">transactional_id: str</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/transport/producer.html#Producer.begin_transaction"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.transport.producer.Producer.begin_transaction" title="Permalink to this definition">¶</a></dt>
+<dd><p>Begin transaction by id.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.producer.Producer.commit_transaction">
+<em class="property">async </em><code class="sig-name descname">commit_transaction</code><span class="sig-paren">(</span><em class="sig-param">transactional_id: str</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/transport/producer.html#Producer.commit_transaction"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.transport.producer.Producer.commit_transaction" title="Permalink to this definition">¶</a></dt>
+<dd><p>Commit transaction by id.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.producer.Producer.abort_transaction">
+<em class="property">async </em><code class="sig-name descname">abort_transaction</code><span class="sig-paren">(</span><em class="sig-param">transactional_id: str</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/transport/producer.html#Producer.abort_transaction"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.transport.producer.Producer.abort_transaction" title="Permalink to this definition">¶</a></dt>
+<dd><p>Abort and rollback transaction by id.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.producer.Producer.stop_transaction">
+<em class="property">async </em><code class="sig-name descname">stop_transaction</code><span class="sig-paren">(</span><em class="sig-param">transactional_id: str</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/transport/producer.html#Producer.stop_transaction"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.transport.producer.Producer.stop_transaction" title="Permalink to this definition">¶</a></dt>
+<dd><p>Stop transaction by id.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.producer.Producer.maybe_begin_transaction">
+<em class="property">async </em><code class="sig-name descname">maybe_begin_transaction</code><span class="sig-paren">(</span><em class="sig-param">transactional_id: str</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/transport/producer.html#Producer.maybe_begin_transaction"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.transport.producer.Producer.maybe_begin_transaction" title="Permalink to this definition">¶</a></dt>
+<dd><p>Begin transaction by id, if not already started.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.producer.Producer.commit_transactions">
+<em class="property">async </em><code class="sig-name descname">commit_transactions</code><span class="sig-paren">(</span><em class="sig-param">tid_to_offset_map: Mapping[str, Mapping[faust.types.tuples.TP, int]], group_id: str, start_new_transaction: bool = True</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/transport/producer.html#Producer.commit_transactions"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.transport.producer.Producer.commit_transactions" title="Permalink to this definition">¶</a></dt>
+<dd><p>Commit transactions.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.transport.producer.Producer.logger">
+<code class="sig-name descname">logger</code><em class="property"> = &lt;Logger faust.transport.producer (WARNING)&gt;</em><a class="headerlink" href="#faust.transport.producer.Producer.logger" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="faust.transport.producer.Producer.supports_headers">
+<code class="sig-name descname">supports_headers</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; bool<a class="reference internal" href="../_modules/faust/transport/producer.html#Producer.supports_headers"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.transport.producer.Producer.supports_headers" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return <code class="xref py py-const docutils literal notranslate"><span class="pre">True</span></code> if headers are supported by this transport.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/functions.html#bool" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../playbooks/index.html">Playbooks</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../userguide/index.html">User Guide</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../history/index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">API Reference</a><ul>
+      <li>Previous: <a href="faust.transport.consumer.html" title="previous chapter"><code class="docutils literal notranslate"><span class="pre">faust.transport.consumer</span></code></a></li>
+      <li>Next: <a href="faust.transport.drivers.html" title="next chapter"><code class="docutils literal notranslate"><span class="pre">faust.transport.drivers</span></code></a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2020, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../_sources/reference/faust.transport.producer.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

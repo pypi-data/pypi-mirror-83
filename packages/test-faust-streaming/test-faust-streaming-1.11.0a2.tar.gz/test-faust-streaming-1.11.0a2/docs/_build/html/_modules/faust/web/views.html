@@ -1,0 +1,437 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>faust.web.views &#8212; Faust 1.11.0a1 documentation</title>
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../../../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <link rel="copyright" title="Copyright" href="../../../copyright.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for faust.web.views</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Class-based views.&quot;&quot;&quot;</span>
+<span class="kn">from</span> <span class="nn">functools</span> <span class="k">import</span> <span class="n">wraps</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">Any</span><span class="p">,</span>
+    <span class="n">Awaitable</span><span class="p">,</span>
+    <span class="n">Callable</span><span class="p">,</span>
+    <span class="n">ClassVar</span><span class="p">,</span>
+    <span class="n">Mapping</span><span class="p">,</span>
+    <span class="n">MutableMapping</span><span class="p">,</span>
+    <span class="n">Optional</span><span class="p">,</span>
+    <span class="n">Type</span><span class="p">,</span>
+    <span class="n">Union</span><span class="p">,</span>
+    <span class="n">cast</span><span class="p">,</span>
+    <span class="n">no_type_check</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="kn">from</span> <span class="nn">faust.types</span> <span class="k">import</span> <span class="n">AppT</span><span class="p">,</span> <span class="n">ModelT</span>
+<span class="kn">from</span> <span class="nn">faust.types.web</span> <span class="k">import</span> <span class="n">ViewDecorator</span><span class="p">,</span> <span class="n">ViewHandlerFun</span>
+<span class="kn">from</span> <span class="nn">yarl</span> <span class="k">import</span> <span class="n">URL</span>
+
+<span class="kn">from</span> <span class="nn">.</span> <span class="k">import</span> <span class="n">exceptions</span>
+<span class="kn">from</span> <span class="nn">.base</span> <span class="k">import</span> <span class="n">Request</span><span class="p">,</span> <span class="n">Response</span><span class="p">,</span> <span class="n">Web</span>
+<span class="kn">from</span> <span class="nn">.exceptions</span> <span class="k">import</span> <span class="n">WebError</span>
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;View&#39;</span><span class="p">,</span> <span class="s1">&#39;gives_model&#39;</span><span class="p">,</span> <span class="s1">&#39;takes_model&#39;</span><span class="p">]</span>
+
+<span class="n">_bytes</span> <span class="o">=</span> <span class="nb">bytes</span>   <span class="c1"># need alias for method named `bytes`</span>
+
+
+<div class="viewcode-block" id="View"><a class="viewcode-back" href="../../../reference/faust.web.views.html#faust.web.views.View">[docs]</a><span class="k">class</span> <span class="nc">View</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Web view (HTTP endpoint).&quot;&quot;&quot;</span>
+
+    <span class="n">ServerError</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">WebError</span><span class="p">]]</span> <span class="o">=</span> <span class="n">exceptions</span><span class="o">.</span><span class="n">ServerError</span>
+    <span class="n">ValidationError</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">WebError</span><span class="p">]]</span> <span class="o">=</span> <span class="n">exceptions</span><span class="o">.</span><span class="n">ValidationError</span>
+    <span class="n">ParseError</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">WebError</span><span class="p">]]</span> <span class="o">=</span> <span class="n">exceptions</span><span class="o">.</span><span class="n">ParseError</span>
+    <span class="n">NotAuthenticated</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">WebError</span><span class="p">]]</span> <span class="o">=</span> <span class="n">exceptions</span><span class="o">.</span><span class="n">NotAuthenticated</span>
+    <span class="n">PermissionDenied</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">WebError</span><span class="p">]]</span> <span class="o">=</span> <span class="n">exceptions</span><span class="o">.</span><span class="n">PermissionDenied</span>
+    <span class="n">NotFound</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">WebError</span><span class="p">]]</span> <span class="o">=</span> <span class="n">exceptions</span><span class="o">.</span><span class="n">NotFound</span>
+
+    <span class="n">view_name</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">view_path</span><span class="p">:</span> <span class="nb">str</span>
+
+    <span class="n">methods</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">Request</span><span class="p">],</span> <span class="n">Awaitable</span><span class="p">]]</span>
+
+<div class="viewcode-block" id="View.from_handler"><a class="viewcode-back" href="../../../reference/faust.web.views.html#faust.web.views.View.from_handler">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">from_handler</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">fun</span><span class="p">:</span> <span class="n">ViewHandlerFun</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Type</span><span class="p">[</span><span class="s1">&#39;View&#39;</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;Decorate ``async def`` handler function to create view.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">callable</span><span class="p">(</span><span class="n">fun</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="n">f</span><span class="s1">&#39;View handler must be callable, not </span><span class="si">{fun!r}</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">type</span><span class="p">(</span><span class="n">fun</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span> <span class="p">(</span><span class="bp">cls</span><span class="p">,),</span> <span class="p">{</span>
+            <span class="s1">&#39;get&#39;</span><span class="p">:</span> <span class="n">fun</span><span class="p">,</span>
+            <span class="s1">&#39;__doc__&#39;</span><span class="p">:</span> <span class="n">fun</span><span class="o">.</span><span class="vm">__doc__</span><span class="p">,</span>
+            <span class="s1">&#39;__module__&#39;</span><span class="p">:</span> <span class="n">fun</span><span class="o">.</span><span class="vm">__module__</span><span class="p">,</span>
+        <span class="p">})</span></div>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">app</span><span class="p">:</span> <span class="n">AppT</span><span class="p">,</span> <span class="n">web</span><span class="p">:</span> <span class="n">Web</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">app</span> <span class="o">=</span> <span class="n">app</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">web</span> <span class="o">=</span> <span class="n">web</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">methods</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s1">&#39;head&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">head</span><span class="p">,</span>
+            <span class="s1">&#39;get&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">get</span><span class="p">,</span>
+            <span class="s1">&#39;post&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">post</span><span class="p">,</span>
+            <span class="s1">&#39;patch&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">patch</span><span class="p">,</span>
+            <span class="s1">&#39;delete&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">delete</span><span class="p">,</span>
+            <span class="s1">&#39;put&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">put</span><span class="p">,</span>
+            <span class="s1">&#39;options&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="p">,</span>
+            <span class="s1">&#39;search&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">search</span><span class="p">,</span>
+        <span class="p">}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__post_init__</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Override this to add custom initialization to your view.&quot;&quot;&quot;</span>
+        <span class="o">...</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">request</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Perform HTTP request.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">dispatch</span><span class="p">(</span><span class="n">request</span><span class="p">)</span>
+
+<div class="viewcode-block" id="View.dispatch"><a class="viewcode-back" href="../../../reference/faust.web.views.html#faust.web.views.View.dispatch">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">dispatch</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">request</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Dispatch the request and perform any callbacks/cleanup.&quot;&quot;&quot;</span>
+        <span class="n">app</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span>
+        <span class="n">sensors</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">sensors</span>
+        <span class="n">method</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">method</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+        <span class="n">kwargs</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">match_info</span> <span class="ow">or</span> <span class="p">{}</span>  <span class="c1"># XXX Aiohttp specific</span>
+
+        <span class="c1"># we cast here since some subclasses take extra parameters</span>
+        <span class="c1"># from the URL route (match_info).</span>
+        <span class="n">method</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">Callable</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">Awaitable</span><span class="p">[</span><span class="n">Response</span><span class="p">]],</span> <span class="bp">self</span><span class="o">.</span><span class="n">methods</span><span class="p">[</span><span class="n">method</span><span class="p">])</span>
+
+        <span class="n">sensor_state</span> <span class="o">=</span> <span class="n">sensors</span><span class="o">.</span><span class="n">on_web_request_start</span><span class="p">(</span><span class="n">app</span><span class="p">,</span> <span class="n">request</span><span class="p">,</span> <span class="n">view</span><span class="o">=</span><span class="bp">self</span><span class="p">)</span>
+        <span class="n">response</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Response</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">response</span> <span class="o">=</span> <span class="k">await</span> <span class="n">method</span><span class="p">(</span><span class="n">cast</span><span class="p">(</span><span class="n">Request</span><span class="p">,</span> <span class="n">request</span><span class="p">),</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">except</span> <span class="n">WebError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+            <span class="n">response</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">on_request_error</span><span class="p">(</span><span class="n">request</span><span class="p">,</span> <span class="n">exc</span><span class="p">)</span>
+        <span class="k">finally</span><span class="p">:</span>
+            <span class="n">sensors</span><span class="o">.</span><span class="n">on_web_request_end</span><span class="p">(</span>
+                <span class="n">app</span><span class="p">,</span> <span class="n">request</span><span class="p">,</span> <span class="n">response</span><span class="p">,</span> <span class="n">sensor_state</span><span class="p">,</span> <span class="n">view</span><span class="o">=</span><span class="bp">self</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">response</span></div>
+
+<div class="viewcode-block" id="View.on_request_error"><a class="viewcode-back" href="../../../reference/faust.web.views.html#faust.web.views.View.on_request_error">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">on_request_error</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                               <span class="n">request</span><span class="p">:</span> <span class="n">Request</span><span class="p">,</span>
+                               <span class="n">exc</span><span class="p">:</span> <span class="n">WebError</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Response</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Call when a request raises an exception.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="n">exc</span><span class="o">.</span><span class="n">code</span><span class="p">,</span> <span class="n">exc</span><span class="o">.</span><span class="n">detail</span><span class="p">,</span> <span class="o">**</span><span class="n">exc</span><span class="o">.</span><span class="n">extra_context</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="View.path_for"><a class="viewcode-back" href="../../../reference/faust.web.views.html#faust.web.views.View.path_for">[docs]</a>    <span class="k">def</span> <span class="nf">path_for</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">view_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Return the URL path for view by name.</span>
+
+<span class="sd">        Supports match keyword arguments.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">web</span><span class="o">.</span><span class="n">url_for</span><span class="p">(</span><span class="n">view_name</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="View.url_for"><a class="viewcode-back" href="../../../reference/faust.web.views.html#faust.web.views.View.url_for">[docs]</a>    <span class="k">def</span> <span class="nf">url_for</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                <span class="n">view_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+                <span class="n">_base_url</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">URL</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">URL</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Return the canonical URL for view by name.</span>
+
+<span class="sd">        Supports match keyword arguments.</span>
+<span class="sd">        Can take optional base name, which if not set will</span>
+<span class="sd">        be the canonical URL of the app.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">_base_url</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">_base_url</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">conf</span><span class="o">.</span><span class="n">canonical_url</span>
+        <span class="k">return</span> <span class="n">URL</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span>
+            <span class="nb">str</span><span class="p">(</span><span class="n">_base_url</span><span class="p">)</span><span class="o">.</span><span class="n">rstrip</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">),</span>
+            <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">path_for</span><span class="p">(</span><span class="n">view_name</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">))</span><span class="o">.</span><span class="n">lstrip</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">),</span>
+        <span class="p">]))</span></div>
+
+<div class="viewcode-block" id="View.head"><a class="viewcode-back" href="../../../reference/faust.web.views.html#faust.web.views.View.head">[docs]</a>    <span class="nd">@no_type_check</span>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">head</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">request</span><span class="p">:</span> <span class="n">Request</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Override ``head`` to define the HTTP HEAD handler.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">request</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="View.get"><a class="viewcode-back" href="../../../reference/faust.web.views.html#faust.web.views.View.get">[docs]</a>    <span class="nd">@no_type_check</span>  <span class="c1"># subclasses change signature based on route match_info</span>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">get</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">request</span><span class="p">:</span> <span class="n">Request</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Override ``get`` to define the HTTP GET handler.&quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="n">exceptions</span><span class="o">.</span><span class="n">MethodNotAllowed</span><span class="p">(</span><span class="s1">&#39;Method GET not allowed.&#39;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="View.post"><a class="viewcode-back" href="../../../reference/faust.web.views.html#faust.web.views.View.post">[docs]</a>    <span class="nd">@no_type_check</span>  <span class="c1"># subclasses change signature based on route match_info</span>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">post</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">request</span><span class="p">:</span> <span class="n">Request</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Override ``post`` to define the HTTP POST handler.&quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="n">exceptions</span><span class="o">.</span><span class="n">MethodNotAllowed</span><span class="p">(</span><span class="s1">&#39;Method POST not allowed.&#39;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="View.put"><a class="viewcode-back" href="../../../reference/faust.web.views.html#faust.web.views.View.put">[docs]</a>    <span class="nd">@no_type_check</span>  <span class="c1"># subclasses change signature based on route match_info</span>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">put</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">request</span><span class="p">:</span> <span class="n">Request</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Override ``put`` to define the HTTP PUT handler.&quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="n">exceptions</span><span class="o">.</span><span class="n">MethodNotAllowed</span><span class="p">(</span><span class="s1">&#39;Method PUT not allowed.&#39;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="View.patch"><a class="viewcode-back" href="../../../reference/faust.web.views.html#faust.web.views.View.patch">[docs]</a>    <span class="nd">@no_type_check</span>  <span class="c1"># subclasses change signature based on route match_info</span>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">patch</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">request</span><span class="p">:</span> <span class="n">Request</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Override ``patch`` to define the HTTP PATCH handler.&quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="n">exceptions</span><span class="o">.</span><span class="n">MethodNotAllowed</span><span class="p">(</span><span class="s1">&#39;Method PATCH not allowed.&#39;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="View.delete"><a class="viewcode-back" href="../../../reference/faust.web.views.html#faust.web.views.View.delete">[docs]</a>    <span class="nd">@no_type_check</span>  <span class="c1"># subclasses change signature based on route match_info</span>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">delete</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">request</span><span class="p">:</span> <span class="n">Request</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Override ``delete`` to define the HTTP DELETE handler.&quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="n">exceptions</span><span class="o">.</span><span class="n">MethodNotAllowed</span><span class="p">(</span><span class="s1">&#39;Method DELETE not allowed.&#39;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="View.options"><a class="viewcode-back" href="../../../reference/faust.web.views.html#faust.web.views.View.options">[docs]</a>    <span class="nd">@no_type_check</span>  <span class="c1"># subclasses change signature based on route match_info</span>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">options</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">request</span><span class="p">:</span> <span class="n">Request</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Override ``options`` to define the HTTP OPTIONS handler.&quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="n">exceptions</span><span class="o">.</span><span class="n">MethodNotAllowed</span><span class="p">(</span><span class="s1">&#39;Method OPTIONS not allowed.&#39;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="View.search"><a class="viewcode-back" href="../../../reference/faust.web.views.html#faust.web.views.View.search">[docs]</a>    <span class="nd">@no_type_check</span>  <span class="c1"># subclasses change signature based on route match_info</span>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">search</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">request</span><span class="p">:</span> <span class="n">Request</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Override ``search`` to define the HTTP SEARCH handler.&quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="n">exceptions</span><span class="o">.</span><span class="n">MethodNotAllowed</span><span class="p">(</span><span class="s1">&#39;Method SEARCH not allowed.&#39;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="View.text"><a class="viewcode-back" href="../../../reference/faust.web.views.html#faust.web.views.View.text">[docs]</a>    <span class="k">def</span> <span class="nf">text</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span>
+             <span class="n">content_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+             <span class="n">status</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">200</span><span class="p">,</span>
+             <span class="n">reason</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+             <span class="n">headers</span><span class="p">:</span> <span class="n">MutableMapping</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Response</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Create text response, using &quot;text/plain&quot; content-type.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">web</span><span class="o">.</span><span class="n">text</span><span class="p">(</span>
+            <span class="n">value</span><span class="p">,</span>
+            <span class="n">content_type</span><span class="o">=</span><span class="n">content_type</span><span class="p">,</span>
+            <span class="n">status</span><span class="o">=</span><span class="n">status</span><span class="p">,</span>
+            <span class="n">reason</span><span class="o">=</span><span class="n">reason</span><span class="p">,</span>
+            <span class="n">headers</span><span class="o">=</span><span class="n">headers</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="View.html"><a class="viewcode-back" href="../../../reference/faust.web.views.html#faust.web.views.View.html">[docs]</a>    <span class="k">def</span> <span class="nf">html</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span>
+             <span class="n">content_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+             <span class="n">status</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">200</span><span class="p">,</span>
+             <span class="n">reason</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+             <span class="n">headers</span><span class="p">:</span> <span class="n">MutableMapping</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Response</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Create HTML response from string, ``text/html`` content-type.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">web</span><span class="o">.</span><span class="n">html</span><span class="p">(</span>
+            <span class="n">value</span><span class="p">,</span>
+            <span class="n">content_type</span><span class="o">=</span><span class="n">content_type</span><span class="p">,</span>
+            <span class="n">status</span><span class="o">=</span><span class="n">status</span><span class="p">,</span>
+            <span class="n">reason</span><span class="o">=</span><span class="n">reason</span><span class="p">,</span>
+            <span class="n">headers</span><span class="o">=</span><span class="n">headers</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="View.json"><a class="viewcode-back" href="../../../reference/faust.web.views.html#faust.web.views.View.json">[docs]</a>    <span class="k">def</span> <span class="nf">json</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span>
+             <span class="n">content_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+             <span class="n">status</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">200</span><span class="p">,</span>
+             <span class="n">reason</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+             <span class="n">headers</span><span class="p">:</span> <span class="n">MutableMapping</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Response</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Create new JSON response.</span>
+
+<span class="sd">        Accepts any JSON-serializable value and will automatically</span>
+<span class="sd">        serialize it for you.</span>
+
+<span class="sd">        The content-type is set to &quot;application/json&quot;.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">web</span><span class="o">.</span><span class="n">json</span><span class="p">(</span>
+            <span class="n">value</span><span class="p">,</span>
+            <span class="n">content_type</span><span class="o">=</span><span class="n">content_type</span><span class="p">,</span>
+            <span class="n">status</span><span class="o">=</span><span class="n">status</span><span class="p">,</span>
+            <span class="n">reason</span><span class="o">=</span><span class="n">reason</span><span class="p">,</span>
+            <span class="n">headers</span><span class="o">=</span><span class="n">headers</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="View.bytes"><a class="viewcode-back" href="../../../reference/faust.web.views.html#faust.web.views.View.bytes">[docs]</a>    <span class="k">def</span> <span class="nf">bytes</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+              <span class="n">value</span><span class="p">:</span> <span class="n">_bytes</span><span class="p">,</span>
+              <span class="o">*</span><span class="p">,</span>
+              <span class="n">content_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+              <span class="n">status</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">200</span><span class="p">,</span>
+              <span class="n">reason</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+              <span class="n">headers</span><span class="p">:</span> <span class="n">MutableMapping</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Response</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Create new ``bytes`` response - for binary data.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">web</span><span class="o">.</span><span class="n">bytes</span><span class="p">(</span>
+            <span class="n">value</span><span class="p">,</span>
+            <span class="n">content_type</span><span class="o">=</span><span class="n">content_type</span><span class="p">,</span>
+            <span class="n">status</span><span class="o">=</span><span class="n">status</span><span class="p">,</span>
+            <span class="n">reason</span><span class="o">=</span><span class="n">reason</span><span class="p">,</span>
+            <span class="n">headers</span><span class="o">=</span><span class="n">headers</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="View.read_request_content"><a class="viewcode-back" href="../../../reference/faust.web.views.html#faust.web.views.View.read_request_content">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">read_request_content</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">request</span><span class="p">:</span> <span class="n">Request</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_bytes</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Return the request body as bytes.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">web</span><span class="o">.</span><span class="n">read_request_content</span><span class="p">(</span><span class="n">request</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="View.bytes_to_response"><a class="viewcode-back" href="../../../reference/faust.web.views.html#faust.web.views.View.bytes_to_response">[docs]</a>    <span class="k">def</span> <span class="nf">bytes_to_response</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">s</span><span class="p">:</span> <span class="n">_bytes</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Response</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Deserialize byte string back into a response object.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">web</span><span class="o">.</span><span class="n">bytes_to_response</span><span class="p">(</span><span class="n">s</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="View.response_to_bytes"><a class="viewcode-back" href="../../../reference/faust.web.views.html#faust.web.views.View.response_to_bytes">[docs]</a>    <span class="k">def</span> <span class="nf">response_to_bytes</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">response</span><span class="p">:</span> <span class="n">Response</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_bytes</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Convert response to serializable byte string.</span>
+
+<span class="sd">        The result is a byte string that can be deserialized</span>
+<span class="sd">        using :meth:`bytes_to_response`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">web</span><span class="o">.</span><span class="n">response_to_bytes</span><span class="p">(</span><span class="n">response</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="View.route"><a class="viewcode-back" href="../../../reference/faust.web.views.html#faust.web.views.View.route">[docs]</a>    <span class="k">def</span> <span class="nf">route</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pattern</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">handler</span><span class="p">:</span> <span class="n">Callable</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Create new route from pattern and handler.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">web</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="n">pattern</span><span class="p">,</span> <span class="n">handler</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">handler</span></div>
+
+<div class="viewcode-block" id="View.notfound"><a class="viewcode-back" href="../../../reference/faust.web.views.html#faust.web.views.View.notfound">[docs]</a>    <span class="k">def</span> <span class="nf">notfound</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">reason</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;Not Found&#39;</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Response</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Create not found error response.</span>
+
+<span class="sd">        Deprecated: Use ``raise self.NotFound()`` instead.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="mi">404</span><span class="p">,</span> <span class="n">reason</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="View.error"><a class="viewcode-back" href="../../../reference/faust.web.views.html#faust.web.views.View.error">[docs]</a>    <span class="k">def</span> <span class="nf">error</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">status</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">reason</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Response</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Create error JSON response.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">json</span><span class="p">({</span><span class="s1">&#39;error&#39;</span><span class="p">:</span> <span class="n">reason</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">},</span> <span class="n">status</span><span class="o">=</span><span class="n">status</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="takes_model"><a class="viewcode-back" href="../../../reference/faust.web.views.html#faust.web.views.takes_model">[docs]</a><span class="k">def</span> <span class="nf">takes_model</span><span class="p">(</span><span class="n">Model</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">ModelT</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">ViewDecorator</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Decorate view function to return model data.&quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">_decorate_view</span><span class="p">(</span><span class="n">fun</span><span class="p">:</span> <span class="n">ViewHandlerFun</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ViewHandlerFun</span><span class="p">:</span>
+        <span class="nd">@wraps</span><span class="p">(</span><span class="n">fun</span><span class="p">)</span>
+        <span class="k">async</span> <span class="k">def</span> <span class="nf">_inner</span><span class="p">(</span><span class="n">view</span><span class="p">:</span> <span class="n">View</span><span class="p">,</span> <span class="n">request</span><span class="p">:</span> <span class="n">Request</span><span class="p">,</span>
+                         <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Response</span><span class="p">:</span>
+            <span class="n">data</span><span class="p">:</span> <span class="nb">bytes</span> <span class="o">=</span> <span class="k">await</span> <span class="n">view</span><span class="o">.</span><span class="n">read_request_content</span><span class="p">(</span><span class="n">request</span><span class="p">)</span>
+            <span class="n">obj</span><span class="p">:</span> <span class="n">ModelT</span> <span class="o">=</span> <span class="n">Model</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">serializer</span><span class="o">=</span><span class="s1">&#39;json&#39;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="k">await</span> <span class="n">fun</span><span class="p">(</span>  <span class="c1"># type: ignore</span>
+                <span class="n">view</span><span class="p">,</span> <span class="n">request</span><span class="p">,</span> <span class="n">obj</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">_inner</span>
+    <span class="k">return</span> <span class="n">_decorate_view</span></div>
+
+
+<div class="viewcode-block" id="gives_model"><a class="viewcode-back" href="../../../reference/faust.web.views.html#faust.web.views.gives_model">[docs]</a><span class="k">def</span> <span class="nf">gives_model</span><span class="p">(</span><span class="n">Model</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">ModelT</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">ViewDecorator</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Decorate view function to automatically decode POST data.</span>
+
+<span class="sd">    The POST data is decoded using the model you specify.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">_decorate_view</span><span class="p">(</span><span class="n">fun</span><span class="p">:</span> <span class="n">ViewHandlerFun</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ViewHandlerFun</span><span class="p">:</span>
+        <span class="nd">@wraps</span><span class="p">(</span><span class="n">fun</span><span class="p">)</span>
+        <span class="k">async</span> <span class="k">def</span> <span class="nf">_inner</span><span class="p">(</span><span class="n">view</span><span class="p">:</span> <span class="n">View</span><span class="p">,</span> <span class="n">request</span><span class="p">:</span> <span class="n">Request</span><span class="p">,</span>
+                         <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Response</span><span class="p">:</span>
+            <span class="n">response</span><span class="p">:</span> <span class="n">Any</span>
+            <span class="n">response</span> <span class="o">=</span> <span class="k">await</span> <span class="n">fun</span><span class="p">(</span>  <span class="c1"># type: ignore</span>
+                <span class="n">view</span><span class="p">,</span> <span class="n">request</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">view</span><span class="o">.</span><span class="n">json</span><span class="p">(</span><span class="n">response</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">_inner</span>
+    <span class="k">return</span> <span class="n">_decorate_view</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../../index.html">
+              <img class="logo" src="../../../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../../../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../playbooks/index.html">Playbooks</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../userguide/index.html">User Guide</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../reference/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../history/index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2020, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

@@ -1,0 +1,257 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>faust.transport.utils &#8212; Faust 1.11.0a1 documentation</title>
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../../../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <link rel="copyright" title="Copyright" href="../../../copyright.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for faust.transport.utils</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Transport utils - scheduling.&quot;&quot;&quot;</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">Any</span><span class="p">,</span>
+    <span class="n">Dict</span><span class="p">,</span>
+    <span class="n">Iterator</span><span class="p">,</span>
+    <span class="n">List</span><span class="p">,</span>
+    <span class="n">Mapping</span><span class="p">,</span>
+    <span class="n">MutableMapping</span><span class="p">,</span>
+    <span class="n">Optional</span><span class="p">,</span>
+    <span class="n">Set</span><span class="p">,</span>
+    <span class="n">Tuple</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">mode.utils.compat</span> <span class="k">import</span> <span class="n">OrderedDict</span>
+<span class="kn">from</span> <span class="nn">faust.types</span> <span class="k">import</span> <span class="n">TP</span>
+<span class="kn">from</span> <span class="nn">faust.types.transports</span> <span class="k">import</span> <span class="n">SchedulingStrategyT</span>
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="s1">&#39;TopicIndexMap&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;DefaultSchedulingStrategy&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;TopicBuffer&#39;</span><span class="p">,</span>
+<span class="p">]</span>
+
+<span class="c1"># But we want to process records from topics in round-robin order.</span>
+<span class="c1"># We convert records into a mapping from topic-name to &quot;chain-of-buffers&quot;:</span>
+<span class="c1">#   topic_index[&#39;topic-name&#39;] = chain(all_topic_partition_buffers)</span>
+<span class="c1"># This means we can get the next message available in any topic</span>
+<span class="c1"># by doing: next(topic_index[&#39;topic_name&#39;])</span>
+<span class="n">TopicIndexMap</span> <span class="o">=</span> <span class="n">MutableMapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="s1">&#39;TopicBuffer&#39;</span><span class="p">]</span>
+
+
+<div class="viewcode-block" id="DefaultSchedulingStrategy"><a class="viewcode-back" href="../../../reference/faust.transport.utils.html#faust.transport.utils.DefaultSchedulingStrategy">[docs]</a><span class="k">class</span> <span class="nc">DefaultSchedulingStrategy</span><span class="p">(</span><span class="n">SchedulingStrategyT</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Consumer record scheduler.</span>
+
+<span class="sd">    Delivers records in round robin between both topics and partitions.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="DefaultSchedulingStrategy.map_from_records"><a class="viewcode-back" href="../../../reference/faust.transport.utils.html#faust.transport.utils.DefaultSchedulingStrategy.map_from_records">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">map_from_records</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">records</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="n">TP</span><span class="p">,</span> <span class="n">List</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">TopicIndexMap</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Convert records to topic index map.&quot;&quot;&quot;</span>
+        <span class="n">topic_index</span><span class="p">:</span> <span class="n">TopicIndexMap</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">tp</span><span class="p">,</span> <span class="n">messages</span> <span class="ow">in</span> <span class="n">records</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">entry</span> <span class="o">=</span> <span class="n">topic_index</span><span class="p">[</span><span class="n">tp</span><span class="o">.</span><span class="n">topic</span><span class="p">]</span>
+            <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+                <span class="n">entry</span> <span class="o">=</span> <span class="n">topic_index</span><span class="p">[</span><span class="n">tp</span><span class="o">.</span><span class="n">topic</span><span class="p">]</span> <span class="o">=</span> <span class="n">TopicBuffer</span><span class="p">()</span>
+            <span class="n">entry</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">tp</span><span class="p">,</span> <span class="n">messages</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">topic_index</span></div>
+
+<div class="viewcode-block" id="DefaultSchedulingStrategy.iterate"><a class="viewcode-back" href="../../../reference/faust.transport.utils.html#faust.transport.utils.DefaultSchedulingStrategy.iterate">[docs]</a>    <span class="k">def</span> <span class="nf">iterate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">records</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="n">TP</span><span class="p">,</span> <span class="n">List</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">TP</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
+        <span class="sd">&quot;&quot;&quot;Iterate over records in round-robin order.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">records_iterator</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">map_from_records</span><span class="p">(</span><span class="n">records</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="DefaultSchedulingStrategy.records_iterator"><a class="viewcode-back" href="../../../reference/faust.transport.utils.html#faust.transport.utils.DefaultSchedulingStrategy.records_iterator">[docs]</a>    <span class="k">def</span> <span class="nf">records_iterator</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                         <span class="n">index</span><span class="p">:</span> <span class="n">TopicIndexMap</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">TP</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
+        <span class="sd">&quot;&quot;&quot;Iterate over topic index map in round-robin order.&quot;&quot;&quot;</span>
+        <span class="n">to_remove</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="n">sentinel</span> <span class="o">=</span> <span class="nb">object</span><span class="p">()</span>
+        <span class="n">_next</span> <span class="o">=</span> <span class="nb">next</span>
+        <span class="k">while</span> <span class="n">index</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">topic</span> <span class="ow">in</span> <span class="n">to_remove</span><span class="p">:</span>
+                <span class="n">index</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">topic</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">topic</span><span class="p">,</span> <span class="n">messages</span> <span class="ow">in</span> <span class="n">index</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="n">item</span> <span class="o">=</span> <span class="n">_next</span><span class="p">(</span><span class="n">messages</span><span class="p">,</span> <span class="n">sentinel</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">item</span> <span class="ow">is</span> <span class="n">sentinel</span><span class="p">:</span>
+                    <span class="c1"># this topic is now empty,</span>
+                    <span class="c1"># but we cannot remove from dict while iterating over it,</span>
+                    <span class="c1"># so move that to the outer loop.</span>
+                    <span class="n">to_remove</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">topic</span><span class="p">)</span>
+                    <span class="k">continue</span>
+                <span class="n">tp</span><span class="p">,</span> <span class="n">record</span> <span class="o">=</span> <span class="n">item</span>  <span class="c1"># type: ignore</span>
+                <span class="k">yield</span> <span class="n">tp</span><span class="p">,</span> <span class="n">record</span></div></div>
+
+
+<div class="viewcode-block" id="TopicBuffer"><a class="viewcode-back" href="../../../reference/faust.transport.utils.html#faust.transport.utils.TopicBuffer">[docs]</a><span class="k">class</span> <span class="nc">TopicBuffer</span><span class="p">(</span><span class="n">Iterator</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Data structure managing the buffer for incoming records in a topic.&quot;&quot;&quot;</span>
+
+    <span class="n">_buffers</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="n">TP</span><span class="p">,</span> <span class="n">Iterator</span><span class="p">]</span>
+    <span class="n">_it</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Iterator</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># note: this is a regular dict, but ordered on Python 3.6</span>
+        <span class="c1"># we use this alias to signify it must be ordered.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_buffers</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">()</span>
+        <span class="c1"># getmany calls next(_TopicBuffer), and does not call iter(),</span>
+        <span class="c1"># so the first call to next caches an iterator.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_it</span> <span class="o">=</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="TopicBuffer.add"><a class="viewcode-back" href="../../../reference/faust.transport.utils.html#faust.transport.utils.TopicBuffer.add">[docs]</a>    <span class="k">def</span> <span class="nf">add</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tp</span><span class="p">:</span> <span class="n">TP</span><span class="p">,</span> <span class="n">buffer</span><span class="p">:</span> <span class="n">List</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Add topic partition buffer to the cycle.&quot;&quot;&quot;</span>
+        <span class="k">assert</span> <span class="n">tp</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_buffers</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_buffers</span><span class="p">[</span><span class="n">tp</span><span class="p">]</span> <span class="o">=</span> <span class="nb">iter</span><span class="p">(</span><span class="n">buffer</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">TP</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
+        <span class="n">buffers</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_buffers</span>
+        <span class="n">buffers_items</span> <span class="o">=</span> <span class="n">buffers</span><span class="o">.</span><span class="n">items</span>
+        <span class="n">buffers_remove</span> <span class="o">=</span> <span class="n">buffers</span><span class="o">.</span><span class="n">pop</span>
+        <span class="n">sentinel</span> <span class="o">=</span> <span class="nb">object</span><span class="p">()</span>
+        <span class="n">to_remove</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="n">TP</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="n">mark_as_to_remove</span> <span class="o">=</span> <span class="n">to_remove</span><span class="o">.</span><span class="n">add</span>
+        <span class="k">while</span> <span class="n">buffers</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">tp</span> <span class="ow">in</span> <span class="n">to_remove</span><span class="p">:</span>
+                <span class="n">buffers_remove</span><span class="p">(</span><span class="n">tp</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">tp</span><span class="p">,</span> <span class="n">buffer</span> <span class="ow">in</span> <span class="n">buffers_items</span><span class="p">():</span>
+                <span class="n">item</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="n">buffer</span><span class="p">,</span> <span class="n">sentinel</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">item</span> <span class="ow">is</span> <span class="n">sentinel</span><span class="p">:</span>
+                    <span class="n">mark_as_to_remove</span><span class="p">(</span><span class="n">tp</span><span class="p">)</span>
+                    <span class="k">continue</span>
+                <span class="k">yield</span> <span class="n">tp</span><span class="p">,</span> <span class="n">item</span>
+
+    <span class="k">def</span> <span class="nf">__next__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">TP</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+        <span class="c1"># Note: this method is not in normal iteration</span>
+        <span class="c1"># as __iter__ returns generator.</span>
+        <span class="n">it</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_it</span>
+        <span class="k">if</span> <span class="n">it</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">it</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_it</span> <span class="o">=</span> <span class="nb">iter</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">it</span><span class="o">.</span><span class="fm">__next__</span><span class="p">()</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../../index.html">
+              <img class="logo" src="../../../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../../../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../playbooks/index.html">Playbooks</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../userguide/index.html">User Guide</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../reference/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../history/index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2020, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

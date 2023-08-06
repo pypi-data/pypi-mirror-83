@@ -1,0 +1,301 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>faust.events &#8212; Faust 1.11.0a1 documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="copyright" title="Copyright" href="../copyright.html" />
+    <link rel="next" title="faust.joins" href="faust.joins.html" />
+    <link rel="prev" title="faust.channels" href="faust.channels.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="faust-events">
+<h1><code class="docutils literal notranslate"><span class="pre">faust.events</span></code><a class="headerlink" href="#faust-events" title="Permalink to this headline">¶</a></h1>
+<span class="target" id="module-faust.events"></span><p>Events received in streams.</p>
+<dl class="class">
+<dt id="faust.events.Event">
+<em class="property">class </em><code class="sig-prename descclassname">faust.events.</code><code class="sig-name descname">Event</code><span class="sig-paren">(</span><em class="sig-param">app: faust.types.app.AppT, key: Union[bytes, faust.types.core._ModelT, Any, None], value: Union[bytes, faust.types.core._ModelT, Any], headers: Union[List[Tuple[str, bytes]], Mapping[str, bytes], None], message: faust.types.tuples.Message</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/events.html#Event"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.events.Event" title="Permalink to this definition">¶</a></dt>
+<dd><p>An event received on a channel.</p>
+<p class="rubric">Notes</p>
+<ul>
+<li><p>Events have a key and a value:</p>
+<div class="highlight-python3 notranslate"><div class="highlight"><pre><span></span><span class="n">event</span><span class="o">.</span><span class="n">key</span><span class="p">,</span> <span class="n">event</span><span class="o">.</span><span class="n">value</span>
+</pre></div>
+</div>
+</li>
+<li><p>They also have a reference to the original message
+(if available), such as a Kafka record:</p>
+<blockquote>
+<div><p>event.message.offset</p>
+</div></blockquote>
+</li>
+<li><p>Iterating over channels/topics yields Event:</p>
+<blockquote>
+<div><dl class="simple">
+<dt>async for event in channel:</dt><dd><p>…</p>
+</dd>
+</dl>
+</div></blockquote>
+</li>
+<li><p>Iterating over a stream (that in turn iterate over channel) yields
+Event.value:</p>
+<div class="highlight-python3 notranslate"><div class="highlight"><pre><span></span><span class="k">async</span> <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">channel</span><span class="o">.</span><span class="n">stream</span><span class="p">()</span>  <span class="c1"># value is event.value</span>
+    <span class="o">...</span>
+</pre></div>
+</div>
+</li>
+<li><p>If you only have a Stream object, you can also access underlying
+events by using <code class="docutils literal notranslate"><span class="pre">Stream.events</span></code>.</p>
+<blockquote>
+<div><p>For example:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">async</span> <span class="k">for</span> <span class="n">event</span> <span class="ow">in</span> <span class="n">channel</span><span class="o">.</span><span class="n">stream</span><span class="o">.</span><span class="n">events</span><span class="p">():</span>
+    <span class="o">...</span>
+</pre></div>
+</div>
+</div></blockquote>
+<p>Also commonly used for finding the “current event” related to
+a value in the stream:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">stream</span> <span class="o">=</span> <span class="n">channel</span><span class="o">.</span><span class="n">stream</span><span class="p">()</span>
+<span class="n">async</span> <span class="k">for</span> <span class="n">event</span> <span class="ow">in</span> <span class="n">stream</span><span class="o">.</span><span class="n">events</span><span class="p">():</span>
+    <span class="n">event</span> <span class="o">=</span> <span class="n">stream</span><span class="o">.</span><span class="n">current_event</span>
+    <span class="n">message</span> <span class="o">=</span> <span class="n">event</span><span class="o">.</span><span class="n">message</span>
+    <span class="n">topic</span> <span class="o">=</span> <span class="n">event</span><span class="o">.</span><span class="n">message</span><span class="o">.</span><span class="n">topic</span>
+</pre></div>
+</div>
+<p>You can retrieve the current event in a stream to:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Get access to the serialized key+value.</p></li>
+<li><p>Get access to message properties like, what topic+partition
+the value was received on, or its offset.</p></li>
+</ul>
+</div></blockquote>
+<p>If you want access to both key and value, you should use
+<code class="docutils literal notranslate"><span class="pre">stream.items()</span></code> instead.</p>
+<blockquote>
+<div><div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">async</span> <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">stream</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+    <span class="o">...</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">stream.current_event</span></code> can also be accessed but you must take
+extreme care you are using the correct stream object. Methods
+such as <code class="docutils literal notranslate"><span class="pre">.group_by(key)</span></code> and <code class="docutils literal notranslate"><span class="pre">.through(topic)</span></code> returns cloned
+stream objects, so in the example:</p>
+<p>The best way to access the current_event in an agent is
+to use the <a class="reference external" href="https://docs.python.org/dev/library/contextvars.html#contextvars.ContextVar" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">ContextVar</span></code></a>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">faust</span> <span class="kn">import</span> <span class="n">current_event</span>
+
+<span class="nd">@app.agent</span><span class="p">(</span><span class="n">topic</span><span class="p">)</span>
+<span class="n">async</span> <span class="k">def</span> <span class="nf">process</span><span class="p">(</span><span class="n">stream</span><span class="p">):</span>
+    <span class="n">async</span> <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">stream</span><span class="p">:</span>
+        <span class="n">event</span> <span class="o">=</span> <span class="n">current_event</span><span class="p">()</span>
+</pre></div>
+</div>
+</div></blockquote>
+</li>
+</ul>
+<dl class="attribute">
+<dt id="faust.events.Event.app">
+<code class="sig-name descname">app</code><a class="headerlink" href="#faust.events.Event.app" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="faust.events.Event.key">
+<code class="sig-name descname">key</code><a class="headerlink" href="#faust.events.Event.key" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="faust.events.Event.value">
+<code class="sig-name descname">value</code><a class="headerlink" href="#faust.events.Event.value" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="faust.events.Event.message">
+<code class="sig-name descname">message</code><a class="headerlink" href="#faust.events.Event.message" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="faust.events.Event.headers">
+<code class="sig-name descname">headers</code><a class="headerlink" href="#faust.events.Event.headers" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="faust.events.Event.acked">
+<code class="sig-name descname">acked</code><a class="headerlink" href="#faust.events.Event.acked" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="faust.events.Event.send">
+<em class="property">async </em><code class="sig-name descname">send</code><span class="sig-paren">(</span><em class="sig-param">channel: Union[str, faust.types.channels.ChannelT], key: Union[bytes, faust.types.core._ModelT, Any, None] = &lt;object object&gt;, value: Union[bytes, faust.types.core._ModelT, Any] = &lt;object object&gt;, partition: int = None, timestamp: float = None, headers: Any = &lt;object object&gt;, schema: faust.types.serializers.SchemaT = None, key_serializer: Union[faust.types.codecs.CodecT, str, None] = None, value_serializer: Union[faust.types.codecs.CodecT, str, None] = None, callback: Callable[faust.types.tuples.FutureMessage, Union[None, Awaitable[None]]] = None, force: bool = False</em><span class="sig-paren">)</span> &#x2192; Awaitable[faust.types.tuples.RecordMetadata]<a class="reference internal" href="../_modules/faust/events.html#Event.send"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.events.Event.send" title="Permalink to this definition">¶</a></dt>
+<dd><p>Send object to channel.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Awaitable" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Awaitable</span></code></a>[<a class="reference internal" href="faust.types.tuples.html#faust.types.tuples.RecordMetadata" title="faust.types.tuples.RecordMetadata"><code class="xref py py-class docutils literal notranslate"><span class="pre">RecordMetadata</span></code></a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.events.Event.forward">
+<em class="property">async </em><code class="sig-name descname">forward</code><span class="sig-paren">(</span><em class="sig-param">channel: Union[str, faust.types.channels.ChannelT], key: Union[bytes, faust.types.core._ModelT, Any, None] = &lt;object object&gt;, value: Union[bytes, faust.types.core._ModelT, Any] = &lt;object object&gt;, partition: int = None, timestamp: float = None, headers: Any = &lt;object object&gt;, schema: faust.types.serializers.SchemaT = None, key_serializer: Union[faust.types.codecs.CodecT, str, None] = None, value_serializer: Union[faust.types.codecs.CodecT, str, None] = None, callback: Callable[faust.types.tuples.FutureMessage, Union[None, Awaitable[None]]] = None, force: bool = False</em><span class="sig-paren">)</span> &#x2192; Awaitable[faust.types.tuples.RecordMetadata]<a class="reference internal" href="../_modules/faust/events.html#Event.forward"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.events.Event.forward" title="Permalink to this definition">¶</a></dt>
+<dd><p>Forward original message (will not be reserialized).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Awaitable" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Awaitable</span></code></a>[<a class="reference internal" href="faust.types.tuples.html#faust.types.tuples.RecordMetadata" title="faust.types.tuples.RecordMetadata"><code class="xref py py-class docutils literal notranslate"><span class="pre">RecordMetadata</span></code></a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.events.Event.ack">
+<code class="sig-name descname">ack</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; bool<a class="reference internal" href="../_modules/faust/events.html#Event.ack"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.events.Event.ack" title="Permalink to this definition">¶</a></dt>
+<dd><p>Acknowledge event as being processed by stream.</p>
+<p>When the last stream processor acks the message, the
+offset in the source topic will be marked as safe-to-commit,
+and the worker will commit and advance the committed offset.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/functions.html#bool" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../playbooks/index.html">Playbooks</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../userguide/index.html">User Guide</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../history/index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">API Reference</a><ul>
+      <li>Previous: <a href="faust.channels.html" title="previous chapter"><code class="docutils literal notranslate"><span class="pre">faust.channels</span></code></a></li>
+      <li>Next: <a href="faust.joins.html" title="next chapter"><code class="docutils literal notranslate"><span class="pre">faust.joins</span></code></a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2020, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../_sources/reference/faust.events.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

@@ -1,0 +1,1565 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>The App - Define your Faust project &#8212; Faust 1.11.0a1 documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="copyright" title="Copyright" href="../copyright.html" />
+    <link rel="next" title="Agents - Self-organizing Stream Processors" href="agents.html" />
+    <link rel="prev" title="User Guide" href="index.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="the-app-define-your-faust-project">
+<span id="guide-application"></span><h1>The App - Define your Faust project<a class="headerlink" href="#the-app-define-your-faust-project" title="Permalink to this headline">¶</a></h1>
+<div class="topic">
+<p class="topic-title first"></p>
+<p><em>“I am not omniscient, but I know a lot.”</em></p>
+<p>– Goethe, <em>Faust: First part</em></p>
+</div>
+<div class="contents local topic" id="contents">
+<ul class="simple">
+<li><p><a class="reference internal" href="#what-is-an-application" id="id1">What is an Application?</a></p></li>
+<li><p><a class="reference internal" href="#application-parameters" id="id2">Application Parameters</a></p></li>
+<li><p><a class="reference internal" href="#app-instantation-and-configuration" id="id3">App Instantation and Configuration</a></p></li>
+<li><p><a class="reference internal" href="#actions" id="id4">Actions</a></p>
+<ul>
+<li><p><a class="reference internal" href="#app-topic-create-a-topic-description" id="id5"><code class="docutils literal notranslate"><span class="pre">app.topic()</span></code> – Create a topic-description</a></p></li>
+<li><p><a class="reference internal" href="#app-channel-create-a-local-channel" id="id6"><code class="docutils literal notranslate"><span class="pre">app.channel()</span></code> – Create a local channel</a></p></li>
+<li><p><a class="reference internal" href="#app-table-define-a-new-table" id="id7"><code class="docutils literal notranslate"><span class="pre">app.Table()</span></code> – Define a new table</a></p></li>
+<li><p><a class="reference internal" href="#app-agent-define-a-new-stream-processor" id="id8"><code class="docutils literal notranslate"><span class="pre">&#64;app.agent()</span></code> – Define a new stream processor</a></p></li>
+<li><p><a class="reference internal" href="#app-task-define-a-new-support-task" id="id9"><code class="docutils literal notranslate"><span class="pre">&#64;app.task()</span></code> – Define a new support task.</a></p></li>
+<li><p><a class="reference internal" href="#app-timer-define-a-new-periodic-task" id="id10"><code class="docutils literal notranslate"><span class="pre">&#64;app.timer()</span></code> – Define a new periodic task</a></p></li>
+<li><p><a class="reference internal" href="#app-page-define-a-new-web-view" id="id11"><code class="docutils literal notranslate"><span class="pre">&#64;app.page()</span></code> – Define a new Web View</a></p></li>
+<li><p><a class="reference internal" href="#app-main-start-the-faust-command-line-program" id="id12"><code class="docutils literal notranslate"><span class="pre">app.main()</span></code> – Start the <strong class="program">faust</strong> command-line program.</a></p></li>
+<li><p><a class="reference internal" href="#app-command-define-a-new-command-line-command" id="id13"><code class="docutils literal notranslate"><span class="pre">&#64;app.command()</span></code> – Define a new command-line command</a></p></li>
+<li><p><a class="reference internal" href="#app-service-define-a-new-service" id="id14"><code class="docutils literal notranslate"><span class="pre">&#64;app.service()</span></code> – Define a new service</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#application-signals" id="id15">Application Signals</a></p>
+<ul>
+<li><p><a class="reference internal" href="#app-on-produce-message" id="id16"><code class="docutils literal notranslate"><span class="pre">App.on_produce_message</span></code></a></p></li>
+<li><p><a class="reference internal" href="#app-on-partitions-revoked" id="id17"><code class="docutils literal notranslate"><span class="pre">App.on_partitions_revoked</span></code></a></p></li>
+<li><p><a class="reference internal" href="#app-on-partitions-assigned" id="id18"><code class="docutils literal notranslate"><span class="pre">App.on_partitions_assigned</span></code></a></p></li>
+<li><p><a class="reference internal" href="#app-on-configured" id="id19"><code class="docutils literal notranslate"><span class="pre">App.on_configured</span></code></a></p></li>
+<li><p><a class="reference internal" href="#app-on-before-configured" id="id20"><code class="docutils literal notranslate"><span class="pre">App.on_before_configured</span></code></a></p></li>
+<li><p><a class="reference internal" href="#app-on-after-configured" id="id21"><code class="docutils literal notranslate"><span class="pre">App.on_after_configured</span></code></a></p></li>
+<li><p><a class="reference internal" href="#app-on-worker-init" id="id22"><code class="docutils literal notranslate"><span class="pre">App.on_worker_init</span></code></a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#starting-the-app" id="id23">Starting the App</a></p></li>
+<li><p><a class="reference internal" href="#client-only-mode" id="id24">Client-Only Mode</a></p></li>
+<li><p><a class="reference internal" href="#projects-and-directory-layout" id="id25">Projects and Directory Layout</a></p>
+<ul>
+<li><p><a class="reference internal" href="#small-standalone-projects" id="id26">Small/Standalone Projects</a></p></li>
+<li><p><a class="reference internal" href="#medium-large-projects" id="id27">Medium/Large Projects</a></p></li>
+<li><p><a class="reference internal" href="#django-projects" id="id28">Django Projects</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#miscellaneous" id="id29">Miscellaneous</a></p>
+<ul>
+<li><p><a class="reference internal" href="#why-use-applications" id="id30">Why use applications?</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#reference" id="id31">Reference</a></p></li>
+</ul>
+</div>
+<div class="section" id="what-is-an-application">
+<span id="application-basics"></span><h2><a class="toc-backref" href="#id1">What is an Application?</a><a class="headerlink" href="#what-is-an-application" title="Permalink to this headline">¶</a></h2>
+<p>An application is an <em>instance of the library</em>, and provides
+the core API of Faust.</p>
+<p>The application can define stream processors (agents), topics, channels,
+web views, CLI commands and more.</p>
+<p>To create one you need to provide
+a name for the application (the id), a message broker, and a driver to use for
+table storage (optional)</p>
+<div class="highlight-pycon notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">faust</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">app</span> <span class="o">=</span> <span class="n">faust</span><span class="o">.</span><span class="n">App</span><span class="p">(</span><span class="s1">&#39;example&#39;</span><span class="p">,</span> <span class="n">broker</span><span class="o">=</span><span class="s1">&#39;kafka://&#39;</span><span class="p">,</span> <span class="n">store</span><span class="o">=</span><span class="s1">&#39;rocksdb://&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="topic">
+<p class="topic-title first">It is safe to…</p>
+<ul>
+<li><p>Run multiple application instances in the same process:</p>
+<blockquote>
+<div><div class="highlight-pycon notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">app1</span> <span class="o">=</span> <span class="n">faust</span><span class="o">.</span><span class="n">App</span><span class="p">(</span><span class="s1">&#39;demo1&#39;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">app2</span> <span class="o">=</span> <span class="n">faust</span><span class="o">.</span><span class="n">App</span><span class="p">(</span><span class="s1">&#39;demo2&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div></blockquote>
+</li>
+<li><p>Share an app between multiple threads (the app is <a class="reference internal" href="../glossary.html#term-thread-safe"><span class="xref std std-term">thread safe</span></a>).</p></li>
+</ul>
+</div>
+</div>
+<div class="section" id="application-parameters">
+<span id="application-configuration"></span><h2><a class="toc-backref" href="#id2">Application Parameters</a><a class="headerlink" href="#application-parameters" title="Permalink to this headline">¶</a></h2>
+<p>You must provide a name for the app, and also you <em>will want</em> to
+set the <code class="docutils literal notranslate"><span class="pre">broker</span></code> and <code class="docutils literal notranslate"><span class="pre">store</span></code> options to configure the broker URL and
+a storage driver.</p>
+<p>Other than that the rest have sensible defaults so you can safely use Faust
+without changing them.</p>
+<p>Here we set the broker URL to Kafka, and the storage driver to <a class="reference external" href="http://rocksdb.org/">RocksDB</a>:</p>
+<div class="highlight-pycon notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">app</span> <span class="o">=</span> <span class="n">faust</span><span class="o">.</span><span class="n">App</span><span class="p">(</span>
+<span class="gp">... </span>    <span class="s1">&#39;myid&#39;</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="n">broker</span><span class="o">=</span><span class="s1">&#39;kafka://kafka.example.com&#39;</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="n">store</span><span class="o">=</span><span class="s1">&#39;rocksdb://&#39;</span><span class="p">,</span>
+<span class="gp">... </span><span class="p">)</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">kafka://localhost</span></code> is used if you don’t configure a broker URL.
+The first part of the URL (<code class="docutils literal notranslate"><span class="pre">kafka://</span></code>), is called the scheme and specifies
+the driver that you want to use (it can also be the fully qualified
+path to a Python class).</p>
+<p>The storage driver decides how to keep distributed tables locally, and
+Faust version 1.0 supports two options:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 75%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">rocksdb://</span></code></p></td>
+<td><p><a class="reference external" href="http://rocksdb.org/">RocksDB</a> an embedded database (production)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">memory://</span></code></p></td>
+<td><p>In-memory (development)</p></td>
+</tr>
+</tbody>
+</table>
+<p>Using the <code class="docutils literal notranslate"><span class="pre">memory://</span></code> store is OK when developing your project and testing
+things out, but for large tables, it can take hours to recover after
+a restart, so you should never use it in production.</p>
+<p><a class="reference external" href="http://rocksdb.org/">RocksDB</a> recovers tables in seconds or less, is embedded and don’t require
+a server or additional infrastructure. It also stores table data on the file system
+in such a way that tables can exceed the size of available memory.</p>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<dl class="simple">
+<dt><a class="reference internal" href="settings.html#guide-settings"><span class="std std-ref">Configuration Reference</span></a>: for a full list of supported configuration</dt><dd><p>settings – these can be passed as keyword arguments
+when creating the <code class="xref py py-class docutils literal notranslate"><span class="pre">faust.App</span></code>.</p>
+</dd>
+</dl>
+</div>
+</div>
+<div class="section" id="app-instantation-and-configuration">
+<h2><a class="toc-backref" href="#id3">App Instantation and Configuration</a><a class="headerlink" href="#app-instantation-and-configuration" title="Permalink to this headline">¶</a></h2>
+<p>Instantiating and setting the configurations of a Faust app can be done in two steps, much like a <a class="reference external" href="https://flask.palletsprojects.com/en/1.1.x/tutorial/factory/">Flask</a> app. One can create a new App instance with the entire configuration as parameters and then run it, or instantiate the App, set the parameters and then run the application. This allows for easier configuration switching (in particular during development and testing phases).</p>
+<div class="highlight-pycon notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">app</span> <span class="o">=</span> <span class="n">faust</span><span class="o">.</span><span class="n">App</span><span class="p">(</span><span class="s1">&#39;myApp&#39;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">app</span><span class="o">.</span><span class="n">conf</span><span class="o">.</span><span class="n">broker</span><span class="o">=</span><span class="s1">&#39;kafka://kafka.example.com&#39;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">app</span><span class="o">.</span><span class="n">conf</span><span class="o">.</span><span class="n">store</span><span class="o">=</span><span class="s1">&#39;rocksdb://&#39;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">app</span><span class="o">.</span><span class="n">main</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="actions">
+<h2><a class="toc-backref" href="#id4">Actions</a><a class="headerlink" href="#actions" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="app-topic-create-a-topic-description">
+<h3><a class="toc-backref" href="#id5"><code class="docutils literal notranslate"><span class="pre">app.topic()</span></code> – Create a topic-description</a><a class="headerlink" href="#app-topic-create-a-topic-description" title="Permalink to this headline">¶</a></h3>
+<p>Use the <code class="xref py py-meth docutils literal notranslate"><span class="pre">topic()</span></code> method to create a topic description, used
+to tell stream processors what Kafka topic to read from, and how the keys
+and values in that topic are serialized:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">topic</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">topic</span><span class="p">(</span><span class="s1">&#39;name_of_topic&#39;</span><span class="p">)</span>
+
+<span class="nd">@app.agent</span><span class="p">(</span><span class="n">topic</span><span class="p">)</span>
+<span class="n">async</span> <span class="k">def</span> <span class="nf">process</span><span class="p">(</span><span class="n">stream</span><span class="p">):</span>
+    <span class="n">async</span> <span class="k">for</span> <span class="n">event</span> <span class="ow">in</span> <span class="n">stream</span><span class="p">:</span>
+        <span class="o">...</span>
+</pre></div>
+</div>
+<div class="section" id="topic-arguments">
+<h4>Topic Arguments<a class="headerlink" href="#topic-arguments" title="Permalink to this headline">¶</a></h4>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">key_type</span></code>/<code class="docutils literal notranslate"><span class="pre">value_type</span></code>: <code class="xref py py-data docutils literal notranslate"><span class="pre">ModelArg</span></code></p>
+<blockquote>
+<div><p>Use the <code class="docutils literal notranslate"><span class="pre">key_type</span></code> and <code class="docutils literal notranslate"><span class="pre">value_type</span></code> arguments to specify the models
+used for key and value serialization:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">MyValueModel</span><span class="p">(</span><span class="n">faust</span><span class="o">.</span><span class="n">Record</span><span class="p">):</span>
+    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">value</span><span class="p">:</span> <span class="nb">float</span>
+
+<span class="n">topic</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">topic</span><span class="p">(</span>
+    <span class="s1">&#39;name_of_topic&#39;</span><span class="p">,</span>
+    <span class="n">key_type</span><span class="o">=</span><span class="nb">bytes</span><span class="p">,</span>
+    <span class="n">value_type</span><span class="o">=</span><span class="n">MyValueModel</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>The default <code class="docutils literal notranslate"><span class="pre">key_type</span></code> is <a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#bytes" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bytes</span></code></a> and treats the key as a binary
+string. The key can also be specified as a model type
+(<code class="docutils literal notranslate"><span class="pre">key_type=MyKeyModel</span></code>).</p>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<ul class="simple">
+<li><p>The <a class="reference internal" href="channels.html#guide-channels"><span class="std std-ref">Channels &amp; Topics - Data Sources</span></a> guide – for more about topics
+and channels.</p></li>
+<li><p>The <a class="reference internal" href="models.html#guide-models"><span class="std std-ref">Models, Serialization, and Codecs</span></a> guide – for more about models
+and serialization.</p></li>
+</ul>
+</div>
+</div></blockquote>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">key_serializer</span></code>/<code class="docutils literal notranslate"><span class="pre">value_serializer</span></code>: <code class="xref py py-data docutils literal notranslate"><span class="pre">CodecArg</span></code></p>
+<blockquote>
+<div><p>The codec/serializer type used for keys and values in this topic.</p>
+<p>If not specified the default will be taken from the
+<a class="reference internal" href="settings.html#std:setting-key_serializer"><code class="xref std std-setting docutils literal notranslate"><span class="pre">key_serializer</span></code></a> and <a class="reference internal" href="settings.html#std:setting-value_serializer"><code class="xref std std-setting docutils literal notranslate"><span class="pre">value_serializer</span></code></a> settings.</p>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<ul class="simple">
+<li><p>The <a class="reference internal" href="models.html#codecs"><span class="std std-ref">Codecs</span></a> section in the <a class="reference internal" href="models.html#guide-models"><span class="std std-ref">Models, Serialization, and Codecs</span></a> guide – for
+more information on available codecs, and also how to make your own
+custom encoders and decoders.</p></li>
+</ul>
+</div>
+</div></blockquote>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">partitions</span></code>: <a class="reference external" href="https://docs.python.org/dev/library/functions.html#int" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a></p>
+<blockquote>
+<div><p>The number of partitions this topic should have.
+If not specified the default in the <a class="reference internal" href="settings.html#std:setting-topic_partitions"><code class="xref std std-setting docutils literal notranslate"><span class="pre">topic_partitions</span></code></a> setting
+is used.</p>
+<p>Note: if this is an automatically created topic, or an externally managed
+source topic, then please set this value to <code class="xref py py-const docutils literal notranslate"><span class="pre">None</span></code>.</p>
+</div></blockquote>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">retention</span></code>: <code class="xref py py-class docutils literal notranslate"><span class="pre">Seconds</span></code></p>
+<blockquote>
+<div><p>Number of seconds (as <a class="reference external" href="https://docs.python.org/dev/library/functions.html#float" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>/<a class="reference external" href="https://docs.python.org/dev/library/datetime.html#datetime.timedelta" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">timedelta</span></code></a>) to keep
+messages in the topic before they can be expired by the server.</p>
+</div></blockquote>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">compacting</span></code>: <a class="reference external" href="https://docs.python.org/dev/library/functions.html#bool" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a></p>
+<blockquote>
+<div><p>Set to <code class="xref py py-const docutils literal notranslate"><span class="pre">True</span></code> if this should be a compacting topic.  The Kafka
+broker will then periodically compact the topic, only keeping the most
+recent value for a key.</p>
+</div></blockquote>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">acks</span></code>: <a class="reference external" href="https://docs.python.org/dev/library/functions.html#bool" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a></p>
+<blockquote>
+<div><p>Enable automatic acknowledgment for this topic.  If you disable this
+then you are responsible for manually acknowledging each event.</p>
+</div></blockquote>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">internal</span></code>: <a class="reference external" href="https://docs.python.org/dev/library/functions.html#bool" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a></p>
+<blockquote>
+<div><p>If set to <code class="xref py py-const docutils literal notranslate"><span class="pre">True</span></code> this means we own and are responsible for this
+topic: we are allowed to create or delete the topic.</p>
+</div></blockquote>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">maxsize</span></code>: <a class="reference external" href="https://docs.python.org/dev/library/functions.html#int" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a></p>
+<blockquote>
+<div><p>The maximum buffer size used for this channel, with default taken from
+the <a class="reference internal" href="settings.html#std:setting-stream_buffer_maxsize"><code class="xref std std-setting docutils literal notranslate"><span class="pre">stream_buffer_maxsize</span></code></a> setting. When this buffer is exceeded
+the worker will have to wait for agent/stream consumers to catch up, and
+if the buffer is frequently full this will negatively affect performance.</p>
+<p>Try tweaking the buffer sizes, but also the
+<a class="reference internal" href="settings.html#std:setting-broker_commit_interval"><code class="xref std std-setting docutils literal notranslate"><span class="pre">broker_commit_interval</span></code></a> setting to make sure it commits more
+frequently with larger buffer sizes.</p>
+</div></blockquote>
+</li>
+</ul>
+</div>
+</div>
+<div class="section" id="app-channel-create-a-local-channel">
+<h3><a class="toc-backref" href="#id6"><code class="docutils literal notranslate"><span class="pre">app.channel()</span></code> – Create a local channel</a><a class="headerlink" href="#app-channel-create-a-local-channel" title="Permalink to this headline">¶</a></h3>
+<p>Use <code class="xref py py-meth docutils literal notranslate"><span class="pre">channel()</span></code> to create an in-memory communication channel:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">faust</span>
+
+<span class="n">app</span> <span class="o">=</span> <span class="n">faust</span><span class="o">.</span><span class="n">App</span><span class="p">(</span><span class="s1">&#39;channel&#39;</span><span class="p">)</span>
+
+<span class="k">class</span> <span class="nc">MyModel</span><span class="p">(</span><span class="n">faust</span><span class="o">.</span><span class="n">Record</span><span class="p">):</span>
+    <span class="n">x</span><span class="p">:</span> <span class="nb">int</span>
+
+<span class="n">channel</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">channel</span><span class="p">(</span><span class="n">value_type</span><span class="o">=</span><span class="n">MyModel</span><span class="p">)</span>
+
+<span class="nd">@app.agent</span><span class="p">(</span><span class="n">channel</span><span class="p">)</span>
+<span class="n">async</span> <span class="k">def</span> <span class="nf">process</span><span class="p">(</span><span class="n">stream</span><span class="p">):</span>
+    <span class="n">async</span> <span class="k">for</span> <span class="n">event</span> <span class="ow">in</span> <span class="n">stream</span><span class="p">:</span>
+        <span class="k">print</span><span class="p">(</span><span class="n">f</span><span class="s1">&#39;Received: {event!r}&#39;</span><span class="p">)</span>
+
+<span class="nd">@app.timer</span><span class="p">(</span><span class="mf">1.0</span><span class="p">)</span>
+<span class="n">async</span> <span class="k">def</span> <span class="nf">populate</span><span class="p">():</span>
+    <span class="n">await</span> <span class="n">channel</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">MyModel</span><span class="p">(</span><span class="mi">303</span><span class="p">))</span>
+</pre></div>
+</div>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<ul class="simple">
+<li><p>The <a class="reference internal" href="channels.html#guide-channels"><span class="std std-ref">Channels &amp; Topics - Data Sources</span></a> guide – for more about topics and channels.</p></li>
+<li><p>The <a class="reference internal" href="models.html#guide-models"><span class="std std-ref">Models, Serialization, and Codecs</span></a> guide – for more about models and serialization.</p></li>
+</ul>
+</div>
+<div class="section" id="channel-arguments">
+<h4>Channel Arguments<a class="headerlink" href="#channel-arguments" title="Permalink to this headline">¶</a></h4>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">key_type</span></code>/<code class="docutils literal notranslate"><span class="pre">value_type</span></code>: <code class="xref py py-data docutils literal notranslate"><span class="pre">ModelArg</span></code></p>
+<blockquote>
+<div><p>Use the <code class="docutils literal notranslate"><span class="pre">key_type</span></code> and <code class="docutils literal notranslate"><span class="pre">value_type</span></code> arguments to specify the models
+used for key and value serialization:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">MyValueModel</span><span class="p">(</span><span class="n">faust</span><span class="o">.</span><span class="n">Record</span><span class="p">):</span>
+    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">value</span><span class="p">:</span> <span class="nb">float</span>
+
+<span class="n">channel</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">channel</span><span class="p">(</span><span class="n">key_type</span><span class="o">=</span><span class="nb">bytes</span><span class="p">,</span> <span class="n">value_type</span><span class="o">=</span><span class="n">MyValueModel</span><span class="p">)</span>
+</pre></div>
+</div>
+</div></blockquote>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">key_serializer</span></code>/<code class="docutils literal notranslate"><span class="pre">value_serializer</span></code>: <code class="xref py py-data docutils literal notranslate"><span class="pre">CodecArg</span></code></p>
+<blockquote>
+<div><p>The codec/serializer type used for keys and values in this channel.</p>
+<p>If not specified the default will be taken from the
+<a class="reference internal" href="settings.html#std:setting-key_serializer"><code class="xref std std-setting docutils literal notranslate"><span class="pre">key_serializer</span></code></a> and <a class="reference internal" href="settings.html#std:setting-value_serializer"><code class="xref std std-setting docutils literal notranslate"><span class="pre">value_serializer</span></code></a> settings.</p>
+</div></blockquote>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">maxsize</span></code>: <a class="reference external" href="https://docs.python.org/dev/library/functions.html#int" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a></p>
+<blockquote>
+<div><p>This is the maximum number of pending messages in the channel.
+If this number is exceeded any call to <cite>channel.put(value)</cite> will block
+until something consumes another message from the channel.</p>
+<p>Defaults to the <a class="reference internal" href="settings.html#std:setting-stream_buffer_maxsize"><code class="xref std std-setting docutils literal notranslate"><span class="pre">stream_buffer_maxsize</span></code></a> setting.</p>
+</div></blockquote>
+</li>
+</ul>
+</div>
+</div>
+<div class="section" id="app-table-define-a-new-table">
+<h3><a class="toc-backref" href="#id7"><code class="docutils literal notranslate"><span class="pre">app.Table()</span></code> – Define a new table</a><a class="headerlink" href="#app-table-define-a-new-table" title="Permalink to this headline">¶</a></h3>
+<p>Use <code class="xref py py-meth docutils literal notranslate"><span class="pre">Table()</span></code> to define a new distributed dictionary; the only
+required argument is a unique and identifying name. Here we also
+set a default value so the table acts as a <a class="reference external" href="https://docs.python.org/dev/library/collections.html#collections.defaultdict" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">defaultdict</span></code></a>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">transfer_counts</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">Table</span><span class="p">(</span>
+    <span class="s1">&#39;transfer_counts&#39;</span><span class="p">,</span>
+    <span class="n">default</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span>
+    <span class="n">key_type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span>
+    <span class="n">value_type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>The default argument is passed in as a callable, and in our example
+calling <code class="docutils literal notranslate"><span class="pre">int()</span></code> returns the number zero, so whenever a key is missing
+in the table, it’s initialized with a value of zero:</p>
+<div class="highlight-pycon notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">table</span><span class="p">[</span><span class="s1">&#39;missing&#39;</span><span class="p">]</span>
+<span class="go">0</span>
+
+<span class="gp">&gt;&gt;&gt; </span><span class="n">table</span><span class="p">[</span><span class="s1">&#39;also-missing&#39;</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">table</span><span class="p">[</span><span class="s1">&#39;also-missing&#39;</span><span class="p">]</span>
+<span class="go">1</span>
+</pre></div>
+</div>
+<p>The table needs to relate every update to an associated source topic event,
+so you must be iterating over a stream to modify a table. Like in this agent
+where also <code class="docutils literal notranslate"><span class="pre">.group_by()</span></code> is used to repartition the stream by account id,
+ensuring every unique account delivers to the same agent instance,
+and that the count-per-account is recorded accurately:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@app.agent</span><span class="p">(</span><span class="n">transfers_topic</span><span class="p">)</span>
+<span class="n">async</span> <span class="k">def</span> <span class="nf">transfer</span><span class="p">(</span><span class="n">transfers</span><span class="p">):</span>
+    <span class="n">async</span> <span class="k">for</span> <span class="n">transfer</span> <span class="ow">in</span> <span class="n">transfers</span><span class="o">.</span><span class="n">group_by</span><span class="p">(</span><span class="n">Transfer</span><span class="o">.</span><span class="n">account</span><span class="p">):</span>
+        <span class="n">transfer_counts</span><span class="p">[</span><span class="n">transfer</span><span class="o">.</span><span class="n">account</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+</pre></div>
+</div>
+<p>The agent modifying the table cannot process the source topic out of
+order, so only agents with <code class="docutils literal notranslate"><span class="pre">concurrency=1</span></code> are allowed to update tables.</p>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<ul>
+<li><p>The <a class="reference internal" href="tables.html#guide-tables"><span class="std std-ref">Tables and Windowing</span></a> guide – for more information about tables.</p>
+<blockquote>
+<div><p>Learn how to create a “windowed table” where aggregate values are placed
+into configurable time windows, providing you with answers to questions like
+“what was the value in the last five minutes”, or “what was the value of
+this count like yesterday”.</p>
+</div></blockquote>
+</li>
+</ul>
+</div>
+<div class="section" id="table-arguments">
+<span id="application-table-arguments"></span><h4>Table Arguments<a class="headerlink" href="#table-arguments" title="Permalink to this headline">¶</a></h4>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">name</span></code>: <a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
+<blockquote>
+<div><p>The name of the table.  This must be <em>unique</em> as two tables with the same
+in the same application will share changelog topics.</p>
+</div></blockquote>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">help</span></code>: <a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
+<blockquote>
+<div><p>Brief description of table purpose.</p>
+</div></blockquote>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">default</span></code>: <code class="xref py py-class docutils literal notranslate"><span class="pre">Callable[[],</span> <span class="pre">Any]</span></code></p>
+<blockquote>
+<div><p>User provided function called to get default value for missing keys.</p>
+<p>Without any default this attempt to access a missing key
+will raise <a class="reference external" href="https://docs.python.org/dev/library/exceptions.html#KeyError" title="(in Python v3.9)"><code class="xref py py-exc docutils literal notranslate"><span class="pre">KeyError</span></code></a>:</p>
+<div class="highlight-pycon notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">table</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">Table</span><span class="p">(</span><span class="s1">&#39;nodefault&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="bp">None</span><span class="p">)</span>
+
+<span class="gp">&gt;&gt;&gt; </span><span class="n">table</span><span class="p">[</span><span class="s1">&#39;missing&#39;</span><span class="p">]</span>
+<span class="gt">Traceback (most recent call last):</span>
+  File <span class="nb">&quot;&lt;stdin&gt;&quot;</span>, line <span class="m">1</span>, in <span class="n">&lt;module&gt;</span>
+<span class="gr">KeyError</span>: <span class="n">&#39;missing&#39;</span>
+</pre></div>
+</div>
+<p>With the default callback set to <a class="reference external" href="https://docs.python.org/dev/library/functions.html#int" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, the same missing
+key will now set the key to <code class="docutils literal notranslate"><span class="pre">0</span></code> and return <code class="docutils literal notranslate"><span class="pre">0</span></code>:</p>
+<div class="highlight-pycon notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">table</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">Table</span><span class="p">(</span><span class="s1">&#39;hasdefault&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+
+<span class="gp">&gt;&gt;&gt; </span><span class="n">table</span><span class="p">[</span><span class="s1">&#39;missing&#39;</span><span class="p">]</span>
+<span class="go">0</span>
+</pre></div>
+</div>
+</div></blockquote>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">key_type</span></code>/<code class="docutils literal notranslate"><span class="pre">value_type</span></code>: <code class="xref py py-data docutils literal notranslate"><span class="pre">ModelArg</span></code></p>
+<blockquote>
+<div><p>Use the <code class="docutils literal notranslate"><span class="pre">key_type</span></code> and <code class="docutils literal notranslate"><span class="pre">value_type</span></code> arguments to specify the models
+used for serializing/deserializing keys and values in this table.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">MyValueModel</span><span class="p">(</span><span class="n">faust</span><span class="o">.</span><span class="n">Record</span><span class="p">):</span>
+    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">value</span><span class="p">:</span> <span class="nb">float</span>
+
+<span class="n">table</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">Table</span><span class="p">(</span><span class="n">key_type</span><span class="o">=</span><span class="nb">bytes</span><span class="p">,</span> <span class="n">value_type</span><span class="o">=</span><span class="n">MyValueModel</span><span class="p">)</span>
+</pre></div>
+</div>
+</div></blockquote>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">store</span></code>: <a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a> or <a class="reference external" href="https://yarl.readthedocs.io/en/latest/api.html#yarl.URL" title="(in yarl v1.5)"><code class="xref py py-class docutils literal notranslate"><span class="pre">URL</span></code></a></p>
+<blockquote>
+<div><p>The name of a storage backend to use, or the URL to one.</p>
+<p>Default is taken from the <a class="reference internal" href="settings.html#std:setting-store"><code class="xref std std-setting docutils literal notranslate"><span class="pre">store</span></code></a> setting.</p>
+</div></blockquote>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">partitions</span></code>: <a class="reference external" href="https://docs.python.org/dev/library/functions.html#int" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a></p>
+<blockquote>
+<div><p>The number of partitions for the changelog topic used by this table.</p>
+<p>Default is taken from the <a class="reference internal" href="settings.html#std:setting-topic_partitions"><code class="xref std std-setting docutils literal notranslate"><span class="pre">topic_partitions</span></code></a> setting.</p>
+</div></blockquote>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">changelog_topic</span></code>: <a class="reference internal" href="../reference/faust.topics.html#faust.topics.Topic" title="faust.topics.Topic"><code class="xref py py-class docutils literal notranslate"><span class="pre">Topic</span></code></a></p>
+<blockquote>
+<div><p>The changelog topic description to use for this table.</p>
+<p>Only for advanced users who know what they’re doing.</p>
+</div></blockquote>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">recovery_buffer_size</span></code>: <a class="reference external" href="https://docs.python.org/dev/library/functions.html#int" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a></p>
+<blockquote>
+<div><p>How often we flush changelog records during recovery.  Default is every
+1000 changelog messages.</p>
+</div></blockquote>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">standby_buffer_size</span></code>: <a class="reference external" href="https://docs.python.org/dev/library/functions.html#int" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a></p>
+<blockquote>
+<div><p>How often we flush changelog records during recovery.  Default
+is <code class="xref py py-const docutils literal notranslate"><span class="pre">None</span></code> (always).</p>
+</div></blockquote>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">on_changelog_event</span></code>: <code class="xref py py-class docutils literal notranslate"><span class="pre">Callable[[EventT],</span> <span class="pre">Awaitable[None]]</span></code></p>
+<blockquote>
+<div><p>A callback called for every changelog event during recovery and while
+keeping table standbys in sync.</p>
+</div></blockquote>
+</li>
+</ul>
+</div>
+</div>
+<div class="section" id="app-agent-define-a-new-stream-processor">
+<h3><a class="toc-backref" href="#id8"><code class="docutils literal notranslate"><span class="pre">&#64;app.agent()</span></code> – Define a new stream processor</a><a class="headerlink" href="#app-agent-define-a-new-stream-processor" title="Permalink to this headline">¶</a></h3>
+<p>Use the <code class="xref py py-meth docutils literal notranslate"><span class="pre">agent()</span></code> decorator to define an asynchronous stream processor:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># examples/agent.py</span>
+<span class="kn">import</span> <span class="nn">faust</span>
+
+<span class="n">app</span> <span class="o">=</span> <span class="n">faust</span><span class="o">.</span><span class="n">App</span><span class="p">(</span><span class="s1">&#39;stream-example&#39;</span><span class="p">)</span>
+
+<span class="nd">@app.agent</span><span class="p">()</span>
+<span class="n">async</span> <span class="k">def</span> <span class="nf">myagent</span><span class="p">(</span><span class="n">stream</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Example agent.&quot;&quot;&quot;</span>
+    <span class="n">async</span> <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">stream</span><span class="p">:</span>
+        <span class="k">print</span><span class="p">(</span><span class="n">f</span><span class="s1">&#39;MYAGENT RECEIVED -- {value!r}&#39;</span><span class="p">)</span>
+        <span class="k">yield</span> <span class="n">value</span>
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s1">&#39;__main__&#39;</span><span class="p">:</span>
+    <span class="n">app</span><span class="o">.</span><span class="n">main</span><span class="p">()</span>
+</pre></div>
+</div>
+<div class="admonition-terminology admonition">
+<p class="admonition-title">Terminology</p>
+<ul class="simple">
+<li><p>“agent” – A named group of actors processing a stream.</p></li>
+<li><p>“actor” – An individual agent instance.</p></li>
+</ul>
+</div>
+<p>No topic was passed to the agent decorator, so an anonymous topic will
+be created for it.  Use the <strong class="program">faust agents</strong> program to list the topics
+used by each agent:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> python examples/agent.py agents
+<span class="go">┌Agents────┬───────────────────────────────────────┬────────────────┐</span>
+<span class="go">│ name     │ topic                                 │ help           │</span>
+<span class="go">├──────────┼───────────────────────────────────────┼────────────────┤</span>
+<span class="go">│ @myagent │ stream-example-examples.agent.myagent │ Example agent. │</span>
+<span class="go">└──────────┴───────────────────────────────────────┴────────────────┘</span>
+</pre></div>
+</div>
+<p>The autogenerated topic name <code class="docutils literal notranslate"><span class="pre">stream-example-examples.agent.myagent</span></code>
+is generated from the application <a class="reference internal" href="settings.html#std:setting-id"><code class="xref std std-setting docutils literal notranslate"><span class="pre">id</span></code></a> setting, the
+application <a class="reference internal" href="settings.html#std:setting-version"><code class="xref std std-setting docutils literal notranslate"><span class="pre">version</span></code></a> setting, and the fully qualified path of the
+agent (<code class="docutils literal notranslate"><span class="pre">examples.agent.myagent</span></code>).</p>
+<p><strong>Start a worker to consume from the topic:</strong></p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> python examples/agent.py worker -l info
+</pre></div>
+</div>
+<p>Next, in a new console, send the agent a value using the <strong class="program">faust send</strong>
+program.  The first argument to send is the name of the topic, and the second
+argument is the value to send (use <code class="docutils literal notranslate"><span class="pre">--key=k</span></code> to specify key).  The name of
+the topic can also start with the <code class="docutils literal notranslate"><span class="pre">&#64;</span></code> character to name an agent instead.</p>
+<p>Use <code class="docutils literal notranslate"><span class="pre">&#64;agent</span></code> to send a value of <code class="docutils literal notranslate"><span class="pre">&quot;hello&quot;</span></code> to the topic of our agent:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> python examples/agent.py send @myagent hello
+</pre></div>
+</div>
+<p>Finally, you should see in the worker console that it received our message:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="go">MYAGENT RECEIVED -- b&#39;hello&#39;</span>
+</pre></div>
+</div>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<ul class="simple">
+<li><p>The <a class="reference internal" href="agents.html#guide-agents"><span class="std std-ref">Agents - Self-organizing Stream Processors</span></a> guide – for more information about agents.</p></li>
+<li><p>The <a class="reference internal" href="channels.html#guide-channels"><span class="std std-ref">Channels &amp; Topics - Data Sources</span></a> guide – for more information about channels
+and topics.</p></li>
+</ul>
+</div>
+<div class="section" id="agent-arguments">
+<h4>Agent Arguments<a class="headerlink" href="#agent-arguments" title="Permalink to this headline">¶</a></h4>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">name</span></code>: <a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
+<blockquote>
+<div><p>The name of the agent is automatically taken from the decorated
+function and the module it is defined in.</p>
+<p>You can also specify the name manually, but note that this should
+include the module name, e.g.: <code class="docutils literal notranslate"><span class="pre">name='proj.agents.add'</span></code>.</p>
+</div></blockquote>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">channel</span></code>: <a class="reference internal" href="../reference/faust.channels.html#faust.channels.Channel" title="faust.channels.Channel"><code class="xref py py-class docutils literal notranslate"><span class="pre">Channel</span></code></a></p>
+<blockquote>
+<div><p>The channel or topic this agent should consume from.</p>
+</div></blockquote>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">concurrency</span></code>: <a class="reference external" href="https://docs.python.org/dev/library/functions.html#int" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a></p>
+<blockquote>
+<div><p>The number of concurrent actors to start for this agent
+on every worker instance.</p>
+<p>For example if you have an agent processing RSS feeds, a concurrency
+of <code class="docutils literal notranslate"><span class="pre">100</span></code> means you can process up to hundred RSS feeds at the same time
+on every worker instance that you start.</p>
+<p>Adding concurrency to your agent also means it will process events
+in the topic <em>out of order</em>, and should you rewind the stream that order
+may differ when processing the events a second time.</p>
+<div class="admonition-concurrency-and-tables admonition">
+<p class="admonition-title">Concurrency and tables</p>
+<p>Concurrent agents are <strong>not allowed to modify tables</strong>: an
+exception is raised if this is attempted.</p>
+<p>They are, however, allowed to read from tables.</p>
+</div>
+</div></blockquote>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">sink</span></code>: <a class="reference internal" href="../reference/faust.types.agents.html#faust.types.agents.SinkT" title="faust.types.agents.SinkT"><code class="xref py py-data docutils literal notranslate"><span class="pre">Iterable[SinkT]</span></code></a></p>
+<blockquote>
+<div><p>For agents that also yield a value: forward the value
+to be processed by one or more “sinks”.</p>
+<p>A sink can be another agent, a topic, or a callback (async or non-async).</p>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="agents.html#agent-sinks"><span class="std std-ref">Sinks</span></a> – for more information on using sinks.</p>
+</div>
+</div></blockquote>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">on_error</span></code>: <code class="xref py py-class docutils literal notranslate"><span class="pre">Callable[[Agent,</span> <span class="pre">BaseException],</span> <span class="pre">None]</span></code></p>
+<blockquote>
+<div><p>Optional error callback to be called when this agent
+raises an unexpected exception.</p>
+</div></blockquote>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">supervisor_strategy</span></code>: <a class="reference external" href="https://mode.readthedocs.io/en/latest/reference/mode.html#mode.SupervisorStrategyT" title="(in Mode v4.3)"><code class="xref py py-class docutils literal notranslate"><span class="pre">mode.SupervisorStrategyT</span></code></a></p>
+<blockquote>
+<div><p>A supervisor strategy to decide what happens when the agent
+raises an exception.</p>
+<p>The default supervisor strategy is
+<a class="reference external" href="https://mode.readthedocs.io/en/latest/reference/mode.html#mode.OneForOneSupervisor" title="(in Mode v4.3)"><code class="xref py py-class docutils literal notranslate"><span class="pre">mode.OneForOneSupervisor</span></code></a> – restarting one and one actor
+as they crash.</p>
+<p>Other built-in supervisor strategies include:</p>
+<blockquote>
+<div><ul>
+<li><p><a class="reference external" href="https://mode.readthedocs.io/en/latest/reference/mode.html#mode.OneForAllSupervisor" title="(in Mode v4.3)"><code class="xref py py-class docutils literal notranslate"><span class="pre">mode.OneForAllSupervisor</span></code></a></p>
+<blockquote>
+<div><p>If one agent instance of this type raises an exception we will
+restart all other agent instances of this type.</p>
+</div></blockquote>
+</li>
+<li><p><a class="reference external" href="https://mode.readthedocs.io/en/latest/reference/mode.html#mode.CrashingSupervisor" title="(in Mode v4.3)"><code class="xref py py-class docutils literal notranslate"><span class="pre">mode.CrashingSupervisor</span></code></a></p>
+<blockquote>
+<div><p>If one agent instance of this type raises an exception we will
+crash the worker instance.</p>
+</div></blockquote>
+</li>
+</ul>
+</div></blockquote>
+</div></blockquote>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">**kwargs</span></code></p>
+<blockquote>
+<div><p>If the <code class="docutils literal notranslate"><span class="pre">channel</span></code> argument is not specified the agent will use an
+automatically named topic.</p>
+<p>Any additional keyword arguments are considered to be configuration
+for this topic, with support for the same arguments as <code class="xref py py-meth docutils literal notranslate"><span class="pre">app.topic()</span></code>.</p>
+</div></blockquote>
+</li>
+</ul>
+</div>
+</div>
+<div class="section" id="app-task-define-a-new-support-task">
+<h3><a class="toc-backref" href="#id9"><code class="docutils literal notranslate"><span class="pre">&#64;app.task()</span></code> – Define a new support task.</a><a class="headerlink" href="#app-task-define-a-new-support-task" title="Permalink to this headline">¶</a></h3>
+<p>Use the <code class="xref py py-meth docutils literal notranslate"><span class="pre">task()</span></code> decorator to define an asynchronous task to be started
+with the app:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@app.task</span><span class="p">()</span>
+<span class="n">async</span> <span class="k">def</span> <span class="nf">mytask</span><span class="p">():</span>
+    <span class="k">print</span><span class="p">(</span><span class="s1">&#39;APP STARTED AND OPERATIONAL&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The task will be started when the app starts, by scheduling it as an
+<a class="reference external" href="https://docs.python.org/dev/library/asyncio-task.html#asyncio.Task" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">asyncio.Task</span></code></a> on the event loop. It will only be started once the app
+is fully operational, meaning it has started consuming messages from Kafka.</p>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<ul class="simple">
+<li><p>The <a class="reference internal" href="tasks.html#tasks-basics"><span class="std std-ref">Tasks</span></a> section in the <a class="reference internal" href="tasks.html#guide-tasks"><span class="std std-ref">Tasks, Timers, Cron Jobs, Web Views, and CLI Commands</span></a> – for more
+information about defining tasks.</p></li>
+</ul>
+</div>
+</div>
+<div class="section" id="app-timer-define-a-new-periodic-task">
+<h3><a class="toc-backref" href="#id10"><code class="docutils literal notranslate"><span class="pre">&#64;app.timer()</span></code> – Define a new periodic task</a><a class="headerlink" href="#app-timer-define-a-new-periodic-task" title="Permalink to this headline">¶</a></h3>
+<p>Use the <code class="xref py py-meth docutils literal notranslate"><span class="pre">timer()</span></code> decorator to define an asynchronous periodic task
+that runs every 30.0 seconds:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@app.timer</span><span class="p">(</span><span class="mf">30.0</span><span class="p">)</span>
+<span class="n">async</span> <span class="k">def</span> <span class="nf">my_periodic_task</span><span class="p">():</span>
+    <span class="k">print</span><span class="p">(</span><span class="s1">&#39;THIRTY SECONDS PASSED&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The timer will start 30 seconds after the worker instance has started and is in an
+operational state.</p>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<ul class="simple">
+<li><p>The <a class="reference internal" href="tasks.html#tasks-timers"><span class="std std-ref">Timers</span></a> section in the <a class="reference internal" href="tasks.html#guide-tasks"><span class="std std-ref">Tasks, Timers, Cron Jobs, Web Views, and CLI Commands</span></a> guide – for
+more information about creating timers.</p></li>
+</ul>
+</div>
+<div class="section" id="timer-arguments">
+<h4>Timer Arguments<a class="headerlink" href="#timer-arguments" title="Permalink to this headline">¶</a></h4>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">on_leader</span></code>: <a class="reference external" href="https://docs.python.org/dev/library/functions.html#bool" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a></p>
+<blockquote>
+<div><p>If enabled this timer will only execute on one of the worker instances
+at a time – that is only on the leader of the cluster.</p>
+<p>This can be used as a distributed mutex to execute something
+on one machine at a time.</p>
+</div></blockquote>
+</li>
+</ul>
+</div>
+</div>
+<div class="section" id="app-page-define-a-new-web-view">
+<h3><a class="toc-backref" href="#id11"><code class="docutils literal notranslate"><span class="pre">&#64;app.page()</span></code> – Define a new Web View</a><a class="headerlink" href="#app-page-define-a-new-web-view" title="Permalink to this headline">¶</a></h3>
+<p>Use the <code class="xref py py-meth docutils literal notranslate"><span class="pre">page()</span></code> decorator to define a new web view from an
+async function:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># examples/view.py</span>
+<span class="kn">import</span> <span class="nn">faust</span>
+
+<span class="n">app</span> <span class="o">=</span> <span class="n">faust</span><span class="o">.</span><span class="n">App</span><span class="p">(</span><span class="s1">&#39;view-example&#39;</span><span class="p">)</span>
+
+<span class="nd">@app.page</span><span class="p">(</span><span class="s1">&#39;/path/to/view/&#39;</span><span class="p">)</span>
+<span class="n">async</span> <span class="k">def</span> <span class="nf">myview</span><span class="p">(</span><span class="n">web</span><span class="p">,</span> <span class="n">request</span><span class="p">):</span>
+    <span class="k">print</span><span class="p">(</span><span class="n">f</span><span class="s1">&#39;FOO PARAM: {request.query[&quot;foo&quot;]}&#39;</span><span class="p">)</span>
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s1">&#39;__main__&#39;</span><span class="p">:</span>
+    <span class="n">app</span><span class="o">.</span><span class="n">main</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>Next run a worker instance to start the web server on port 6066 (default):</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> python examples/view.py worker -l info
+</pre></div>
+</div>
+<p>Then visit your view in the browser by going to <a class="reference external" href="http://localhost:6066/path/to/view/">http://localhost:6066/path/to/view/</a>:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> open http://localhost:6066/path/to/view/
+</pre></div>
+</div>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<ul class="simple">
+<li><p>The <a class="reference internal" href="tasks.html#tasks-web-views"><span class="std std-ref">Web Views</span></a> section in the <a class="reference internal" href="tasks.html#guide-tasks"><span class="std std-ref">Tasks, Timers, Cron Jobs, Web Views, and CLI Commands</span></a> guide – to
+learn more about defining views.</p></li>
+</ul>
+</div>
+</div>
+<div class="section" id="app-main-start-the-faust-command-line-program">
+<span id="application-main"></span><h3><a class="toc-backref" href="#id12"><code class="docutils literal notranslate"><span class="pre">app.main()</span></code> – Start the <strong class="program">faust</strong> command-line program.</a><a class="headerlink" href="#app-main-start-the-faust-command-line-program" title="Permalink to this headline">¶</a></h3>
+<p>To have your script extend the <strong class="program">faust</strong> program, you can call
+<code class="docutils literal notranslate"><span class="pre">app.main()</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># examples/command.py</span>
+<span class="kn">import</span> <span class="nn">faust</span>
+
+<span class="n">app</span> <span class="o">=</span> <span class="n">faust</span><span class="o">.</span><span class="n">App</span><span class="p">(</span><span class="s1">&#39;umbrella-command-example&#39;</span><span class="p">)</span>
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s1">&#39;__main__&#39;</span><span class="p">:</span>
+    <span class="n">app</span><span class="o">.</span><span class="n">main</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>This will use the arguments in <code class="docutils literal notranslate"><span class="pre">sys.argv</span></code> and will support the same
+arguments as the <strong class="program">faust</strong> umbrella command.</p>
+<p>To see a list of available commands, execute your program:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> python examples/command.py
+</pre></div>
+</div>
+<p>To get help for a particular subcommand run:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> python examples/command.py worker --help
+</pre></div>
+</div>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<ul class="simple">
+<li><p>The <code class="xref py py-meth docutils literal notranslate"><span class="pre">main()</span></code> method in the API reference.</p></li>
+</ul>
+</div>
+</div>
+<div class="section" id="app-command-define-a-new-command-line-command">
+<h3><a class="toc-backref" href="#id13"><code class="docutils literal notranslate"><span class="pre">&#64;app.command()</span></code> – Define a new command-line command</a><a class="headerlink" href="#app-command-define-a-new-command-line-command" title="Permalink to this headline">¶</a></h3>
+<p>Use the <code class="xref py py-meth docutils literal notranslate"><span class="pre">command()</span></code> decorator to define a new subcommand
+for the <strong class="program">faust</strong> command-line program:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># examples/command.py</span>
+<span class="kn">import</span> <span class="nn">faust</span>
+
+<span class="n">app</span> <span class="o">=</span> <span class="n">faust</span><span class="o">.</span><span class="n">App</span><span class="p">(</span><span class="s1">&#39;example-subcommand&#39;</span><span class="p">)</span>
+
+<span class="nd">@app.command</span><span class="p">()</span>
+<span class="n">async</span> <span class="k">def</span> <span class="nf">example</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot;This docstring is used as the command help in --help.&quot;&quot;&quot;</span>
+    <span class="k">print</span><span class="p">(</span><span class="s1">&#39;RUNNING EXAMPLE COMMAND&#39;</span><span class="p">)</span>
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s1">&#39;__main__&#39;</span><span class="p">:</span>
+    <span class="n">app</span><span class="o">.</span><span class="n">main</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>You can now run your subcommand:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> python examples/command.py example
+<span class="go">RUNNING EXAMPLE COMMAND</span>
+</pre></div>
+</div>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<ul>
+<li><p>The <a class="reference internal" href="tasks.html#tasks-cli-commands"><span class="std std-ref">CLI Commands</span></a> section in the <a class="reference internal" href="tasks.html#guide-tasks"><span class="std std-ref">Tasks, Timers, Cron Jobs, Web Views, and CLI Commands</span></a> guide –
+for more information about defining subcommands.</p>
+<blockquote>
+<div><p>Including how to specify command-line arguments and parameters to your
+command.</p>
+</div></blockquote>
+</li>
+</ul>
+</div>
+</div>
+<div class="section" id="app-service-define-a-new-service">
+<h3><a class="toc-backref" href="#id14"><code class="docutils literal notranslate"><span class="pre">&#64;app.service()</span></code> – Define a new service</a><a class="headerlink" href="#app-service-define-a-new-service" title="Permalink to this headline">¶</a></h3>
+<p>The <code class="xref py py-meth docutils literal notranslate"><span class="pre">service()</span></code> decorator adds a custom <a class="reference external" href="https://mode.readthedocs.io/en/latest/reference/mode.html#mode.Service" title="(in Mode v4.3)"><code class="xref py py-class docutils literal notranslate"><span class="pre">mode.Service</span></code></a> class
+as a dependency of the app.</p>
+<div class="topic">
+<p class="topic-title first">What is a Service?</p>
+<p>A service is something that can be started and stopped, and Faust
+is built out of many such services.</p>
+<p>The <a class="reference external" href="https://pypi.python.org/pypi/mode/">mode</a> library was extracted out of Faust for being generally
+useful, and Faust uses this library as a dependency.</p>
+<p>Examples of classes that are services in Faust include: the
+<code class="xref py py-class docutils literal notranslate"><span class="pre">App</span></code>, a <a class="reference internal" href="../reference/faust.html#faust.Stream" title="faust.Stream"><code class="xref py py-class docutils literal notranslate"><span class="pre">stream</span></code></a>, an <code class="xref py py-class docutils literal notranslate"><span class="pre">agent</span></code>,
+a <a class="reference internal" href="../reference/faust.html#faust.Table" title="faust.Table"><code class="xref py py-class docutils literal notranslate"><span class="pre">table</span></code></a>, the <code class="xref py py-class docutils literal notranslate"><span class="pre">TableManager</span></code>, the
+<code class="xref py py-class docutils literal notranslate"><span class="pre">Conductor</span></code>, and just about everything that is
+started and stopped is.</p>
+<p>Services can also have background tasks, or execute in an OS thread.</p>
+</div>
+<p>You can <em>decorate a service class</em> to have it start with the app:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># examples/service.py</span>
+<span class="kn">import</span> <span class="nn">faust</span>
+<span class="kn">from</span> <span class="nn">mode</span> <span class="kn">import</span> <span class="n">Service</span>
+
+<span class="n">app</span> <span class="o">=</span> <span class="n">faust</span><span class="o">.</span><span class="n">App</span><span class="p">(</span><span class="s1">&#39;service-example&#39;</span><span class="p">)</span>
+
+<span class="nd">@app.service</span>
+<span class="k">class</span> <span class="nc">MyService</span><span class="p">(</span><span class="n">Service</span><span class="p">):</span>
+
+    <span class="n">async</span> <span class="k">def</span> <span class="nf">on_start</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">print</span><span class="p">(</span><span class="s1">&#39;MYSERVICE IS STARTING&#39;</span><span class="p">)</span>
+
+    <span class="n">async</span> <span class="k">def</span> <span class="nf">on_stop</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">print</span><span class="p">(</span><span class="s1">&#39;MYSERVICE IS STOPPING&#39;</span><span class="p">)</span>
+
+    <span class="nd">@Service.task</span>
+    <span class="n">async</span> <span class="k">def</span> <span class="nf">_background_task</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">while</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">should_stop</span><span class="p">:</span>
+            <span class="k">print</span><span class="p">(</span><span class="s1">&#39;BACKGROUND TASK WAKE UP&#39;</span><span class="p">)</span>
+            <span class="n">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mf">1.0</span><span class="p">)</span>
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s1">&#39;__main__&#39;</span><span class="p">:</span>
+    <span class="n">app</span><span class="o">.</span><span class="n">main</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>To start the app and see it and action run a worker:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="go">python examples/service.py worker -l info</span>
+</pre></div>
+</div>
+<p>You can also add services at runtime in application subclasses:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">MyApp</span><span class="p">(</span><span class="n">App</span><span class="p">):</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">some_service</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">service</span><span class="p">(</span><span class="n">SomeService</span><span class="p">())</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="application-signals">
+<h2><a class="toc-backref" href="#id15">Application Signals</a><a class="headerlink" href="#application-signals" title="Permalink to this headline">¶</a></h2>
+<p>You may have experience with signals in other frameworks such as <a class="reference external" href="http://djangoproject.com">Django</a>
+and <a class="reference external" href="http://celeryproject.org">Celery</a>.</p>
+<p>The main difference between signals in Faust is that they accept
+positional arguments, and that they also come with asynchronous versions
+for use with <a class="reference external" href="https://docs.python.org/dev/library/asyncio.html#module-asyncio" title="(in Python v3.9)"><code class="xref py py-mod docutils literal notranslate"><span class="pre">asyncio</span></code></a>.</p>
+<p>Signals are an implementation of the <a class="reference external" href="https://en.wikipedia.org/wiki/Observer_pattern">Observer</a>  design pattern.</p>
+<div class="section" id="app-on-produce-message">
+<span id="std:signal-App.on_produce_message"></span><h3><a class="toc-backref" href="#id16"><code class="docutils literal notranslate"><span class="pre">App.on_produce_message</span></code></a><a class="headerlink" href="#app-on-produce-message" title="Permalink to this headline">¶</a></h3>
+<div class="versionadded">
+<p><span class="versionmodified added">New in version 1.6.</span></p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">sender</dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">faust.App</span></code></p>
+</dd>
+<dt class="field-even">arguments</dt>
+<dd class="field-even"><p><code class="docutils literal notranslate"><span class="pre">key,</span> <span class="pre">value,</span> <span class="pre">partition,</span> <span class="pre">timestamp,</span> <span class="pre">headers</span></code></p>
+</dd>
+<dt class="field-odd">synchronous</dt>
+<dd class="field-odd"><p>This is a synchronous signal (do not use <a class="reference external" href="https://docs.python.org/dev/reference/compound_stmts.html#async-def" title="(in Python v3.9)"><code class="xref std std-keyword docutils literal notranslate"><span class="pre">async</span> <span class="pre">def</span></code></a>).</p>
+</dd>
+</dl>
+<p>The <code class="docutils literal notranslate"><span class="pre">on_produce_message</span></code> signal as a synchronous signal called before
+producing messages.</p>
+<p>This can be used to attach custom headers to Kafka messages:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Tuple</span>
+<span class="kn">from</span> <span class="nn">faust.types</span> <span class="kn">import</span> <span class="n">AppT</span>
+<span class="kn">from</span> <span class="nn">mode.utils.compat</span> <span class="kn">import</span> <span class="n">want_bytes</span>
+
+<span class="nd">@app.on_produce_message.connect</span><span class="p">()</span>
+<span class="k">def</span> <span class="nf">on_produce_attach_trace_headers</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">sender</span><span class="p">:</span> <span class="n">AppT</span><span class="p">,</span>
+        <span class="n">key</span><span class="p">:</span> <span class="nb">bytes</span> <span class="o">=</span> <span class="bp">None</span><span class="p">,</span>
+        <span class="n">value</span><span class="p">:</span> <span class="nb">bytes</span> <span class="o">=</span> <span class="bp">None</span><span class="p">,</span>
+        <span class="n">partition</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="bp">None</span><span class="p">,</span>
+        <span class="n">timestamp</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="bp">None</span><span class="p">,</span>
+        <span class="n">headers</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">bytes</span><span class="p">]]</span> <span class="o">=</span> <span class="bp">None</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="bp">None</span><span class="p">:</span>
+    <span class="n">test</span> <span class="o">=</span> <span class="n">current_test</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">test</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="c1"># Headers at this point is a list of ``(key, value)`` pairs.</span>
+        <span class="c1"># Note2: values in headers must be :class:`bytes`.</span>
+        <span class="n">headers</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span>
+            <span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">want_bytes</span><span class="p">(</span><span class="n">v</span><span class="p">))</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">test</span><span class="o">.</span><span class="n">as_headers</span><span class="p">()</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+        <span class="p">])</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="app-on-partitions-revoked">
+<span id="std:signal-App.on_partitions_revoked"></span><h3><a class="toc-backref" href="#id17"><code class="docutils literal notranslate"><span class="pre">App.on_partitions_revoked</span></code></a><a class="headerlink" href="#app-on-partitions-revoked" title="Permalink to this headline">¶</a></h3>
+<dl class="field-list simple">
+<dt class="field-odd">sender</dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">faust.App</span></code></p>
+</dd>
+<dt class="field-even">arguments</dt>
+<dd class="field-even"><p><a class="reference internal" href="../reference/faust.types.tuples.html#faust.types.tuples.TP" title="faust.types.tuples.TP"><code class="xref py py-class docutils literal notranslate"><span class="pre">Set[TP]</span></code></a></p>
+</dd>
+</dl>
+<p>The <code class="docutils literal notranslate"><span class="pre">on_partitions_revoked</span></code> signal is an asynchronous signal called after every
+Kafka rebalance and provides a single argument which is the set of
+newly revoked partitions.</p>
+<p>Add a callback to be called when partitions are revoked:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Set</span>
+<span class="kn">from</span> <span class="nn">faust.types</span> <span class="kn">import</span> <span class="n">AppT</span><span class="p">,</span> <span class="n">TP</span>
+
+<span class="nd">@app.on_partitions_revoked.connect</span>
+<span class="n">async</span> <span class="k">def</span> <span class="nf">on_partitions_revoked</span><span class="p">(</span><span class="n">app</span><span class="p">:</span> <span class="n">AppT</span><span class="p">,</span>
+                                <span class="n">revoked</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="n">TP</span><span class="p">],</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="bp">None</span><span class="p">:</span>
+    <span class="k">print</span><span class="p">(</span><span class="n">f</span><span class="s1">&#39;Partitions are being revoked: {revoked}&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Using <code class="docutils literal notranslate"><span class="pre">app</span></code> as an instance when connecting here means we will only be called
+for that particular app instance.  If you want to be called for all app instances
+then you must connect to the signal of the class (<code class="docutils literal notranslate"><span class="pre">App</span></code>):</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@faust.App.on_partitions_revoked.connect</span>
+<span class="n">async</span> <span class="k">def</span> <span class="nf">on_partitions_revoked</span><span class="p">(</span><span class="n">app</span><span class="p">:</span> <span class="n">AppT</span><span class="p">,</span>
+                                <span class="n">revoked</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="n">TP</span><span class="p">],</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="bp">None</span><span class="p">:</span>
+    <span class="o">...</span>
+</pre></div>
+</div>
+<div class="admonition-signal-handlers-must-always-accept-kwargs admonition">
+<p class="admonition-title">Signal handlers must always accept <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code>.</p>
+<p>Signal handler must always accept <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code> so that they
+are backwards compatible when new arguments are added.</p>
+<p>Similarly new arguments must be added as keyword arguments
+to be backwards compatible.</p>
+</div>
+</div>
+<div class="section" id="app-on-partitions-assigned">
+<span id="std:signal-App.on_partitions_assigned"></span><h3><a class="toc-backref" href="#id18"><code class="docutils literal notranslate"><span class="pre">App.on_partitions_assigned</span></code></a><a class="headerlink" href="#app-on-partitions-assigned" title="Permalink to this headline">¶</a></h3>
+<dl class="field-list simple">
+<dt class="field-odd">sender</dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">faust.App</span></code></p>
+</dd>
+<dt class="field-even">arguments</dt>
+<dd class="field-even"><p><a class="reference internal" href="../reference/faust.types.tuples.html#faust.types.tuples.TP" title="faust.types.tuples.TP"><code class="xref py py-class docutils literal notranslate"><span class="pre">Set[TP]</span></code></a></p>
+</dd>
+</dl>
+<p>The <code class="docutils literal notranslate"><span class="pre">on_partitions_assigned</span></code> signal is an asynchronous signal called after every
+Kafka rebalance and provides a single argument which is the set of
+assigned partitions.</p>
+<p>Add a callback to be called when partitions are assigned:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Set</span>
+<span class="kn">from</span> <span class="nn">faust.types</span> <span class="kn">import</span> <span class="n">AppT</span><span class="p">,</span> <span class="n">TP</span>
+
+<span class="nd">@app.on_partitions_assigned.connect</span>
+<span class="n">async</span> <span class="k">def</span> <span class="nf">on_partitions_assigned</span><span class="p">(</span><span class="n">app</span><span class="p">:</span> <span class="n">AppT</span><span class="p">,</span>
+                                 <span class="n">assigned</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="n">TP</span><span class="p">],</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="bp">None</span><span class="p">:</span>
+    <span class="k">print</span><span class="p">(</span><span class="n">f</span><span class="s1">&#39;Partitions are being assigned: {assigned}&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="app-on-configured">
+<span id="std:signal-App.on_configured"></span><h3><a class="toc-backref" href="#id19"><code class="docutils literal notranslate"><span class="pre">App.on_configured</span></code></a><a class="headerlink" href="#app-on-configured" title="Permalink to this headline">¶</a></h3>
+<dl class="field-list simple">
+<dt class="field-odd">sender</dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">faust.App</span></code></p>
+</dd>
+<dt class="field-even">arguments</dt>
+<dd class="field-even"><p><a class="reference internal" href="../reference/faust.html#faust.Settings" title="faust.Settings"><code class="xref py py-class docutils literal notranslate"><span class="pre">faust.Settings</span></code></a></p>
+</dd>
+<dt class="field-odd">synchronous</dt>
+<dd class="field-odd"><p>This is a synchronous signal (do not use <a class="reference external" href="https://docs.python.org/dev/reference/compound_stmts.html#async-def" title="(in Python v3.9)"><code class="xref std std-keyword docutils literal notranslate"><span class="pre">async</span> <span class="pre">def</span></code></a>).</p>
+</dd>
+</dl>
+<p>Called as the app reads configuration, just before the application
+configuration is set, but after the configuration is read.</p>
+<p>Takes arguments: <code class="docutils literal notranslate"><span class="pre">(app,</span> <span class="pre">conf)</span></code>, where conf is the <a class="reference internal" href="../reference/faust.html#faust.Settings" title="faust.Settings"><code class="xref py py-class docutils literal notranslate"><span class="pre">faust.Settings</span></code></a>
+object being built and is the instance that <code class="docutils literal notranslate"><span class="pre">app.conf</span></code> will be set to
+after this signal returns.</p>
+<p>Use the <code class="docutils literal notranslate"><span class="pre">on_configured</span></code> signal to configure your app:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">faust</span>
+
+<span class="n">app</span> <span class="o">=</span> <span class="n">faust</span><span class="o">.</span><span class="n">App</span><span class="p">(</span><span class="s1">&#39;myapp&#39;</span><span class="p">)</span>
+
+<span class="nd">@app.on_configured.connect</span>
+<span class="k">def</span> <span class="nf">configure</span><span class="p">(</span><span class="n">app</span><span class="p">,</span> <span class="n">conf</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="n">conf</span><span class="o">.</span><span class="n">broker</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;FAUST_BROKER&#39;</span><span class="p">)</span>
+    <span class="n">conf</span><span class="o">.</span><span class="n">store</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;STORE_URL&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="app-on-before-configured">
+<span id="std:signal-App.on_before_configured"></span><h3><a class="toc-backref" href="#id20"><code class="docutils literal notranslate"><span class="pre">App.on_before_configured</span></code></a><a class="headerlink" href="#app-on-before-configured" title="Permalink to this headline">¶</a></h3>
+<dl class="field-list simple">
+<dt class="field-odd">sender</dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">faust.App</span></code></p>
+</dd>
+<dt class="field-even">arguments</dt>
+<dd class="field-even"><p><em>none</em></p>
+</dd>
+<dt class="field-odd">synchronous</dt>
+<dd class="field-odd"><p>This is a synchronous signal (do not use <a class="reference external" href="https://docs.python.org/dev/reference/compound_stmts.html#async-def" title="(in Python v3.9)"><code class="xref std std-keyword docutils literal notranslate"><span class="pre">async</span> <span class="pre">def</span></code></a>).</p>
+</dd>
+</dl>
+<p>Called before the app reads configuration, and before the
+<a class="reference internal" href="#std:signal-App.on_configured"><code class="xref std std-signal docutils literal notranslate"><span class="pre">App.on_configured</span></code></a> signal is dispatched.</p>
+<p>Takes only sender as argument, which is the app being configured:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@app.on_before_configured.connect</span>
+<span class="k">def</span> <span class="nf">before_configuration</span><span class="p">(</span><span class="n">app</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="k">print</span><span class="p">(</span><span class="n">f</span><span class="s1">&#39;App {app} is being configured&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="app-on-after-configured">
+<span id="std:signal-App.on_after_configured"></span><h3><a class="toc-backref" href="#id21"><code class="docutils literal notranslate"><span class="pre">App.on_after_configured</span></code></a><a class="headerlink" href="#app-on-after-configured" title="Permalink to this headline">¶</a></h3>
+<dl class="field-list simple">
+<dt class="field-odd">sender</dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">faust.App</span></code></p>
+</dd>
+<dt class="field-even">arguments</dt>
+<dd class="field-even"><p><em>none</em></p>
+</dd>
+<dt class="field-odd">synchronous</dt>
+<dd class="field-odd"><p>This is a synchronous signal (do not use <a class="reference external" href="https://docs.python.org/dev/reference/compound_stmts.html#async-def" title="(in Python v3.9)"><code class="xref std std-keyword docutils literal notranslate"><span class="pre">async</span> <span class="pre">def</span></code></a>).</p>
+</dd>
+</dl>
+<p>Called after app is fully configured and ready for use.</p>
+<p>Takes only sender as argument, which is the app that was configured:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@app.on_after_configured.connect</span>
+<span class="k">def</span> <span class="nf">after_configuration</span><span class="p">(</span><span class="n">app</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="k">print</span><span class="p">(</span><span class="n">f</span><span class="s1">&#39;App {app} has been configured.&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="app-on-worker-init">
+<span id="std:signal-App.on_worker_init"></span><h3><a class="toc-backref" href="#id22"><code class="docutils literal notranslate"><span class="pre">App.on_worker_init</span></code></a><a class="headerlink" href="#app-on-worker-init" title="Permalink to this headline">¶</a></h3>
+<dl class="field-list simple">
+<dt class="field-odd">sender</dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">faust.App</span></code></p>
+</dd>
+<dt class="field-even">arguments</dt>
+<dd class="field-even"><p><em>none</em></p>
+</dd>
+<dt class="field-odd">synchronous</dt>
+<dd class="field-odd"><p>This is a synchronous signal (do not use <a class="reference external" href="https://docs.python.org/dev/reference/compound_stmts.html#async-def" title="(in Python v3.9)"><code class="xref std std-keyword docutils literal notranslate"><span class="pre">async</span> <span class="pre">def</span></code></a>).</p>
+</dd>
+</dl>
+<p>Called by the <strong class="program">faust worker</strong> program (or when using <cite>app.main()</cite>)
+to apply worker specific customizations.</p>
+<p>Takes only sender as argument, which is the app a worker is being started for:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@app.on_worker_init.connect</span>
+<span class="k">def</span> <span class="nf">on_worker_init</span><span class="p">(</span><span class="n">app</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="k">print</span><span class="p">(</span><span class="n">f</span><span class="s1">&#39;Working starting for app {app}&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="starting-the-app">
+<span id="app-starting"></span><h2><a class="toc-backref" href="#id23">Starting the App</a><a class="headerlink" href="#starting-the-app" title="Permalink to this headline">¶</a></h2>
+<p>You can start a worker instance for your app from the command-line, or you can
+start it inline in your Python process.  To accommodate the many ways you may
+want to embed a Faust application, starting the app have several
+possible entry points:</p>
+<p><em>App entry points</em>:</p>
+<ol class="arabic">
+<li><p><strong class="program">faust worker</strong></p>
+<blockquote>
+<div><p>The <strong class="program">faust worker</strong> program starts a worker instance for an app
+from the command-line.</p>
+<p>You may turn any self-contained module into the faust program by adding
+this to the end of the file:</p>
+<div class="highlight-python3 notranslate"><div class="highlight"><pre><span></span><span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s1">&#39;__main__&#39;</span><span class="p">:</span>
+    <span class="n">app</span><span class="o">.</span><span class="n">main</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>For packages you can add a <code class="docutils literal notranslate"><span class="pre">__main__.py</span></code> module or setuptools
+entry points to <code class="docutils literal notranslate"><span class="pre">setup.py</span></code>.</p>
+<p>If you have the module name where an app is defined, you can start a worker
+for it with the <a class="reference internal" href="cli.html#cmdoption-faust-a"><code class="xref std std-option docutils literal notranslate"><span class="pre">faust</span> <span class="pre">-A</span></code></a> option:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> faust -A myproj worker -l info
+</pre></div>
+</div>
+<p>The above will import the app from the <code class="docutils literal notranslate"><span class="pre">myproj</span></code> module using
+<code class="docutils literal notranslate"><span class="pre">from</span> <span class="pre">myproj</span> <span class="pre">import</span> <span class="pre">app</span></code>. If you need to specify a different attribute
+you can use a fully qualified path:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> faust -A myproj:faust_app worker -l info
+</pre></div>
+</div>
+</div></blockquote>
+</li>
+<li><p>-&gt; <code class="xref py py-class docutils literal notranslate"><span class="pre">faust.cli.worker.worker</span></code> (CLI interface)</p>
+<blockquote>
+<div><p>This is the <strong class="program">faust worker</strong> program defined as a Python
+<a class="reference external" href="https://pypi.python.org/pypi/click/">click</a> command.</p>
+<p>It is responsible for:</p>
+<ul class="simple">
+<li><p>Parsing the command-line arguments supported by <strong class="program">faust worker</strong>.</p></li>
+<li><p>Printing the banner box (you will not get that with entry point 3 or 4).</p></li>
+<li><p>Starting the <code class="xref py py-class docutils literal notranslate"><span class="pre">faust.Worker</span></code> (see next step).</p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p>-&gt; <code class="xref py py-class docutils literal notranslate"><span class="pre">faust.Worker</span></code></p>
+<blockquote>
+<div><p>This is used for starting a worker from Python when you also want to
+install process signal handlers, etc.  It supports the same options
+as on the <strong class="program">faust worker</strong> command-line, but now they are passed
+in as keyword arguments to <code class="xref py py-class docutils literal notranslate"><span class="pre">faust.Worker</span></code>.</p>
+<p>The Faust worker is a subclass of <a class="reference external" href="https://mode.readthedocs.io/en/latest/reference/mode.html#mode.Worker" title="(in Mode v4.3)"><code class="xref py py-class docutils literal notranslate"><span class="pre">mode.Worker</span></code></a>, which makes
+sense given that Faust is built out of many different <a class="reference external" href="https://pypi.python.org/pypi/mode/">mode</a>
+services starting in a particular order.</p>
+<p>The <code class="xref py py-class docutils literal notranslate"><span class="pre">faust.Worker</span></code> entry point is responsible for:</p>
+<ul class="simple">
+<li><p>Changing the directory when the <code class="docutils literal notranslate"><span class="pre">workdir</span></code> argument is set.</p></li>
+<li><p>Setting the process title (when <a class="reference external" href="https://pypi.python.org/pypi/setproctitle/">setproctitle</a> is
+installed), for more helpful entry in <code class="docutils literal notranslate"><span class="pre">ps</span></code> listings.</p></li>
+<li><p>Setting up <a class="reference external" href="https://docs.python.org/dev/library/logging.html#module-logging" title="(in Python v3.9)"><code class="xref py py-mod docutils literal notranslate"><span class="pre">logging</span></code></a>: handlers, formatters and level.</p></li>
+<li><p>If <a class="reference internal" href="cli.html#cmdoption-faust-debug"><code class="xref std std-option docutils literal notranslate"><span class="pre">--debug</span></code></a> is enabled:</p>
+<ul>
+<li><p>Starting the <a class="reference external" href="https://pypi.python.org/pypi/aiomonitor/">aiomonitor</a> debugging back door.</p></li>
+<li><p>Starting the blocking detector.</p></li>
+</ul>
+</li>
+<li><p>Setting up <code class="xref std std-sig docutils literal notranslate"><span class="pre">TERM</span></code> and <code class="xref std std-sig docutils literal notranslate"><span class="pre">INT</span></code> signal handlers.</p></li>
+<li><p>Setting up the <code class="xref std std-sig docutils literal notranslate"><span class="pre">USR1</span></code> cry handler that logs a traceback.</p></li>
+<li><p>Starting the web server.</p></li>
+<li><p>Autodiscovery (see <code class="xref std std-setting docutils literal notranslate"><span class="pre">autodiscovery</span></code>).</p></li>
+<li><p>Starting the <code class="xref py py-class docutils literal notranslate"><span class="pre">faust.App</span></code> (see next step).</p></li>
+<li><p>Properly shut down of the event loop on exit.</p></li>
+</ul>
+<p>To start a worker,</p>
+<ol class="arabic">
+<li><p>from synchronous code, use <code class="docutils literal notranslate"><span class="pre">Worker.execute_from_commandline</span></code>:</p>
+<blockquote>
+<div><div class="highlight-pycon notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">worker</span> <span class="o">=</span> <span class="n">Worker</span><span class="p">(</span><span class="n">app</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">worker</span><span class="o">.</span><span class="n">execute_from_commandline</span><span class="p">()</span>
+</pre></div>
+</div>
+</div></blockquote>
+</li>
+<li><p>or from an <a class="reference external" href="https://docs.python.org/dev/reference/compound_stmts.html#async-def" title="(in Python v3.9)"><code class="xref std std-keyword docutils literal notranslate"><span class="pre">async</span> <span class="pre">def</span></code></a> function call <code class="docutils literal notranslate"><span class="pre">await</span> <span class="pre">worker.start()</span></code>:</p>
+<blockquote>
+<div><div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>You will be responsible for gracefully shutting down the event
+loop.</p>
+</div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">async</span> <span class="k">def</span> <span class="nf">start_worker</span><span class="p">(</span><span class="n">worker</span><span class="p">:</span> <span class="n">Worker</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="bp">None</span><span class="p">:</span>
+    <span class="n">await</span> <span class="n">worker</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+
+<span class="k">def</span> <span class="nf">manage_loop</span><span class="p">():</span>
+    <span class="n">loop</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">get_event_loop</span><span class="p">()</span>
+    <span class="n">worker</span> <span class="o">=</span> <span class="n">Worker</span><span class="p">(</span><span class="n">app</span><span class="p">,</span> <span class="n">loop</span><span class="o">=</span><span class="n">loop</span><span class="p">)</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">loop</span><span class="o">.</span><span class="n">run_until_complete</span><span class="p">(</span><span class="n">start_worker</span><span class="p">(</span><span class="n">worker</span><span class="p">))</span>
+    <span class="k">finally</span><span class="p">:</span>
+        <span class="n">worker</span><span class="o">.</span><span class="n">stop_and_shutdown_loop</span><span class="p">()</span>
+</pre></div>
+</div>
+</div></blockquote>
+</li>
+</ol>
+<div class="admonition-multiple-apps admonition">
+<p class="admonition-title">Multiple apps</p>
+<p>If you want your worker to start multiple apps, you would have
+to pass them in with the <code class="docutils literal notranslate"><span class="pre">*services</span></code> starargs:</p>
+<div class="highlight-python3 notranslate"><div class="highlight"><pre><span></span><span class="n">worker</span> <span class="o">=</span> <span class="n">Worker</span><span class="p">(</span><span class="n">app1</span><span class="p">,</span> <span class="n">app2</span><span class="p">,</span> <span class="n">app3</span><span class="p">,</span> <span class="n">app4</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>This way the extra apps will be started together with the main app,
+and the main app of the worker (<code class="docutils literal notranslate"><span class="pre">worker.app</span></code>) will end up being
+the first positional argument (<code class="docutils literal notranslate"><span class="pre">app1</span></code>).</p>
+<p>The problem with starting multiple apps is that each app
+will start a web server by default.</p>
+<p>If you want a web server for every app, you must configure the
+web port for each:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">apps</span> <span class="o">=</span> <span class="p">[</span><span class="n">app1</span><span class="p">,</span> <span class="n">app2</span><span class="p">,</span> <span class="n">app3</span><span class="p">,</span> <span class="n">app4</span><span class="p">]</span>
+<span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">app</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">apps</span><span class="p">):</span>
+    <span class="n">app</span><span class="o">.</span><span class="n">conf</span><span class="o">.</span><span class="n">web_port</span> <span class="o">=</span> <span class="mi">6066</span> <span class="o">+</span> <span class="n">i</span>
+
+<span class="n">worker</span> <span class="o">=</span> <span class="n">Worker</span><span class="p">(</span><span class="o">*</span><span class="n">apps</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div></blockquote>
+</li>
+<li><p>-&gt; <code class="xref py py-class docutils literal notranslate"><span class="pre">faust.App</span></code></p>
+<blockquote>
+<div><p>The “worker” only concerns itself with the terminal, process
+signal handlers, logging, debugging mechanisms, etc., the rest
+is up to the app.</p>
+<p>You can call <code class="docutils literal notranslate"><span class="pre">await</span> <span class="pre">app.start()</span></code> directly to get a side-effect free
+instance that can be embedded in any environment. It won’t even emit logs
+to the console unless you have configured <a class="reference external" href="https://docs.python.org/dev/library/logging.html#module-logging" title="(in Python v3.9)"><code class="xref py py-mod docutils literal notranslate"><span class="pre">logging</span></code></a> manually,
+and it won’t set up any <code class="xref std std-sig docutils literal notranslate"><span class="pre">TERM</span></code>/<code class="xref std std-sig docutils literal notranslate"><span class="pre">INT</span></code> signal handlers, which
+means <a class="reference external" href="https://docs.python.org/dev/reference/compound_stmts.html#finally" title="(in Python v3.9)"><code class="xref std std-keyword docutils literal notranslate"><span class="pre">finally</span></code></a> blocks won’t execute at shutdown.</p>
+<p>Start app directly:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">async</span> <span class="k">def</span> <span class="nf">start_app</span><span class="p">(</span><span class="n">app</span><span class="p">):</span>
+    <span class="n">await</span> <span class="n">app</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>This will block until the worker shuts down, so if you want to
+start other parts of your program, you can start this in the background:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">start_in_loop</span><span class="p">(</span><span class="n">app</span><span class="p">):</span>
+    <span class="n">loop</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">get_event_loop</span><span class="p">()</span>
+    <span class="n">loop</span><span class="o">.</span><span class="n">ensure_future</span><span class="p">(</span><span class="n">app</span><span class="o">.</span><span class="n">start</span><span class="p">())</span>
+</pre></div>
+</div>
+<p>If your program is written as a set of <a class="reference external" href="https://pypi.python.org/pypi/Mode/">Mode</a> services, you can
+simply add the app as a dependency to your service:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">MyService</span><span class="p">(</span><span class="n">mode</span><span class="o">.</span><span class="n">Service</span><span class="p">):</span>
+
+    <span class="k">def</span> <span class="nf">on_init_dependencies</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">faust_app</span><span class="p">]</span>
+</pre></div>
+</div>
+</div></blockquote>
+</li>
+</ol>
+</div>
+<div class="section" id="client-only-mode">
+<h2><a class="toc-backref" href="#id24">Client-Only Mode</a><a class="headerlink" href="#client-only-mode" title="Permalink to this headline">¶</a></h2>
+<p>The app can also be started in “client-only” mode, which means the app
+can be used for sending agent RPC requests and retrieving replies, but not
+start a full Faust worker:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">await</span> <span class="n">app</span><span class="o">.</span><span class="n">start_client</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="projects-and-directory-layout">
+<span id="project-layout"></span><h2><a class="toc-backref" href="#id25">Projects and Directory Layout</a><a class="headerlink" href="#projects-and-directory-layout" title="Permalink to this headline">¶</a></h2>
+<p>Faust is a library; it does not mandate any specific directory layout
+and integrates with any existing framework or project conventions.</p>
+<p>That said, new projects written from scratch using Faust will want some
+guidance on how to organize, so we include this as a suggestion in the
+documentation.</p>
+<div class="section" id="small-standalone-projects">
+<span id="project-layout-standalone"></span><h3><a class="toc-backref" href="#id26">Small/Standalone Projects</a><a class="headerlink" href="#small-standalone-projects" title="Permalink to this headline">¶</a></h3>
+<p>You can create a small Faust service with no supporting directories at all,
+we refer to this as a “standalone module”: a module that contains everything
+it needs to run a full service.</p>
+<p>The Faust distribution comes with several standalone examples,
+such as <cite>examples/word_count.py</cite>.</p>
+</div>
+<div class="section" id="medium-large-projects">
+<span id="project-layout-large"></span><h3><a class="toc-backref" href="#id27">Medium/Large Projects</a><a class="headerlink" href="#medium-large-projects" title="Permalink to this headline">¶</a></h3>
+<p>Projects need more organization as they grow larger,
+so we convert the standalone module into a directory layout:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>+ proj/
+    - setup.py
+    - MANIFEST.in
+    - README.rst
+    - setup.cfg
+
+    + proj/
+        - __init__.py
+        - __main__.py
+        - app.py
+
+        + users/
+        -   __init__.py
+        -   agents.py
+        -   commands.py
+        -   models.py
+        -   views.py
+
+        + orders/
+            -   __init__.py
+            -   agents.py
+            -   models.py
+            -   views.py
+</pre></div>
+</div>
+<div class="section" id="problem-autodiscovery">
+<h4>Problem: Autodiscovery<a class="headerlink" href="#problem-autodiscovery" title="Permalink to this headline">¶</a></h4>
+<p>Now we have many <cite>&#64;app.agent</cite>/<cite>&#64;app.timer</cite>’/<cite>&#64;app.command</cite> decorators,
+and models spread across a nested directory. These have to be imported by
+the program to be registered and used.</p>
+<p>Enter the <a class="reference internal" href="settings.html#std:setting-autodiscover"><code class="xref std std-setting docutils literal notranslate"><span class="pre">autodiscover</span></code></a> setting:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># proj/app.py</span>
+<span class="kn">import</span> <span class="nn">faust</span>
+
+<span class="n">app</span> <span class="o">=</span> <span class="n">faust</span><span class="o">.</span><span class="n">App</span><span class="p">(</span>
+    <span class="s1">&#39;proj&#39;</span><span class="p">,</span>
+    <span class="n">version</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+    <span class="n">autodiscover</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span>
+    <span class="n">origin</span><span class="o">=</span><span class="s1">&#39;proj&#39;</span>   <span class="c1"># imported name for this project (import proj -&gt; &quot;proj&quot;)</span>
+<span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">main</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="bp">None</span><span class="p">:</span>
+    <span class="n">app</span><span class="o">.</span><span class="n">main</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>Using the <a class="reference internal" href="settings.html#std:setting-autodiscover"><code class="xref std std-setting docutils literal notranslate"><span class="pre">autodiscover</span></code></a>  and setting it to <code class="xref py py-const docutils literal notranslate"><span class="pre">True</span></code> means
+it will traverse the directory of the origin module to find agents, timers,
+tasks, commands and web views, etc.</p>
+<p>If you want more careful control you can specify a list of modules to traverse instead:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">app</span> <span class="o">=</span> <span class="n">faust</span><span class="o">.</span><span class="n">App</span><span class="p">(</span>
+    <span class="s1">&#39;proj&#39;</span><span class="p">,</span>
+    <span class="n">version</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+    <span class="n">autodiscover</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;proj.users&#39;</span><span class="p">,</span> <span class="s1">&#39;proj.orders&#39;</span><span class="p">],</span>
+    <span class="n">origin</span><span class="o">=</span><span class="s1">&#39;proj&#39;</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<div class="admonition-autodiscovery-when-using-django admonition">
+<p class="admonition-title">Autodiscovery when using Django</p>
+<p>When using <cite>autodiscover=True</cite> in a Django project,
+only the apps listed in <code class="docutils literal notranslate"><span class="pre">INSTALLED_APPS</span></code> will be traversed.</p>
+<p>See also <a class="reference internal" href="#project-layout-django"><span class="std std-ref">Django Projects</span></a>.</p>
+</div>
+</div>
+<div class="section" id="problem-entry-point">
+<h4>Problem: Entry Point<a class="headerlink" href="#problem-entry-point" title="Permalink to this headline">¶</a></h4>
+<p>The <code class="file docutils literal notranslate"><span class="pre">proj/__main__.py</span></code> module can act as the entry point for this
+project:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># proj/__main__.py</span>
+<span class="kn">from</span> <span class="nn">proj.app</span> <span class="kn">import</span> <span class="n">app</span>
+<span class="n">app</span><span class="o">.</span><span class="n">main</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>After creating this module you can now start a worker by doing:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">python</span> <span class="o">-</span><span class="n">m</span> <span class="n">proj</span> <span class="n">worker</span> <span class="o">-</span><span class="n">l</span> <span class="n">info</span>
+</pre></div>
+</div>
+<p>Now you’re probably thinking, “I’m too lazy to type python dash em all the
+time”, but don’t worry: take it one step further by using
+setuptools to install a command-line program for your project.</p>
+<ol class="arabic">
+<li><p>Create a <code class="file docutils literal notranslate"><span class="pre">setup.py</span></code> for your project.</p>
+<blockquote>
+<div><p>This step is not needed if you already have one.</p>
+<p>You can read lots about creating your <code class="file docutils literal notranslate"><span class="pre">setup.py</span></code> in the
+<a class="reference external" href="https://pypi.python.org/pypi/setuptools/">setuptools</a> documentation here:
+<a class="reference external" href="https://setuptools.readthedocs.io/en/latest/setuptools.html#developer-s-guide">https://setuptools.readthedocs.io/en/latest/setuptools.html#developer-s-guide</a></p>
+<p>A minimum example that will work well enough:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="ch">#!/usr/bin/env python</span>
+<span class="kn">from</span> <span class="nn">setuptools</span> <span class="kn">import</span> <span class="n">find_packages</span><span class="p">,</span> <span class="n">setup</span>
+
+<span class="n">setup</span><span class="p">(</span>
+    <span class="n">name</span><span class="o">=</span><span class="s1">&#39;proj&#39;</span><span class="p">,</span>
+    <span class="n">version</span><span class="o">=</span><span class="s1">&#39;1.0.0&#39;</span><span class="p">,</span>
+    <span class="n">description</span><span class="o">=</span><span class="s1">&#39;Use Faust to blah blah blah&#39;</span><span class="p">,</span>
+    <span class="n">author</span><span class="o">=</span><span class="s1">&#39;Ola Normann&#39;</span><span class="p">,</span>
+    <span class="n">author_email</span><span class="o">=</span><span class="s1">&#39;ola.normann@example.com&#39;</span><span class="p">,</span>
+    <span class="n">url</span><span class="o">=</span><span class="s1">&#39;http://proj.example.com&#39;</span><span class="p">,</span>
+    <span class="n">platforms</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;any&#39;</span><span class="p">],</span>
+    <span class="n">license</span><span class="o">=</span><span class="s1">&#39;Proprietary&#39;</span><span class="p">,</span>
+    <span class="n">packages</span><span class="o">=</span><span class="n">find_packages</span><span class="p">(</span><span class="n">exclude</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;tests&#39;</span><span class="p">,</span> <span class="s1">&#39;tests.*&#39;</span><span class="p">]),</span>
+    <span class="n">include_package_data</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span>
+    <span class="n">zip_safe</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span>
+    <span class="n">install_requires</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;faust&#39;</span><span class="p">],</span>
+    <span class="n">python_requires</span><span class="o">=</span><span class="s1">&#39;~=3.6&#39;</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>For inspiration you can also look to the <cite>setup.py</cite> files in the
+<a class="reference external" href="https://pypi.python.org/pypi/faust/">faust</a> and <a class="reference external" href="https://pypi.python.org/pypi/mode/">mode</a> source code distributions.</p>
+</div></blockquote>
+</li>
+<li><p>Add the command as a setuptools entry point.</p>
+<blockquote>
+<div><p>To your <code class="file docutils literal notranslate"><span class="pre">setup.py</span></code> add the following argument:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">setup</span><span class="p">(</span>
+    <span class="o">...</span><span class="p">,</span>
+    <span class="n">entry_points</span><span class="o">=</span><span class="p">{</span>
+        <span class="s1">&#39;console_scripts&#39;</span><span class="p">:</span> <span class="p">[</span>
+            <span class="s1">&#39;proj = proj.app:main&#39;</span><span class="p">,</span>
+        <span class="p">],</span>
+    <span class="p">},</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>This essentially defines that the <code class="docutils literal notranslate"><span class="pre">proj</span></code> program runs <cite>from proj.app
+import main</cite></p>
+</div></blockquote>
+</li>
+<li><p>Install your package using <code class="docutils literal notranslate"><span class="pre">setup.py</span></code> or <strong class="program">pip</strong>.</p>
+<blockquote>
+<div><p>When developing your project locally you should use <code class="docutils literal notranslate"><span class="pre">setup.py</span> <span class="pre">develop</span></code>
+to use the source code directory as a Python package:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> python setup.py develop
+</pre></div>
+</div>
+<p>You can now run the <cite>proj</cite> command you added to <code class="file docutils literal notranslate"><span class="pre">setup.py</span></code> in step
+two:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> proj worker -l info
+</pre></div>
+</div>
+<p>Why use <code class="docutils literal notranslate"><span class="pre">develop</span></code>? You can use <code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">setup.py</span> <span class="pre">install</span></code>, but then
+you have to run that every time you make modifications to the source
+files.</p>
+</div></blockquote>
+</li>
+</ol>
+<p>Another upside to using <code class="docutils literal notranslate"><span class="pre">setup.py</span></code> is that you can distribute your projects
+as <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span></code>-able packages.</p>
+</div>
+</div>
+<div class="section" id="django-projects">
+<span id="project-layout-django"></span><h3><a class="toc-backref" href="#id28">Django Projects</a><a class="headerlink" href="#django-projects" title="Permalink to this headline">¶</a></h3>
+<p>Django has their own conventions for directory layout, but your Django
+reusable apps will want some way to import your Faust app.</p>
+<p>We believe the best place to define the Faust app in a Django project, is in
+a dedicated reusable app. See the <code class="docutils literal notranslate"><span class="pre">faustapp</span></code> app in the
+<code class="file docutils literal notranslate"><span class="pre">examples/django</span></code> directory in the Faust source code distribution.</p>
+</div>
+</div>
+<div class="section" id="miscellaneous">
+<span id="app-misc"></span><h2><a class="toc-backref" href="#id29">Miscellaneous</a><a class="headerlink" href="#miscellaneous" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="why-use-applications">
+<span id="app-misc-app-rationale"></span><h3><a class="toc-backref" href="#id30">Why use applications?</a><a class="headerlink" href="#why-use-applications" title="Permalink to this headline">¶</a></h3>
+<p>For special needs, you can inherit from the <code class="xref py py-class docutils literal notranslate"><span class="pre">faust.App</span></code> class, and a subclass
+will have the ability to change how almost everything works.</p>
+<p>Comparing the application to the interface of frameworks like Django,
+there are clear benefits.</p>
+<p>In Django, the global settings module means having multiple configurations
+are impossible, and with an API organized by modules, you sometimes end up
+with lots of import statements and keeping track of many modules. Further,
+you often end up monkey patching to change how something works.</p>
+<p>The application keeps the library flexible to changes, and allows
+for many applications to coexist in the same process space.</p>
+</div>
+</div>
+<div class="section" id="reference">
+<h2><a class="toc-backref" href="#id31">Reference</a><a class="headerlink" href="#reference" title="Permalink to this headline">¶</a></h2>
+<p>See <code class="xref py py-class docutils literal notranslate"><span class="pre">faust.App</span></code> in the API reference for a full list of methods
+and attributes supported.</p>
+</div>
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../playbooks/index.html">Playbooks</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">User Guide</a><ul class="current">
+<li class="toctree-l2 current"><a class="current reference internal" href="#">The App - Define your Faust project</a></li>
+<li class="toctree-l2"><a class="reference internal" href="agents.html">Agents - Self-organizing Stream Processors</a></li>
+<li class="toctree-l2"><a class="reference internal" href="streams.html">Streams - Infinite Data Structures</a></li>
+<li class="toctree-l2"><a class="reference internal" href="channels.html">Channels &amp; Topics - Data Sources</a></li>
+<li class="toctree-l2"><a class="reference internal" href="models.html">Models, Serialization, and Codecs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tables.html">Tables and Windowing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tasks.html">Tasks, Timers, Cron Jobs, Web Views, and CLI Commands</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cli.html">Command-line Interface</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sensors.html">Sensors - Monitors and Statistics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="testing.html">Testing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="livecheck.html">LiveCheck: End-to-end test for production/staging.</a></li>
+<li class="toctree-l2"><a class="reference internal" href="settings.html">Configuration Reference</a></li>
+<li class="toctree-l2"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="kafka.html">Kafka - The basics you need to know</a></li>
+<li class="toctree-l2"><a class="reference internal" href="debugging.html">Debugging</a></li>
+<li class="toctree-l2"><a class="reference internal" href="workers.html">Workers Guide</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../history/index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">User Guide</a><ul>
+      <li>Previous: <a href="index.html" title="previous chapter">User Guide</a></li>
+      <li>Next: <a href="agents.html" title="next chapter">Agents - Self-organizing Stream Processors</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2020, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../_sources/userguide/application.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

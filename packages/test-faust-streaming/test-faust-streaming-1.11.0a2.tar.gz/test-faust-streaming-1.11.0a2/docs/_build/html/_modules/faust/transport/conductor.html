@@ -1,0 +1,528 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>faust.transport.conductor &#8212; Faust 1.11.0a1 documentation</title>
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../../../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <link rel="copyright" title="Copyright" href="../../../copyright.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for faust.transport.conductor</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;The conductor delegates messages from the consumer to the streams.&quot;&quot;&quot;</span>
+<span class="kn">import</span> <span class="nn">asyncio</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">typing</span>
+
+<span class="kn">from</span> <span class="nn">collections</span> <span class="k">import</span> <span class="n">defaultdict</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">Any</span><span class="p">,</span>
+    <span class="n">Callable</span><span class="p">,</span>
+    <span class="n">Iterable</span><span class="p">,</span>
+    <span class="n">Iterator</span><span class="p">,</span>
+    <span class="n">List</span><span class="p">,</span>
+    <span class="n">MutableMapping</span><span class="p">,</span>
+    <span class="n">MutableSet</span><span class="p">,</span>
+    <span class="n">Optional</span><span class="p">,</span>
+    <span class="n">Set</span><span class="p">,</span>
+    <span class="n">Tuple</span><span class="p">,</span>
+    <span class="n">cast</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">mode</span> <span class="k">import</span> <span class="n">Service</span><span class="p">,</span> <span class="n">get_logger</span>
+<span class="kn">from</span> <span class="nn">mode.utils.futures</span> <span class="k">import</span> <span class="n">notify</span>
+
+<span class="kn">from</span> <span class="nn">faust.exceptions</span> <span class="k">import</span> <span class="n">KeyDecodeError</span><span class="p">,</span> <span class="n">ValueDecodeError</span>
+<span class="kn">from</span> <span class="nn">faust.types</span> <span class="k">import</span> <span class="n">AppT</span><span class="p">,</span> <span class="n">EventT</span><span class="p">,</span> <span class="n">K</span><span class="p">,</span> <span class="n">Message</span><span class="p">,</span> <span class="n">TP</span><span class="p">,</span> <span class="n">V</span>
+<span class="kn">from</span> <span class="nn">faust.types.topics</span> <span class="k">import</span> <span class="n">TopicT</span>
+<span class="kn">from</span> <span class="nn">faust.types.transports</span> <span class="k">import</span> <span class="n">ConductorT</span><span class="p">,</span> <span class="n">ConsumerCallback</span><span class="p">,</span> <span class="n">TPorTopicSet</span>
+<span class="kn">from</span> <span class="nn">faust.types.tuples</span> <span class="k">import</span> <span class="n">tp_set_to_map</span>
+<span class="kn">from</span> <span class="nn">faust.utils.tracing</span> <span class="k">import</span> <span class="n">traced_from_parent_span</span>
+
+<span class="k">if</span> <span class="n">typing</span><span class="o">.</span><span class="n">TYPE_CHECKING</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+    <span class="kn">from</span> <span class="nn">faust.topics</span> <span class="k">import</span> <span class="n">Topic</span> <span class="k">as</span> <span class="n">_Topic</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="k">class</span> <span class="nc">_Topic</span><span class="p">:</span> <span class="o">...</span>  <span class="c1"># noqa</span>
+
+<span class="n">NO_CYTHON</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;NO_CYTHON&#39;</span><span class="p">,</span> <span class="kc">False</span><span class="p">))</span>
+
+<span class="k">if</span> <span class="ow">not</span> <span class="n">NO_CYTHON</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="kn">from</span> <span class="nn">._cython.conductor</span> <span class="k">import</span> <span class="n">ConductorHandler</span>
+    <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+        <span class="n">ConductorHandler</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="k">else</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+    <span class="n">ConductorHandler</span> <span class="o">=</span> <span class="kc">None</span>
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;Conductor&#39;</span><span class="p">,</span> <span class="s1">&#39;ConductorCompiler&#39;</span><span class="p">]</span>
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">get_logger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="ConductorCompiler"><a class="viewcode-back" href="../../../reference/faust.transport.conductor.html#faust.transport.base.ConductorCompiler">[docs]</a><span class="k">class</span> <span class="nc">ConductorCompiler</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+    <span class="sd">&quot;&quot;&quot;Compile a function to handle the messages for a topic+partition.&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="ConductorCompiler.build"><a class="viewcode-back" href="../../../reference/faust.transport.conductor.html#faust.transport.base.ConductorCompiler.build">[docs]</a>    <span class="k">def</span> <span class="nf">build</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+              <span class="n">conductor</span><span class="p">:</span> <span class="s1">&#39;Conductor&#39;</span><span class="p">,</span>
+              <span class="n">tp</span><span class="p">:</span> <span class="n">TP</span><span class="p">,</span>
+              <span class="n">channels</span><span class="p">:</span> <span class="n">MutableSet</span><span class="p">[</span><span class="n">_Topic</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">ConsumerCallback</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Generate closure used to deliver messages.&quot;&quot;&quot;</span>
+        <span class="c1"># This method localizes variables and attribute access</span>
+        <span class="c1"># for better performance.  This is part of the inner loop</span>
+        <span class="c1"># of a Faust worker, so tiny improvements here has big impact.</span>
+
+        <span class="n">topic</span><span class="p">,</span> <span class="n">partition</span> <span class="o">=</span> <span class="n">tp</span>
+        <span class="n">app</span> <span class="o">=</span> <span class="n">conductor</span><span class="o">.</span><span class="n">app</span>
+        <span class="n">on_topic_buffer_full</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">sensors</span><span class="o">.</span><span class="n">on_topic_buffer_full</span>
+        <span class="n">acquire_flow_control</span><span class="p">:</span> <span class="n">Callable</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">flow_control</span><span class="o">.</span><span class="n">acquire</span>
+        <span class="n">wait_until_producer_ebb</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">producer</span><span class="o">.</span><span class="n">buffer</span><span class="o">.</span><span class="n">wait_until_ebb</span>
+        <span class="n">len_</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">Any</span><span class="p">],</span> <span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="nb">len</span>
+
+        <span class="k">async</span> <span class="k">def</span> <span class="nf">on_message</span><span class="p">(</span><span class="n">message</span><span class="p">:</span> <span class="n">Message</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># when a message is received we find all channels</span>
+            <span class="c1"># that subscribe to this message</span>
+            <span class="k">await</span> <span class="n">acquire_flow_control</span><span class="p">()</span>
+            <span class="k">await</span> <span class="n">wait_until_producer_ebb</span><span class="p">()</span>
+            <span class="n">channels_n</span> <span class="o">=</span> <span class="n">len_</span><span class="p">(</span><span class="n">channels</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">channels_n</span><span class="p">:</span>
+                <span class="c1"># we increment the reference count for this message in bulk</span>
+                <span class="c1"># immediately, so that nothing will get a chance to decref to</span>
+                <span class="c1"># zero before we&#39;ve had the chance to pass it to all channels</span>
+                <span class="n">message</span><span class="o">.</span><span class="n">incref</span><span class="p">(</span><span class="n">channels_n</span><span class="p">)</span>
+                <span class="n">event</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">EventT</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+                <span class="n">event_keyid</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">K</span><span class="p">,</span> <span class="n">V</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
+
+                <span class="c1"># forward message to all channels subscribing to this topic</span>
+
+                <span class="c1"># keep track of the number of channels we delivered to,</span>
+                <span class="c1"># so that if a DecodeError is raised we can propagate</span>
+                <span class="c1"># that error to the remaining channels.</span>
+                <span class="n">delivered</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="n">_Topic</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+                <span class="n">full</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">EventT</span><span class="p">,</span> <span class="n">_Topic</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="k">for</span> <span class="n">chan</span> <span class="ow">in</span> <span class="n">channels</span><span class="p">:</span>
+                        <span class="n">keyid</span> <span class="o">=</span> <span class="n">chan</span><span class="o">.</span><span class="n">key_type</span><span class="p">,</span> <span class="n">chan</span><span class="o">.</span><span class="n">value_type</span>
+                        <span class="k">if</span> <span class="n">event</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                            <span class="c1"># first channel deserializes the payload:</span>
+                            <span class="n">event</span> <span class="o">=</span> <span class="k">await</span> <span class="n">chan</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="n">message</span><span class="p">,</span> <span class="n">propagate</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                            <span class="n">event_keyid</span> <span class="o">=</span> <span class="n">keyid</span>
+
+                            <span class="n">queue</span> <span class="o">=</span> <span class="n">chan</span><span class="o">.</span><span class="n">queue</span>
+                            <span class="k">if</span> <span class="n">queue</span><span class="o">.</span><span class="n">full</span><span class="p">():</span>
+                                <span class="n">full</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">event</span><span class="p">,</span> <span class="n">chan</span><span class="p">))</span>
+                                <span class="k">continue</span>
+                            <span class="n">queue</span><span class="o">.</span><span class="n">put_nowait</span><span class="p">(</span><span class="n">event</span><span class="p">)</span>
+                        <span class="k">else</span><span class="p">:</span>
+                            <span class="c1"># subsequent channels may have a different</span>
+                            <span class="c1"># key/value type pair, meaning they all can</span>
+                            <span class="c1"># deserialize the message in different ways</span>
+
+                            <span class="n">dest_event</span><span class="p">:</span> <span class="n">EventT</span>
+                            <span class="k">if</span> <span class="n">keyid</span> <span class="o">==</span> <span class="n">event_keyid</span><span class="p">:</span>
+                                <span class="c1"># Reuse the event if it uses the same keypair:</span>
+                                <span class="n">dest_event</span> <span class="o">=</span> <span class="n">event</span>
+                            <span class="k">else</span><span class="p">:</span>
+                                <span class="n">dest_event</span> <span class="o">=</span> <span class="k">await</span> <span class="n">chan</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span>
+                                    <span class="n">message</span><span class="p">,</span> <span class="n">propagate</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                            <span class="n">queue</span> <span class="o">=</span> <span class="n">chan</span><span class="o">.</span><span class="n">queue</span>
+                            <span class="k">if</span> <span class="n">queue</span><span class="o">.</span><span class="n">full</span><span class="p">():</span>
+                                <span class="n">full</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">dest_event</span><span class="p">,</span> <span class="n">chan</span><span class="p">))</span>
+                                <span class="k">continue</span>
+                            <span class="n">queue</span><span class="o">.</span><span class="n">put_nowait</span><span class="p">(</span><span class="n">dest_event</span><span class="p">)</span>
+                        <span class="n">delivered</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">chan</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">full</span><span class="p">:</span>
+                        <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">dest_chan</span> <span class="ow">in</span> <span class="n">full</span><span class="p">:</span>
+                            <span class="n">on_topic_buffer_full</span><span class="p">(</span><span class="n">dest_chan</span><span class="p">)</span>
+                        <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">wait</span><span class="p">(</span>
+                            <span class="p">[</span><span class="n">dest_chan</span><span class="o">.</span><span class="n">put</span><span class="p">(</span><span class="n">dest_event</span><span class="p">)</span>
+                             <span class="k">for</span> <span class="n">dest_event</span><span class="p">,</span> <span class="n">dest_chan</span> <span class="ow">in</span> <span class="n">full</span><span class="p">],</span>
+                            <span class="n">return_when</span><span class="o">=</span><span class="n">asyncio</span><span class="o">.</span><span class="n">ALL_COMPLETED</span><span class="p">,</span>
+                        <span class="p">)</span>
+                <span class="k">except</span> <span class="n">KeyDecodeError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+                    <span class="n">remaining</span> <span class="o">=</span> <span class="n">channels</span> <span class="o">-</span> <span class="n">delivered</span>
+                    <span class="n">message</span><span class="o">.</span><span class="n">ack</span><span class="p">(</span><span class="n">app</span><span class="o">.</span><span class="n">consumer</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">remaining</span><span class="p">))</span>
+                    <span class="k">for</span> <span class="n">channel</span> <span class="ow">in</span> <span class="n">remaining</span><span class="p">:</span>
+                        <span class="k">await</span> <span class="n">channel</span><span class="o">.</span><span class="n">on_key_decode_error</span><span class="p">(</span><span class="n">exc</span><span class="p">,</span> <span class="n">message</span><span class="p">)</span>
+                        <span class="n">delivered</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">channel</span><span class="p">)</span>
+                <span class="k">except</span> <span class="n">ValueDecodeError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+                    <span class="n">remaining</span> <span class="o">=</span> <span class="n">channels</span> <span class="o">-</span> <span class="n">delivered</span>
+                    <span class="n">message</span><span class="o">.</span><span class="n">ack</span><span class="p">(</span><span class="n">app</span><span class="o">.</span><span class="n">consumer</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">remaining</span><span class="p">))</span>
+                    <span class="k">for</span> <span class="n">channel</span> <span class="ow">in</span> <span class="n">remaining</span><span class="p">:</span>
+                        <span class="k">await</span> <span class="n">channel</span><span class="o">.</span><span class="n">on_value_decode_error</span><span class="p">(</span><span class="n">exc</span><span class="p">,</span> <span class="n">message</span><span class="p">)</span>
+                        <span class="n">delivered</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">channel</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">on_message</span></div></div>
+
+
+<div class="viewcode-block" id="Conductor"><a class="viewcode-back" href="../../../reference/faust.transport.conductor.html#faust.transport.base.Conductor">[docs]</a><span class="k">class</span> <span class="nc">Conductor</span><span class="p">(</span><span class="n">ConductorT</span><span class="p">,</span> <span class="n">Service</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Manages the channels that subscribe to topics.</span>
+
+<span class="sd">    - Consumes messages from topic using a single consumer.</span>
+<span class="sd">    - Forwards messages to all channels subscribing to a topic.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">logger</span> <span class="o">=</span> <span class="n">logger</span>
+
+    <span class="c1">#: Fast index to see if Topic is registered.</span>
+    <span class="n">_topics</span><span class="p">:</span> <span class="n">MutableSet</span><span class="p">[</span><span class="n">TopicT</span><span class="p">]</span>
+
+    <span class="c1">#: Map of (topic,partition) to set of channels that subscribe to that TP.</span>
+    <span class="n">_tp_index</span><span class="p">:</span> <span class="n">MutableMapping</span><span class="p">[</span><span class="n">TP</span><span class="p">,</span> <span class="n">MutableSet</span><span class="p">[</span><span class="n">TopicT</span><span class="p">]]</span>
+
+    <span class="c1">#: Map str topic name to set of channels that subscribe</span>
+    <span class="c1">#: to that topic.</span>
+    <span class="n">_topic_name_index</span><span class="p">:</span> <span class="n">MutableMapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">MutableSet</span><span class="p">[</span><span class="n">TopicT</span><span class="p">]]</span>
+
+    <span class="c1">#: For every TP assigned we compile a callback closure,</span>
+    <span class="c1">#: and when we receive a message to a TP we look up which callback</span>
+    <span class="c1">#: to call here.</span>
+    <span class="n">_tp_to_callback</span><span class="p">:</span> <span class="n">MutableMapping</span><span class="p">[</span><span class="n">TP</span><span class="p">,</span> <span class="n">ConsumerCallback</span><span class="p">]</span>
+
+    <span class="c1">#: Whenever a change is made, i.e. a Topic is added/removed, we notify</span>
+    <span class="c1">#: the background task responsible for resubscribing.</span>
+    <span class="n">_subscription_changed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">asyncio</span><span class="o">.</span><span class="n">Event</span><span class="p">]</span>
+
+    <span class="n">_subscription_done</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">asyncio</span><span class="o">.</span><span class="n">Future</span><span class="p">]</span>
+
+    <span class="n">_acking_topics</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
+
+    <span class="n">_compiler</span><span class="p">:</span> <span class="n">ConductorCompiler</span>
+
+    <span class="c1">#: We wait for 45 seconds after a resubscription request, to make</span>
+    <span class="c1">#: sure any later requests are handled at the same time.</span>
+    <span class="n">_resubscribe_sleep_lock_seconds</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">45.0</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">app</span><span class="p">:</span> <span class="n">AppT</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">Service</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">app</span> <span class="o">=</span> <span class="n">app</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_topics</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_topic_name_index</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">set</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_tp_index</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">set</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_tp_to_callback</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_acking_topics</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_subscription_changed</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_subscription_done</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_compiler</span> <span class="o">=</span> <span class="n">ConductorCompiler</span><span class="p">()</span>
+        <span class="c1"># we compile the closure used for receive messages</span>
+        <span class="c1"># (this just optimizes symbol lookups, localizing variables etc).</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">on_message</span><span class="p">:</span> <span class="n">ConsumerCallback</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">on_message</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_compile_message_handler</span><span class="p">()</span>
+
+<div class="viewcode-block" id="Conductor.commit"><a class="viewcode-back" href="../../../reference/faust.transport.conductor.html#faust.transport.base.Conductor.commit">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">commit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">topics</span><span class="p">:</span> <span class="n">TPorTopicSet</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Commit offsets in topics.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">consumer</span><span class="o">.</span><span class="n">commit</span><span class="p">(</span><span class="n">topics</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Conductor.acks_enabled_for"><a class="viewcode-back" href="../../../reference/faust.transport.conductor.html#faust.transport.base.Conductor.acks_enabled_for">[docs]</a>    <span class="k">def</span> <span class="nf">acks_enabled_for</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">topic</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Return :const:`True` if acks are enabled for topic by name.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">topic</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_acking_topics</span></div>
+
+    <span class="k">def</span> <span class="nf">_compile_message_handler</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ConsumerCallback</span><span class="p">:</span>
+        <span class="c1"># This method localizes variables and attribute access</span>
+        <span class="c1"># for better performance.  This is part of the inner loop</span>
+        <span class="c1"># of a Faust worker, so tiny improvements here has big impact.</span>
+
+        <span class="n">get_callback_for_tp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tp_to_callback</span><span class="o">.</span><span class="fm">__getitem__</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">client_only</span><span class="p">:</span>
+            <span class="k">async</span> <span class="k">def</span> <span class="nf">on_message</span><span class="p">(</span><span class="n">message</span><span class="p">:</span> <span class="n">Message</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">tp</span> <span class="o">=</span> <span class="n">TP</span><span class="p">(</span><span class="n">topic</span><span class="o">=</span><span class="n">message</span><span class="o">.</span><span class="n">topic</span><span class="p">,</span> <span class="n">partition</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+                <span class="k">return</span> <span class="k">await</span> <span class="n">get_callback_for_tp</span><span class="p">(</span><span class="n">tp</span><span class="p">)(</span><span class="n">message</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">async</span> <span class="k">def</span> <span class="nf">on_message</span><span class="p">(</span><span class="n">message</span><span class="p">:</span> <span class="n">Message</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">return</span> <span class="k">await</span> <span class="n">get_callback_for_tp</span><span class="p">(</span><span class="n">message</span><span class="o">.</span><span class="n">tp</span><span class="p">)(</span><span class="n">message</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">on_message</span>
+
+    <span class="nd">@Service</span><span class="o">.</span><span class="n">task</span>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">_subscriber</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+        <span class="c1"># the first time we start, we will wait two seconds</span>
+        <span class="c1"># to give agents a chance to start up and register their</span>
+        <span class="c1"># streams.  This way we won&#39;t have N subscription requests at the</span>
+        <span class="c1"># start.</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">client_only</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">producer_only</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Not waiting for agent/table startups...&#39;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Waiting for agents to start...&#39;</span><span class="p">)</span>
+            <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">agents</span><span class="o">.</span><span class="n">wait_until_agents_started</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Waiting for tables to be registered...&#39;</span><span class="p">)</span>
+            <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">tables</span><span class="o">.</span><span class="n">wait_until_tables_registered</span><span class="p">()</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">should_stop</span><span class="p">:</span>
+            <span class="c1"># tell the consumer to subscribe to the topics.</span>
+            <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">consumer</span><span class="o">.</span><span class="n">subscribe</span><span class="p">(</span><span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_update_indices</span><span class="p">())</span>
+            <span class="n">notify</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_subscription_done</span><span class="p">)</span>
+
+            <span class="c1"># Now we wait for changes</span>
+            <span class="n">ev</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_subscription_changed</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">Event</span><span class="p">(</span><span class="n">loop</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">loop</span><span class="p">)</span>
+        <span class="k">while</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">should_stop</span><span class="p">:</span>
+            <span class="c1"># Wait for something to add/remove topics from subscription.</span>
+            <span class="k">await</span> <span class="n">ev</span><span class="o">.</span><span class="n">wait</span><span class="p">()</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">rebalancing</span><span class="p">:</span>
+                <span class="c1"># we do not want to perform a resubscribe if the application</span>
+                <span class="c1"># is rebalancing.</span>
+                <span class="n">ev</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># The change could be in reaction to something like &quot;all agents</span>
+                <span class="c1"># restarting&quot;, in that case it would be bad if we resubscribe</span>
+                <span class="c1"># over and over, so we wait for 45 seconds to make sure any</span>
+                <span class="c1"># further subscription requests will happen during the same</span>
+                <span class="c1"># rebalance.</span>
+                <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_resubscribe_sleep_lock_seconds</span><span class="p">)</span>
+                <span class="n">subscribed_topics</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_update_indices</span><span class="p">()</span>
+                <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">consumer</span><span class="o">.</span><span class="n">subscribe</span><span class="p">(</span><span class="n">subscribed_topics</span><span class="p">)</span>
+
+            <span class="c1"># clear the subscription_changed flag, so we can wait on it again.</span>
+            <span class="n">ev</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+            <span class="c1"># wake-up anything waiting for the subscription to be done.</span>
+            <span class="n">notify</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_subscription_done</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Conductor.wait_for_subscriptions"><a class="viewcode-back" href="../../../reference/faust.transport.conductor.html#faust.transport.base.Conductor.wait_for_subscriptions">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">wait_for_subscriptions</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Wait for consumer to be subscribed.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_subscription_done</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_subscription_done</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">Future</span><span class="p">(</span><span class="n">loop</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">loop</span><span class="p">)</span>
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_subscription_done</span></div>
+
+<div class="viewcode-block" id="Conductor.maybe_wait_for_subscriptions"><a class="viewcode-back" href="../../../reference/faust.transport.conductor.html#faust.transport.base.Conductor.maybe_wait_for_subscriptions">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">maybe_wait_for_subscriptions</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_subscription_done</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_subscription_done</span></div>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">_update_indices</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterable</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_topic_name_index</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_tp_to_callback</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">channel</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_topics</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">channel</span><span class="o">.</span><span class="n">internal</span><span class="p">:</span>
+                <span class="k">await</span> <span class="n">channel</span><span class="o">.</span><span class="n">maybe_declare</span><span class="p">()</span>
+            <span class="k">for</span> <span class="n">topic</span> <span class="ow">in</span> <span class="n">channel</span><span class="o">.</span><span class="n">topics</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">channel</span><span class="o">.</span><span class="n">acks</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_acking_topics</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">topic</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_topic_name_index</span><span class="p">[</span><span class="n">topic</span><span class="p">]</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">channel</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_topic_name_index</span>
+
+<div class="viewcode-block" id="Conductor.on_partitions_assigned"><a class="viewcode-back" href="../../../reference/faust.transport.conductor.html#faust.transport.base.Conductor.on_partitions_assigned">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">on_partitions_assigned</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">assigned</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="n">TP</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Call when cluster is rebalancing and partitions are assigned.&quot;&quot;&quot;</span>
+        <span class="n">T</span> <span class="o">=</span> <span class="n">traced_from_parent_span</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_tp_index</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+        <span class="n">T</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_update_tp_index</span><span class="p">)(</span><span class="n">assigned</span><span class="p">)</span>
+        <span class="n">T</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_update_callback_map</span><span class="p">)()</span></div>
+
+<div class="viewcode-block" id="Conductor.on_client_only_start"><a class="viewcode-back" href="../../../reference/faust.transport.conductor.html#faust.transport.base.Conductor.on_client_only_start">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">on_client_only_start</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">tp_index</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tp_index</span>
+        <span class="k">for</span> <span class="n">topic</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_topics</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">subtopic</span> <span class="ow">in</span> <span class="n">topic</span><span class="o">.</span><span class="n">topics</span><span class="p">:</span>
+                <span class="n">tp</span> <span class="o">=</span> <span class="n">TP</span><span class="p">(</span><span class="n">topic</span><span class="o">=</span><span class="n">subtopic</span><span class="p">,</span> <span class="n">partition</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+                <span class="n">tp_index</span><span class="p">[</span><span class="n">tp</span><span class="p">]</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">topic</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_update_callback_map</span><span class="p">()</span></div>
+
+    <span class="k">def</span> <span class="nf">_update_tp_index</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">assigned</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="n">TP</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">assignmap</span> <span class="o">=</span> <span class="n">tp_set_to_map</span><span class="p">(</span><span class="n">assigned</span><span class="p">)</span>
+        <span class="n">tp_index</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tp_index</span>
+        <span class="k">for</span> <span class="n">topic</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_topics</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">topic</span><span class="o">.</span><span class="n">active_partitions</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="c1"># Isolated Partitions: One agent per partition.</span>
+                <span class="k">if</span> <span class="n">topic</span><span class="o">.</span><span class="n">active_partitions</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">assigned</span><span class="p">:</span>
+                        <span class="k">assert</span> <span class="n">topic</span><span class="o">.</span><span class="n">active_partitions</span><span class="o">.</span><span class="n">issubset</span><span class="p">(</span><span class="n">assigned</span><span class="p">)</span>
+                    <span class="k">for</span> <span class="n">tp</span> <span class="ow">in</span> <span class="n">topic</span><span class="o">.</span><span class="n">active_partitions</span><span class="p">:</span>
+                        <span class="n">tp_index</span><span class="p">[</span><span class="n">tp</span><span class="p">]</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">topic</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># Default: One agent receives messages for all partitions.</span>
+                <span class="k">for</span> <span class="n">subtopic</span> <span class="ow">in</span> <span class="n">topic</span><span class="o">.</span><span class="n">topics</span><span class="p">:</span>
+                    <span class="k">for</span> <span class="n">tp</span> <span class="ow">in</span> <span class="n">assignmap</span><span class="p">[</span><span class="n">subtopic</span><span class="p">]:</span>
+                        <span class="n">tp_index</span><span class="p">[</span><span class="n">tp</span><span class="p">]</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">topic</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_update_callback_map</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_tp_to_callback</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
+            <span class="p">(</span><span class="n">tp</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_build_handler</span><span class="p">(</span><span class="n">tp</span><span class="p">,</span> <span class="n">cast</span><span class="p">(</span><span class="n">MutableSet</span><span class="p">[</span><span class="n">_Topic</span><span class="p">],</span> <span class="n">channels</span><span class="p">)))</span>
+            <span class="k">for</span> <span class="n">tp</span><span class="p">,</span> <span class="n">channels</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tp_index</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_build_handler</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                       <span class="n">tp</span><span class="p">:</span> <span class="n">TP</span><span class="p">,</span>
+                       <span class="n">channels</span><span class="p">:</span> <span class="n">MutableSet</span><span class="p">[</span><span class="n">_Topic</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">ConsumerCallback</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">ConductorHandler</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+            <span class="k">return</span> <span class="n">ConductorHandler</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tp</span><span class="p">,</span> <span class="n">channels</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_compiler</span><span class="o">.</span><span class="n">build</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tp</span><span class="p">,</span> <span class="n">channels</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Conductor.clear"><a class="viewcode-back" href="../../../reference/faust.transport.conductor.html#faust.transport.base.Conductor.clear">[docs]</a>    <span class="k">def</span> <span class="nf">clear</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Clear all subscriptions.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_topics</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_topic_name_index</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_tp_index</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_tp_to_callback</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_acking_topics</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span></div>
+
+    <span class="k">def</span> <span class="nf">__contains__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">value</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_topics</span>
+
+    <span class="k">def</span> <span class="nf">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="n">TopicT</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="nb">iter</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_topics</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__len__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_topics</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__hash__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">object</span><span class="o">.</span><span class="fm">__hash__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Conductor.add"><a class="viewcode-back" href="../../../reference/faust.transport.conductor.html#faust.transport.base.Conductor.add">[docs]</a>    <span class="k">def</span> <span class="nf">add</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">topic</span><span class="p">:</span> <span class="n">TopicT</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Register topic to be subscribed.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">topic</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_topics</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_topics</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">topic</span><span class="p">)</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_topic_contain_unsubscribed_topics</span><span class="p">(</span><span class="n">topic</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_flag_changes</span><span class="p">()</span></div>
+
+    <span class="k">def</span> <span class="nf">_topic_contain_unsubscribed_topics</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">topic</span><span class="p">:</span> <span class="n">TopicT</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="n">index</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_topic_name_index</span>
+        <span class="k">return</span> <span class="nb">bool</span><span class="p">(</span><span class="n">index</span> <span class="ow">and</span> <span class="nb">any</span><span class="p">(</span><span class="n">t</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">index</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">topic</span><span class="o">.</span><span class="n">topics</span><span class="p">))</span>
+
+<div class="viewcode-block" id="Conductor.discard"><a class="viewcode-back" href="../../../reference/faust.transport.conductor.html#faust.transport.base.Conductor.discard">[docs]</a>    <span class="k">def</span> <span class="nf">discard</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">topic</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Unregister topic from conductor.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_topics</span><span class="o">.</span><span class="n">discard</span><span class="p">(</span><span class="n">topic</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_flag_changes</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_subscription_changed</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_subscription_changed</span><span class="o">.</span><span class="n">set</span><span class="p">()</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_subscription_done</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_subscription_done</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">Future</span><span class="p">(</span><span class="n">loop</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">loop</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">label</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Return label for use in logs.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">f</span><span class="s1">&#39;{type(self).__name__}({len(self._topics)})&#39;</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">shortlabel</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Return short label for use in logs.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">acking_topics</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Set</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_acking_topics</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../../index.html">
+              <img class="logo" src="../../../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../../../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../playbooks/index.html">Playbooks</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../userguide/index.html">User Guide</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../reference/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../history/index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2020, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

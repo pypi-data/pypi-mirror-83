@@ -1,0 +1,503 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>Change history for Faust 1.7 &#8212; Faust 1.11.0a1 documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="copyright" title="Copyright" href="../copyright.html" />
+    <link rel="next" title="Change history for Faust 1.6" href="changelog-1.6.html" />
+    <link rel="prev" title="Change history for Faust 1.8" href="changelog-1.8.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="change-history-for-faust-1-7">
+<span id="changelog-1-7"></span><h1>Change history for Faust 1.7<a class="headerlink" href="#change-history-for-faust-1-7" title="Permalink to this headline">¶</a></h1>
+<p>This document contain change notes for bugfix releases in
+the Faust 1.7.x series. If you’re looking for changes in the latest
+series, please visit the latest <a class="reference internal" href="../changelog.html#changelog"><span class="std std-ref">Changes</span></a>.</p>
+<p>For even older releases you can visit the <a class="reference internal" href="index.html#history"><span class="std std-ref">History</span></a> section.</p>
+<div class="section" id="version-1-7-3">
+<span id="id1"></span><h2>1.7.3<a class="headerlink" href="#version-1-7-3" title="Permalink to this headline">¶</a></h2>
+<dl class="field-list simple">
+<dt class="field-odd">release-date</dt>
+<dd class="field-odd"><p>2019-07-12 1:13 P.M PST</p>
+</dd>
+<dt class="field-even">release-by</dt>
+<dd class="field-even"><p>Ask Solem (<a class="reference external" href="https://github.com/ask/">&#64;ask</a>)</p>
+</dd>
+</dl>
+<ul class="simple">
+<li><p><strong>Tables</strong>: Fix for <span class="xref issue">Issue #383</span> when using the Cython extension.</p></li>
+</ul>
+</div>
+<div class="section" id="version-1-7-2">
+<span id="id2"></span><h2>1.7.2<a class="headerlink" href="#version-1-7-2" title="Permalink to this headline">¶</a></h2>
+<dl class="field-list simple">
+<dt class="field-odd">release-date</dt>
+<dd class="field-odd"><p>2019-07-12 12:00 P.M PST</p>
+</dd>
+<dt class="field-even">release-by</dt>
+<dd class="field-even"><p>Ask Solem (<a class="reference external" href="https://github.com/ask/">&#64;ask</a>)</p>
+</dd>
+</dl>
+<ul>
+<li><p><strong>Tables</strong>: Fixed memory leak/back pressure in changelog producer buffer
+(<span class="xref issue">Issue #383</span>)</p></li>
+<li><p><strong>Models</strong>: Do not attempt to parse datetime when coerce/isodates disabled.</p>
+<blockquote>
+<div><p>Version 1.7 introduced a regression where datetimes were attempted
+to be parsed as ISO-8601 even with the <code class="docutils literal notranslate"><span class="pre">isodates</span></code> setting disabled.</p>
+<p>A regression test was added for this bug.</p>
+</div></blockquote>
+</li>
+<li><p><strong>Models</strong>: New <code class="docutils literal notranslate"><span class="pre">date_parser</span></code> option to change datetime parsing function.</p>
+<blockquote>
+<div><p>The default date parser supports ISO-8601 only.  To support
+this format and many other formats (such as
+<code class="docutils literal notranslate"><span class="pre">'Sat</span> <span class="pre">Jan</span> <span class="pre">12</span> <span class="pre">00:44:36</span> <span class="pre">+0000</span> <span class="pre">2019'</span></code>) you can select to
+use <a class="reference external" href="https://pypi.python.org/pypi/python-dateutil/">python-dateutil</a> as the parser.</p>
+<p>To change the date parsing function for a model globally:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">dateutil.parser</span> <span class="kn">import</span> <span class="n">parse</span> <span class="k">as</span> <span class="n">parse_date</span>
+
+<span class="k">class</span> <span class="nc">Account</span><span class="p">(</span><span class="n">faust</span><span class="o">.</span><span class="n">Record</span><span class="p">,</span> <span class="nb">coerce</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span> <span class="n">date_parser</span><span class="o">=</span><span class="n">parse_date</span><span class="p">):</span>
+    <span class="n">date_joined</span><span class="p">:</span> <span class="n">datetime</span>
+</pre></div>
+</div>
+<p>To change the date parsing function for a specific field:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">dateutil.parser</span> <span class="kn">import</span> <span class="n">parse</span> <span class="k">as</span> <span class="n">parse_date</span>
+<span class="kn">from</span> <span class="nn">faust.models.fields</span> <span class="kn">import</span> <span class="n">DatetimeField</span>
+
+<span class="k">class</span> <span class="nc">Account</span><span class="p">(</span><span class="n">faust</span><span class="o">.</span><span class="n">Record</span><span class="p">,</span> <span class="nb">coerce</span><span class="o">=</span><span class="bp">True</span><span class="p">):</span>
+    <span class="c1"># date_joined: supports ISO-8601 only (default)</span>
+    <span class="n">date_joined</span><span class="p">:</span> <span class="n">datetime</span>
+
+    <span class="c1">#: date_last_login: comes from weird system with more human</span>
+    <span class="c1">#: readable dates (&#39;Sat Jan 12 00:44:36 +0000 2019&#39;).</span>
+    <span class="c1">#: The dateutil parser can handle many different date and time</span>
+    <span class="c1">#: formats.</span>
+    <span class="n">date_last_login</span><span class="p">:</span> <span class="n">datetime</span> <span class="o">=</span> <span class="n">DatetimeField</span><span class="p">(</span><span class="n">date_parser</span><span class="o">=</span><span class="n">parse_date</span><span class="p">)</span>
+</pre></div>
+</div>
+</div></blockquote>
+</li>
+<li><p><strong>Models</strong>: Adds <code class="docutils literal notranslate"><span class="pre">FieldDescriptor.exclude</span></code> to exclude field when serialized</p>
+<blockquote>
+<div><p>See <a class="reference internal" href="../userguide/models.html#model-field-exclude"><span class="std std-ref">Excluding fields from representation</span></a> for more information.</p>
+</div></blockquote>
+</li>
+<li><p><strong>Documentation</strong>: improvements by…</p>
+<ul class="simple">
+<li><p>Witek Bedyk (<a class="reference external" href="https://github.com/witekest/">&#64;witekest</a>).</p></li>
+<li><p>Josh Woodward (<a class="reference external" href="https://github.com/jdw6359/">&#64;jdw6359</a>).</p></li>
+</ul>
+</li>
+</ul>
+</div>
+<div class="section" id="version-1-7-1">
+<span id="id3"></span><h2>1.7.1<a class="headerlink" href="#version-1-7-1" title="Permalink to this headline">¶</a></h2>
+<dl class="field-list simple">
+<dt class="field-odd">release-date</dt>
+<dd class="field-odd"><p>2019-07-09 2:36 P.M PST</p>
+</dd>
+<dt class="field-even">release-by</dt>
+<dd class="field-even"><p>Ask Solem (<a class="reference external" href="https://github.com/ask/">&#64;ask</a>)</p>
+</dd>
+</dl>
+<ul>
+<li><p><strong>Stream</strong>: Exactly once processing now include the app id
+in transactional ids.</p>
+<blockquote>
+<div><p>This was done to support running multiple apps on the same
+Kafka broker.</p>
+<p>Contributed by Cesar Pantoja (<a class="reference external" href="https://github.com/CesarPantoja/">&#64;CesarPantoja</a>).</p>
+</div></blockquote>
+</li>
+<li><p><strong>Web</strong>: Fixed bug where sensor index should display when <a class="reference internal" href="../userguide/settings.html#std:setting-debug"><code class="xref std std-setting docutils literal notranslate"><span class="pre">debug</span></code></a> is enabled</p>
+<blockquote>
+<div><div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>If you want to enable the sensor statistics endpoint in production,
+without enabling the <a class="reference internal" href="../userguide/settings.html#std:setting-debug"><code class="xref std std-setting docutils literal notranslate"><span class="pre">debug</span></code></a> setting, you can do so
+by adding the following code:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">app</span><span class="o">.</span><span class="n">web</span><span class="o">.</span><span class="n">blueprints</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s1">&#39;/stats/&#39;</span><span class="p">,</span> <span class="s1">&#39;faust.web.apps.stats:blueprint&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<p>Contributed by <a class="reference external" href="https://github.com/tyong920/">&#64;tyong920</a></p>
+</div></blockquote>
+</li>
+<li><p><strong>Transport</strong>: The default value for <a class="reference internal" href="../userguide/settings.html#std:setting-broker_request_timeout"><code class="xref std std-setting docutils literal notranslate"><span class="pre">broker_request_timeout</span></code></a> is now
+90 seconds (<span class="xref issue">Issue #259</span>)</p></li>
+<li><p><strong>Transport</strong>: Raise error if <a class="reference internal" href="../userguide/settings.html#std:setting-broker_session_timeout"><code class="xref std std-setting docutils literal notranslate"><span class="pre">broker_session_timeout</span></code></a> is greater
+than <a class="reference internal" href="../userguide/settings.html#std:setting-broker_request_timeout"><code class="xref std std-setting docutils literal notranslate"><span class="pre">broker_request_timeout</span></code></a> (Closes #259)</p></li>
+<li><p><strong>Dependencies</strong>: Now supports <a class="reference external" href="https://pypi.python.org/pypi/click/">click</a> 7.0 and later.</p></li>
+<li><p><strong>Dependencies</strong>: <code class="docutils literal notranslate"><span class="pre">faust[debug]</span></code> now depends on <a class="reference external" href="https://pypi.python.org/pypi/aiomonitor/">aiomonitor</a> 0.4.4
+or later.</p></li>
+<li><p><strong>Models</strong>: Field defined as <code class="docutils literal notranslate"><span class="pre">Optional[datetime]</span></code> now works with
+<code class="docutils literal notranslate"><span class="pre">coerce</span></code> and <code class="docutils literal notranslate"><span class="pre">isodates</span></code> settings.</p>
+<blockquote>
+<div><p>Previously a model would not recognize:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">X</span><span class="p">(</span><span class="n">faust</span><span class="o">.</span><span class="n">Record</span><span class="p">,</span> <span class="nb">coerce</span><span class="o">=</span><span class="bp">True</span><span class="p">):</span>
+    <span class="n">date</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">datetime</span><span class="p">]</span>
+</pre></div>
+</div>
+<p>as a <a class="reference internal" href="../reference/faust.models.fields.html#faust.models.fields.DatetimeField" title="faust.models.fields.DatetimeField"><code class="xref py py-class docutils literal notranslate"><span class="pre">DatetimeField</span></code></a> and when
+deserializing the field would end up as a string.</p>
+<p>It’s now properly converted to <a class="reference external" href="https://docs.python.org/dev/library/datetime.html#datetime.datetime" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">datetime</span></code></a>.</p>
+</div></blockquote>
+</li>
+<li><p><strong>RocksDB</strong>: Adds <a class="reference internal" href="../userguide/settings.html#std:setting-table_key_index_size"><code class="xref std std-setting docutils literal notranslate"><span class="pre">table_key_index_size</span></code></a> setting (Closes #372)</p></li>
+<li><p><strong>RocksDB</strong>: Reraise original error if <a class="reference external" href="https://pypi.python.org/pypi/python-rocksdb/">python-rocksdb</a> cannot
+be imported.</p>
+<blockquote>
+<div><p>Thanks to Sohaib Farooqi.</p>
+</div></blockquote>
+</li>
+<li><p><strong>Django</strong>: Autodiscovery support now waits for Django to be fully setup.</p>
+<blockquote>
+<div><p>Contributed by Tomasz Nguyen (<a class="reference external" href="https://github.com/swist/">&#64;swist</a>).</p>
+</div></blockquote>
+</li>
+<li><p><strong>Documentation</strong> improvements by:</p>
+<ul class="simple">
+<li><p>Witek Bedyk (<a class="reference external" href="https://github.com/witekest/">&#64;witekest</a>).</p></li>
+</ul>
+</li>
+</ul>
+</div>
+<div class="section" id="version-1-7-0">
+<span id="id4"></span><h2>1.7.0<a class="headerlink" href="#version-1-7-0" title="Permalink to this headline">¶</a></h2>
+<dl class="field-list simple">
+<dt class="field-odd">release-date</dt>
+<dd class="field-odd"><p>2019-06-06 6:00 P.M PST</p>
+</dd>
+<dt class="field-even">release-by</dt>
+<dd class="field-even"><p>Ask Solem (<a class="reference external" href="https://github.com/ask/">&#64;ask</a>)</p>
+</dd>
+</dl>
+<div class="section" id="backward-incompatible-changes">
+<span id="v170-backward-incompatible-changes"></span><h3>Backward Incompatible Changes<a class="headerlink" href="#backward-incompatible-changes" title="Permalink to this headline">¶</a></h3>
+<ul>
+<li><p><strong>Transports</strong>: The in-memory transport has been removed (<span class="xref issue">Issue #295</span>).</p>
+<blockquote>
+<div><p>This transport was experimental and not working properly, so to avoid
+confusion we have removed it completely.</p>
+</div></blockquote>
+</li>
+<li><p><strong>Stream</strong>: The <code class="docutils literal notranslate"><span class="pre">Message.stream_meta</span></code> attribute has been removed.</p>
+<blockquote>
+<div><p>This was used to keep arbitrary state for sensors during processing
+of a message.</p>
+<p>If you by rare chance are relying on this attribute to exist, you must
+now initialize it before using it:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">stream_meta</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">event</span><span class="o">.</span><span class="n">message</span><span class="p">,</span> <span class="s1">&#39;stream_meta&#39;</span><span class="p">,</span> <span class="bp">None</span><span class="p">)</span>
+<span class="k">if</span> <span class="n">stream_meta</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+    <span class="n">stream_meta</span> <span class="o">=</span> <span class="n">event</span><span class="o">.</span><span class="n">message</span><span class="o">.</span><span class="n">stream_meta</span> <span class="o">=</span> <span class="p">{}</span>
+</pre></div>
+</div>
+</div></blockquote>
+</li>
+</ul>
+</div>
+<div class="section" id="news">
+<span id="v170-news"></span><h3>News<a class="headerlink" href="#news" title="Permalink to this headline">¶</a></h3>
+<ul>
+<li><p><strong>Requirements</strong></p>
+<blockquote>
+<div><ul>
+<li><p>Now depends on <a class="reference external" href="https://mode.readthedocs.io/en/latest/changelog.html#version-4-0-0" title="(in Mode v4.3)"><span class="xref std std-ref">Mode 4.0.0</span></a>.</p></li>
+<li><p>Now depends on <a class="reference external" href="https://pypi.python.org/pypi/aiohttp/">aiohttp</a> 3.5.2 or later.</p>
+<blockquote>
+<div><p>Thanks to <a class="reference external" href="https://github.com/CharAct3/">&#64;CharAct3</a>.</p>
+</div></blockquote>
+</li>
+</ul>
+</div></blockquote>
+</li>
+<li><p><strong>Documentation</strong>: Documented a new deployment strategy to minimize
+rebalancing issues.</p>
+<blockquote>
+<div><p>See <a class="reference internal" href="../userguide/workers.html#worker-cluster"><span class="std std-ref">Managing a cluster</span></a> for more information.</p>
+</div></blockquote>
+</li>
+<li><p><strong>Models</strong>: Implements model validation.</p>
+<blockquote>
+<div><p>Validation of fields can be enabled by using the <code class="docutils literal notranslate"><span class="pre">validation=True</span></code> class
+option:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">faust</span>
+<span class="kn">from</span> <span class="nn">decimal</span> <span class="kn">import</span> <span class="n">Decimal</span>
+
+<span class="k">class</span> <span class="nc">X</span><span class="p">(</span><span class="n">faust</span><span class="o">.</span><span class="n">Record</span><span class="p">,</span> <span class="n">validation</span><span class="o">=</span><span class="bp">True</span><span class="p">):</span>
+    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">amount</span><span class="p">:</span> <span class="n">Decimal</span>
+</pre></div>
+</div>
+<p>When validation is enabled, the model will validate that the
+fields values are of the correct type.</p>
+<p>Fields can now also have advanced validation options,
+and you enable these by writing explicit field descriptors:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">faust</span>
+<span class="kn">from</span> <span class="nn">decimal</span> <span class="kn">import</span> <span class="n">Decimal</span>
+<span class="kn">from</span> <span class="nn">faust.models.fields</span> <span class="kn">import</span> <span class="n">DecimalField</span><span class="p">,</span> <span class="n">StringField</span>
+
+<span class="k">class</span> <span class="nc">X</span><span class="p">(</span><span class="n">faust</span><span class="o">.</span><span class="n">Record</span><span class="p">,</span> <span class="n">validation</span><span class="o">=</span><span class="bp">True</span><span class="p">):</span>
+    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">StringField</span><span class="p">(</span><span class="n">max_length</span><span class="o">=</span><span class="mi">30</span><span class="p">)</span>
+    <span class="n">amount</span><span class="p">:</span> <span class="n">Decimal</span> <span class="o">=</span> <span class="n">DecimalField</span><span class="p">(</span><span class="n">min_value</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span> <span class="n">max_value</span><span class="o">=</span><span class="mf">1000.0</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>If you want to run validation manually, you can do so by
+keeping <code class="docutils literal notranslate"><span class="pre">validation=False</span></code> on the class, but calling
+<code class="docutils literal notranslate"><span class="pre">model.is_valid()</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">if</span> <span class="ow">not</span> <span class="n">model</span><span class="o">.</span><span class="n">is_valid</span><span class="p">():</span>
+    <span class="k">print</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">validation_errors</span><span class="p">)</span>
+</pre></div>
+</div>
+</div></blockquote>
+</li>
+<li><p><strong>Models</strong>: Implements generic coercion support.</p>
+<blockquote>
+<div><p>This new feature replaces the <code class="docutils literal notranslate"><span class="pre">isodates=True</span></code>/<code class="docutils literal notranslate"><span class="pre">decimals=True</span></code> options
+and can be enabled by passing <code class="docutils literal notranslate"><span class="pre">coerce=True</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">Account</span><span class="p">(</span><span class="n">faust</span><span class="o">.</span><span class="n">Record</span><span class="p">,</span> <span class="nb">coerce</span><span class="o">=</span><span class="bp">True</span><span class="p">):</span>
+    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">login_times</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">datetime</span><span class="p">]</span>
+</pre></div>
+</div>
+</div></blockquote>
+</li>
+<li><p><strong>Testing</strong>: New experimental <code class="docutils literal notranslate"><span class="pre">livecheck</span></code> production testing API.</p>
+<blockquote>
+<div><p>There is no documentation yet, but an example in
+<code class="docutils literal notranslate"><span class="pre">examples//livecheck.py</span></code>.</p>
+<p>This is a new API to do end-to-end testing directly in production.</p>
+</div></blockquote>
+</li>
+<li><p><strong>Topic</strong>: Adds new <code class="docutils literal notranslate"><span class="pre">topic.send_soon()</span></code> non-async method to buffer
+messages.</p>
+<blockquote>
+<div><p>This method can be used by any non-<cite>async def</cite> function
+to buffer up messages to be produced.</p>
+<p>It returns <cite>Awaitable[RecordMetadata]</cite>: a promise evaluated once
+the message is actually sent.</p>
+</div></blockquote>
+</li>
+<li><p><strong>Stream</strong>: New <code class="docutils literal notranslate"><span class="pre">Stream.filter</span></code> method added useful for filtering
+events before repartitioning a stream.</p>
+<blockquote>
+<div><p>See <a class="reference internal" href="../userguide/streams.html#stream-filter"><span class="std std-ref">filter() – Filter values to omit from stream.</span></a> for more information.</p>
+</div></blockquote>
+</li>
+<li><p><strong>App</strong>: New <a class="reference internal" href="../userguide/settings.html#std:setting-broker_consumer"><code class="xref std std-setting docutils literal notranslate"><span class="pre">broker_consumer</span></code></a>/<a class="reference internal" href="../userguide/settings.html#std:setting-broker_producer"><code class="xref std std-setting docutils literal notranslate"><span class="pre">broker_producer</span></code></a> settings.</p>
+<blockquote>
+<div><p>These can now be used to configure individual transports
+for consuming and producing.</p>
+<p>The default value for both settings are taken from the
+<a class="reference internal" href="../userguide/settings.html#std:setting-broker"><code class="xref std std-setting docutils literal notranslate"><span class="pre">broker</span></code></a> setting.</p>
+<p>For example you can use <a class="reference external" href="https://pypi.python.org/pypi/aiokafka/">aiokafka</a> for the consumer, and
+<a class="reference external" href="https://pypi.python.org/pypi/confluent_kafka/">confluent_kafka</a> for the producer:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">app</span> <span class="o">=</span> <span class="n">faust</span><span class="o">.</span><span class="n">App</span><span class="p">(</span>
+    <span class="s1">&#39;id&#39;</span><span class="p">,</span>
+    <span class="n">broker_consumer</span><span class="o">=</span><span class="s1">&#39;kafka://localhost:9092&#39;</span><span class="p">,</span>
+    <span class="n">broker_producer</span><span class="o">=</span><span class="s1">&#39;confluent://localhost:9092&#39;</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</div></blockquote>
+</li>
+<li><p><strong>App</strong>: New <a class="reference internal" href="../userguide/settings.html#std:setting-broker_max_poll_interval"><code class="xref std std-setting docutils literal notranslate"><span class="pre">broker_max_poll_interval</span></code></a> setting.</p>
+<p>Contributed by Miha Troha (<a class="reference external" href="https://github.com/mihatroha/">&#64;mihatroha</a>).</p>
+</li>
+<li><p><strong>App</strong>: New <a class="reference internal" href="../userguide/settings.html#std:setting-topic_disable_leader"><code class="xref std std-setting docutils literal notranslate"><span class="pre">topic_disable_leader</span></code></a> setting disables
+the leader topic.</p></li>
+<li><p><strong>Table</strong>: Table constructor now accepts <code class="docutils literal notranslate"><span class="pre">options</span></code> argument
+passed on to underlying RocksDB storage.</p>
+<blockquote>
+<div><p>This can be used to configure advanced RocksDB options,
+such as block size, cache size, etc.</p>
+<p>Contributed by Miha Troha (<a class="reference external" href="https://github.com/mihatroha/">&#64;mihatroha</a>).</p>
+</div></blockquote>
+</li>
+</ul>
+</div>
+<div class="section" id="fixes">
+<span id="v170-fixes"></span><h3>Fixes<a class="headerlink" href="#fixes" title="Permalink to this headline">¶</a></h3>
+<ul>
+<li><p><strong>Stream</strong>: Fixes bug where non-finished event is acked (<span class="xref issue">Issue #355</span>).</p></li>
+<li><p><strong>Producer</strong>: Exactly once: Support producing to non-transactional
+topics (<span class="xref issue">Issue #339</span>)</p></li>
+<li><p><strong>Agent</strong>: Test: Fixed <a class="reference external" href="https://docs.python.org/dev/library/asyncio-exceptions.html#asyncio.CancelledError" title="(in Python v3.9)"><code class="xref py py-exc docutils literal notranslate"><span class="pre">asyncio.CancelledError</span></code></a> (<span class="xref issue">Issue #322</span>).</p></li>
+<li><p><strong>Cython</strong>: Fixed issue with sensor state not being passed to <code class="docutils literal notranslate"><span class="pre">after</span></code>.</p></li>
+<li><p><strong>Tables</strong>: Key index: now inherits configuration from source table
+(<span class="xref issue">Issue #325</span>)</p></li>
+<li><p><strong>App</strong>: Fix list of strings for <a class="reference internal" href="../userguide/settings.html#std:setting-broker"><code class="xref std std-setting docutils literal notranslate"><span class="pre">broker</span></code></a> param in URL
+(<span class="xref issue">Issue #330</span>).</p>
+<blockquote>
+<div><p>Contributed by Nimish Telang (<a class="reference external" href="https://github.com/nimish/">&#64;nimish</a>).</p>
+</div></blockquote>
+</li>
+<li><p><strong>Table</strong>: Fixed blocking behavior when populating tables.</p>
+<blockquote>
+<div><p>Symptom was warnings about timers waking up too late.</p>
+</div></blockquote>
+</li>
+<li><p><strong>Documentation</strong> Fixes by:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p><a class="reference external" href="https://github.com/evanderiel/">&#64;evanderiel</a></p></li>
+</ul>
+</div></blockquote>
+</li>
+</ul>
+</div>
+<div class="section" id="improvements">
+<span id="v170-improvements"></span><h3>Improvements<a class="headerlink" href="#improvements" title="Permalink to this headline">¶</a></h3>
+<ul>
+<li><p><strong>Documentation</strong>: Rewrote fragmented documentation to be more concise.</p></li>
+<li><p><strong>Documentation improvements by</strong></p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Igor Mozharovsky (<a class="reference external" href="https://github.com/seedofjoy/">&#64;seedofjoy</a>)</p></li>
+<li><p>Stephen Sorriaux (<a class="reference external" href="https://github.com/StephenSorriaux/">&#64;StephenSorriaux</a>)</p></li>
+<li><p>Lifei Chen (<a class="reference external" href="https://github.com/hustclf/">&#64;hustclf</a>)</p></li>
+</ul>
+</div></blockquote>
+</li>
+</ul>
+</div>
+</div>
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../playbooks/index.html">Playbooks</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../userguide/index.html">User Guide</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">History</a><ul>
+      <li>Previous: <a href="changelog-1.8.html" title="previous chapter">Change history for Faust 1.8</a></li>
+      <li>Next: <a href="changelog-1.6.html" title="next chapter">Change history for Faust 1.6</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2020, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../_sources/history/changelog-1.7.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

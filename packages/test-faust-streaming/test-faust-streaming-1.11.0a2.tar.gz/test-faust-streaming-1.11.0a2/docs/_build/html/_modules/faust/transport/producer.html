@@ -1,0 +1,353 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>faust.transport.producer &#8212; Faust 1.11.0a1 documentation</title>
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../../../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <link rel="copyright" title="Copyright" href="../../../copyright.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for faust.transport.producer</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Producer.</span>
+
+<span class="sd">The Producer is responsible for:</span>
+
+<span class="sd">   - Holds reference to the transport that created it</span>
+<span class="sd">   - ... and the app via ``self.transport.app``.</span>
+<span class="sd">   - Sending messages.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">import</span> <span class="nn">asyncio</span>
+<span class="kn">from</span> <span class="nn">asyncio</span> <span class="k">import</span> <span class="n">QueueEmpty</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="k">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Awaitable</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">cast</span>
+<span class="kn">from</span> <span class="nn">mode</span> <span class="k">import</span> <span class="n">Seconds</span><span class="p">,</span> <span class="n">Service</span>
+<span class="kn">from</span> <span class="nn">faust.types</span> <span class="k">import</span> <span class="n">AppT</span><span class="p">,</span> <span class="n">HeadersArg</span>
+<span class="kn">from</span> <span class="nn">faust.types.tuples</span> <span class="k">import</span> <span class="n">FutureMessage</span><span class="p">,</span> <span class="n">RecordMetadata</span><span class="p">,</span> <span class="n">TP</span>
+<span class="kn">from</span> <span class="nn">faust.types.transports</span> <span class="k">import</span> <span class="n">ProducerBufferT</span><span class="p">,</span> <span class="n">ProducerT</span><span class="p">,</span> <span class="n">TransportT</span>
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;Producer&#39;</span><span class="p">]</span>
+
+
+<span class="k">class</span> <span class="nc">ProducerBuffer</span><span class="p">(</span><span class="n">Service</span><span class="p">,</span> <span class="n">ProducerBufferT</span><span class="p">):</span>
+
+    <span class="n">max_messages</span> <span class="o">=</span> <span class="mi">100</span>
+
+    <span class="k">def</span> <span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pending</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">Queue</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">put</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fut</span><span class="p">:</span> <span class="n">FutureMessage</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Add message to buffer.</span>
+
+<span class="sd">        The message will be eventually produced, you can await</span>
+<span class="sd">        the future to wait for that to happen.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pending</span><span class="o">.</span><span class="n">put_nowait</span><span class="p">(</span><span class="n">fut</span><span class="p">)</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">on_stop</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">flush</span><span class="p">()</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">flush</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Flush all messages (draining the buffer).&quot;&quot;&quot;</span>
+        <span class="n">get_pending</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pending</span><span class="o">.</span><span class="n">get_nowait</span>
+        <span class="n">send_pending</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_send_pending</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">:</span>
+            <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">msg</span> <span class="o">=</span> <span class="n">get_pending</span><span class="p">()</span>
+                <span class="k">except</span> <span class="n">QueueEmpty</span><span class="p">:</span>
+                    <span class="k">break</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">await</span> <span class="n">send_pending</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">flush_atmost</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Flush at most ``n`` messages.&quot;&quot;&quot;</span>
+        <span class="n">get_pending</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pending</span><span class="o">.</span><span class="n">get_nowait</span>
+        <span class="n">send_pending</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_send_pending</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">msg</span> <span class="o">=</span> <span class="n">get_pending</span><span class="p">()</span>
+                <span class="k">except</span> <span class="n">QueueEmpty</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="n">i</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">await</span> <span class="n">send_pending</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">n</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="mi">0</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">_send_pending</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fut</span><span class="p">:</span> <span class="n">FutureMessage</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">await</span> <span class="n">fut</span><span class="o">.</span><span class="n">message</span><span class="o">.</span><span class="n">channel</span><span class="o">.</span><span class="n">publish_message</span><span class="p">(</span><span class="n">fut</span><span class="p">,</span> <span class="n">wait</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">wait_until_ebb</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Wait until buffer is of an acceptable size.</span>
+
+<span class="sd">        Modifying a table key is using the Python dictionary API,</span>
+<span class="sd">        and as ``__getitem__`` is synchronous we have to add</span>
+<span class="sd">        pending messages to a buffer.</span>
+
+<span class="sd">        The ``__getitem__`` method cannot drain the buffer as doing</span>
+<span class="sd">        so requires trampolining into the event loop.</span>
+
+<span class="sd">        To solve this, we have the conductor wait until the buffer</span>
+<span class="sd">        is of an acceptable size before resuming stream processing flow.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_messages</span><span class="p">:</span>
+            <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">flush_atmost</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">max_messages</span><span class="p">)</span>
+
+    <span class="nd">@Service</span><span class="o">.</span><span class="n">task</span>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">_handle_pending</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">get_pending</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pending</span><span class="o">.</span><span class="n">get</span>
+        <span class="n">send_pending</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_send_pending</span>
+        <span class="k">while</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">should_stop</span><span class="p">:</span>
+            <span class="n">msg</span> <span class="o">=</span> <span class="k">await</span> <span class="n">get_pending</span><span class="p">()</span>
+            <span class="k">await</span> <span class="n">send_pending</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">size</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Current buffer size (messages waiting to be produced).&quot;&quot;&quot;</span>
+        <span class="n">queue_items</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pending</span><span class="o">.</span><span class="n">_queue</span>  <span class="c1"># type: ignore</span>
+        <span class="n">queue_items</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="nb">list</span><span class="p">,</span> <span class="n">queue_items</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="n">queue_items</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="Producer"><a class="viewcode-back" href="../../../reference/faust.transport.producer.html#faust.transport.base.Producer">[docs]</a><span class="k">class</span> <span class="nc">Producer</span><span class="p">(</span><span class="n">Service</span><span class="p">,</span> <span class="n">ProducerT</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Base Producer.&quot;&quot;&quot;</span>
+
+    <span class="n">app</span><span class="p">:</span> <span class="n">AppT</span>
+
+    <span class="n">_api_version</span><span class="p">:</span> <span class="nb">str</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">transport</span><span class="p">:</span> <span class="n">TransportT</span><span class="p">,</span>
+                 <span class="n">loop</span><span class="p">:</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">AbstractEventLoop</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">transport</span> <span class="o">=</span> <span class="n">transport</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">app</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">transport</span><span class="o">.</span><span class="n">app</span>
+        <span class="n">conf</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">transport</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">conf</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">client_id</span> <span class="o">=</span> <span class="n">conf</span><span class="o">.</span><span class="n">broker_client_id</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">linger_ms</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">conf</span><span class="o">.</span><span class="n">producer_linger</span> <span class="o">*</span> <span class="mi">1000</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">max_batch_size</span> <span class="o">=</span> <span class="n">conf</span><span class="o">.</span><span class="n">producer_max_batch_size</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">acks</span> <span class="o">=</span> <span class="n">conf</span><span class="o">.</span><span class="n">producer_acks</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">max_request_size</span> <span class="o">=</span> <span class="n">conf</span><span class="o">.</span><span class="n">producer_max_request_size</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">compression_type</span> <span class="o">=</span> <span class="n">conf</span><span class="o">.</span><span class="n">producer_compression_type</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">request_timeout</span> <span class="o">=</span> <span class="n">conf</span><span class="o">.</span><span class="n">producer_request_timeout</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ssl_context</span> <span class="o">=</span> <span class="n">conf</span><span class="o">.</span><span class="n">ssl_context</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">credentials</span> <span class="o">=</span> <span class="n">conf</span><span class="o">.</span><span class="n">broker_credentials</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">partitioner</span> <span class="o">=</span> <span class="n">conf</span><span class="o">.</span><span class="n">producer_partitioner</span>
+        <span class="n">api_version</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_api_version</span> <span class="o">=</span> <span class="n">conf</span><span class="o">.</span><span class="n">producer_api_version</span>
+        <span class="k">assert</span> <span class="n">api_version</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">loop</span><span class="o">=</span><span class="n">loop</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">transport</span><span class="o">.</span><span class="n">loop</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">buffer</span> <span class="o">=</span> <span class="n">ProducerBuffer</span><span class="p">(</span><span class="n">loop</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">loop</span><span class="p">,</span> <span class="n">beacon</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">beacon</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Producer.on_start"><a class="viewcode-back" href="../../../reference/faust.transport.producer.html#faust.transport.base.Producer.on_start">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">on_start</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">add_runtime_dependency</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">buffer</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Producer.send"><a class="viewcode-back" href="../../../reference/faust.transport.producer.html#faust.transport.base.Producer.send">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">send</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">topic</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bytes</span><span class="p">],</span>
+                   <span class="n">value</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bytes</span><span class="p">],</span>
+                   <span class="n">partition</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
+                   <span class="n">timestamp</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span>
+                   <span class="n">headers</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">HeadersArg</span><span class="p">],</span>
+                   <span class="o">*</span><span class="p">,</span>
+                   <span class="n">transactional_id</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Awaitable</span><span class="p">[</span><span class="n">RecordMetadata</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;Schedule message to be sent by producer.&quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="Producer.send_soon"><a class="viewcode-back" href="../../../reference/faust.transport.producer.html#faust.transport.base.Producer.send_soon">[docs]</a>    <span class="k">def</span> <span class="nf">send_soon</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fut</span><span class="p">:</span> <span class="n">FutureMessage</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">buffer</span><span class="o">.</span><span class="n">put</span><span class="p">(</span><span class="n">fut</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Producer.send_and_wait"><a class="viewcode-back" href="../../../reference/faust.transport.producer.html#faust.transport.base.Producer.send_and_wait">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">send_and_wait</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">topic</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bytes</span><span class="p">],</span>
+                            <span class="n">value</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bytes</span><span class="p">],</span>
+                            <span class="n">partition</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
+                            <span class="n">timestamp</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span>
+                            <span class="n">headers</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">HeadersArg</span><span class="p">],</span>
+                            <span class="o">*</span><span class="p">,</span>
+                            <span class="n">transactional_id</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RecordMetadata</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Send message and wait for it to be transmitted.&quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="Producer.flush"><a class="viewcode-back" href="../../../reference/faust.transport.producer.html#faust.transport.base.Producer.flush">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">flush</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Flush all in-flight messages.&quot;&quot;&quot;</span>
+        <span class="c1"># XXX subclasses must call self.buffer.flush() here.</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="Producer.create_topic"><a class="viewcode-back" href="../../../reference/faust.transport.producer.html#faust.transport.base.Producer.create_topic">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">create_topic</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                           <span class="n">topic</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+                           <span class="n">partitions</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+                           <span class="n">replication</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+                           <span class="o">*</span><span class="p">,</span>
+                           <span class="n">config</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                           <span class="n">timeout</span><span class="p">:</span> <span class="n">Seconds</span> <span class="o">=</span> <span class="mf">1000.0</span><span class="p">,</span>
+                           <span class="n">retention</span><span class="p">:</span> <span class="n">Seconds</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                           <span class="n">compacting</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                           <span class="n">deleting</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                           <span class="n">ensure_created</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Create/declare topic on server.&quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="Producer.key_partition"><a class="viewcode-back" href="../../../reference/faust.transport.producer.html#faust.transport.base.Producer.key_partition">[docs]</a>    <span class="k">def</span> <span class="nf">key_partition</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">topic</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TP</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Hash key to determine partition.&quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="Producer.begin_transaction"><a class="viewcode-back" href="../../../reference/faust.transport.producer.html#faust.transport.base.Producer.begin_transaction">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">begin_transaction</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">transactional_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Begin transaction by id.&quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="Producer.commit_transaction"><a class="viewcode-back" href="../../../reference/faust.transport.producer.html#faust.transport.base.Producer.commit_transaction">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">commit_transaction</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">transactional_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Commit transaction by id.&quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="Producer.abort_transaction"><a class="viewcode-back" href="../../../reference/faust.transport.producer.html#faust.transport.base.Producer.abort_transaction">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">abort_transaction</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">transactional_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Abort and rollback transaction by id.&quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="Producer.stop_transaction"><a class="viewcode-back" href="../../../reference/faust.transport.producer.html#faust.transport.base.Producer.stop_transaction">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">stop_transaction</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">transactional_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Stop transaction by id.&quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="Producer.maybe_begin_transaction"><a class="viewcode-back" href="../../../reference/faust.transport.producer.html#faust.transport.base.Producer.maybe_begin_transaction">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">maybe_begin_transaction</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">transactional_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Begin transaction by id, if not already started.&quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="Producer.commit_transactions"><a class="viewcode-back" href="../../../reference/faust.transport.producer.html#faust.transport.base.Producer.commit_transactions">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">commit_transactions</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">tid_to_offset_map</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">[</span><span class="n">TP</span><span class="p">,</span> <span class="nb">int</span><span class="p">]],</span>
+            <span class="n">group_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+            <span class="n">start_new_transaction</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Commit transactions.&quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="Producer.supports_headers"><a class="viewcode-back" href="../../../reference/faust.transport.producer.html#faust.transport.base.Producer.supports_headers">[docs]</a>    <span class="k">def</span> <span class="nf">supports_headers</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Return :const:`True` if headers are supported by this transport.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="kc">False</span></div></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../../index.html">
+              <img class="logo" src="../../../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../../../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../playbooks/index.html">Playbooks</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../userguide/index.html">User Guide</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../reference/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../history/index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2020, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

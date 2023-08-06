@@ -1,0 +1,241 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>faust.fixups.django &#8212; Faust 1.11.0a1 documentation</title>
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../../../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <link rel="copyright" title="Copyright" href="../../../copyright.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for faust.fixups.django</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Django Fixups - Integration with Django.&quot;&quot;&quot;</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">typing</span>
+<span class="kn">import</span> <span class="nn">warnings</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="k">import</span> <span class="n">Iterable</span>
+
+<span class="kn">from</span> <span class="nn">mode.utils.imports</span> <span class="k">import</span> <span class="n">symbol_by_name</span>
+<span class="kn">from</span> <span class="nn">mode.utils.objects</span> <span class="k">import</span> <span class="n">cached_property</span>
+
+<span class="kn">from</span> <span class="nn">.</span> <span class="k">import</span> <span class="n">base</span>
+
+<span class="k">if</span> <span class="n">typing</span><span class="o">.</span><span class="n">TYPE_CHECKING</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+    <span class="kn">from</span> <span class="nn">django.apps.registry</span> <span class="k">import</span> <span class="n">Apps</span> <span class="k">as</span> <span class="n">_Apps</span>
+    <span class="kn">from</span> <span class="nn">django.settings</span> <span class="k">import</span> <span class="n">Settings</span> <span class="k">as</span> <span class="n">_Settings</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="k">class</span> <span class="nc">_Apps</span><span class="p">:</span> <span class="o">...</span>      <span class="c1"># noqa</span>
+    <span class="k">class</span> <span class="nc">_Settings</span><span class="p">:</span> <span class="o">...</span>  <span class="c1"># noqa</span>
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;Fixup&#39;</span><span class="p">]</span>
+
+<span class="n">WARN_NOT_INSTALLED</span> <span class="o">=</span> <span class="s1">&#39;&#39;&#39;</span><span class="se">\</span>
+<span class="s1">Environment variable DJANGO_SETTINGS_MODULE is defined</span>
+<span class="s1">but Django isn&#39;t installed.  Won&#39;t apply Django fix-ups!</span>
+<span class="s1">&#39;&#39;&#39;</span>
+
+<span class="n">WARN_DEBUG_ENABLED</span> <span class="o">=</span> <span class="s1">&#39;&#39;&#39;</span><span class="se">\</span>
+<span class="s1">Using settings.DEBUG leads to a memory leak, never</span>
+<span class="s1">use this setting in production environments!</span>
+<span class="s1">&#39;&#39;&#39;</span>
+
+
+<div class="viewcode-block" id="Fixup"><a class="viewcode-back" href="../../../reference/faust.fixups.django.html#faust.fixups.django.Fixup">[docs]</a><span class="k">class</span> <span class="nc">Fixup</span><span class="p">(</span><span class="n">base</span><span class="o">.</span><span class="n">Fixup</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Django fixup.</span>
+
+<span class="sd">    This fixup is enabled if</span>
+
+<span class="sd">    1) the :envvar:`DJANGO_SETTINGS_MODULE` environment variable is set,</span>
+<span class="sd">    2) the :pypi:`django` package is installed.</span>
+
+<span class="sd">    Once enabled it will modify the following features:</span>
+
+<span class="sd">    - Autodiscovery</span>
+
+<span class="sd">        If ``faust.App(autodiscovery=True)``, the Django fixup</span>
+<span class="sd">        will automatically autodiscover agents/tasks/web views,</span>
+<span class="sd">        and so on found in installed Django apps.</span>
+
+<span class="sd">    - Setup</span>
+
+<span class="sd">        The Django machinery will be set up when Faust commands</span>
+<span class="sd">        are executed.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="Fixup.enabled"><a class="viewcode-back" href="../../../reference/faust.fixups.django.html#faust.fixups.django.Fixup.enabled">[docs]</a>    <span class="k">def</span> <span class="nf">enabled</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Return :const:`True` if Django is used in this environment.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;DJANGO_SETTINGS_MODULE&#39;</span><span class="p">):</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="kn">import</span> <span class="nn">django</span>  <span class="c1"># noqa</span>
+            <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+                <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="n">WARN_NOT_INSTALLED</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">return</span> <span class="kc">True</span>
+        <span class="k">return</span> <span class="kc">False</span></div>
+
+<div class="viewcode-block" id="Fixup.wait_for_django"><a class="viewcode-back" href="../../../reference/faust.fixups.django.html#faust.fixups.django.Fixup.wait_for_django">[docs]</a>    <span class="k">def</span> <span class="nf">wait_for_django</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="kn">import</span> <span class="nn">django</span>
+
+        <span class="n">django</span><span class="o">.</span><span class="n">setup</span><span class="p">()</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">settings</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">:</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="n">WARN_DEBUG_ENABLED</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Fixup.autodiscover_modules"><a class="viewcode-back" href="../../../reference/faust.fixups.django.html#faust.fixups.django.Fixup.autodiscover_modules">[docs]</a>    <span class="k">def</span> <span class="nf">autodiscover_modules</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterable</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;Return list of additional autodiscover modules.</span>
+
+<span class="sd">        For Django we run autodiscovery in all packages</span>
+<span class="sd">        listed in the ``INSTALLED_APPS`` setting (with support for</span>
+<span class="sd">        custom app configurations).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">wait_for_django</span><span class="p">()</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">config</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">config</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">apps</span><span class="o">.</span><span class="n">get_app_configs</span><span class="p">()]</span></div>
+
+<div class="viewcode-block" id="Fixup.on_worker_init"><a class="viewcode-back" href="../../../reference/faust.fixups.django.html#faust.fixups.django.Fixup.on_worker_init">[docs]</a>    <span class="k">def</span> <span class="nf">on_worker_init</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Initialize Django before worker/CLI command starts.&quot;&quot;&quot;</span>
+        <span class="kn">from</span> <span class="nn">django.core.checks</span> <span class="k">import</span> <span class="n">run_checks</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">wait_for_django</span><span class="p">()</span>
+        <span class="n">run_checks</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="Fixup.apps"><a class="viewcode-back" href="../../../reference/faust.fixups.django.html#faust.fixups.django.Fixup.apps">[docs]</a>    <span class="nd">@cached_property</span>
+    <span class="k">def</span> <span class="nf">apps</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_Apps</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Return the Django app registry.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">symbol_by_name</span><span class="p">(</span><span class="s1">&#39;django.apps:apps&#39;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Fixup.settings"><a class="viewcode-back" href="../../../reference/faust.fixups.django.html#faust.fixups.django.Fixup.settings">[docs]</a>    <span class="nd">@cached_property</span>
+    <span class="k">def</span> <span class="nf">settings</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_Settings</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Return the Django settings object.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">symbol_by_name</span><span class="p">(</span><span class="s1">&#39;django.conf:settings&#39;</span><span class="p">)</span></div></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../../index.html">
+              <img class="logo" src="../../../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../../../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../playbooks/index.html">Playbooks</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../userguide/index.html">User Guide</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../reference/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../history/index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  <li><a href="../fixups.html">faust.fixups</a><ul>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2020, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

@@ -1,0 +1,659 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>faust.streams &#8212; Faust 1.11.0a1 documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="copyright" title="Copyright" href="../copyright.html" />
+    <link rel="next" title="faust.topics" href="faust.topics.html" />
+    <link rel="prev" title="faust.joins" href="faust.joins.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="faust-streams">
+<h1><code class="docutils literal notranslate"><span class="pre">faust.streams</span></code><a class="headerlink" href="#faust-streams" title="Permalink to this headline">¶</a></h1>
+<span class="target" id="module-faust.streams"></span><p>Streams.</p>
+<dl class="function">
+<dt id="faust.streams.current_event">
+<code class="sig-prename descclassname">faust.streams.</code><code class="sig-name descname">current_event</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; Optional[faust.types.events.EventT]<a class="reference internal" href="../_modules/faust/streams.html#current_event"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.streams.current_event" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return the event currently being processed, or None.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Optional" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<a class="reference internal" href="faust.types.events.html#faust.types.events.EventT" title="faust.types.events.EventT"><code class="xref py py-class docutils literal notranslate"><span class="pre">EventT</span></code></a>[~T]]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="class">
+<dt id="faust.streams.Stream">
+<em class="property">class </em><code class="sig-prename descclassname">faust.streams.</code><code class="sig-name descname">Stream</code><span class="sig-paren">(</span><em class="sig-param">channel: AsyncIterator[T_co], *, app: faust.types.app.AppT, processors: Iterable[Callable[T]] = None, combined: List[faust.types.streams.JoinableT] = None, on_start: Callable = None, join_strategy: faust.types.joins.JoinT = None, beacon: mode.utils.types.trees.NodeT = None, concurrency_index: int = None, prev: faust.types.streams.StreamT = None, active_partitions: Set[faust.types.tuples.TP] = None, enable_acks: bool = True, prefix: str = '', loop: asyncio.events.AbstractEventLoop = None</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/streams.html#Stream"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.streams.Stream" title="Permalink to this definition">¶</a></dt>
+<dd><p>A stream: async iterator processing events in channels/topics.</p>
+<dl class="attribute">
+<dt id="faust.streams.Stream.logger">
+<code class="sig-name descname">logger</code><em class="property"> = &lt;Logger faust.streams (WARNING)&gt;</em><a class="headerlink" href="#faust.streams.Stream.logger" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="faust.streams.Stream.mundane_level">
+<code class="sig-name descname">mundane_level</code><em class="property"> = 'debug'</em><a class="headerlink" href="#faust.streams.Stream.mundane_level" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="faust.streams.Stream.events_total">
+<code class="sig-name descname">events_total</code><em class="property"> = 0</em><a class="headerlink" href="#faust.streams.Stream.events_total" title="Permalink to this definition">¶</a></dt>
+<dd><p>Number of events processed by this instance so far.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.streams.Stream.get_active_stream">
+<code class="sig-name descname">get_active_stream</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; faust.types.streams.StreamT<a class="reference internal" href="../_modules/faust/streams.html#Stream.get_active_stream"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.streams.Stream.get_active_stream" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return the currently active stream.</p>
+<p>A stream can be derived using <code class="docutils literal notranslate"><span class="pre">Stream.group_by</span></code> etc,
+so if this stream was used to create another derived
+stream, this function will return the stream being actively
+consumed from.  E.g. in the example:</p>
+<div class="highlight-python3 notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="nd">@app</span><span class="o">.</span><span class="n">agent</span><span class="p">()</span>
+<span class="gp">... </span><span class="k">async</span> <span class="k">def</span> <span class="nf">agent</span><span class="p">(</span><span class="n">a</span><span class="p">):</span>
+<span class="go">..      a = a</span>
+<span class="gp">... </span>    <span class="n">b</span> <span class="o">=</span> <span class="n">a</span><span class="o">.</span><span class="n">group_by</span><span class="p">(</span><span class="n">Withdrawal</span><span class="o">.</span><span class="n">account_id</span><span class="p">)</span>
+<span class="gp">... </span>    <span class="n">c</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">through</span><span class="p">(</span><span class="s1">&#39;backup_topic&#39;</span><span class="p">)</span>
+<span class="gp">... </span>    <span class="k">async</span> <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">c</span><span class="p">:</span>
+<span class="gp">... </span>        <span class="o">...</span>
+</pre></div>
+</div>
+<p>The return value of <code class="docutils literal notranslate"><span class="pre">a.get_active_stream()</span></code> would be <code class="docutils literal notranslate"><span class="pre">c</span></code>.</p>
+<p class="rubric">Notes</p>
+<p>The chain of streams that leads to the active stream
+is decided by the <code class="xref py py-attr docutils literal notranslate"><span class="pre">_next</span></code> attribute. To get
+to the active stream we just traverse this linked-list:</p>
+<div class="highlight-python3 notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="k">def</span> <span class="nf">get_active_stream</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="gp">... </span>    <span class="n">node</span> <span class="o">=</span> <span class="bp">self</span>
+<span class="gp">... </span>    <span class="k">while</span> <span class="n">node</span><span class="o">.</span><span class="n">_next</span><span class="p">:</span>
+<span class="gp">... </span>        <span class="n">node</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">_next</span>
+</pre></div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="faust.types.streams.html#faust.types.streams.StreamT" title="faust.types.streams.StreamT"><code class="xref py py-class docutils literal notranslate"><span class="pre">StreamT</span></code></a>[+T_co]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.streams.Stream.get_root_stream">
+<code class="sig-name descname">get_root_stream</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; faust.types.streams.StreamT<a class="reference internal" href="../_modules/faust/streams.html#Stream.get_root_stream"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.streams.Stream.get_root_stream" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get the root stream that this stream was derived from.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="faust.types.streams.html#faust.types.streams.StreamT" title="faust.types.streams.StreamT"><code class="xref py py-class docutils literal notranslate"><span class="pre">StreamT</span></code></a>[+T_co]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.streams.Stream.add_processor">
+<code class="sig-name descname">add_processor</code><span class="sig-paren">(</span><em class="sig-param">processor: Callable[T]</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/streams.html#Stream.add_processor"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.streams.Stream.add_processor" title="Permalink to this definition">¶</a></dt>
+<dd><p>Add processor callback executed whenever a new event is received.</p>
+<p>Processor functions can be async or non-async, must accept
+a single argument, and should return the value, mutated or not.</p>
+<p>For example a processor handling a stream of numbers may modify
+the value:</p>
+<div class="highlight-python3 notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">double</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+    <span class="k">return</span> <span class="n">value</span> <span class="o">*</span> <span class="mi">2</span>
+
+<span class="n">stream</span><span class="o">.</span><span class="n">add_processor</span><span class="p">(</span><span class="n">double</span><span class="p">)</span>
+</pre></div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.streams.Stream.info">
+<code class="sig-name descname">info</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; Mapping[str, Any]<a class="reference internal" href="../_modules/faust/streams.html#Stream.info"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.streams.Stream.info" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return stream settings as a dictionary.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Mapping" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Mapping</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Any" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code></a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.streams.Stream.clone">
+<code class="sig-name descname">clone</code><span class="sig-paren">(</span><em class="sig-param">**kwargs: Any</em><span class="sig-paren">)</span> &#x2192; faust.types.streams.StreamT<a class="reference internal" href="../_modules/faust/streams.html#Stream.clone"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.streams.Stream.clone" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create a clone of this stream.</p>
+<p class="rubric">Notes</p>
+<p>If the cloned stream is supposed to supersede this stream,
+like in <code class="docutils literal notranslate"><span class="pre">group_by</span></code>/<code class="docutils literal notranslate"><span class="pre">through</span></code>/etc., you should use
+<code class="xref py py-meth docutils literal notranslate"><span class="pre">_chain()</span></code> instead so <cite>stream._next = cloned_stream</cite>
+is set and <a class="reference internal" href="#faust.streams.Stream.get_active_stream" title="faust.streams.Stream.get_active_stream"><code class="xref py py-meth docutils literal notranslate"><span class="pre">get_active_stream()</span></code></a> returns the cloned stream.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="faust.types.streams.html#faust.types.streams.StreamT" title="faust.types.streams.StreamT"><code class="xref py py-class docutils literal notranslate"><span class="pre">StreamT</span></code></a>[+T_co]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.streams.Stream.noack">
+<code class="sig-name descname">noack</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; faust.types.streams.StreamT<a class="reference internal" href="../_modules/faust/streams.html#Stream.noack"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.streams.Stream.noack" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create new stream where acks are manual.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="faust.types.streams.html#faust.types.streams.StreamT" title="faust.types.streams.StreamT"><code class="xref py py-class docutils literal notranslate"><span class="pre">StreamT</span></code></a>[+T_co]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.streams.Stream.items">
+<code class="sig-name descname">items</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; AsyncIterator[Tuple[Union[bytes, faust.types.core._ModelT, Any, None], T_co]]<a class="reference internal" href="../_modules/faust/streams.html#Stream.items"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.streams.Stream.items" title="Permalink to this definition">¶</a></dt>
+<dd><p>Iterate over the stream as <code class="docutils literal notranslate"><span class="pre">key,</span> <span class="pre">value</span></code> pairs.</p>
+<p class="rubric">Examples</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@app.agent</span><span class="p">(</span><span class="n">topic</span><span class="p">)</span>
+<span class="n">async</span> <span class="k">def</span> <span class="nf">mytask</span><span class="p">(</span><span class="n">stream</span><span class="p">):</span>
+    <span class="n">async</span> <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">stream</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">print</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+</pre></div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.AsyncIterator" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">AsyncIterator</span></code></a>[<code class="xref py py-class docutils literal notranslate"><span class="pre">Tuple</span></code>[<a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Union" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#bytes" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bytes</span></code></a>, <code class="xref py py-class docutils literal notranslate"><span class="pre">_ModelT</span></code>, <a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Any" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code></a>, <code class="docutils literal notranslate"><span class="pre">None</span></code>], +T_co]]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.streams.Stream.events">
+<code class="sig-name descname">events</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; AsyncIterable[faust.types.events.EventT]<a class="reference internal" href="../_modules/faust/streams.html#Stream.events"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.streams.Stream.events" title="Permalink to this definition">¶</a></dt>
+<dd><p>Iterate over the stream as events exclusively.</p>
+<p>This means the stream must be iterating over a channel,
+or at least an iterable of event objects.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.AsyncIterable" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">AsyncIterable</span></code></a>[<a class="reference internal" href="faust.types.events.html#faust.types.events.EventT" title="faust.types.events.EventT"><code class="xref py py-class docutils literal notranslate"><span class="pre">EventT</span></code></a>[~T]]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.streams.Stream.take">
+<code class="sig-name descname">take</code><span class="sig-paren">(</span><em class="sig-param">max_: int, within: Union[datetime.timedelta, float, str]</em><span class="sig-paren">)</span> &#x2192; AsyncIterable[Sequence[T_co]]<a class="reference internal" href="../_modules/faust/streams.html#Stream.take"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.streams.Stream.take" title="Permalink to this definition">¶</a></dt>
+<dd><p>Buffer n values at a time and yield a list of buffered values.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>max_</strong> – Max number of messages to receive. When more than this
+number of messages are received within the specified number of
+seconds then we flush the buffer immediately.</p></li>
+<li><p><strong>within</strong> (<a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Union" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/datetime.html#datetime.timedelta" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">timedelta</span></code></a>, <a class="reference external" href="https://docs.python.org/dev/library/functions.html#float" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>]) – Timeout for when we give up waiting for another value,
+and process the values we have.
+Warning: If there’s no timeout (i.e. <cite>timeout=None</cite>),
+the agent is likely to stall and block buffered events for an
+unreasonable length of time(!).</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.AsyncIterable" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">AsyncIterable</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Sequence" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Sequence</span></code></a>[+T_co]]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.streams.Stream.enumerate">
+<code class="sig-name descname">enumerate</code><span class="sig-paren">(</span><em class="sig-param">start: int = 0</em><span class="sig-paren">)</span> &#x2192; AsyncIterable[Tuple[int, T_co]]<a class="reference internal" href="../_modules/faust/streams.html#Stream.enumerate"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.streams.Stream.enumerate" title="Permalink to this definition">¶</a></dt>
+<dd><p>Enumerate values received on this stream.</p>
+<p>Unlike Python’s built-in <code class="docutils literal notranslate"><span class="pre">enumerate</span></code>, this works with
+async generators.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.AsyncIterable" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">AsyncIterable</span></code></a>[<code class="xref py py-class docutils literal notranslate"><span class="pre">Tuple</span></code>[<a class="reference external" href="https://docs.python.org/dev/library/functions.html#int" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, +T_co]]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.streams.Stream.through">
+<code class="sig-name descname">through</code><span class="sig-paren">(</span><em class="sig-param">channel: Union[str, faust.types.channels.ChannelT]</em><span class="sig-paren">)</span> &#x2192; faust.types.streams.StreamT<a class="reference internal" href="../_modules/faust/streams.html#Stream.through"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.streams.Stream.through" title="Permalink to this definition">¶</a></dt>
+<dd><p>Forward values to in this stream to channel.</p>
+<p>Send messages received on this stream to another channel,
+and return a new stream that consumes from that channel.</p>
+<p class="rubric">Notes</p>
+<p>The messages are forwarded after any processors have been
+applied.</p>
+<p class="rubric">Example</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">topic</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">topic</span><span class="p">(</span><span class="s1">&#39;foo&#39;</span><span class="p">)</span>
+
+<span class="nd">@app.agent</span><span class="p">(</span><span class="n">topic</span><span class="p">)</span>
+<span class="n">async</span> <span class="k">def</span> <span class="nf">mytask</span><span class="p">(</span><span class="n">stream</span><span class="p">):</span>
+    <span class="n">async</span> <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">stream</span><span class="o">.</span><span class="n">through</span><span class="p">(</span><span class="n">app</span><span class="o">.</span><span class="n">topic</span><span class="p">(</span><span class="s1">&#39;bar&#39;</span><span class="p">)):</span>
+        <span class="c1"># value was first received in topic &#39;foo&#39;,</span>
+        <span class="c1"># then forwarded and consumed from topic &#39;bar&#39;</span>
+        <span class="k">print</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+</pre></div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="faust.types.streams.html#faust.types.streams.StreamT" title="faust.types.streams.StreamT"><code class="xref py py-class docutils literal notranslate"><span class="pre">StreamT</span></code></a>[+T_co]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.streams.Stream.echo">
+<code class="sig-name descname">echo</code><span class="sig-paren">(</span><em class="sig-param">*channels: Union[str, faust.types.channels.ChannelT]</em><span class="sig-paren">)</span> &#x2192; faust.types.streams.StreamT<a class="reference internal" href="../_modules/faust/streams.html#Stream.echo"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.streams.Stream.echo" title="Permalink to this definition">¶</a></dt>
+<dd><p>Forward values to one or more channels.</p>
+<p>Unlike <a class="reference internal" href="#faust.streams.Stream.through" title="faust.streams.Stream.through"><code class="xref py py-meth docutils literal notranslate"><span class="pre">through()</span></code></a>, we don’t consume from these channels.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="faust.types.streams.html#faust.types.streams.StreamT" title="faust.types.streams.StreamT"><code class="xref py py-class docutils literal notranslate"><span class="pre">StreamT</span></code></a>[+T_co]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.streams.Stream.group_by">
+<code class="sig-name descname">group_by</code><span class="sig-paren">(</span><em class="sig-param">key: Union[faust.types.models.FieldDescriptorT, Callable[T, Union[bytes, faust.types.core._ModelT, Any, None]]], *, name: str = None, topic: faust.types.topics.TopicT = None, partitions: int = None</em><span class="sig-paren">)</span> &#x2192; faust.types.streams.StreamT<a class="reference internal" href="../_modules/faust/streams.html#Stream.group_by"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.streams.Stream.group_by" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create new stream that repartitions the stream using a new key.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>key</strong> (<a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Union" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code></a>[<a class="reference internal" href="faust.types.models.html#faust.types.models.FieldDescriptorT" title="faust.types.models.FieldDescriptorT"><code class="xref py py-class docutils literal notranslate"><span class="pre">FieldDescriptorT</span></code></a>[~T], <a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Callable" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Callable</span></code></a>[[~T], <a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Union" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#bytes" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bytes</span></code></a>, <code class="xref py py-class docutils literal notranslate"><span class="pre">_ModelT</span></code>, <a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Any" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code></a>, <code class="docutils literal notranslate"><span class="pre">None</span></code>]]]) – <p>The key argument decides how the new key is generated,
+it can be a field descriptor, a callable, or an async
+callable.</p>
+<dl class="simple">
+<dt>Note: The <code class="docutils literal notranslate"><span class="pre">name</span></code> argument must be provided if the key</dt><dd><p>argument is a callable.</p>
+</dd>
+</dl>
+</p></li>
+<li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Optional" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>]) – Suffix to use for repartitioned topics.
+This argument is required if <cite>key</cite> is a callable.</p></li>
+</ul>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<p>Using a field descriptor to use a field in the event as the new
+key:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">s</span> <span class="o">=</span> <span class="n">withdrawals_topic</span><span class="o">.</span><span class="n">stream</span><span class="p">()</span>
+<span class="c1"># values in this stream are of type Withdrawal</span>
+<span class="n">async</span> <span class="k">for</span> <span class="n">event</span> <span class="ow">in</span> <span class="n">s</span><span class="o">.</span><span class="n">group_by</span><span class="p">(</span><span class="n">Withdrawal</span><span class="o">.</span><span class="n">account_id</span><span class="p">):</span>
+    <span class="o">...</span>
+</pre></div>
+</div>
+<p>Using an async callable to extract a new key:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">s</span> <span class="o">=</span> <span class="n">withdrawals_topic</span><span class="o">.</span><span class="n">stream</span><span class="p">()</span>
+
+<span class="n">async</span> <span class="k">def</span> <span class="nf">get_key</span><span class="p">(</span><span class="n">withdrawal</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">await</span> <span class="n">aiohttp</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
+        <span class="n">f</span><span class="s1">&#39;http://e.com/resolve_account/{withdrawal.account_id}&#39;</span><span class="p">)</span>
+
+<span class="n">async</span> <span class="k">for</span> <span class="n">event</span> <span class="ow">in</span> <span class="n">s</span><span class="o">.</span><span class="n">group_by</span><span class="p">(</span><span class="n">get_key</span><span class="p">):</span>
+    <span class="o">...</span>
+</pre></div>
+</div>
+<p>Using a regular callable to extract a new key:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">s</span> <span class="o">=</span> <span class="n">withdrawals_topic</span><span class="o">.</span><span class="n">stream</span><span class="p">()</span>
+
+<span class="k">def</span> <span class="nf">get_key</span><span class="p">(</span><span class="n">withdrawal</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">withdrawal</span><span class="o">.</span><span class="n">account_id</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span>
+
+<span class="n">async</span> <span class="k">for</span> <span class="n">event</span> <span class="ow">in</span> <span class="n">s</span><span class="o">.</span><span class="n">group_by</span><span class="p">(</span><span class="n">get_key</span><span class="p">):</span>
+    <span class="o">...</span>
+</pre></div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="faust.types.streams.html#faust.types.streams.StreamT" title="faust.types.streams.StreamT"><code class="xref py py-class docutils literal notranslate"><span class="pre">StreamT</span></code></a>[+T_co]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.streams.Stream.filter">
+<code class="sig-name descname">filter</code><span class="sig-paren">(</span><em class="sig-param">fun: Callable[T]</em><span class="sig-paren">)</span> &#x2192; faust.types.streams.StreamT<a class="reference internal" href="../_modules/faust/streams.html#Stream.filter"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.streams.Stream.filter" title="Permalink to this definition">¶</a></dt>
+<dd><p>Filter values from stream using callback.</p>
+<p>The callback may be a traditional function, lambda function,
+or an <cite>async def</cite> function.</p>
+<p>This method is useful for filtering events before repartitioning
+a stream.</p>
+<p class="rubric">Examples</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="k">async</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">stream</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="n">v</span> <span class="o">&gt;</span> <span class="mi">1000</span><span class="p">)</span><span class="o">.</span><span class="n">group_by</span><span class="p">(</span><span class="o">...</span><span class="p">):</span>
+<span class="gp">... </span>    <span class="c1"># do something</span>
+</pre></div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="faust.types.streams.html#faust.types.streams.StreamT" title="faust.types.streams.StreamT"><code class="xref py py-class docutils literal notranslate"><span class="pre">StreamT</span></code></a>[+T_co]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.streams.Stream.derive_topic">
+<code class="sig-name descname">derive_topic</code><span class="sig-paren">(</span><em class="sig-param">name: str, *, schema: faust.types.serializers.SchemaT = None, key_type: Union[Type[faust.types.models.ModelT], Type[bytes], Type[str]] = None, value_type: Union[Type[faust.types.models.ModelT], Type[bytes], Type[str]] = None, prefix: str = '', suffix: str = ''</em><span class="sig-paren">)</span> &#x2192; faust.types.topics.TopicT<a class="reference internal" href="../_modules/faust/streams.html#Stream.derive_topic"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.streams.Stream.derive_topic" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create Topic description derived from the K/V type of this stream.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Topic name.</p></li>
+<li><p><strong>key_type</strong> (<a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Union" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Type" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Type</span></code></a>[<a class="reference internal" href="faust.types.models.html#faust.types.models.ModelT" title="faust.types.models.ModelT"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModelT</span></code></a>], <a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Type" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Type</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#bytes" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bytes</span></code></a>], <a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Type" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Type</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>], <code class="docutils literal notranslate"><span class="pre">None</span></code>]) – Specific key type to use for this topic.
+If not set, the key type of this stream will be used.</p></li>
+<li><p><strong>value_type</strong> (<a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Union" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Type" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Type</span></code></a>[<a class="reference internal" href="faust.types.models.html#faust.types.models.ModelT" title="faust.types.models.ModelT"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModelT</span></code></a>], <a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Type" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Type</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#bytes" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bytes</span></code></a>], <a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Type" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Type</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>], <code class="docutils literal notranslate"><span class="pre">None</span></code>]) – Specific value type to use for this topic.
+If not set, the value type of this stream will be used.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Raises</dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/dev/library/exceptions.html#ValueError" title="(in Python v3.9)"><strong>ValueError</strong></a> – if the stream channel is not a topic.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="faust.types.topics.html#faust.types.topics.TopicT" title="faust.types.topics.TopicT"><code class="xref py py-class docutils literal notranslate"><span class="pre">TopicT</span></code></a>[]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.streams.Stream.throw">
+<em class="property">async </em><code class="sig-name descname">throw</code><span class="sig-paren">(</span><em class="sig-param">exc: BaseException</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/streams.html#Stream.throw"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.streams.Stream.throw" title="Permalink to this definition">¶</a></dt>
+<dd><p>Send exception to stream iteration.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.streams.Stream.combine">
+<code class="sig-name descname">combine</code><span class="sig-paren">(</span><em class="sig-param">*nodes: faust.types.streams.JoinableT</em>, <em class="sig-param">**kwargs: Any</em><span class="sig-paren">)</span> &#x2192; faust.types.streams.StreamT<a class="reference internal" href="../_modules/faust/streams.html#Stream.combine"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.streams.Stream.combine" title="Permalink to this definition">¶</a></dt>
+<dd><p>Combine streams and tables into joined stream.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="faust.types.streams.html#faust.types.streams.StreamT" title="faust.types.streams.StreamT"><code class="xref py py-class docutils literal notranslate"><span class="pre">StreamT</span></code></a>[+T_co]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.streams.Stream.contribute_to_stream">
+<code class="sig-name descname">contribute_to_stream</code><span class="sig-paren">(</span><em class="sig-param">active: faust.types.streams.StreamT</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/streams.html#Stream.contribute_to_stream"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.streams.Stream.contribute_to_stream" title="Permalink to this definition">¶</a></dt>
+<dd><p>Add stream as node in joined stream.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.streams.Stream.remove_from_stream">
+<em class="property">async </em><code class="sig-name descname">remove_from_stream</code><span class="sig-paren">(</span><em class="sig-param">stream: faust.types.streams.StreamT</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/streams.html#Stream.remove_from_stream"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.streams.Stream.remove_from_stream" title="Permalink to this definition">¶</a></dt>
+<dd><p>Remove as node in a joined stream.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.streams.Stream.join">
+<code class="sig-name descname">join</code><span class="sig-paren">(</span><em class="sig-param">*fields: faust.types.models.FieldDescriptorT</em><span class="sig-paren">)</span> &#x2192; faust.types.streams.StreamT<a class="reference internal" href="../_modules/faust/streams.html#Stream.join"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.streams.Stream.join" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create stream where events are joined.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="faust.types.streams.html#faust.types.streams.StreamT" title="faust.types.streams.StreamT"><code class="xref py py-class docutils literal notranslate"><span class="pre">StreamT</span></code></a>[+T_co]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.streams.Stream.left_join">
+<code class="sig-name descname">left_join</code><span class="sig-paren">(</span><em class="sig-param">*fields: faust.types.models.FieldDescriptorT</em><span class="sig-paren">)</span> &#x2192; faust.types.streams.StreamT<a class="reference internal" href="../_modules/faust/streams.html#Stream.left_join"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.streams.Stream.left_join" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create stream where events are joined by LEFT JOIN.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="faust.types.streams.html#faust.types.streams.StreamT" title="faust.types.streams.StreamT"><code class="xref py py-class docutils literal notranslate"><span class="pre">StreamT</span></code></a>[+T_co]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.streams.Stream.inner_join">
+<code class="sig-name descname">inner_join</code><span class="sig-paren">(</span><em class="sig-param">*fields: faust.types.models.FieldDescriptorT</em><span class="sig-paren">)</span> &#x2192; faust.types.streams.StreamT<a class="reference internal" href="../_modules/faust/streams.html#Stream.inner_join"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.streams.Stream.inner_join" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create stream where events are joined by INNER JOIN.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="faust.types.streams.html#faust.types.streams.StreamT" title="faust.types.streams.StreamT"><code class="xref py py-class docutils literal notranslate"><span class="pre">StreamT</span></code></a>[+T_co]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.streams.Stream.outer_join">
+<code class="sig-name descname">outer_join</code><span class="sig-paren">(</span><em class="sig-param">*fields: faust.types.models.FieldDescriptorT</em><span class="sig-paren">)</span> &#x2192; faust.types.streams.StreamT<a class="reference internal" href="../_modules/faust/streams.html#Stream.outer_join"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.streams.Stream.outer_join" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create stream where events are joined by OUTER JOIN.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="faust.types.streams.html#faust.types.streams.StreamT" title="faust.types.streams.StreamT"><code class="xref py py-class docutils literal notranslate"><span class="pre">StreamT</span></code></a>[+T_co]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.streams.Stream.on_merge">
+<em class="property">async </em><code class="sig-name descname">on_merge</code><span class="sig-paren">(</span><em class="sig-param">value: T = None</em><span class="sig-paren">)</span> &#x2192; Optional[T]<a class="reference internal" href="../_modules/faust/streams.html#Stream.on_merge"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.streams.Stream.on_merge" title="Permalink to this definition">¶</a></dt>
+<dd><p>Signal called when an event is to be joined.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Optional" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[~T]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.streams.Stream.on_start">
+<em class="property">async </em><code class="sig-name descname">on_start</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/streams.html#Stream.on_start"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.streams.Stream.on_start" title="Permalink to this definition">¶</a></dt>
+<dd><p>Signal called when the stream starts.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.streams.Stream.stop">
+<em class="property">async </em><code class="sig-name descname">stop</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/streams.html#Stream.stop"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.streams.Stream.stop" title="Permalink to this definition">¶</a></dt>
+<dd><p>Stop this stream.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.streams.Stream.on_stop">
+<em class="property">async </em><code class="sig-name descname">on_stop</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/streams.html#Stream.on_stop"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.streams.Stream.on_stop" title="Permalink to this definition">¶</a></dt>
+<dd><p>Signal that the stream is stopping.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.streams.Stream.ack">
+<em class="property">async </em><code class="sig-name descname">ack</code><span class="sig-paren">(</span><em class="sig-param">event: faust.types.events.EventT</em><span class="sig-paren">)</span> &#x2192; bool<a class="reference internal" href="../_modules/faust/streams.html#Stream.ack"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.streams.Stream.ack" title="Permalink to this definition">¶</a></dt>
+<dd><p>Ack event.</p>
+<p>This will decrease the reference count of the event message by one,
+and when the reference count reaches zero, the worker will
+commit the offset so that the message will not be seen by a worker
+again.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>event</strong> (<a class="reference internal" href="faust.types.events.html#faust.types.events.EventT" title="faust.types.events.EventT"><code class="xref py py-class docutils literal notranslate"><span class="pre">EventT</span></code></a>[~T]) – Event to ack.</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/dev/library/functions.html#bool" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.streams.Stream.label">
+<em class="property">property </em><code class="sig-name descname">label</code><a class="headerlink" href="#faust.streams.Stream.label" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return description of stream, used in graphs and logs.
+:rtype: <a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.streams.Stream.shortlabel">
+<em class="property">property </em><code class="sig-name descname">shortlabel</code><a class="headerlink" href="#faust.streams.Stream.shortlabel" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return short description of stream.
+:rtype: <a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../playbooks/index.html">Playbooks</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../userguide/index.html">User Guide</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../history/index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">API Reference</a><ul>
+      <li>Previous: <a href="faust.joins.html" title="previous chapter"><code class="docutils literal notranslate"><span class="pre">faust.joins</span></code></a></li>
+      <li>Next: <a href="faust.topics.html" title="next chapter"><code class="docutils literal notranslate"><span class="pre">faust.topics</span></code></a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2020, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../_sources/reference/faust.streams.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

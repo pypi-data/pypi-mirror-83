@@ -1,0 +1,715 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>venusian &#8212; Faust 1.11.0a1 documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="copyright" title="Copyright" href="../copyright.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for venusian</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">imp</span>
+<span class="kn">from</span> <span class="nn">inspect</span> <span class="k">import</span> <span class="n">getmembers</span><span class="p">,</span> <span class="n">getmro</span><span class="p">,</span> <span class="n">isclass</span>
+<span class="kn">from</span> <span class="nn">pkgutil</span> <span class="k">import</span> <span class="n">iter_modules</span>
+<span class="kn">import</span> <span class="nn">sys</span>
+
+<span class="kn">from</span> <span class="nn">venusian.compat</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">is_nonstr_iter</span><span class="p">,</span>
+    <span class="n">INT_TYPES</span><span class="p">,</span>
+    <span class="p">)</span>
+
+<span class="kn">from</span> <span class="nn">venusian.advice</span> <span class="k">import</span> <span class="n">getFrameInfo</span>
+
+<span class="n">ATTACH_ATTR</span> <span class="o">=</span> <span class="s1">&#39;__venusian_callbacks__&#39;</span>
+<span class="n">LIFTONLY_ATTR</span> <span class="o">=</span> <span class="s1">&#39;__venusian_liftonly_callbacks__&#39;</span>
+
+<div class="viewcode-block" id="Scanner"><a class="viewcode-back" href="../reference/faust.utils.venusian.html#faust.utils.venusian.Scanner">[docs]</a><span class="k">class</span> <span class="nc">Scanner</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kw</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">kw</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Scanner.scan"><a class="viewcode-back" href="../reference/faust.utils.venusian.html#faust.utils.venusian.Scanner.scan">[docs]</a>    <span class="k">def</span> <span class="nf">scan</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">package</span><span class="p">,</span> <span class="n">categories</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">onerror</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ignore</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Scan a Python package and any of its subpackages.  All</span>
+<span class="sd">        top-level objects will be considered; those marked with</span>
+<span class="sd">        venusian callback attributes related to ``category`` will be</span>
+<span class="sd">        processed.</span>
+
+<span class="sd">        The ``package`` argument should be a reference to a Python</span>
+<span class="sd">        package or module object.</span>
+
+<span class="sd">        The ``categories`` argument should be sequence of Venusian</span>
+<span class="sd">        callback categories (each category usually a string) or the</span>
+<span class="sd">        special value ``None`` which means all Venusian callback</span>
+<span class="sd">        categories.  The default is ``None``.</span>
+
+<span class="sd">        The ``onerror`` argument should either be ``None`` or a callback</span>
+<span class="sd">        function which behaves the same way as the ``onerror`` callback</span>
+<span class="sd">        function described in</span>
+<span class="sd">        http://docs.python.org/library/pkgutil.html#pkgutil.walk_packages .</span>
+<span class="sd">        By default, during a scan, Venusian will propagate all errors that</span>
+<span class="sd">        happen during its code importing process, including</span>
+<span class="sd">        :exc:`ImportError`.  If you use a custom ``onerror`` callback, you</span>
+<span class="sd">        can change this behavior.</span>
+<span class="sd">        </span>
+<span class="sd">        Here&#39;s an example ``onerror`` callback that ignores</span>
+<span class="sd">        :exc:`ImportError`::</span>
+
+<span class="sd">            import sys</span>
+<span class="sd">            def onerror(name):</span>
+<span class="sd">                if not issubclass(sys.exc_info()[0], ImportError):</span>
+<span class="sd">                    raise # reraise the last exception</span>
+
+<span class="sd">        The ``name`` passed to ``onerror`` is the module or package dotted</span>
+<span class="sd">        name that could not be imported due to an exception.</span>
+
+<span class="sd">        .. versionadded:: 1.0</span>
+<span class="sd">           the ``onerror`` callback</span>
+
+<span class="sd">        The ``ignore`` argument allows you to ignore certain modules,</span>
+<span class="sd">        packages, or global objects during a scan.  It should be a sequence</span>
+<span class="sd">        containing strings and/or callables that will be used to match</span>
+<span class="sd">        against the full dotted name of each object encountered during a</span>
+<span class="sd">        scan.  The sequence can contain any of these three types of objects:</span>
+
+<span class="sd">        - A string representing a full dotted name.  To name an object by</span>
+<span class="sd">          dotted name, use a string representing the full dotted name.  For</span>
+<span class="sd">          example, if you want to ignore the ``my.package`` package *and any</span>
+<span class="sd">          of its subobjects or subpackages* during the scan, pass</span>
+<span class="sd">          ``ignore=[&#39;my.package&#39;]``.</span>
+
+<span class="sd">        - A string representing a relative dotted name.  To name an object</span>
+<span class="sd">          relative to the ``package`` passed to this method, use a string</span>
+<span class="sd">          beginning with a dot.  For example, if the ``package`` you&#39;ve</span>
+<span class="sd">          passed is imported as ``my.package``, and you pass</span>
+<span class="sd">          ``ignore=[&#39;.mymodule&#39;]``, the ``my.package.mymodule`` mymodule *and</span>
+<span class="sd">          any of its subobjects or subpackages* will be omitted during scan</span>
+<span class="sd">          processing.</span>
+
+<span class="sd">        - A callable that accepts a full dotted name string of an object as</span>
+<span class="sd">          its single positional argument and returns ``True`` or ``False``.</span>
+<span class="sd">          For example, if you want to skip all packages, modules, and global</span>
+<span class="sd">          objects with a full dotted path that ends with the word &quot;tests&quot;, you</span>
+<span class="sd">          can use ``ignore=[re.compile(&#39;tests$&#39;).search]``.  If the callable</span>
+<span class="sd">          returns ``True`` (or anything else truthy), the object is ignored,</span>
+<span class="sd">          if it returns ``False`` (or anything else falsy) the object is not</span>
+<span class="sd">          ignored.  *Note that unlike string matches, ignores that use a</span>
+<span class="sd">          callable don&#39;t cause submodules and subobjects of a module or</span>
+<span class="sd">          package represented by a dotted name to also be ignored, they match</span>
+<span class="sd">          individual objects found during a scan, including packages,</span>
+<span class="sd">          modules, and global objects*.</span>
+
+<span class="sd">        You can mix and match the three types of strings in the list.  For</span>
+<span class="sd">        example, if the package being scanned is ``my``,</span>
+<span class="sd">        ``ignore=[&#39;my.package&#39;, &#39;.someothermodule&#39;,</span>
+<span class="sd">        re.compile(&#39;tests$&#39;).search]`` would cause ``my.package`` (and all</span>
+<span class="sd">        its submodules and subobjects) to be ignored, ``my.someothermodule``</span>
+<span class="sd">        to be ignored, and any modules, packages, or global objects found</span>
+<span class="sd">        during the scan that have a full dotted name that ends with the word</span>
+<span class="sd">        ``tests`` to be ignored.</span>
+
+<span class="sd">        Note that packages and modules matched by any ignore in the list will</span>
+<span class="sd">        not be imported, and their top-level code will not be run as a result.</span>
+
+<span class="sd">        A string or callable alone can also be passed as ``ignore`` without a</span>
+<span class="sd">        surrounding list.</span>
+<span class="sd">        </span>
+<span class="sd">        .. versionadded:: 1.0a3</span>
+<span class="sd">           the ``ignore`` argument</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">pkg_name</span> <span class="o">=</span> <span class="n">package</span><span class="o">.</span><span class="vm">__name__</span>
+
+        <span class="k">if</span> <span class="n">ignore</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">is_nonstr_iter</span><span class="p">(</span><span class="n">ignore</span><span class="p">):</span>
+            <span class="n">ignore</span> <span class="o">=</span> <span class="p">[</span><span class="n">ignore</span><span class="p">]</span>
+        <span class="k">elif</span> <span class="n">ignore</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">ignore</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="c1"># non-leading-dotted name absolute object name</span>
+        <span class="n">str_ignores</span> <span class="o">=</span> <span class="p">[</span><span class="n">ign</span> <span class="k">for</span> <span class="n">ign</span> <span class="ow">in</span> <span class="n">ignore</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">ign</span><span class="p">,</span> <span class="nb">str</span><span class="p">)]</span>
+        <span class="c1"># leading dotted name relative to scanned package</span>
+        <span class="n">rel_ignores</span> <span class="o">=</span> <span class="p">[</span><span class="n">ign</span> <span class="k">for</span> <span class="n">ign</span> <span class="ow">in</span> <span class="n">str_ignores</span> <span class="k">if</span> <span class="n">ign</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;.&#39;</span><span class="p">)]</span>
+        <span class="c1"># non-leading dotted names</span>
+        <span class="n">abs_ignores</span> <span class="o">=</span> <span class="p">[</span><span class="n">ign</span> <span class="k">for</span> <span class="n">ign</span> <span class="ow">in</span> <span class="n">str_ignores</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">ign</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;.&#39;</span><span class="p">)]</span>
+        <span class="c1"># functions, e.g. re.compile(&#39;pattern&#39;).search</span>
+        <span class="n">callable_ignores</span> <span class="o">=</span> <span class="p">[</span><span class="n">ign</span> <span class="k">for</span> <span class="n">ign</span> <span class="ow">in</span> <span class="n">ignore</span> <span class="k">if</span> <span class="n">callable</span><span class="p">(</span><span class="n">ign</span><span class="p">)]</span>
+        
+        <span class="k">def</span> <span class="nf">_ignore</span><span class="p">(</span><span class="n">fullname</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">ign</span> <span class="ow">in</span> <span class="n">rel_ignores</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">fullname</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="n">pkg_name</span> <span class="o">+</span> <span class="n">ign</span><span class="p">):</span>
+                    <span class="k">return</span> <span class="kc">True</span>
+            <span class="k">for</span> <span class="n">ign</span> <span class="ow">in</span> <span class="n">abs_ignores</span><span class="p">:</span>
+                <span class="c1"># non-leading-dotted name absolute object name</span>
+                <span class="k">if</span> <span class="n">fullname</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="n">ign</span><span class="p">):</span>
+                    <span class="k">return</span> <span class="kc">True</span>
+            <span class="k">for</span> <span class="n">ign</span> <span class="ow">in</span> <span class="n">callable_ignores</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">ign</span><span class="p">(</span><span class="n">fullname</span><span class="p">):</span>
+                    <span class="k">return</span> <span class="kc">True</span>
+            <span class="k">return</span> <span class="kc">False</span>
+
+
+        <span class="k">def</span> <span class="nf">invoke</span><span class="p">(</span><span class="n">mod_name</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">ob</span><span class="p">):</span>
+
+            <span class="n">fullname</span> <span class="o">=</span> <span class="n">mod_name</span> <span class="o">+</span> <span class="s1">&#39;.&#39;</span> <span class="o">+</span> <span class="n">name</span>
+
+            <span class="k">if</span> <span class="n">_ignore</span><span class="p">(</span><span class="n">fullname</span><span class="p">):</span>
+                <span class="k">return</span>
+
+            <span class="n">category_keys</span> <span class="o">=</span> <span class="n">categories</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="c1"># Some metaclasses do insane things when asked for an</span>
+                <span class="c1"># ``ATTACH_ATTR``, like not raising an AttributeError but</span>
+                <span class="c1"># some other arbitary exception.  Some even shittier</span>
+                <span class="c1"># introspected code lets us access ``ATTACH_ATTR`` far but</span>
+                <span class="c1"># barfs on a second attribute access for ``attached_to``</span>
+                <span class="c1"># (still not raising an AttributeError, but some other</span>
+                <span class="c1"># arbitrary exception).  Finally, the shittiest code of all</span>
+                <span class="c1"># allows the attribute access of the ``ATTACH_ATTR`` *and*</span>
+                <span class="c1"># ``attached_to``, (say, both ``ob.__getattr__`` and</span>
+                <span class="c1"># ``attached_categories.__getattr__`` returning a proxy for</span>
+                <span class="c1"># any attribute access), which either a) isn&#39;t callable or b)</span>
+                <span class="c1"># is callable, but, when called, shits its pants in an</span>
+                <span class="c1"># potentially arbitrary way (although for b, only TypeError</span>
+                <span class="c1"># has been seen in the wild, from PyMongo).  Thus the</span>
+                <span class="c1"># catchall except: return here, which in any other case would</span>
+                <span class="c1"># be high treason.</span>
+                <span class="n">attached_categories</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">ob</span><span class="p">,</span> <span class="n">ATTACH_ATTR</span><span class="p">)</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">attached_categories</span><span class="o">.</span><span class="n">attached_to</span><span class="p">(</span><span class="n">mod_name</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">ob</span><span class="p">):</span>
+                    <span class="k">return</span>
+            <span class="k">except</span><span class="p">:</span>
+                <span class="k">return</span>
+            <span class="k">if</span> <span class="n">category_keys</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">category_keys</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">attached_categories</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="c1"># When metaclasses return proxies for any attribute access</span>
+                    <span class="c1"># the list may contain keys of different types which might</span>
+                    <span class="c1"># not be sortable.  In that case we can just return,</span>
+                    <span class="c1"># because we&#39;re not dealing with a proper venusian</span>
+                    <span class="c1"># callback.</span>
+                    <span class="n">category_keys</span><span class="o">.</span><span class="n">sort</span><span class="p">()</span>
+                <span class="k">except</span> <span class="ne">TypeError</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+                    <span class="k">return</span>
+            <span class="k">for</span> <span class="n">category</span> <span class="ow">in</span> <span class="n">category_keys</span><span class="p">:</span>
+                <span class="n">callbacks</span> <span class="o">=</span> <span class="n">attached_categories</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">category</span><span class="p">,</span> <span class="p">[])</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="c1"># Metaclasses might trick us by reaching this far and then</span>
+                    <span class="c1"># fail with too little values to unpack.</span>
+                    <span class="k">for</span> <span class="n">callback</span><span class="p">,</span> <span class="n">cb_mod_name</span><span class="p">,</span> <span class="n">liftid</span><span class="p">,</span> <span class="n">scope</span> <span class="ow">in</span> <span class="n">callbacks</span><span class="p">:</span>
+                        <span class="k">if</span> <span class="n">cb_mod_name</span> <span class="o">!=</span> <span class="n">mod_name</span><span class="p">:</span>
+                            <span class="c1"># avoid processing objects that were imported into</span>
+                            <span class="c1"># this module but were not actually defined there</span>
+                            <span class="k">continue</span>
+                        <span class="n">callback</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">ob</span><span class="p">)</span>
+                <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+                    <span class="k">continue</span>
+
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">ob</span> <span class="ow">in</span> <span class="n">getmembers</span><span class="p">(</span><span class="n">package</span><span class="p">):</span>
+            <span class="c1"># whether it&#39;s a module or a package, we need to scan its</span>
+            <span class="c1"># members; walk_packages only iterates over submodules and</span>
+            <span class="c1"># subpackages</span>
+            <span class="n">invoke</span><span class="p">(</span><span class="n">pkg_name</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">ob</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">package</span><span class="p">,</span> <span class="s1">&#39;__path__&#39;</span><span class="p">):</span> <span class="c1"># package, not module</span>
+            <span class="n">results</span> <span class="o">=</span> <span class="n">walk_packages</span><span class="p">(</span><span class="n">package</span><span class="o">.</span><span class="n">__path__</span><span class="p">,</span> <span class="n">package</span><span class="o">.</span><span class="vm">__name__</span><span class="o">+</span><span class="s1">&#39;.&#39;</span><span class="p">,</span>
+                                    <span class="n">onerror</span><span class="o">=</span><span class="n">onerror</span><span class="p">,</span> <span class="n">ignore</span><span class="o">=</span><span class="n">_ignore</span><span class="p">)</span>
+
+            <span class="k">for</span> <span class="n">importer</span><span class="p">,</span> <span class="n">modname</span><span class="p">,</span> <span class="n">ispkg</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
+                <span class="n">loader</span> <span class="o">=</span> <span class="n">importer</span><span class="o">.</span><span class="n">find_module</span><span class="p">(</span><span class="n">modname</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">loader</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span> <span class="c1"># happens on pypy with orphaned pyc</span>
+                    <span class="k">try</span><span class="p">:</span>
+                        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">loader</span><span class="p">,</span> <span class="s1">&#39;etc&#39;</span><span class="p">):</span>
+                            <span class="c1"># python &lt; py3.3</span>
+                            <span class="n">module_type</span> <span class="o">=</span> <span class="n">loader</span><span class="o">.</span><span class="n">etc</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+                        <span class="k">else</span><span class="p">:</span> <span class="c1"># pragma: no cover</span>
+                            <span class="c1"># py3.3b2+ (importlib-using)</span>
+                            <span class="n">module_type</span> <span class="o">=</span> <span class="n">imp</span><span class="o">.</span><span class="n">PY_SOURCE</span>
+                            <span class="n">get_filename</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">loader</span><span class="p">,</span> <span class="s1">&#39;get_filename&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+                            <span class="k">if</span> <span class="n">get_filename</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                                <span class="n">get_filename</span> <span class="o">=</span> <span class="n">loader</span><span class="o">.</span><span class="n">_get_filename</span>
+                            <span class="k">try</span><span class="p">:</span>
+                                <span class="n">fn</span> <span class="o">=</span> <span class="n">get_filename</span><span class="p">(</span><span class="n">modname</span><span class="p">)</span>
+                            <span class="k">except</span> <span class="ne">TypeError</span><span class="p">:</span>
+                                <span class="n">fn</span> <span class="o">=</span> <span class="n">get_filename</span><span class="p">()</span>
+                            <span class="k">if</span> <span class="n">fn</span><span class="o">.</span><span class="n">endswith</span><span class="p">((</span><span class="s1">&#39;.pyc&#39;</span><span class="p">,</span> <span class="s1">&#39;.pyo&#39;</span><span class="p">,</span> <span class="s1">&#39;$py.class&#39;</span><span class="p">)):</span>
+                                <span class="n">module_type</span> <span class="o">=</span> <span class="n">imp</span><span class="o">.</span><span class="n">PY_COMPILED</span>
+                        <span class="c1"># only scrape members from non-orphaned source files</span>
+                        <span class="c1"># and package directories</span>
+                        <span class="k">if</span> <span class="n">module_type</span> <span class="ow">in</span> <span class="p">(</span><span class="n">imp</span><span class="o">.</span><span class="n">PY_SOURCE</span><span class="p">,</span> <span class="n">imp</span><span class="o">.</span><span class="n">PKG_DIRECTORY</span><span class="p">):</span>
+                            <span class="c1"># NB: use __import__(modname) rather than</span>
+                            <span class="c1"># loader.load_module(modname) to prevent</span>
+                            <span class="c1"># inappropriate double-execution of module code</span>
+                            <span class="k">try</span><span class="p">:</span>
+                                <span class="nb">__import__</span><span class="p">(</span><span class="n">modname</span><span class="p">)</span>
+                            <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                                <span class="k">if</span> <span class="n">onerror</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                                    <span class="n">onerror</span><span class="p">(</span><span class="n">modname</span><span class="p">)</span>
+                                <span class="k">else</span><span class="p">:</span>
+                                    <span class="k">raise</span>
+                            <span class="n">module</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">modules</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">modname</span><span class="p">)</span>
+                            <span class="k">if</span> <span class="n">module</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                                <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">ob</span> <span class="ow">in</span> <span class="n">getmembers</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="kc">None</span><span class="p">):</span>
+                                    <span class="n">invoke</span><span class="p">(</span><span class="n">modname</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">ob</span><span class="p">)</span>
+                    <span class="k">finally</span><span class="p">:</span>
+                        <span class="k">if</span>  <span class="p">(</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">loader</span><span class="p">,</span> <span class="s1">&#39;file&#39;</span><span class="p">)</span> <span class="ow">and</span>
+                              <span class="nb">hasattr</span><span class="p">(</span><span class="n">loader</span><span class="o">.</span><span class="n">file</span><span class="p">,</span><span class="s1">&#39;close&#39;</span><span class="p">)</span> <span class="p">):</span>
+                            <span class="n">loader</span><span class="o">.</span><span class="n">file</span><span class="o">.</span><span class="n">close</span><span class="p">()</span></div></div>
+
+<span class="k">class</span> <span class="nc">AttachInfo</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    An instance of this class is returned by the</span>
+<span class="sd">    :func:`venusian.attach` function.  It has the following</span>
+<span class="sd">    attributes:</span>
+
+<span class="sd">    ``scope``</span>
+
+<span class="sd">      One of ``exec``, ``module``, ``class``, ``function call`` or</span>
+<span class="sd">      ``unknown`` (each a string).  This is the scope detected while</span>
+<span class="sd">      executing the decorator which runs the attach function.</span>
+
+<span class="sd">    ``module``</span>
+
+<span class="sd">      The module in which the decorated function was defined.</span>
+
+<span class="sd">    ``locals``</span>
+
+<span class="sd">      A dictionary containing decorator frame&#39;s f_locals.</span>
+
+<span class="sd">    ``globals``</span>
+
+<span class="sd">      A dictionary containing decorator frame&#39;s f_globals.</span>
+
+<span class="sd">    ``category``</span>
+
+<span class="sd">      The ``category`` argument passed to ``attach`` (or ``None``, the</span>
+<span class="sd">      default).</span>
+
+<span class="sd">    ``codeinfo``</span>
+
+<span class="sd">      A tuple in the form ``(filename, lineno, function, sourceline)``</span>
+<span class="sd">      representing the context of the venusian decorator used.  Eg.</span>
+<span class="sd">      ``(&#39;/home/chrism/projects/venusian/tests/test_advice.py&#39;, 81,</span>
+<span class="sd">      &#39;testCallInfo&#39;, &#39;add_handler(foo, bar)&#39;)``</span>
+<span class="sd">      </span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kw</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">kw</span><span class="p">)</span>
+
+<span class="k">class</span> <span class="nc">Categories</span><span class="p">(</span><span class="nb">dict</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">attached_to</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">(</span><span class="nb">dict</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">attached_to</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">attached_id</span> <span class="o">=</span> <span class="n">attached_to</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">attached_id</span> <span class="o">=</span> <span class="nb">id</span><span class="p">(</span><span class="n">attached_to</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">lifted</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="k">def</span> <span class="nf">attached_to</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mod_name</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">obj</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">attached_id</span><span class="p">,</span> <span class="n">INT_TYPES</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">attached_id</span> <span class="o">==</span> <span class="nb">id</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">attached_id</span> <span class="o">==</span> <span class="p">(</span><span class="n">mod_name</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">attach</span><span class="p">(</span><span class="n">wrapped</span><span class="p">,</span> <span class="n">callback</span><span class="p">,</span> <span class="n">category</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">depth</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot; Attach a callback to the wrapped object.  It will be found</span>
+<span class="sd">    later during a scan.  This function returns an instance of the</span>
+<span class="sd">    :class:`venusian.AttachInfo` class.</span>
+
+<span class="sd">    ``category`` should be ``None`` or a string representing a decorator</span>
+<span class="sd">    category name.</span>
+
+<span class="sd">    ``name`` should be ``None`` or a string representing a subcategory within</span>
+<span class="sd">    the category.  This will be used by the ``lift`` class decorator to</span>
+<span class="sd">    determine if decorations of a method should be inherited or overridden.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">frame</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">_getframe</span><span class="p">(</span><span class="n">depth</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">scope</span><span class="p">,</span> <span class="n">module</span><span class="p">,</span> <span class="n">f_locals</span><span class="p">,</span> <span class="n">f_globals</span><span class="p">,</span> <span class="n">codeinfo</span> <span class="o">=</span> <span class="n">getFrameInfo</span><span class="p">(</span><span class="n">frame</span><span class="p">)</span>
+    <span class="n">module_name</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="s1">&#39;__name__&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="n">wrapped_name</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">wrapped</span><span class="p">,</span> <span class="s1">&#39;__name__&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="n">class_name</span> <span class="o">=</span> <span class="n">codeinfo</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+
+    <span class="n">liftid</span> <span class="o">=</span> <span class="s1">&#39;</span><span class="si">%s</span><span class="s1"> </span><span class="si">%s</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">wrapped_name</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
+    
+    <span class="k">if</span> <span class="n">scope</span> <span class="o">==</span> <span class="s1">&#39;class&#39;</span><span class="p">:</span>
+        <span class="c1"># we&#39;re in the midst of a class statement</span>
+        <span class="n">categories</span> <span class="o">=</span> <span class="n">f_locals</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">ATTACH_ATTR</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">categories</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">categories</span><span class="o">.</span><span class="n">attached_to</span><span class="p">(</span>
+            <span class="n">module_name</span><span class="p">,</span> <span class="n">class_name</span><span class="p">,</span> <span class="kc">None</span>
+            <span class="p">):</span>
+            <span class="n">categories</span> <span class="o">=</span> <span class="n">Categories</span><span class="p">((</span><span class="n">module_name</span><span class="p">,</span> <span class="n">class_name</span><span class="p">))</span>
+            <span class="n">f_locals</span><span class="p">[</span><span class="n">ATTACH_ATTR</span><span class="p">]</span> <span class="o">=</span> <span class="n">categories</span>
+        <span class="n">callbacks</span> <span class="o">=</span> <span class="n">categories</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="n">category</span><span class="p">,</span> <span class="p">[])</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">categories</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">wrapped</span><span class="p">,</span> <span class="n">ATTACH_ATTR</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">categories</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">categories</span><span class="o">.</span><span class="n">attached_to</span><span class="p">(</span>
+            <span class="n">module_name</span><span class="p">,</span> <span class="n">wrapped_name</span><span class="p">,</span> <span class="n">wrapped</span>
+            <span class="p">):</span>
+            <span class="c1"># if there aren&#39;t any attached categories, or we&#39;ve retrieved</span>
+            <span class="c1"># some by inheritance, we need to create new ones</span>
+            <span class="n">categories</span> <span class="o">=</span> <span class="n">Categories</span><span class="p">(</span><span class="n">wrapped</span><span class="p">)</span>
+            <span class="nb">setattr</span><span class="p">(</span><span class="n">wrapped</span><span class="p">,</span> <span class="n">ATTACH_ATTR</span><span class="p">,</span> <span class="n">categories</span><span class="p">)</span>
+        <span class="n">callbacks</span> <span class="o">=</span> <span class="n">categories</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="n">category</span><span class="p">,</span> <span class="p">[])</span>
+
+    <span class="n">callbacks</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">callback</span><span class="p">,</span> <span class="n">module_name</span><span class="p">,</span> <span class="n">liftid</span><span class="p">,</span> <span class="n">scope</span><span class="p">))</span>
+
+    <span class="k">return</span> <span class="n">AttachInfo</span><span class="p">(</span>
+        <span class="n">scope</span><span class="o">=</span><span class="n">scope</span><span class="p">,</span>
+        <span class="n">module</span><span class="o">=</span><span class="n">module</span><span class="p">,</span>
+        <span class="nb">locals</span><span class="o">=</span><span class="n">f_locals</span><span class="p">,</span>
+        <span class="nb">globals</span><span class="o">=</span><span class="n">f_globals</span><span class="p">,</span>
+        <span class="n">category</span><span class="o">=</span><span class="n">category</span><span class="p">,</span>
+        <span class="n">codeinfo</span><span class="o">=</span><span class="n">codeinfo</span><span class="p">,</span>
+        <span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">walk_packages</span><span class="p">(</span><span class="n">path</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">prefix</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">onerror</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ignore</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Yields (module_loader, name, ispkg) for all modules recursively</span>
+<span class="sd">    on path, or, if path is None, all accessible modules.</span>
+
+<span class="sd">    &#39;path&#39; should be either None or a list of paths to look for</span>
+<span class="sd">    modules in.</span>
+
+<span class="sd">    &#39;prefix&#39; is a string to output on the front of every module name</span>
+<span class="sd">    on output.</span>
+
+<span class="sd">    Note that this function must import all *packages* (NOT all</span>
+<span class="sd">    modules!) on the given path, in order to access the __path__</span>
+<span class="sd">    attribute to find submodules.</span>
+
+<span class="sd">    &#39;onerror&#39; is a function which gets called with one argument (the name of</span>
+<span class="sd">    the package which was being imported) if any exception occurs while</span>
+<span class="sd">    trying to import a package.  If no onerror function is supplied, any</span>
+<span class="sd">    exception is exceptions propagated, terminating the search.</span>
+
+<span class="sd">    &#39;ignore&#39; is a function fed a fullly dotted name; if it returns True, the</span>
+<span class="sd">    object is skipped and not returned in results (and if it&#39;s a package it&#39;s</span>
+<span class="sd">    not imported).</span>
+
+<span class="sd">    Examples:</span>
+
+<span class="sd">    # list all modules python can access</span>
+<span class="sd">    walk_packages()</span>
+
+<span class="sd">    # list all submodules of ctypes</span>
+<span class="sd">    walk_packages(ctypes.__path__, ctypes.__name__+&#39;.&#39;)</span>
+
+<span class="sd">    # NB: we can&#39;t just use pkgutils.walk_packages because we need to ignore</span>
+<span class="sd">    # things</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">seen</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">m</span><span class="o">=</span><span class="p">{}):</span>
+        <span class="k">if</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">m</span><span class="p">:</span> <span class="c1"># pragma: no cover</span>
+            <span class="k">return</span> <span class="kc">True</span>
+        <span class="n">m</span><span class="p">[</span><span class="n">p</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+
+    <span class="c1"># iter_modules is nonrecursive</span>
+    <span class="k">for</span> <span class="n">importer</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">ispkg</span> <span class="ow">in</span> <span class="n">iter_modules</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">prefix</span><span class="p">):</span>
+
+        <span class="k">if</span> <span class="n">ignore</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">ignore</span><span class="p">(</span><span class="n">name</span><span class="p">):</span>
+            <span class="c1"># if name is a package, ignoring here will cause</span>
+            <span class="c1"># all subpackages and submodules to be ignored too</span>
+            <span class="k">continue</span>
+
+        <span class="c1"># do any onerror handling before yielding</span>
+
+        <span class="k">if</span> <span class="n">ispkg</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="nb">__import__</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">onerror</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">onerror</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">raise</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">yield</span> <span class="n">importer</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">ispkg</span>
+                <span class="n">path</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">sys</span><span class="o">.</span><span class="n">modules</span><span class="p">[</span><span class="n">name</span><span class="p">],</span> <span class="s1">&#39;__path__&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">or</span> <span class="p">[]</span>
+
+                <span class="c1"># don&#39;t traverse path items we&#39;ve seen before</span>
+                <span class="n">path</span> <span class="o">=</span> <span class="p">[</span><span class="n">p</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">path</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">seen</span><span class="p">(</span><span class="n">p</span><span class="p">)]</span>
+
+                <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">walk_packages</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">name</span><span class="o">+</span><span class="s1">&#39;.&#39;</span><span class="p">,</span> <span class="n">onerror</span><span class="p">,</span> <span class="n">ignore</span><span class="p">):</span>
+                    <span class="k">yield</span> <span class="n">item</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">yield</span> <span class="n">importer</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">ispkg</span>
+
+
+<span class="k">class</span> <span class="nc">lift</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    A class decorator which &#39;lifts&#39; superclass venusian configuration</span>
+<span class="sd">    decorations into subclasses.  For example::</span>
+
+<span class="sd">      from venusian import lift</span>
+<span class="sd">      from somepackage import venusian_decorator</span>
+
+<span class="sd">      class Super(object):</span>
+<span class="sd">          @venusian_decorator()</span>
+<span class="sd">          def boo(self): pass</span>
+
+<span class="sd">          @venusian_decorator()</span>
+<span class="sd">          def hiss(self): pass</span>
+
+<span class="sd">          @venusian_decorator()</span>
+<span class="sd">          def jump(self): pass</span>
+<span class="sd">              </span>
+<span class="sd">      @lift()</span>
+<span class="sd">      class Sub(Super):</span>
+<span class="sd">          def boo(self): pass</span>
+
+<span class="sd">          def hiss(self): pass</span>
+<span class="sd">          </span>
+<span class="sd">          @venusian_decorator()</span>
+<span class="sd">          def smack(self): pass</span>
+
+<span class="sd">    The above configuration will cause the callbacks of seven venusian</span>
+<span class="sd">    decorators.  The ones attached to Super.boo, Super.hiss, and Super.jump</span>
+<span class="sd">    *plus* ones attached to Sub.boo, Sub.hiss, Sub.hump and Sub.smack.</span>
+
+<span class="sd">    If a subclass overrides a decorator on a method, its superclass decorators</span>
+<span class="sd">    will be ignored for the subclass.  That means that in this configuration::</span>
+
+<span class="sd">      from venusian import lift</span>
+<span class="sd">      from somepackage import venusian_decorator</span>
+
+<span class="sd">      class Super(object):</span>
+<span class="sd">          @venusian_decorator()</span>
+<span class="sd">          def boo(self): pass</span>
+
+<span class="sd">          @venusian_decorator()</span>
+<span class="sd">          def hiss(self): pass</span>
+
+<span class="sd">      @lift()</span>
+<span class="sd">      class Sub(Super):</span>
+
+<span class="sd">          def boo(self): pass</span>
+<span class="sd">          </span>
+<span class="sd">          @venusian_decorator()</span>
+<span class="sd">          def hiss(self): pass</span>
+
+<span class="sd">    Only four, not five decorator callbacks will be run: the ones attached to</span>
+<span class="sd">    Super.boo and Super.hiss, the inherited one of Sub.boo and the</span>
+<span class="sd">    non-inherited one of Sub.hiss.  The inherited decorator on Super.hiss will</span>
+<span class="sd">    be ignored for the subclass.</span>
+
+<span class="sd">    The ``lift`` decorator takes a single argument named &#39;categories&#39;.  If</span>
+<span class="sd">    supplied, it should be a tuple of category names.  Only decorators</span>
+<span class="sd">    in this category will be lifted if it is suppled.</span>
+<span class="sd">          </span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">categories</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">categories</span> <span class="o">=</span> <span class="n">categories</span>
+
+    <span class="k">def</span> <span class="nf">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">wrapped</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">isclass</span><span class="p">(</span><span class="n">wrapped</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                <span class="s1">&#39;&quot;lift&quot; only works as a class decorator; you tried to use &#39;</span>
+                <span class="s1">&#39;it against </span><span class="si">%r</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="n">wrapped</span>
+                <span class="p">)</span>
+        <span class="n">frame</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">_getframe</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">scope</span><span class="p">,</span> <span class="n">module</span><span class="p">,</span> <span class="n">f_locals</span><span class="p">,</span> <span class="n">f_globals</span><span class="p">,</span> <span class="n">codeinfo</span> <span class="o">=</span> <span class="n">getFrameInfo</span><span class="p">(</span><span class="n">frame</span><span class="p">)</span>
+        <span class="n">module_name</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="s1">&#39;__name__&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="n">newcategories</span> <span class="o">=</span> <span class="n">Categories</span><span class="p">(</span><span class="n">wrapped</span><span class="p">)</span>
+        <span class="n">newcategories</span><span class="o">.</span><span class="n">lifted</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">for</span> <span class="bp">cls</span> <span class="ow">in</span> <span class="n">getmro</span><span class="p">(</span><span class="n">wrapped</span><span class="p">):</span>
+            <span class="n">attached_categories</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">ATTACH_ATTR</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">attached_categories</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">attached_categories</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">LIFTONLY_ATTR</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">attached_categories</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">cname</span><span class="p">,</span> <span class="n">category</span> <span class="ow">in</span> <span class="n">attached_categories</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                    <span class="k">if</span> <span class="bp">cls</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">wrapped</span><span class="p">:</span>
+                        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">categories</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">cname</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">categories</span><span class="p">:</span>
+                            <span class="k">continue</span>
+                    <span class="n">callbacks</span> <span class="o">=</span> <span class="n">newcategories</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">cname</span><span class="p">,</span> <span class="p">[])</span>
+                    <span class="n">newcallbacks</span> <span class="o">=</span> <span class="p">[]</span>
+                    <span class="k">for</span> <span class="n">cb</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">liftid</span><span class="p">,</span> <span class="n">cscope</span> <span class="ow">in</span> <span class="n">category</span><span class="p">:</span>
+                        <span class="n">append</span> <span class="o">=</span> <span class="kc">True</span>
+                        <span class="n">toappend</span> <span class="o">=</span> <span class="p">(</span><span class="n">cb</span><span class="p">,</span> <span class="n">module_name</span><span class="p">,</span> <span class="n">liftid</span><span class="p">,</span> <span class="n">cscope</span><span class="p">)</span>
+                        <span class="k">if</span> <span class="n">cscope</span> <span class="o">==</span> <span class="s1">&#39;class&#39;</span><span class="p">:</span>
+                            <span class="k">for</span> <span class="n">ncb</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">nliftid</span><span class="p">,</span> <span class="n">nscope</span> <span class="ow">in</span> <span class="n">callbacks</span><span class="p">:</span>
+                                <span class="k">if</span> <span class="p">(</span><span class="n">nscope</span> <span class="o">==</span> <span class="s1">&#39;class&#39;</span> <span class="ow">and</span> <span class="n">liftid</span> <span class="o">==</span> <span class="n">nliftid</span><span class="p">):</span>
+                                    <span class="n">append</span> <span class="o">=</span> <span class="kc">False</span>
+                        <span class="k">if</span> <span class="n">append</span><span class="p">:</span>
+                            <span class="n">newcallbacks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">toappend</span><span class="p">)</span>
+                    <span class="n">newcategory</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">callbacks</span><span class="p">)</span> <span class="o">+</span> <span class="n">newcallbacks</span>
+                    <span class="n">newcategories</span><span class="p">[</span><span class="n">cname</span><span class="p">]</span> <span class="o">=</span> <span class="n">newcategory</span>
+                <span class="k">if</span> <span class="n">attached_categories</span><span class="o">.</span><span class="n">lifted</span><span class="p">:</span>
+                    <span class="k">break</span>
+        <span class="k">if</span> <span class="n">newcategories</span><span class="p">:</span> <span class="c1"># if it has any keys</span>
+            <span class="nb">setattr</span><span class="p">(</span><span class="n">wrapped</span><span class="p">,</span> <span class="n">ATTACH_ATTR</span><span class="p">,</span> <span class="n">newcategories</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">wrapped</span>
+        
+<span class="k">class</span> <span class="nc">onlyliftedfrom</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    A class decorator which marks a class as &#39;only lifted from&#39;.  Decorations</span>
+<span class="sd">    made on methods of the class won&#39;t have their callbacks called directly,</span>
+<span class="sd">    but classes which inherit from only-lifted-from classes which also use the</span>
+<span class="sd">    ``lift`` class decorator will use the superclass decoration callbacks.</span>
+
+<span class="sd">    For example::</span>
+<span class="sd">    </span>
+<span class="sd">      from venusian import lift, onlyliftedfrom</span>
+<span class="sd">      from somepackage import venusian_decorator</span>
+
+<span class="sd">      @onlyliftedfrom()</span>
+<span class="sd">      class Super(object):</span>
+<span class="sd">          @venusian_decorator()</span>
+<span class="sd">          def boo(self): pass</span>
+
+<span class="sd">          @venusian_decorator()</span>
+<span class="sd">          def hiss(self): pass</span>
+
+<span class="sd">      @lift()</span>
+<span class="sd">      class Sub(Super):</span>
+
+<span class="sd">          def boo(self): pass</span>
+<span class="sd">          </span>
+<span class="sd">          def hiss(self): pass</span>
+
+<span class="sd">    Only two decorator callbacks will be run: the ones attached to Sub.boo and</span>
+<span class="sd">    Sub.hiss.  The inherited decorators on Super.boo and Super.hiss will be</span>
+<span class="sd">    not be registered.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">wrapped</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">isclass</span><span class="p">(</span><span class="n">wrapped</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                <span class="s1">&#39;&quot;onlyliftedfrom&quot; only works as a class decorator; you tried &#39;</span>
+                <span class="s1">&#39;to use it against </span><span class="si">%r</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="n">wrapped</span>
+                <span class="p">)</span>
+        <span class="n">cats</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">wrapped</span><span class="p">,</span> <span class="n">ATTACH_ATTR</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="n">class_name</span> <span class="o">=</span> <span class="n">wrapped</span><span class="o">.</span><span class="vm">__name__</span>
+        <span class="n">module_name</span> <span class="o">=</span> <span class="n">wrapped</span><span class="o">.</span><span class="vm">__module__</span>
+        <span class="n">key</span> <span class="o">=</span> <span class="p">(</span><span class="n">module_name</span><span class="p">,</span> <span class="n">class_name</span><span class="p">,</span> <span class="n">wrapped</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">cats</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">cats</span><span class="o">.</span><span class="n">attached_to</span><span class="p">(</span><span class="o">*</span><span class="n">key</span><span class="p">):</span>
+            <span class="c1"># we either have no categories or our categories are defined</span>
+            <span class="c1"># in a superclass</span>
+            <span class="k">return</span>
+        <span class="nb">delattr</span><span class="p">(</span><span class="n">wrapped</span><span class="p">,</span> <span class="n">ATTACH_ATTR</span><span class="p">)</span>
+        <span class="nb">setattr</span><span class="p">(</span><span class="n">wrapped</span><span class="p">,</span> <span class="n">LIFTONLY_ATTR</span><span class="p">,</span> <span class="n">cats</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">wrapped</span>
+        
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../playbooks/index.html">Playbooks</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../userguide/index.html">User Guide</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../history/index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2020, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

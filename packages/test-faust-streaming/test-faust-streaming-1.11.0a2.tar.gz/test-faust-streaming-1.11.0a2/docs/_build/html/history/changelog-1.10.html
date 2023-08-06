@@ -1,0 +1,596 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>Change history for Faust 1.10 &#8212; Faust 1.11.0a1 documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="copyright" title="Copyright" href="../copyright.html" />
+    <link rel="next" title="Change history for Faust 1.9" href="changelog-1.9.html" />
+    <link rel="prev" title="History" href="index.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="change-history-for-faust-1-10">
+<span id="changelog-1-10"></span><h1>Change history for Faust 1.10<a class="headerlink" href="#change-history-for-faust-1-10" title="Permalink to this headline">¶</a></h1>
+<p>This document contain change notes for bugfix releases in
+the Faust 1.10.x series. If you’re looking for changes in the latest
+series, please visit the latest <a class="reference internal" href="../changelog.html#changelog"><span class="std std-ref">Changes</span></a>.</p>
+<p>For even older releases you can visit the <a class="reference internal" href="index.html#history"><span class="std std-ref">History</span></a> section.</p>
+<div class="section" id="version-1-10-4">
+<span id="id1"></span><h2>1.10.4<a class="headerlink" href="#version-1-10-4" title="Permalink to this headline">¶</a></h2>
+<dl class="field-list simple">
+<dt class="field-odd">release-date</dt>
+<dd class="field-odd"><p>2020-02-25 3:00 P.M PST</p>
+</dd>
+<dt class="field-even">release-by</dt>
+<dd class="field-even"><p>Ask Solem (<a class="reference external" href="https://github.com/ask/">&#64;ask</a>)</p>
+</dd>
+</dl>
+<ul>
+<li><p><strong>Requirements</strong></p>
+<ul class="simple">
+<li><p>Now depends on <a class="reference external" href="https://pypi.python.org/pypi/robinhood-aiokafka/">robinhood-aiokafka</a> 1.1.6</p></li>
+</ul>
+</li>
+<li><p>Kafka: Fixed support for SASL authentication (<span class="xref issue">Issue #468</span>).</p>
+<blockquote>
+<div><p>Fix contributed by Julien Surloppe <a class="reference external" href="https://github.com/jsurloppe/">&#64;jsurloppe</a>.</p>
+</div></blockquote>
+</li>
+<li><p>Adds ability to force enable block detection in production.</p>
+<blockquote>
+<div><p>To start Faust with block detection enabled in production
+add the following environment variables to the <cite>faust worker</cite> command:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nv">F_BLOCKING_TIMEOUT</span><span class="o">=</span><span class="s1">&#39;10.0&#39;</span>
+<span class="nv">F_FORCE_BLOCKING_TIMEOUT</span><span class="o">=</span><span class="m">1</span>
+</pre></div>
+</div>
+<p>The worker will now log an error if the event loop is blocked
+for more than 10 seconds.</p>
+<p>This is a temporary workaround until Faust version 1.11 is released,
+it will stop working in that version.
+To enable this in Faust 1.11 either use the BLOCKING_TIMEOUT environment
+variable:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nv">BLOCKING_TIMEOUT</span><span class="o">=</span><span class="s1">&#39;10.0&#39;</span>
+
+    or use the new <span class="sb">`</span>blocking_timeout<span class="sb">`</span> setting:
+
+<span class="nv">app</span> <span class="o">=</span> faust.App<span class="o">(</span>..., <span class="nv">blocking_timeout</span><span class="o">=</span><span class="m">10</span>.0<span class="o">)</span>
+</pre></div>
+</div>
+<p>Of interest is also the documentation for the new setting coming in
+1.11:</p>
+<p>Blocking timeout (in seconds).</p>
+<p>When specified the worker will start a periodic signal based
+timer that only triggers when the loop has been blocked
+for a time exceeding this timeout.</p>
+<p>This is the most safe way to detect blocking, but could have
+adverse effects on libraries that do not automatically
+retry interrupted system calls.</p>
+<p>Python itself does retry all interrupted system calls
+since version 3.5 (see <span class="target" id="index-0"></span><a class="pep reference external" href="https://www.python.org/dev/peps/pep-0475"><strong>PEP 475</strong></a>), but this might not
+be the case with C extensions added to the worker by the user.</p>
+<p>The blocking detector is a background thread
+that periodically wakes up to either arm a timer, or cancel
+an already armed timer. In pseudocode:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">while</span> <span class="bp">True</span><span class="p">:</span>
+    <span class="c1"># cancel previous alarm and arm new alarm</span>
+    <span class="n">signal</span><span class="o">.</span><span class="n">signal</span><span class="p">(</span><span class="n">signal</span><span class="o">.</span><span class="n">SIGALRM</span><span class="p">,</span> <span class="n">on_alarm</span><span class="p">)</span>
+    <span class="n">signal</span><span class="o">.</span><span class="n">setitimer</span><span class="p">(</span><span class="n">signal</span><span class="o">.</span><span class="n">ITIMER_REAL</span><span class="p">,</span> <span class="n">blocking_timeout</span><span class="p">)</span>
+    <span class="c1"># sleep to wakeup just before the timeout</span>
+    <span class="n">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="n">blocking_timeout</span> <span class="o">*</span> <span class="mf">0.96</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">on_alarm</span><span class="p">(</span><span class="n">signum</span><span class="p">,</span> <span class="n">frame</span><span class="p">):</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s1">&#39;Blocking detected: ...&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>If the sleep does not wake up in time the alarm signal
+will be sent to the process and a traceback will be logged.</p>
+</div></blockquote>
+</li>
+<li><p>Documentation improvements by:</p>
+<ul class="simple">
+<li><p>Andrey Martyanov (<a class="reference external" href="https://github.com/martyanov/">&#64;martyanov</a>).</p></li>
+<li><p>Christoph Deil (<a class="reference external" href="https://github.com/cdeil/">&#64;cdeil</a>).</p></li>
+<li><p>Hisham Elsheshtawy (<a class="reference external" href="https://github.com/Sheshtawy/">&#64;Sheshtawy</a>).</p></li>
+<li><p><a class="reference external" href="https://github.com/lsabi/">&#64;lsabi</a>.</p></li>
+</ul>
+</li>
+</ul>
+</div>
+<div class="section" id="version-1-10-3">
+<span id="id2"></span><h2>1.10.3<a class="headerlink" href="#version-1-10-3" title="Permalink to this headline">¶</a></h2>
+<dl class="field-list simple">
+<dt class="field-odd">release-date</dt>
+<dd class="field-odd"><p>2020-02-14 4:27 P.M PST</p>
+</dd>
+<dt class="field-even">release-by</dt>
+<dd class="field-even"><p>Ask Solem (<a class="reference external" href="https://github.com/ask/">&#64;ask</a>)</p>
+</dd>
+</dl>
+<ul>
+<li><p><strong>Requirements</strong></p>
+<ul class="simple">
+<li><p>Now depends on <span class="xref std std-ref">Mode 4.3.2</span></p></li>
+<li><p>Now depends on <a class="reference external" href="https://pypi.python.org/pypi/robinhood-aiokafka/">robinhood-aiokafka</a> 1.1.5</p></li>
+</ul>
+</li>
+<li><p><strong>Tables</strong>: The rebalancing callback for tables now yields more
+often back to the event loop to prevent it from blocking
+the loop for too long.</p></li>
+<li><p><strong>Dist</strong>: Removed accidental dependency on <a class="reference external" href="https://pypi.python.org/pypi/typing_extensions/">typing_extensions</a></p>
+<p>Contributed by Eran Kampf (<a class="reference external" href="https://github.com/ekampf/">&#64;ekampf</a>).</p>
+</li>
+<li><p><strong>Consumer</strong>: wait empty now manually garbage collects acked
+entries from <code class="docutils literal notranslate"><span class="pre">unacked_messages</span></code>.</p>
+<blockquote>
+<div><p>This fixes hanging during rebalance in some cases.</p>
+</div></blockquote>
+</li>
+<li><p><strong>Consumer</strong>: Wait empty now logs traceback of all running agents</p>
+<blockquote>
+<div><p>This happens when it has been waiting for agents to process
+currently waiting events, and it has been waiting for a long time.</p>
+</div></blockquote>
+</li>
+<li><p><strong>Worker</strong>: Make logged lists of partition sets more beautiful.</p></li>
+<li><p><strong>Worker</strong>: Consolidate repeated topic names in logs to use ditto mark</p></li>
+<li><p><strong>Worker</strong>: Make logged “setting newly assigned partitions” list
+easier to read.</p>
+<blockquote>
+<div><p>This will now:</p>
+<ul class="simple">
+<li><p>Sort the numbers</p></li>
+<li><p>Consolidate number ranges (e.g. <code class="docutils literal notranslate"><span class="pre">1-5</span></code> instead of <code class="docutils literal notranslate"><span class="pre">1,</span> <span class="pre">2,</span> <span class="pre">3,</span> <span class="pre">4,</span> <span class="pre">5</span></code>).</p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p><strong>Tables</strong>: Recovery: Better diagnosis in logs if recovery hangs.</p></li>
+<li><p><strong>Tables</strong>: Recovery: Show estimated time remaining until recovery is done.</p></li>
+</ul>
+</div>
+<div class="section" id="version-1-10-2">
+<span id="id3"></span><h2>1.10.2<a class="headerlink" href="#version-1-10-2" title="Permalink to this headline">¶</a></h2>
+<dl class="field-list simple">
+<dt class="field-odd">release-date</dt>
+<dd class="field-odd"><p>2020-02-10 3:54 P.M PST</p>
+</dd>
+<dt class="field-even">release-by</dt>
+<dd class="field-even"><p>Ask Solem (<a class="reference external" href="https://github.com/ask/">&#64;ask</a>)</p>
+</dd>
+</dl>
+<ul>
+<li><p><strong>Requirements</strong></p>
+<ul class="simple">
+<li><p>Now depends on <a class="reference external" href="https://mode.readthedocs.io/en/latest/changelog.html#version-4-3-0" title="(in Mode v4.3)"><span class="xref std std-ref">Mode 4.3.1</span></a>.</p></li>
+<li><p>Now depends on <a class="reference external" href="https://pypi.python.org/pypi/robinhood-aiokafka/">robinhood-aiokafka</a> 1.1.4</p></li>
+</ul>
+</li>
+<li><p>Aiokafka: Livelock and stream timeouts replaced with better instrumentation.</p>
+<blockquote>
+<div><p>This will let us better isolate the cause of
+a worker that is not progressing. The problem could originate in
+code written by the user, the <a class="reference external" href="https://pypi.python.org/pypi/aiokafka/">aiokafka</a> Kafka client, or a
+core component of the Faust worker could be malfunctioning.</p>
+<p>To help diagnose the cause of such disruption, the worker now logs when</p>
+<ol class="arabic simple">
+<li><p><a class="reference external" href="https://pypi.python.org/pypi/aiokafka/">aiokafka</a> stops sending fetch requests.</p></li>
+<li><p>Kafka stops responding to fetch requests.</p></li>
+<li><p><a class="reference external" href="https://pypi.python.org/pypi/aiokafka/">aiokafka</a> stops updating highwater offset.</p></li>
+<li><p>a stream stops processing events, or is processing very slowly.</p></li>
+<li><p>the worker stops committing offsets, or the time it takes to complete
+the commit operation is exorbitant.</p></li>
+</ol>
+</div></blockquote>
+</li>
+</ul>
+</div>
+<div class="section" id="version-1-10-1">
+<span id="id4"></span><h2>1.10.1<a class="headerlink" href="#version-1-10-1" title="Permalink to this headline">¶</a></h2>
+<dl class="field-list simple">
+<dt class="field-odd">release-date</dt>
+<dd class="field-odd"><p>2020-01-22 5:00 P.M PST</p>
+</dd>
+<dt class="field-even">release-by</dt>
+<dd class="field-even"><p>Ask Solem (<a class="reference external" href="https://github.com/ask/">&#64;ask</a>)</p>
+</dd>
+</dl>
+<ul>
+<li><p><strong>Requirements</strong></p>
+<ul class="simple">
+<li><p>Now depends on <a class="reference external" href="https://mode.readthedocs.io/en/latest/changelog.html#version-4-3-0" title="(in Mode v4.3)"><span class="xref std std-ref">Mode 4.3.0</span></a>.</p></li>
+</ul>
+</li>
+<li><p>Consumer: Default for the <a class="reference internal" href="../userguide/settings.html#std:setting-consumer_max_fetch_size"><code class="xref std std-setting docutils literal notranslate"><span class="pre">consumer_max_fetch_size</span></code></a> setting
+is now 1MB.</p>
+<blockquote>
+<div><p>Make sure to consider the total number of partitions a worker node
+can be assigned when tweaking this value.</p>
+<p>If an app is subscribing to 4 topics, that have 100 partitions
+each, and only a single worker is running, this will mean
+the maximum fetch size at this point is 4 * 100MB.</p>
+<p>When the worker is rebalancing it needs to flush any current
+fetch requests before continuing, and if that much data is left
+in the socket buffer it can cause another rebalance to happen,
+then another, then another, ending up in a rebalancing loop.</p>
+</div></blockquote>
+</li>
+<li><p>Worker: Fixed problem of timers waking up too late.</p>
+<blockquote>
+<div><p>Turns out some parts of the worker were blocking the event loop
+causing timers to wake up too late.</p>
+<p>We have found a way to identify such blocking and have
+added some carefully placed <code class="docutils literal notranslate"><span class="pre">asyncio.sleep(0)</span></code> statements
+to minimize blocking.</p>
+</div></blockquote>
+</li>
+<li><p>Worker: Emit more beautiful logs by converting lists of topic partitions
+to ANSI tables.</p></li>
+<li><p>Stream: Fixed race condition where stopping a stream twice would
+cause it to wait indefinitely.</p></li>
+<li><p>Tables: Fixes hang at startup when using global table (<span class="xref issue">Issue #507</span>)</p></li>
+<li><p>Agents: Fixed RPC hanging in clients (<span class="xref issue">Issue #509</span>).</p>
+<blockquote>
+<div><p>Contributed by Jonathan A. Booth (<a class="reference external" href="https://github.com/jbooth-mastery/">&#64;jbooth-mastery</a>).</p>
+</div></blockquote>
+</li>
+</ul>
+</div>
+<div class="section" id="version-1-10-0">
+<span id="id5"></span><h2>1.10.0<a class="headerlink" href="#version-1-10-0" title="Permalink to this headline">¶</a></h2>
+<dl class="field-list simple">
+<dt class="field-odd">release-date</dt>
+<dd class="field-odd"><p>2020-01-13 11:32 P.M PST</p>
+</dd>
+<dt class="field-even">release-by</dt>
+<dd class="field-even"><p>Ask Solem (<a class="reference external" href="https://github.com/ask/">&#64;ask</a>)</p>
+</dd>
+</dl>
+<ul>
+<li><p><strong>Requirements</strong></p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Now depends on <a class="reference external" href="https://pypi.python.org/pypi/robinhood-aiokafka/">robinhood-aiokafka</a> 1.1.3</p></li>
+<li><p>Now depends on <a class="reference external" href="https://mode.readthedocs.io/en/latest/changelog.html#version-4-1-9" title="(in Mode v4.3)"><span class="xref std std-ref">Mode 4.1.9</span></a>.</p></li>
+</ul>
+</div></blockquote>
+</li>
+</ul>
+<div class="section" id="news">
+<span id="v1-10-news"></span><h3>News<a class="headerlink" href="#news" title="Permalink to this headline">¶</a></h3>
+<ul>
+<li><p>Agents: <code class="docutils literal notranslate"><span class="pre">use_reply_headers</span></code> is now enabled by default (<span class="xref issue">Issue #469</span>).</p>
+<blockquote>
+<div><p>This affects users of <code class="docutils literal notranslate"><span class="pre">Agent.ask</span></code>, <code class="docutils literal notranslate"><span class="pre">.cast</span></code>, <code class="docutils literal notranslate"><span class="pre">.map</span></code>, <code class="docutils literal notranslate"><span class="pre">.kvmap</span></code>,
+and <code class="docutils literal notranslate"><span class="pre">.join</span></code> only.</p>
+<p>This requires a Kafka broker with headers support. If you want
+to avoid making this change you can disable it manually
+by passing the <code class="docutils literal notranslate"><span class="pre">use_reply_headers</span></code> argument to the agent decorator:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@app.agent</span><span class="p">(</span><span class="n">use_reply_headers</span><span class="o">=</span><span class="bp">False</span><span class="p">)</span>
+</pre></div>
+</div>
+</div></blockquote>
+</li>
+<li><p>Models: Support fields with arbitrarily nested type expressions.</p>
+<blockquote>
+<div><p>This extends model fields to support arbitrarily nested type
+expressions, such as <code class="docutils literal notranslate"><span class="pre">List[Dict[str,</span> <span class="pre">List[Set[MyModel]]]</span></code></p>
+</div></blockquote>
+</li>
+<li><p>Models: Support for fields that have named tuples.</p>
+<blockquote>
+<div><p>This includes named tuples with fields that are also models.</p>
+<p>For example:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">NamedTuple</span>
+<span class="kn">from</span> <span class="nn">faust</span> <span class="kn">import</span> <span class="n">Record</span>
+
+<span class="k">class</span> <span class="nc">Point</span><span class="p">(</span><span class="n">Record</span><span class="p">):</span>
+    <span class="n">x</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">y</span><span class="p">:</span> <span class="nb">int</span>
+
+<span class="k">class</span> <span class="nc">NamedPoint</span><span class="p">(</span><span class="n">NamedTuple</span><span class="p">):</span>
+    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">point</span><span class="p">:</span> <span class="n">Point</span>
+
+<span class="k">class</span> <span class="nc">Arena</span><span class="p">(</span><span class="n">Record</span><span class="p">):</span>
+    <span class="n">points</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">NamedPoint</span><span class="p">]</span>
+</pre></div>
+</div>
+<p>Note that this does not currently support <code class="docutils literal notranslate"><span class="pre">collections.namedtuple</span></code>.</p>
+</div></blockquote>
+</li>
+<li><dl class="simple">
+<dt>Models: Support for fields that are unions of models,</dt><dd><p>such as <code class="docutils literal notranslate"><span class="pre">Union[ModelX,</span> <span class="pre">ModelY]</span></code>.</p>
+</dd>
+</dl>
+</li>
+<li><p>Models: Optimizations and backward incompatible changes.</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Serialization is now 4x faster.</p></li>
+<li><p>Deserialization is 2x faster.</p></li>
+</ul>
+<p>Related fields are now lazily loaded, so models and complex structures
+are only loaded as needed.</p>
+<p>One important change is that serializing a model will
+no longer traverse the structure for child models, instead we rely
+on the json serializer to call <cite>Model.__json__()</cite> during serializing.</p>
+<p>Specifically this means, where previously having models</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">X</span><span class="p">(</span><span class="n">Model</span><span class="p">):</span>
+    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
+
+<span class="k">class</span> <span class="nc">Y</span><span class="p">(</span><span class="n">Model</span><span class="p">):</span>
+    <span class="n">x</span><span class="p">:</span> <span class="n">X</span>
+</pre></div>
+</div>
+<p>and calling <code class="docutils literal notranslate"><span class="pre">Y(X('foo')).to_representation()</span></code> it would return:</p>
+<div class="highlight-pycon notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">Y</span><span class="p">(</span><span class="n">X</span><span class="p">(</span><span class="s1">&#39;foo&#39;</span><span class="p">))</span><span class="o">.</span><span class="n">to_representation</span><span class="p">()</span>
+<span class="go">{</span>
+<span class="go">    &#39;x&#39;: {</span>
+<span class="go">        &#39;name&#39;: &#39;foo&#39;,</span>
+<span class="go">        &#39;__faust&#39;: {&#39;ns&#39;: &#39;myapp.X&#39;},</span>
+<span class="go">    },</span>
+<span class="go">    &#39;__faust&#39;: {&#39;ns&#39;: &#39;myapp.Y&#39;},</span>
+<span class="go">}</span>
+</pre></div>
+</div>
+<p>after this change it will instead return the objects as-is:</p>
+<div class="highlight-pycon notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">Y</span><span class="p">(</span><span class="n">X</span><span class="p">(</span><span class="s1">&#39;foo&#39;</span><span class="p">))</span><span class="o">.</span><span class="n">to_representation</span><span class="p">()</span>
+<span class="go">{</span>
+<span class="go">    &#39;x&#39;: X(name=&#39;foo&#39;),</span>
+<span class="go">    &#39;__faust&#39;: {&#39;ns&#39;: &#39;myapp.Y&#39;},</span>
+<span class="go">}</span>
+</pre></div>
+</div>
+<p>This is a backward incompatible change for anything that relies
+on the previous behavior, but in most apps will be fine as the
+Faust json serializer will automatically handle models and call
+<code class="docutils literal notranslate"><span class="pre">Model.__json__()</span></code> on them as needed.</p>
+<p><strong>Removed attributes</strong></p>
+<p>The following attributes have been removed from <code class="docutils literal notranslate"><span class="pre">Model._options</span></code>,
+and <code class="xref py py-class docutils literal notranslate"><span class="pre">FieldDescriptorT</span></code>, as they are no longer needed,
+or no longer make sense when supporting arbitrarily nested structures.</p>
+<p><em>:class:`Model._options &lt;faust.types.models.ModelOptions&gt;`</em></p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">.models</span></code></p>
+<blockquote>
+<div><p>Previously map of fields that have related models.
+This index is no longer used, and a field can have multiple
+related models now.  You can generate this index using the
+statement:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="n">field</span><span class="p">:</span> <span class="n">field</span><span class="o">.</span><span class="n">related_models</span>
+    <span class="k">for</span> <span class="n">field</span> <span class="ow">in</span> <span class="n">model</span><span class="o">.</span><span class="n">_options</span><span class="o">.</span><span class="n">descriptors</span>
+    <span class="k">if</span> <span class="n">field</span><span class="o">.</span><span class="n">related_models</span><span class="p">}</span>
+</pre></div>
+</div>
+</div></blockquote>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">.modelattrs</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">.field_coerce</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">.initfield</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">.polyindex</span></code></p></li>
+</ul>
+<p><em>:class:`~faust.types.FieldDescriptorT`</em></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">generic_type</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">member_type</span></code></p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p>Tables: Fixed behavior of global tables.</p>
+<blockquote>
+<div><p>Contributed by DhruvaPatil98 (<a class="reference external" href="https://github.com/DhruvaPatil98/">&#64;DhruvaPatil98</a>).</p>
+</div></blockquote>
+</li>
+<li><p>Tables: Added ability to iterate through all keys in a global table.</p>
+<blockquote>
+<div><p>Contributed by DhruvaPatil98 (<a class="reference external" href="https://github.com/DhruvaPatil98/">&#64;DhruvaPatil98</a>).</p>
+</div></blockquote>
+</li>
+<li><p>Tables: Attempting to call <code class="docutils literal notranslate"><span class="pre">keys()</span></code>/<code class="docutils literal notranslate"><span class="pre">items()</span></code>/<code class="docutils literal notranslate"><span class="pre">values()</span></code> on
+a windowset now raises an exception.</p>
+<blockquote>
+<div><p>This change was added to avoid unexpected behavior.</p>
+<p>Contributed by Sergej Herbert (<a class="reference external" href="https://github.com/fr-ser/">&#64;fr-ser</a>).</p>
+</div></blockquote>
+</li>
+<li><p>Models: Added new bool field type <a class="reference internal" href="../reference/faust.models.fields.html#faust.models.fields.BooleanField" title="faust.models.fields.BooleanField"><code class="xref py py-class docutils literal notranslate"><span class="pre">BooleanField</span></code></a>.</p>
+<blockquote>
+<div><p>Thanks to John Heinnickel.</p>
+</div></blockquote>
+</li>
+<li><p>aiokafka: Now raises an exception when topic name length exceeds 249
+characters (<span class="xref issue">Issue #411</span>).</p></li>
+<li><p>New <a class="reference internal" href="../userguide/settings.html#std:setting-broker_api_version"><code class="xref std std-setting docutils literal notranslate"><span class="pre">broker_api_version</span></code></a> setting.</p>
+<blockquote>
+<div><p>The new setting acts as default for both the new
+<a class="reference internal" href="../userguide/settings.html#std:setting-consumer_api_version"><code class="xref std std-setting docutils literal notranslate"><span class="pre">consumer_api_version</span></code></a> setting, and the previously existing
+<a class="reference internal" href="../userguide/settings.html#std:setting-broker_api_version"><code class="xref std std-setting docutils literal notranslate"><span class="pre">broker_api_version</span></code></a> setting.</p>
+<p>This means you can now configure the API version for everything
+by setting the <a class="reference internal" href="../userguide/settings.html#std:setting-broker_api_version"><code class="xref std std-setting docutils literal notranslate"><span class="pre">broker_api_version</span></code></a> setting, while still
+being able to configure the API version individually for producers
+and consumers.</p>
+</div></blockquote>
+</li>
+<li><p>New <a class="reference internal" href="../userguide/settings.html#std:setting-consumer_api_version"><code class="xref std std-setting docutils literal notranslate"><span class="pre">consumer_api_version</span></code></a> setting.</p>
+<blockquote>
+<div><p>See above.</p>
+</div></blockquote>
+</li>
+<li><p>New <a class="reference internal" href="../userguide/settings.html#std:setting-broker_rebalance_timeout"><code class="xref std std-setting docutils literal notranslate"><span class="pre">broker_rebalance_timeout</span></code></a> setting.</p></li>
+<li><p>Test improvements</p>
+<blockquote>
+<div><p>Contributed by Marcos Schroh (<a class="reference external" href="https://github.com/marcosschroh/">&#64;marcosschroh</a>).</p>
+</div></blockquote>
+</li>
+<li><p>Documentation improvements by:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Bryant Biggs (<a class="reference external" href="https://github.com/bryantbiggs/">&#64;bryantbiggs</a>).</p></li>
+<li><p>Christoph Deil (<a class="reference external" href="https://github.com/cdeil/">&#64;cdeil</a>).</p></li>
+<li><p>Tim Gates (<a class="reference external" href="https://github.com/timgates42/">&#64;timgates42</a>).</p></li>
+<li><p>Marcos Schroh (<a class="reference external" href="https://github.com/marcosschroh/">&#64;marcosschroh</a>).</p></li>
+</ul>
+</div></blockquote>
+</li>
+</ul>
+</div>
+<div class="section" id="fixes">
+<h3>Fixes<a class="headerlink" href="#fixes" title="Permalink to this headline">¶</a></h3>
+<ul>
+<li><p>Consumer: Properly wait for all agents and the table manager to
+start and subscribe to topics before sending subscription list to Kafka.
+(<span class="xref issue">Issue #501</span>).</p>
+<blockquote>
+<div><p>This fixes a race condition where the subscription list is sent
+before all agents have started subscribing to the topics they need.
+At worst this result ended in a crash at startup (set
+size changed during iteration).</p>
+<p>Contributed by DhruvaPatil98 (<a class="reference external" href="https://github.com/DhruvaPatil98/">&#64;DhruvaPatil98</a>).</p>
+</div></blockquote>
+</li>
+<li><p>Agents: Fixed <code class="docutils literal notranslate"><span class="pre">Agent.test_context()</span></code> sink support (<span class="xref issue">Issue #495</span>).</p>
+<blockquote>
+<div><p>Fix contributed by Denis Kovalev (<a class="reference external" href="https://github.com/aikikode/">&#64;aikikode</a>).</p>
+</div></blockquote>
+</li>
+<li><p>aiokafka: Fixes crash in <code class="docutils literal notranslate"><span class="pre">on_span_cancelled_early</span></code> when tracing disabled.</p></li>
+</ul>
+</div>
+</div>
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../playbooks/index.html">Playbooks</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../userguide/index.html">User Guide</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">History</a><ul>
+      <li>Previous: <a href="index.html" title="previous chapter">History</a></li>
+      <li>Next: <a href="changelog-1.9.html" title="next chapter">Change history for Faust 1.9</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2020, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../_sources/history/changelog-1.10.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

@@ -1,0 +1,344 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>faust.web.blueprints &#8212; Faust 1.11.0a1 documentation</title>
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../../../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <link rel="copyright" title="Copyright" href="../../../copyright.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for faust.web.blueprints</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Blueprints define reusable web apps.</span>
+
+<span class="sd">They are lazy and need to be registered to an app to be activated:</span>
+
+<span class="sd">.. sourcecode:: python</span>
+
+<span class="sd">    from faust import web</span>
+
+<span class="sd">    blueprint = web.Blueprint(&#39;users&#39;)</span>
+<span class="sd">    cache = blueprint.cache(timeout=300.0)</span>
+
+<span class="sd">    @blueprint.route(&#39;/&#39;, name=&#39;list&#39;)</span>
+<span class="sd">    class UserListView(web.View):</span>
+
+<span class="sd">        @cache.view()</span>
+<span class="sd">        async def get(self, request: web.Request) -&gt; web.Response:</span>
+<span class="sd">            return web.json(...)</span>
+
+<span class="sd">    @blueprint.route(&#39;/{user_id}/&#39;, name=&#39;detail&#39;)</span>
+<span class="sd">    class UserDetailView(web.View):</span>
+
+<span class="sd">        @cache.view(timeout=10.0)</span>
+<span class="sd">        async def get(self,</span>
+<span class="sd">                      request: web.Request,</span>
+<span class="sd">                      user_id: str) -&gt; web.Response:</span>
+<span class="sd">            return web.json(...)</span>
+
+<span class="sd">At this point the views are realized and can be used</span>
+<span class="sd">from Python code, but the cached ``get`` method handlers</span>
+<span class="sd">cannot be called yet.</span>
+
+<span class="sd">To actually use the view from a web server, we need to register</span>
+<span class="sd">the blueprint to an app:</span>
+
+<span class="sd">.. sourcecode:: python</span>
+
+<span class="sd">    app = faust.App(</span>
+<span class="sd">        &#39;name&#39;,</span>
+<span class="sd">        broker=&#39;kafka://&#39;,</span>
+<span class="sd">        cache=&#39;redis://&#39;,</span>
+<span class="sd">    )</span>
+
+<span class="sd">    user_blueprint.register(app, url_prefix=&#39;/user/&#39;)</span>
+
+<span class="sd">At this point the web server will have fully-realized views</span>
+<span class="sd">with actually cached method handlers.</span>
+
+<span class="sd">The blueprint is registered with a prefix, so the URL for the</span>
+<span class="sd">``UserListView`` is now ``/user/``, and the URL for the ``UserDetailView``</span>
+<span class="sd">is ``/user/{user_id}/``.</span>
+
+<span class="sd">Blueprints can be registered to multiple apps at the same time.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">from</span> <span class="nn">pathlib</span> <span class="k">import</span> <span class="n">Path</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="k">import</span> <span class="n">List</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">,</span> <span class="n">NamedTuple</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Type</span><span class="p">,</span> <span class="n">Union</span>
+
+<span class="kn">from</span> <span class="nn">mode.utils.times</span> <span class="k">import</span> <span class="n">Seconds</span>
+
+<span class="kn">from</span> <span class="nn">faust.types</span> <span class="k">import</span> <span class="n">AppT</span>
+<span class="kn">from</span> <span class="nn">faust.types.web</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">BlueprintT</span><span class="p">,</span>
+    <span class="n">CacheBackendT</span><span class="p">,</span>
+    <span class="n">CacheT</span><span class="p">,</span>
+    <span class="n">PageArg</span><span class="p">,</span>
+    <span class="n">ResourceOptions</span><span class="p">,</span>
+    <span class="n">RouteDecoratorRet</span><span class="p">,</span>
+    <span class="n">View</span><span class="p">,</span>
+    <span class="n">Web</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="kn">from</span> <span class="nn">.cache</span> <span class="k">import</span> <span class="n">Cache</span>
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;Blueprint&#39;</span><span class="p">]</span>
+
+
+<span class="k">class</span> <span class="nc">FutureRoute</span><span class="p">(</span><span class="n">NamedTuple</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Describes web route to be registered later.&quot;&quot;&quot;</span>
+
+    <span class="n">uri</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">handler</span><span class="p">:</span> <span class="n">PageArg</span>
+    <span class="n">base</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">View</span><span class="p">]</span>
+    <span class="n">cors_options</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">ResourceOptions</span><span class="p">]</span>
+
+
+<span class="k">class</span> <span class="nc">FutureStaticRoute</span><span class="p">(</span><span class="n">NamedTuple</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Describes static route to be registered later.&quot;&quot;&quot;</span>
+
+    <span class="n">uri</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">file_or_directory</span><span class="p">:</span> <span class="n">Path</span>
+    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
+
+
+<div class="viewcode-block" id="Blueprint"><a class="viewcode-back" href="../../../reference/faust.web.blueprints.html#faust.web.blueprints.Blueprint">[docs]</a><span class="k">class</span> <span class="nc">Blueprint</span><span class="p">(</span><span class="n">BlueprintT</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Define reusable web application.&quot;&quot;&quot;</span>
+
+    <span class="n">routes</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">FutureRoute</span><span class="p">]</span>
+    <span class="n">static_routes</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">FutureStaticRoute</span><span class="p">]</span>
+    <span class="n">view_name_separator</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;:&#39;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                 <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+                 <span class="o">*</span><span class="p">,</span>
+                 <span class="n">url_prefix</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">name</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">url_prefix</span> <span class="o">=</span> <span class="n">url_prefix</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">routes</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">static_routes</span> <span class="o">=</span> <span class="p">[]</span>
+
+<div class="viewcode-block" id="Blueprint.cache"><a class="viewcode-back" href="../../../reference/faust.web.blueprints.html#faust.web.blueprints.Blueprint.cache">[docs]</a>    <span class="k">def</span> <span class="nf">cache</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+              <span class="n">timeout</span><span class="p">:</span> <span class="n">Seconds</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+              <span class="n">include_headers</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+              <span class="n">key_prefix</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+              <span class="n">backend</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">CacheBackendT</span><span class="p">],</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CacheT</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Cache API.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">key_prefix</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">key_prefix</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span>
+        <span class="k">return</span> <span class="n">Cache</span><span class="p">(</span><span class="n">timeout</span><span class="p">,</span> <span class="n">include_headers</span><span class="p">,</span> <span class="n">key_prefix</span><span class="p">,</span> <span class="n">backend</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Blueprint.route"><a class="viewcode-back" href="../../../reference/faust.web.blueprints.html#faust.web.blueprints.Blueprint.route">[docs]</a>    <span class="k">def</span> <span class="nf">route</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+              <span class="n">uri</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+              <span class="o">*</span><span class="p">,</span>
+              <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+              <span class="n">cors_options</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">ResourceOptions</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+              <span class="n">base</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">View</span><span class="p">]</span> <span class="o">=</span> <span class="n">View</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RouteDecoratorRet</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Create route by decorating handler or view class.&quot;&quot;&quot;</span>
+        <span class="k">def</span> <span class="nf">_inner</span><span class="p">(</span><span class="n">handler</span><span class="p">:</span> <span class="n">PageArg</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PageArg</span><span class="p">:</span>
+            <span class="n">route</span> <span class="o">=</span> <span class="n">FutureRoute</span><span class="p">(</span>
+                <span class="n">uri</span><span class="o">=</span><span class="n">uri</span><span class="p">,</span>
+                <span class="n">name</span><span class="o">=</span><span class="n">name</span> <span class="ow">or</span> <span class="n">handler</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+                <span class="n">handler</span><span class="o">=</span><span class="n">handler</span><span class="p">,</span>
+                <span class="n">base</span><span class="o">=</span><span class="n">base</span><span class="p">,</span>
+                <span class="n">cors_options</span><span class="o">=</span><span class="n">cors_options</span> <span class="ow">or</span> <span class="p">{},</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">routes</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">route</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">handler</span>
+        <span class="k">return</span> <span class="n">_inner</span></div>
+
+<div class="viewcode-block" id="Blueprint.static"><a class="viewcode-back" href="../../../reference/faust.web.blueprints.html#faust.web.blueprints.Blueprint.static">[docs]</a>    <span class="k">def</span> <span class="nf">static</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+               <span class="n">uri</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+               <span class="n">file_or_directory</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">],</span>
+               <span class="o">*</span><span class="p">,</span>
+               <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Add static route.&quot;&quot;&quot;</span>
+        <span class="n">_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">name</span> <span class="ow">or</span> <span class="s1">&#39;static&#39;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">_name</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">+</span> <span class="s1">&#39;.&#39;</span><span class="p">):</span>
+            <span class="n">_name</span> <span class="o">=</span> <span class="n">f</span><span class="s1">&#39;</span><span class="si">{self.name}</span><span class="s1">.</span><span class="si">{name}</span><span class="s1">&#39;</span>
+        <span class="n">fut</span> <span class="o">=</span> <span class="n">FutureStaticRoute</span><span class="p">(</span><span class="n">uri</span><span class="p">,</span> <span class="n">Path</span><span class="p">(</span><span class="n">file_or_directory</span><span class="p">),</span> <span class="n">_name</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">static_routes</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">fut</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Blueprint.register"><a class="viewcode-back" href="../../../reference/faust.web.blueprints.html#faust.web.blueprints.Blueprint.register">[docs]</a>    <span class="k">def</span> <span class="nf">register</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">app</span><span class="p">:</span> <span class="n">AppT</span><span class="p">,</span>
+                 <span class="o">*</span><span class="p">,</span>
+                 <span class="n">url_prefix</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Register blueprint with app.&quot;&quot;&quot;</span>
+        <span class="n">url_prefix</span> <span class="o">=</span> <span class="n">url_prefix</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">url_prefix</span>
+
+        <span class="c1"># Apply routes</span>
+        <span class="k">for</span> <span class="n">route</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">routes</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_apply_route</span><span class="p">(</span><span class="n">app</span><span class="p">,</span> <span class="n">route</span><span class="p">,</span> <span class="n">url_prefix</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">static_route</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">static_routes</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_apply_static_route</span><span class="p">(</span><span class="n">app</span><span class="o">.</span><span class="n">web</span><span class="p">,</span> <span class="n">static_route</span><span class="p">,</span> <span class="n">url_prefix</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_apply_route</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                     <span class="n">app</span><span class="p">:</span> <span class="n">AppT</span><span class="p">,</span>
+                     <span class="n">route</span><span class="p">:</span> <span class="n">FutureRoute</span><span class="p">,</span>
+                     <span class="n">url_prefix</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">uri</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_url_with_prefix</span><span class="p">(</span><span class="n">route</span><span class="o">.</span><span class="n">uri</span><span class="p">,</span> <span class="n">url_prefix</span><span class="p">)</span>
+
+        <span class="c1"># Create the actual view on the app (using app.page)</span>
+
+        <span class="n">app</span><span class="o">.</span><span class="n">page</span><span class="p">(</span>
+            <span class="n">path</span><span class="o">=</span><span class="n">uri</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="k">if</span> <span class="n">uri</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;//&#39;</span><span class="p">)</span> <span class="k">else</span> <span class="n">uri</span><span class="p">,</span>
+            <span class="n">name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_view_name</span><span class="p">(</span><span class="n">route</span><span class="o">.</span><span class="n">name</span><span class="p">),</span>
+            <span class="n">cors_options</span><span class="o">=</span><span class="n">route</span><span class="o">.</span><span class="n">cors_options</span><span class="p">,</span>
+        <span class="p">)(</span><span class="n">route</span><span class="o">.</span><span class="n">handler</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_view_name</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">view_name_separator</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">name</span><span class="p">])</span>
+
+<div class="viewcode-block" id="Blueprint.init_webserver"><a class="viewcode-back" href="../../../reference/faust.web.blueprints.html#faust.web.blueprints.Blueprint.init_webserver">[docs]</a>    <span class="k">def</span> <span class="nf">init_webserver</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">web</span><span class="p">:</span> <span class="n">Web</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Init blueprint for web server start.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">on_webserver_init</span><span class="p">(</span><span class="n">web</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Blueprint.on_webserver_init"><a class="viewcode-back" href="../../../reference/faust.web.blueprints.html#faust.web.blueprints.Blueprint.on_webserver_init">[docs]</a>    <span class="k">def</span> <span class="nf">on_webserver_init</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">web</span><span class="p">:</span> <span class="n">Web</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Call when web server starts.&quot;&quot;&quot;</span>
+        <span class="o">...</span></div>
+
+    <span class="k">def</span> <span class="nf">_url_with_prefix</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">url</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">prefix</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">prefix</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">prefix</span><span class="o">.</span><span class="n">rstrip</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">)</span> <span class="o">+</span> <span class="s1">&#39;/&#39;</span> <span class="o">+</span> <span class="n">url</span><span class="o">.</span><span class="n">lstrip</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">url</span>
+
+    <span class="k">def</span> <span class="nf">_apply_static_route</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                            <span class="n">web</span><span class="p">:</span> <span class="n">Web</span><span class="p">,</span>
+                            <span class="n">route</span><span class="p">:</span> <span class="n">FutureStaticRoute</span><span class="p">,</span>
+                            <span class="n">url_prefix</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">uri</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_url_with_prefix</span><span class="p">(</span><span class="n">route</span><span class="o">.</span><span class="n">uri</span><span class="p">,</span> <span class="n">url_prefix</span><span class="p">)</span>
+        <span class="n">web</span><span class="o">.</span><span class="n">add_static</span><span class="p">(</span><span class="n">uri</span><span class="p">,</span> <span class="n">route</span><span class="o">.</span><span class="n">file_or_directory</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">f</span><span class="s1">&#39;&lt;{type(self).__name__}: </span><span class="si">{self.name}</span><span class="s1">&gt;&#39;</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../../index.html">
+              <img class="logo" src="../../../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../../../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../playbooks/index.html">Playbooks</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../userguide/index.html">User Guide</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../reference/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../history/index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2020, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

@@ -1,0 +1,395 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>faust.types.sensors &#8212; Faust 1.11.0a1 documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="copyright" title="Copyright" href="../copyright.html" />
+    <link rel="next" title="faust.types.serializers" href="faust.types.serializers.html" />
+    <link rel="prev" title="faust.types.router" href="faust.types.router.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="faust-types-sensors">
+<h1><code class="docutils literal notranslate"><span class="pre">faust.types.sensors</span></code><a class="headerlink" href="#faust-types-sensors" title="Permalink to this headline">¶</a></h1>
+<span class="target" id="module-faust.types.sensors"></span><dl class="class">
+<dt id="faust.types.sensors.SensorInterfaceT">
+<em class="property">class </em><code class="sig-prename descclassname">faust.types.sensors.</code><code class="sig-name descname">SensorInterfaceT</code><a class="reference internal" href="../_modules/faust/types/sensors.html#SensorInterfaceT"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.sensors.SensorInterfaceT" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="method">
+<dt id="faust.types.sensors.SensorInterfaceT.on_message_in">
+<em class="property">abstract </em><code class="sig-name descname">on_message_in</code><span class="sig-paren">(</span><em class="sig-param">tp: faust.types.tuples.TP</em>, <em class="sig-param">offset: int</em>, <em class="sig-param">message: faust.types.tuples.Message</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/types/sensors.html#SensorInterfaceT.on_message_in"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.sensors.SensorInterfaceT.on_message_in" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.sensors.SensorInterfaceT.on_stream_event_in">
+<em class="property">abstract </em><code class="sig-name descname">on_stream_event_in</code><span class="sig-paren">(</span><em class="sig-param">tp: faust.types.tuples.TP</em>, <em class="sig-param">offset: int</em>, <em class="sig-param">stream: faust.types.streams.StreamT</em>, <em class="sig-param">event: faust.types.events.EventT</em><span class="sig-paren">)</span> &#x2192; Optional[Dict]<a class="reference internal" href="../_modules/faust/types/sensors.html#SensorInterfaceT.on_stream_event_in"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.sensors.SensorInterfaceT.on_stream_event_in" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Optional" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Dict" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code></a>[~KT, ~VT]]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.sensors.SensorInterfaceT.on_stream_event_out">
+<em class="property">abstract </em><code class="sig-name descname">on_stream_event_out</code><span class="sig-paren">(</span><em class="sig-param">tp: faust.types.tuples.TP</em>, <em class="sig-param">offset: int</em>, <em class="sig-param">stream: faust.types.streams.StreamT</em>, <em class="sig-param">event: faust.types.events.EventT</em>, <em class="sig-param">state: Dict = None</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/types/sensors.html#SensorInterfaceT.on_stream_event_out"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.sensors.SensorInterfaceT.on_stream_event_out" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.sensors.SensorInterfaceT.on_topic_buffer_full">
+<em class="property">abstract </em><code class="sig-name descname">on_topic_buffer_full</code><span class="sig-paren">(</span><em class="sig-param">topic: faust.types.topics.TopicT</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/types/sensors.html#SensorInterfaceT.on_topic_buffer_full"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.sensors.SensorInterfaceT.on_topic_buffer_full" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.sensors.SensorInterfaceT.on_message_out">
+<em class="property">abstract </em><code class="sig-name descname">on_message_out</code><span class="sig-paren">(</span><em class="sig-param">tp: faust.types.tuples.TP</em>, <em class="sig-param">offset: int</em>, <em class="sig-param">message: faust.types.tuples.Message</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/types/sensors.html#SensorInterfaceT.on_message_out"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.sensors.SensorInterfaceT.on_message_out" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.sensors.SensorInterfaceT.on_table_get">
+<em class="property">abstract </em><code class="sig-name descname">on_table_get</code><span class="sig-paren">(</span><em class="sig-param">table: faust.types.tables.CollectionT</em>, <em class="sig-param">key: Any</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/types/sensors.html#SensorInterfaceT.on_table_get"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.sensors.SensorInterfaceT.on_table_get" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.sensors.SensorInterfaceT.on_table_set">
+<em class="property">abstract </em><code class="sig-name descname">on_table_set</code><span class="sig-paren">(</span><em class="sig-param">table: faust.types.tables.CollectionT</em>, <em class="sig-param">key: Any</em>, <em class="sig-param">value: Any</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/types/sensors.html#SensorInterfaceT.on_table_set"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.sensors.SensorInterfaceT.on_table_set" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.sensors.SensorInterfaceT.on_table_del">
+<em class="property">abstract </em><code class="sig-name descname">on_table_del</code><span class="sig-paren">(</span><em class="sig-param">table: faust.types.tables.CollectionT</em>, <em class="sig-param">key: Any</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/types/sensors.html#SensorInterfaceT.on_table_del"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.sensors.SensorInterfaceT.on_table_del" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.sensors.SensorInterfaceT.on_commit_initiated">
+<em class="property">abstract </em><code class="sig-name descname">on_commit_initiated</code><span class="sig-paren">(</span><em class="sig-param">consumer: faust.types.transports.ConsumerT</em><span class="sig-paren">)</span> &#x2192; Any<a class="reference internal" href="../_modules/faust/types/sensors.html#SensorInterfaceT.on_commit_initiated"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.sensors.SensorInterfaceT.on_commit_initiated" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Any" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.sensors.SensorInterfaceT.on_commit_completed">
+<em class="property">abstract </em><code class="sig-name descname">on_commit_completed</code><span class="sig-paren">(</span><em class="sig-param">consumer: faust.types.transports.ConsumerT</em>, <em class="sig-param">state: Any</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/types/sensors.html#SensorInterfaceT.on_commit_completed"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.sensors.SensorInterfaceT.on_commit_completed" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.sensors.SensorInterfaceT.on_send_initiated">
+<em class="property">abstract </em><code class="sig-name descname">on_send_initiated</code><span class="sig-paren">(</span><em class="sig-param">producer: faust.types.transports.ProducerT</em>, <em class="sig-param">topic: str</em>, <em class="sig-param">message: faust.types.tuples.PendingMessage</em>, <em class="sig-param">keysize: int</em>, <em class="sig-param">valsize: int</em><span class="sig-paren">)</span> &#x2192; Any<a class="reference internal" href="../_modules/faust/types/sensors.html#SensorInterfaceT.on_send_initiated"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.sensors.SensorInterfaceT.on_send_initiated" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Any" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.sensors.SensorInterfaceT.on_send_completed">
+<em class="property">abstract </em><code class="sig-name descname">on_send_completed</code><span class="sig-paren">(</span><em class="sig-param">producer: faust.types.transports.ProducerT</em>, <em class="sig-param">state: Any</em>, <em class="sig-param">metadata: faust.types.tuples.RecordMetadata</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/types/sensors.html#SensorInterfaceT.on_send_completed"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.sensors.SensorInterfaceT.on_send_completed" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.sensors.SensorInterfaceT.on_send_error">
+<em class="property">abstract </em><code class="sig-name descname">on_send_error</code><span class="sig-paren">(</span><em class="sig-param">producer: faust.types.transports.ProducerT</em>, <em class="sig-param">exc: BaseException</em>, <em class="sig-param">state: Any</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/types/sensors.html#SensorInterfaceT.on_send_error"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.sensors.SensorInterfaceT.on_send_error" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.sensors.SensorInterfaceT.on_assignment_start">
+<em class="property">abstract </em><code class="sig-name descname">on_assignment_start</code><span class="sig-paren">(</span><em class="sig-param">assignor: faust.types.assignor.PartitionAssignorT</em><span class="sig-paren">)</span> &#x2192; Dict<a class="reference internal" href="../_modules/faust/types/sensors.html#SensorInterfaceT.on_assignment_start"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.sensors.SensorInterfaceT.on_assignment_start" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Dict" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code></a>[~KT, ~VT]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.sensors.SensorInterfaceT.on_assignment_error">
+<em class="property">abstract </em><code class="sig-name descname">on_assignment_error</code><span class="sig-paren">(</span><em class="sig-param">assignor: faust.types.assignor.PartitionAssignorT</em>, <em class="sig-param">state: Dict</em>, <em class="sig-param">exc: BaseException</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/types/sensors.html#SensorInterfaceT.on_assignment_error"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.sensors.SensorInterfaceT.on_assignment_error" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.sensors.SensorInterfaceT.on_assignment_completed">
+<em class="property">abstract </em><code class="sig-name descname">on_assignment_completed</code><span class="sig-paren">(</span><em class="sig-param">assignor: faust.types.assignor.PartitionAssignorT</em>, <em class="sig-param">state: Dict</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/types/sensors.html#SensorInterfaceT.on_assignment_completed"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.sensors.SensorInterfaceT.on_assignment_completed" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.sensors.SensorInterfaceT.on_rebalance_start">
+<em class="property">abstract </em><code class="sig-name descname">on_rebalance_start</code><span class="sig-paren">(</span><em class="sig-param">app: faust.types.sensors._AppT</em><span class="sig-paren">)</span> &#x2192; Dict<a class="reference internal" href="../_modules/faust/types/sensors.html#SensorInterfaceT.on_rebalance_start"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.sensors.SensorInterfaceT.on_rebalance_start" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Dict" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code></a>[~KT, ~VT]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.sensors.SensorInterfaceT.on_rebalance_return">
+<em class="property">abstract </em><code class="sig-name descname">on_rebalance_return</code><span class="sig-paren">(</span><em class="sig-param">app: faust.types.sensors._AppT</em>, <em class="sig-param">state: Dict</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/types/sensors.html#SensorInterfaceT.on_rebalance_return"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.sensors.SensorInterfaceT.on_rebalance_return" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.sensors.SensorInterfaceT.on_rebalance_end">
+<em class="property">abstract </em><code class="sig-name descname">on_rebalance_end</code><span class="sig-paren">(</span><em class="sig-param">app: faust.types.sensors._AppT</em>, <em class="sig-param">state: Dict</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/types/sensors.html#SensorInterfaceT.on_rebalance_end"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.sensors.SensorInterfaceT.on_rebalance_end" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.sensors.SensorInterfaceT.on_web_request_start">
+<em class="property">abstract </em><code class="sig-name descname">on_web_request_start</code><span class="sig-paren">(</span><em class="sig-param">app: faust.types.sensors._AppT</em>, <em class="sig-param">request: faust.types.web.Request</em>, <em class="sig-param">*</em>, <em class="sig-param">view: faust.types.web.View = None</em><span class="sig-paren">)</span> &#x2192; Dict<a class="reference internal" href="../_modules/faust/types/sensors.html#SensorInterfaceT.on_web_request_start"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.sensors.SensorInterfaceT.on_web_request_start" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Dict" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code></a>[~KT, ~VT]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.sensors.SensorInterfaceT.on_web_request_end">
+<em class="property">abstract </em><code class="sig-name descname">on_web_request_end</code><span class="sig-paren">(</span><em class="sig-param">app: faust.types.sensors._AppT, request: faust.types.web.Request, response: Optional[faust.types.web.Response], state: Dict, *, view: faust.types.web.View = None</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/types/sensors.html#SensorInterfaceT.on_web_request_end"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.sensors.SensorInterfaceT.on_web_request_end" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="faust.types.sensors.SensorT">
+<em class="property">class </em><code class="sig-prename descclassname">faust.types.sensors.</code><code class="sig-name descname">SensorT</code><span class="sig-paren">(</span><em class="sig-param">*</em>, <em class="sig-param">beacon: mode.utils.types.trees.NodeT = None</em>, <em class="sig-param">loop: asyncio.events.AbstractEventLoop = None</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/types/sensors.html#SensorT"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.sensors.SensorT" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="class">
+<dt id="faust.types.sensors.SensorDelegateT">
+<em class="property">class </em><code class="sig-prename descclassname">faust.types.sensors.</code><code class="sig-name descname">SensorDelegateT</code><a class="reference internal" href="../_modules/faust/types/sensors.html#SensorDelegateT"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.sensors.SensorDelegateT" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="method">
+<dt id="faust.types.sensors.SensorDelegateT.add">
+<em class="property">abstract </em><code class="sig-name descname">add</code><span class="sig-paren">(</span><em class="sig-param">sensor: faust.types.sensors.SensorT</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/types/sensors.html#SensorDelegateT.add"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.sensors.SensorDelegateT.add" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.sensors.SensorDelegateT.remove">
+<em class="property">abstract </em><code class="sig-name descname">remove</code><span class="sig-paren">(</span><em class="sig-param">sensor: faust.types.sensors.SensorT</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/types/sensors.html#SensorDelegateT.remove"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.sensors.SensorDelegateT.remove" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../playbooks/index.html">Playbooks</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../userguide/index.html">User Guide</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../history/index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">API Reference</a><ul>
+      <li>Previous: <a href="faust.types.router.html" title="previous chapter"><code class="docutils literal notranslate"><span class="pre">faust.types.router</span></code></a></li>
+      <li>Next: <a href="faust.types.serializers.html" title="next chapter"><code class="docutils literal notranslate"><span class="pre">faust.types.serializers</span></code></a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2020, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../_sources/reference/faust.types.sensors.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

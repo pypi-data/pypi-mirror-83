@@ -1,0 +1,836 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>faust.tables.recovery &#8212; Faust 1.9.0 documentation</title>
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../../../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <link rel="copyright" title="Copyright" href="../../../copyright.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for faust.tables.recovery</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Table recovery after rebalancing.&quot;&quot;&quot;</span>
+<span class="kn">import</span> <span class="nn">asyncio</span>
+<span class="kn">import</span> <span class="nn">typing</span>
+
+<span class="kn">from</span> <span class="nn">collections</span> <span class="k">import</span> <span class="n">defaultdict</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="k">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">MutableMapping</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Set</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">cast</span>
+
+<span class="kn">import</span> <span class="nn">opentracing</span>
+<span class="kn">from</span> <span class="nn">mode</span> <span class="k">import</span> <span class="n">Service</span>
+<span class="kn">from</span> <span class="nn">mode.services</span> <span class="k">import</span> <span class="n">WaitArgT</span>
+<span class="kn">from</span> <span class="nn">mode.utils.locks</span> <span class="k">import</span> <span class="n">Event</span>
+<span class="kn">from</span> <span class="nn">mode.utils.typing</span> <span class="k">import</span> <span class="n">Counter</span>
+
+<span class="kn">from</span> <span class="nn">faust.exceptions</span> <span class="k">import</span> <span class="n">ConsistencyError</span>
+<span class="kn">from</span> <span class="nn">faust.types</span> <span class="k">import</span> <span class="n">AppT</span><span class="p">,</span> <span class="n">EventT</span><span class="p">,</span> <span class="n">TP</span>
+<span class="kn">from</span> <span class="nn">faust.types.tables</span> <span class="k">import</span> <span class="n">CollectionT</span><span class="p">,</span> <span class="n">TableManagerT</span>
+<span class="kn">from</span> <span class="nn">faust.types.transports</span> <span class="k">import</span> <span class="n">ConsumerT</span>
+<span class="kn">from</span> <span class="nn">faust.utils</span> <span class="k">import</span> <span class="n">terminal</span>
+<span class="kn">from</span> <span class="nn">faust.utils.tracing</span> <span class="k">import</span> <span class="n">finish_span</span><span class="p">,</span> <span class="n">traced_from_parent_span</span>
+<span class="kn">from</span> <span class="nn">faust.tables.globaltable</span> <span class="k">import</span> <span class="n">GlobalTable</span>
+
+<span class="k">if</span> <span class="n">typing</span><span class="o">.</span><span class="n">TYPE_CHECKING</span><span class="p">:</span>
+    <span class="kn">from</span> <span class="nn">faust.app</span> <span class="k">import</span> <span class="n">App</span> <span class="k">as</span> <span class="n">_App</span>
+    <span class="kn">from</span> <span class="nn">.manager</span> <span class="k">import</span> <span class="n">TableManager</span> <span class="k">as</span> <span class="n">_TableManager</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="k">class</span> <span class="nc">_App</span><span class="p">:</span> <span class="o">...</span>           <span class="c1"># noqa</span>
+    <span class="k">class</span> <span class="nc">_TableManager</span><span class="p">:</span> <span class="o">...</span>  <span class="c1"># noqa</span>
+
+<span class="n">E_PERSISTED_OFFSET</span> <span class="o">=</span> <span class="s1">&#39;&#39;&#39;</span><span class="se">\</span>
+<span class="s1">The persisted offset for changelog topic partition </span><span class="si">{0}</span><span class="s1"> is higher</span>
+<span class="s1">than the last offset in that topic (highwater) (</span><span class="si">{1}</span><span class="s1"> &gt; </span><span class="si">{2}</span><span class="s1">).</span>
+
+<span class="s1">Most likely you have removed data from the topics without</span>
+<span class="s1">removing the RocksDB database file for this partition.</span>
+<span class="s1">&#39;&#39;&#39;</span>
+
+
+<div class="viewcode-block" id="ServiceStopped"><a class="viewcode-back" href="../../../reference/faust.tables.recovery.html#faust.tables.recovery.ServiceStopped">[docs]</a><span class="k">class</span> <span class="nc">ServiceStopped</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;The recovery service was stopped.&quot;&quot;&quot;</span></div>
+
+
+<div class="viewcode-block" id="RebalanceAgain"><a class="viewcode-back" href="../../../reference/faust.tables.recovery.html#faust.tables.recovery.RebalanceAgain">[docs]</a><span class="k">class</span> <span class="nc">RebalanceAgain</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;During rebalance, another rebalance happened.&quot;&quot;&quot;</span></div>
+
+
+<div class="viewcode-block" id="Recovery"><a class="viewcode-back" href="../../../reference/faust.tables.recovery.html#faust.tables.recovery.Recovery">[docs]</a><span class="k">class</span> <span class="nc">Recovery</span><span class="p">(</span><span class="n">Service</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Service responsible for recovering tables from changelog topics.&quot;&quot;&quot;</span>
+
+    <span class="n">app</span><span class="p">:</span> <span class="n">AppT</span>
+
+    <span class="n">tables</span><span class="p">:</span> <span class="n">_TableManager</span>
+
+    <span class="n">stats_interval</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">5.0</span>
+
+    <span class="c1">#: Set of standby topic partitions.</span>
+    <span class="n">standby_tps</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="n">TP</span><span class="p">]</span>
+
+    <span class="c1">#: Set of active topic partitions.</span>
+    <span class="n">active_tps</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="n">TP</span><span class="p">]</span>
+
+    <span class="n">actives_for_table</span><span class="p">:</span> <span class="n">MutableMapping</span><span class="p">[</span><span class="n">CollectionT</span><span class="p">,</span> <span class="n">Set</span><span class="p">[</span><span class="n">TP</span><span class="p">]]</span>
+    <span class="n">standbys_for_table</span><span class="p">:</span> <span class="n">MutableMapping</span><span class="p">[</span><span class="n">CollectionT</span><span class="p">,</span> <span class="n">Set</span><span class="p">[</span><span class="n">TP</span><span class="p">]]</span>
+
+    <span class="c1">#: Mapping from topic partition to table</span>
+    <span class="n">tp_to_table</span><span class="p">:</span> <span class="n">MutableMapping</span><span class="p">[</span><span class="n">TP</span><span class="p">,</span> <span class="n">CollectionT</span><span class="p">]</span>
+
+    <span class="c1">#: Active offset by topic partition.</span>
+    <span class="n">active_offsets</span><span class="p">:</span> <span class="n">Counter</span><span class="p">[</span><span class="n">TP</span><span class="p">]</span>
+
+    <span class="c1">#: Standby offset by topic partition.</span>
+    <span class="n">standby_offsets</span><span class="p">:</span> <span class="n">Counter</span><span class="p">[</span><span class="n">TP</span><span class="p">]</span>
+
+    <span class="c1">#: Mapping of highwaters by topic partition.</span>
+    <span class="n">highwaters</span><span class="p">:</span> <span class="n">Counter</span><span class="p">[</span><span class="n">TP</span><span class="p">]</span>
+
+    <span class="c1">#: Active highwaters by topic partition.</span>
+    <span class="n">active_highwaters</span><span class="p">:</span> <span class="n">Counter</span><span class="p">[</span><span class="n">TP</span><span class="p">]</span>
+
+    <span class="c1">#: Standby highwaters by topic partition.</span>
+    <span class="n">standby_highwaters</span><span class="p">:</span> <span class="n">Counter</span><span class="p">[</span><span class="n">TP</span><span class="p">]</span>
+
+    <span class="n">_signal_recovery_start</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Event</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">_signal_recovery_end</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Event</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">_signal_recovery_reset</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Event</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="n">completed</span><span class="p">:</span> <span class="n">Event</span>
+    <span class="n">in_recovery</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">standbys_pending</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">recovery_delay</span><span class="p">:</span> <span class="nb">float</span>
+
+    <span class="c1">#: Changelog event buffers by table.</span>
+    <span class="c1">#: These are filled by background task `_slurp_changelog`,</span>
+    <span class="c1">#: and need to be flushed before starting new recovery/stopping.</span>
+    <span class="n">buffers</span><span class="p">:</span> <span class="n">MutableMapping</span><span class="p">[</span><span class="n">CollectionT</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="n">EventT</span><span class="p">]]</span>
+
+    <span class="c1">#: Cache of buffer size by topic partition..</span>
+    <span class="n">buffer_sizes</span><span class="p">:</span> <span class="n">MutableMapping</span><span class="p">[</span><span class="n">TP</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span>
+
+    <span class="n">_recovery_span</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">opentracing</span><span class="o">.</span><span class="n">Span</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">_actives_span</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">opentracing</span><span class="o">.</span><span class="n">Span</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">_standbys_span</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">opentracing</span><span class="o">.</span><span class="n">Span</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                 <span class="n">app</span><span class="p">:</span> <span class="n">AppT</span><span class="p">,</span>
+                 <span class="n">tables</span><span class="p">:</span> <span class="n">TableManagerT</span><span class="p">,</span>
+                 <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">app</span> <span class="o">=</span> <span class="n">app</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">tables</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">_TableManager</span><span class="p">,</span> <span class="n">tables</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">standby_tps</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">active_tps</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">tp_to_table</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">active_offsets</span> <span class="o">=</span> <span class="n">Counter</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">standby_offsets</span> <span class="o">=</span> <span class="n">Counter</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">active_highwaters</span> <span class="o">=</span> <span class="n">Counter</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">standby_highwaters</span> <span class="o">=</span> <span class="n">Counter</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">completed</span> <span class="o">=</span> <span class="n">Event</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">buffers</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">list</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">buffer_sizes</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">recovery_delay</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">conf</span><span class="o">.</span><span class="n">stream_recovery_delay</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">actives_for_table</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">set</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">standbys_for_table</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">set</span><span class="p">)</span>
+
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">signal_recovery_start</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Event</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Event used to signal that recovery has started.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_signal_recovery_start</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_signal_recovery_start</span> <span class="o">=</span> <span class="n">Event</span><span class="p">(</span><span class="n">loop</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">loop</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_signal_recovery_start</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">signal_recovery_end</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Event</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Event used to signal that recovery has ended.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_signal_recovery_end</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_signal_recovery_end</span> <span class="o">=</span> <span class="n">Event</span><span class="p">(</span><span class="n">loop</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">loop</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_signal_recovery_end</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">signal_recovery_reset</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Event</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Event used to signal that recovery is restarting.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_signal_recovery_reset</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_signal_recovery_reset</span> <span class="o">=</span> <span class="n">Event</span><span class="p">(</span><span class="n">loop</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">loop</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_signal_recovery_reset</span>
+
+<div class="viewcode-block" id="Recovery.on_stop"><a class="viewcode-back" href="../../../reference/faust.tables.recovery.html#faust.tables.recovery.Recovery.on_stop">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">on_stop</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Call when recovery service stops.&quot;&quot;&quot;</span>
+        <span class="c1"># Flush buffers when stopping.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">flush_buffers</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="Recovery.add_active"><a class="viewcode-back" href="../../../reference/faust.tables.recovery.html#faust.tables.recovery.Recovery.add_active">[docs]</a>    <span class="k">def</span> <span class="nf">add_active</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">table</span><span class="p">:</span> <span class="n">CollectionT</span><span class="p">,</span> <span class="n">tp</span><span class="p">:</span> <span class="n">TP</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Add changelog partition to be used for active recovery.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">active_tps</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">tp</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">actives_for_table</span><span class="p">[</span><span class="n">table</span><span class="p">]</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">tp</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_add</span><span class="p">(</span><span class="n">table</span><span class="p">,</span> <span class="n">tp</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">active_offsets</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Recovery.add_standby"><a class="viewcode-back" href="../../../reference/faust.tables.recovery.html#faust.tables.recovery.Recovery.add_standby">[docs]</a>    <span class="k">def</span> <span class="nf">add_standby</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">table</span><span class="p">:</span> <span class="n">CollectionT</span><span class="p">,</span> <span class="n">tp</span><span class="p">:</span> <span class="n">TP</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Add changelog partition to be used for standby recovery.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">standby_tps</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">tp</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">standbys_for_table</span><span class="p">[</span><span class="n">table</span><span class="p">]</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">tp</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_add</span><span class="p">(</span><span class="n">table</span><span class="p">,</span> <span class="n">tp</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">standby_offsets</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Recovery.add_standbys_for_global_table"><a class="viewcode-back" href="../../../reference/faust.tables.recovery.html#faust.tables.recovery.Recovery.add_standbys_for_global_table">[docs]</a>    <span class="k">def</span> <span class="nf">add_standbys_for_global_table</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                                      <span class="n">gtable</span><span class="p">:</span> <span class="n">CollectionT</span><span class="p">,</span>
+                                      <span class="n">active_topic</span><span class="p">:</span> <span class="n">TP</span><span class="p">,</span>
+                                      <span class="n">topics</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="n">TP</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Add standby topics for global table.&quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">tp</span> <span class="ow">in</span> <span class="n">topics</span><span class="p">:</span>
+            <span class="n">table</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">tables</span><span class="o">.</span><span class="n">_changelogs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">tp</span><span class="o">.</span><span class="n">topic</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">table</span> <span class="ow">is</span> <span class="n">gtable</span> <span class="ow">and</span> <span class="n">tp</span> <span class="o">!=</span> <span class="n">active_topic</span><span class="p">:</span>
+                <span class="c1"># No need to add table&#39;s own topic.</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">add_standby</span><span class="p">(</span><span class="n">gtable</span><span class="p">,</span> <span class="n">tp</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_add</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">table</span><span class="p">:</span> <span class="n">CollectionT</span><span class="p">,</span> <span class="n">tp</span><span class="p">:</span> <span class="n">TP</span><span class="p">,</span> <span class="n">offsets</span><span class="p">:</span> <span class="n">Counter</span><span class="p">[</span><span class="n">TP</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">tp_to_table</span><span class="p">[</span><span class="n">tp</span><span class="p">]</span> <span class="o">=</span> <span class="n">table</span>
+        <span class="n">persisted_offset</span> <span class="o">=</span> <span class="n">table</span><span class="o">.</span><span class="n">persisted_offset</span><span class="p">(</span><span class="n">tp</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">persisted_offset</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">offsets</span><span class="p">[</span><span class="n">tp</span><span class="p">]</span> <span class="o">=</span> <span class="n">persisted_offset</span>
+        <span class="n">offsets</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="n">tp</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
+
+<div class="viewcode-block" id="Recovery.revoke"><a class="viewcode-back" href="../../../reference/faust.tables.recovery.html#faust.tables.recovery.Recovery.revoke">[docs]</a>    <span class="k">def</span> <span class="nf">revoke</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tp</span><span class="p">:</span> <span class="n">TP</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Revoke assignment of table changelog partition.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">standby_offsets</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">tp</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">standby_highwaters</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">tp</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">active_offsets</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">tp</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">active_highwaters</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">tp</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Recovery.on_partitions_revoked"><a class="viewcode-back" href="../../../reference/faust.tables.recovery.html#faust.tables.recovery.Recovery.on_partitions_revoked">[docs]</a>    <span class="k">def</span> <span class="nf">on_partitions_revoked</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">revoked</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="n">TP</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Call when rebalancing and partitions are revoked.&quot;&quot;&quot;</span>
+        <span class="n">T</span> <span class="o">=</span> <span class="n">traced_from_parent_span</span><span class="p">()</span>
+        <span class="n">T</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">flush_buffers</span><span class="p">)()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">signal_recovery_reset</span><span class="o">.</span><span class="n">set</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="Recovery.on_rebalance"><a class="viewcode-back" href="../../../reference/faust.tables.recovery.html#faust.tables.recovery.Recovery.on_rebalance">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">on_rebalance</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                           <span class="n">assigned</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="n">TP</span><span class="p">],</span>
+                           <span class="n">revoked</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="n">TP</span><span class="p">],</span>
+                           <span class="n">newly_assigned</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="n">TP</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Call when cluster is rebalancing.&quot;&quot;&quot;</span>
+        <span class="n">app</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span>
+        <span class="n">assigned_standbys</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">assignor</span><span class="o">.</span><span class="n">assigned_standbys</span><span class="p">()</span>
+        <span class="n">assigned_actives</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">assignor</span><span class="o">.</span><span class="n">assigned_actives</span><span class="p">()</span>
+
+        <span class="k">for</span> <span class="n">tp</span> <span class="ow">in</span> <span class="n">revoked</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">revoke</span><span class="p">(</span><span class="n">tp</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">standby_tps</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">active_tps</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">actives_for_table</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">standbys_for_table</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+
+        <span class="k">for</span> <span class="n">tp</span> <span class="ow">in</span> <span class="n">assigned_standbys</span><span class="p">:</span>
+            <span class="n">table</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">tables</span><span class="o">.</span><span class="n">_changelogs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">tp</span><span class="o">.</span><span class="n">topic</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">table</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">add_standby</span><span class="p">(</span><span class="n">table</span><span class="p">,</span> <span class="n">tp</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">tp</span> <span class="ow">in</span> <span class="n">assigned_actives</span><span class="p">:</span>
+            <span class="n">table</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">tables</span><span class="o">.</span><span class="n">_changelogs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">tp</span><span class="o">.</span><span class="n">topic</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">table</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">add_active</span><span class="p">(</span><span class="n">table</span><span class="p">,</span> <span class="n">tp</span><span class="p">)</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">table</span><span class="p">,</span> <span class="n">GlobalTable</span><span class="p">):</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">add_standbys_for_global_table</span><span class="p">(</span>
+                        <span class="n">table</span><span class="p">,</span> <span class="n">tp</span><span class="p">,</span> <span class="n">assigned_actives</span><span class="p">)</span>
+
+        <span class="n">active_offsets</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">tp</span><span class="p">:</span> <span class="n">offset</span>
+            <span class="k">for</span> <span class="n">tp</span><span class="p">,</span> <span class="n">offset</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">active_offsets</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">tp</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">active_tps</span>
+        <span class="p">}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">active_offsets</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">active_offsets</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">active_offsets</span><span class="p">)</span>
+
+        <span class="n">rebalancing_span</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">_App</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="p">)</span><span class="o">.</span><span class="n">_rebalancing_span</span>
+        <span class="k">if</span> <span class="n">app</span><span class="o">.</span><span class="n">tracer</span> <span class="ow">and</span> <span class="n">rebalancing_span</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_recovery_span</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">tracer</span><span class="o">.</span><span class="n">get_tracer</span><span class="p">(</span><span class="s1">&#39;_faust&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">start_span</span><span class="p">(</span>
+                <span class="s1">&#39;recovery&#39;</span><span class="p">,</span>
+                <span class="n">child_of</span><span class="o">=</span><span class="n">rebalancing_span</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">app</span><span class="o">.</span><span class="n">_span_add_default_tags</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_recovery_span</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">signal_recovery_reset</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">signal_recovery_start</span><span class="o">.</span><span class="n">set</span><span class="p">()</span></div>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">_resume_streams</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">app</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span>
+        <span class="n">consumer</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">consumer</span>
+        <span class="k">await</span> <span class="n">app</span><span class="o">.</span><span class="n">on_rebalance_complete</span><span class="o">.</span><span class="n">send</span><span class="p">()</span>
+        <span class="c1"># Resume partitions and start fetching.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Resuming flow...&#39;</span><span class="p">)</span>
+        <span class="n">consumer</span><span class="o">.</span><span class="n">resume_flow</span><span class="p">()</span>
+        <span class="n">app</span><span class="o">.</span><span class="n">flow_control</span><span class="o">.</span><span class="n">resume</span><span class="p">()</span>
+        <span class="n">assignment</span> <span class="o">=</span> <span class="n">consumer</span><span class="o">.</span><span class="n">assignment</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">assignment</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Seek stream partitions to committed offsets.&#39;</span><span class="p">)</span>
+            <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_wait</span><span class="p">(</span><span class="n">consumer</span><span class="o">.</span><span class="n">perform_seek</span><span class="p">())</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">dev</span><span class="p">(</span><span class="s1">&#39;Resume stream partitions&#39;</span><span class="p">)</span>
+            <span class="n">consumer</span><span class="o">.</span><span class="n">resume_partitions</span><span class="p">(</span><span class="n">assignment</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Resuming streams with empty assignment&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">completed</span><span class="o">.</span><span class="n">set</span><span class="p">()</span>
+        <span class="c1"># finally make sure the fetcher is running.</span>
+        <span class="k">await</span> <span class="n">cast</span><span class="p">(</span><span class="n">_App</span><span class="p">,</span> <span class="n">app</span><span class="p">)</span><span class="o">.</span><span class="n">_fetcher</span><span class="o">.</span><span class="n">maybe_start</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">tables</span><span class="o">.</span><span class="n">on_actives_ready</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">tables</span><span class="o">.</span><span class="n">on_standbys_ready</span><span class="p">()</span>
+        <span class="n">app</span><span class="o">.</span><span class="n">on_rebalance_end</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Worker ready&#39;</span><span class="p">)</span>
+
+    <span class="nd">@Service</span><span class="o">.</span><span class="n">task</span>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">_restart_recovery</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">consumer</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">consumer</span>
+        <span class="n">active_tps</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">active_tps</span>
+        <span class="n">standby_tps</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">standby_tps</span>
+        <span class="n">standby_offsets</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">standby_offsets</span>
+        <span class="n">standby_highwaters</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">standby_highwaters</span>
+        <span class="n">assigned_active_tps</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">active_tps</span>
+        <span class="n">assigned_standby_tps</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">standby_tps</span>
+        <span class="n">active_offsets</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">active_offsets</span>
+        <span class="n">standby_offsets</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">standby_offsets</span>
+        <span class="n">active_highwaters</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">active_highwaters</span>
+
+        <span class="k">while</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">should_stop</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">dev</span><span class="p">(</span><span class="s1">&#39;WAITING FOR NEXT RECOVERY TO START&#39;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">signal_recovery_reset</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">in_recovery</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="k">if</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">wait_for_stopped</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">signal_recovery_start</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">signal_recovery_start</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+                <span class="k">break</span>  <span class="c1"># service was stopped</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">signal_recovery_start</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+
+            <span class="n">span</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="n">spans</span><span class="p">:</span> <span class="nb">list</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="n">tracer</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">opentracing</span><span class="o">.</span><span class="n">Tracer</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">tracer</span><span class="p">:</span>
+                <span class="n">tracer</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">tracer</span><span class="o">.</span><span class="n">get_tracer</span><span class="p">(</span><span class="s1">&#39;_faust&#39;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">tracer</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_recovery_span</span><span class="p">:</span>
+                <span class="n">span</span> <span class="o">=</span> <span class="n">tracer</span><span class="o">.</span><span class="n">start_span</span><span class="p">(</span>
+                    <span class="s1">&#39;recovery-thread&#39;</span><span class="p">,</span>
+                    <span class="n">child_of</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_recovery_span</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">_span_add_default_tags</span><span class="p">(</span><span class="n">span</span><span class="p">)</span>
+                <span class="n">spans</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span><span class="n">span</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_recovery_span</span><span class="p">])</span>
+            <span class="n">T</span> <span class="o">=</span> <span class="n">traced_from_parent_span</span><span class="p">(</span><span class="n">span</span><span class="p">)</span>
+
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_wait</span><span class="p">(</span><span class="n">T</span><span class="p">(</span><span class="n">asyncio</span><span class="o">.</span><span class="n">sleep</span><span class="p">)(</span><span class="bp">self</span><span class="o">.</span><span class="n">recovery_delay</span><span class="p">))</span>
+
+                <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">tables</span><span class="p">:</span>
+                    <span class="c1"># If there are no tables -- simply resume streams</span>
+                    <span class="k">await</span> <span class="n">T</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_resume_streams</span><span class="p">)()</span>
+                    <span class="k">for</span> <span class="n">_span</span> <span class="ow">in</span> <span class="n">spans</span><span class="p">:</span>
+                        <span class="n">finish_span</span><span class="p">(</span><span class="n">_span</span><span class="p">)</span>
+                    <span class="k">continue</span>
+
+                <span class="bp">self</span><span class="o">.</span><span class="n">in_recovery</span> <span class="o">=</span> <span class="kc">True</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">standbys_pending</span> <span class="o">=</span> <span class="kc">True</span>
+                <span class="c1"># Must flush any buffers before starting rebalance.</span>
+                <span class="n">T</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">flush_buffers</span><span class="p">)()</span>
+                <span class="n">producer</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">_App</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="p">)</span><span class="o">.</span><span class="n">_producer</span>
+                <span class="k">if</span> <span class="n">producer</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_wait</span><span class="p">(</span><span class="n">T</span><span class="p">(</span><span class="n">producer</span><span class="o">.</span><span class="n">flush</span><span class="p">)())</span>
+
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">dev</span><span class="p">(</span><span class="s1">&#39;Build highwaters for active partitions&#39;</span><span class="p">)</span>
+                <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_wait</span><span class="p">(</span><span class="n">T</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_build_highwaters</span><span class="p">)(</span>
+                    <span class="n">consumer</span><span class="p">,</span> <span class="n">assigned_active_tps</span><span class="p">,</span>
+                    <span class="n">active_highwaters</span><span class="p">,</span> <span class="s1">&#39;active&#39;</span><span class="p">))</span>
+
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">dev</span><span class="p">(</span><span class="s1">&#39;Build offsets for active partitions&#39;</span><span class="p">)</span>
+                <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_wait</span><span class="p">(</span><span class="n">T</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_build_offsets</span><span class="p">)(</span>
+                    <span class="n">consumer</span><span class="p">,</span> <span class="n">assigned_active_tps</span><span class="p">,</span> <span class="n">active_offsets</span><span class="p">,</span> <span class="s1">&#39;active&#39;</span><span class="p">))</span>
+
+                <span class="k">for</span> <span class="n">tp</span> <span class="ow">in</span> <span class="n">assigned_active_tps</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">active_offsets</span><span class="p">[</span><span class="n">tp</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">active_highwaters</span><span class="p">[</span><span class="n">tp</span><span class="p">]:</span>
+                        <span class="k">raise</span> <span class="n">ConsistencyError</span><span class="p">(</span>
+                            <span class="n">E_PERSISTED_OFFSET</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                                <span class="n">tp</span><span class="p">,</span>
+                                <span class="n">active_offsets</span><span class="p">[</span><span class="n">tp</span><span class="p">],</span>
+                                <span class="n">active_highwaters</span><span class="p">[</span><span class="n">tp</span><span class="p">],</span>
+                            <span class="p">),</span>
+                        <span class="p">)</span>
+
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">dev</span><span class="p">(</span><span class="s1">&#39;Build offsets for standby partitions&#39;</span><span class="p">)</span>
+                <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_wait</span><span class="p">(</span><span class="n">T</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_build_offsets</span><span class="p">)(</span>
+                    <span class="n">consumer</span><span class="p">,</span> <span class="n">assigned_standby_tps</span><span class="p">,</span>
+                    <span class="n">standby_offsets</span><span class="p">,</span> <span class="s1">&#39;standby&#39;</span><span class="p">))</span>
+
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">dev</span><span class="p">(</span><span class="s1">&#39;Seek offsets for active partitions&#39;</span><span class="p">)</span>
+                <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_wait</span><span class="p">(</span><span class="n">T</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_seek_offsets</span><span class="p">)(</span>
+                    <span class="n">consumer</span><span class="p">,</span> <span class="n">assigned_active_tps</span><span class="p">,</span> <span class="n">active_offsets</span><span class="p">,</span> <span class="s1">&#39;active&#39;</span><span class="p">))</span>
+
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">need_recovery</span><span class="p">():</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Restoring state from changelog topics...&#39;</span><span class="p">)</span>
+                    <span class="n">T</span><span class="p">(</span><span class="n">consumer</span><span class="o">.</span><span class="n">resume_partitions</span><span class="p">)(</span><span class="n">active_tps</span><span class="p">)</span>
+                    <span class="c1"># Resume partitions and start fetching.</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Resuming flow...&#39;</span><span class="p">)</span>
+                    <span class="n">T</span><span class="p">(</span><span class="n">consumer</span><span class="o">.</span><span class="n">resume_flow</span><span class="p">)()</span>
+                    <span class="k">await</span> <span class="n">T</span><span class="p">(</span><span class="n">cast</span><span class="p">(</span><span class="n">_App</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="p">)</span><span class="o">.</span><span class="n">_fetcher</span><span class="o">.</span><span class="n">maybe_start</span><span class="p">)()</span>
+                    <span class="n">T</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">flow_control</span><span class="o">.</span><span class="n">resume</span><span class="p">)()</span>
+
+                    <span class="c1"># Wait for actives to be up to date.</span>
+                    <span class="c1"># This signal will be set by _slurp_changelogs</span>
+                    <span class="k">if</span> <span class="n">tracer</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">span</span><span class="p">:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">_actives_span</span> <span class="o">=</span> <span class="n">tracer</span><span class="o">.</span><span class="n">start_span</span><span class="p">(</span>
+                            <span class="s1">&#39;recovery-actives&#39;</span><span class="p">,</span>
+                            <span class="n">child_of</span><span class="o">=</span><span class="n">span</span><span class="p">,</span>
+                            <span class="n">tags</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;Active-Stats&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">active_stats</span><span class="p">()},</span>
+                        <span class="p">)</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">_span_add_default_tags</span><span class="p">(</span><span class="n">span</span><span class="p">)</span>
+                    <span class="k">try</span><span class="p">:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">signal_recovery_end</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+                        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_wait</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">signal_recovery_end</span><span class="p">)</span>
+                    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+                        <span class="n">finish_span</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_actives_span</span><span class="p">,</span> <span class="n">error</span><span class="o">=</span><span class="n">exc</span><span class="p">)</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">finish_span</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_actives_span</span><span class="p">)</span>
+                    <span class="k">finally</span><span class="p">:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">_actives_span</span> <span class="o">=</span> <span class="kc">None</span>
+
+                    <span class="c1"># recovery done.</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Done reading from changelog topics&#39;</span><span class="p">)</span>
+                    <span class="n">T</span><span class="p">(</span><span class="n">consumer</span><span class="o">.</span><span class="n">pause_partitions</span><span class="p">)(</span><span class="n">active_tps</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Resuming flow...&#39;</span><span class="p">)</span>
+                    <span class="n">T</span><span class="p">(</span><span class="n">consumer</span><span class="o">.</span><span class="n">resume_flow</span><span class="p">)()</span>
+                    <span class="n">T</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">flow_control</span><span class="o">.</span><span class="n">resume</span><span class="p">)()</span>
+
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Recovery complete&#39;</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">span</span><span class="p">:</span>
+                    <span class="n">span</span><span class="o">.</span><span class="n">set_tag</span><span class="p">(</span><span class="s1">&#39;Recovery-Completed&#39;</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">in_recovery</span> <span class="o">=</span> <span class="kc">False</span>
+
+                <span class="k">if</span> <span class="n">standby_tps</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Starting standby partitions...&#39;</span><span class="p">)</span>
+
+                    <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">dev</span><span class="p">(</span><span class="s1">&#39;Seek standby offsets&#39;</span><span class="p">)</span>
+                    <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_wait</span><span class="p">(</span>
+                        <span class="n">T</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_seek_offsets</span><span class="p">)(</span>
+                            <span class="n">consumer</span><span class="p">,</span> <span class="n">standby_tps</span><span class="p">,</span> <span class="n">standby_offsets</span><span class="p">,</span> <span class="s1">&#39;standby&#39;</span><span class="p">))</span>
+
+                    <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">dev</span><span class="p">(</span><span class="s1">&#39;Build standby highwaters&#39;</span><span class="p">)</span>
+                    <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_wait</span><span class="p">(</span>
+                        <span class="n">T</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_build_highwaters</span><span class="p">)(</span>
+                            <span class="n">consumer</span><span class="p">,</span>
+                            <span class="n">standby_tps</span><span class="p">,</span>
+                            <span class="n">standby_highwaters</span><span class="p">,</span>
+                            <span class="s1">&#39;standby&#39;</span><span class="p">,</span>
+                        <span class="p">),</span>
+                    <span class="p">)</span>
+
+                    <span class="k">for</span> <span class="n">tp</span> <span class="ow">in</span> <span class="n">standby_tps</span><span class="p">:</span>
+                        <span class="k">if</span> <span class="n">standby_offsets</span><span class="p">[</span><span class="n">tp</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">standby_highwaters</span><span class="p">[</span><span class="n">tp</span><span class="p">]:</span>
+                            <span class="k">raise</span> <span class="n">ConsistencyError</span><span class="p">(</span>
+                                <span class="n">E_PERSISTED_OFFSET</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                                    <span class="n">tp</span><span class="p">,</span>
+                                    <span class="n">standby_offsets</span><span class="p">[</span><span class="n">tp</span><span class="p">],</span>
+                                    <span class="n">standby_highwaters</span><span class="p">[</span><span class="n">tp</span><span class="p">],</span>
+                                <span class="p">),</span>
+                            <span class="p">)</span>
+
+                    <span class="k">if</span> <span class="n">tracer</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">span</span><span class="p">:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">_standbys_span</span> <span class="o">=</span> <span class="n">tracer</span><span class="o">.</span><span class="n">start_span</span><span class="p">(</span>
+                            <span class="s1">&#39;recovery-standbys&#39;</span><span class="p">,</span>
+                            <span class="n">child_of</span><span class="o">=</span><span class="n">span</span><span class="p">,</span>
+                            <span class="n">tags</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;Standby-Stats&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">standby_stats</span><span class="p">()},</span>
+                        <span class="p">)</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">_span_add_default_tags</span><span class="p">(</span><span class="n">span</span><span class="p">)</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">dev</span><span class="p">(</span><span class="s1">&#39;Resume standby partitions&#39;</span><span class="p">)</span>
+                    <span class="n">T</span><span class="p">(</span><span class="n">consumer</span><span class="o">.</span><span class="n">resume_partitions</span><span class="p">)(</span><span class="n">standby_tps</span><span class="p">)</span>
+
+                <span class="c1"># Pause all our topic partitions,</span>
+                <span class="c1"># to make sure we don&#39;t fetch any more records from them.</span>
+                <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_wait</span><span class="p">(</span><span class="n">asyncio</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mf">0.1</span><span class="p">))</span>  <span class="c1"># still needed?</span>
+                <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_wait</span><span class="p">(</span><span class="n">T</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">on_recovery_completed</span><span class="p">)())</span>
+            <span class="k">except</span> <span class="n">RebalanceAgain</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">dev</span><span class="p">(</span><span class="s1">&#39;RAISED REBALANCE AGAIN&#39;</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">_span</span> <span class="ow">in</span> <span class="n">spans</span><span class="p">:</span>
+                    <span class="n">finish_span</span><span class="p">(</span><span class="n">_span</span><span class="p">,</span> <span class="n">error</span><span class="o">=</span><span class="n">exc</span><span class="p">)</span>
+                <span class="k">continue</span>  <span class="c1"># another rebalance started</span>
+            <span class="k">except</span> <span class="n">ServiceStopped</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">dev</span><span class="p">(</span><span class="s1">&#39;RAISED SERVICE STOPPED&#39;</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">_span</span> <span class="ow">in</span> <span class="n">spans</span><span class="p">:</span>
+                    <span class="n">finish_span</span><span class="p">(</span><span class="n">_span</span><span class="p">,</span> <span class="n">error</span><span class="o">=</span><span class="n">exc</span><span class="p">)</span>
+                <span class="k">break</span>  <span class="c1"># service was stopped</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">_span</span> <span class="ow">in</span> <span class="n">spans</span><span class="p">:</span>
+                    <span class="n">finish_span</span><span class="p">(</span><span class="n">_span</span><span class="p">,</span> <span class="n">error</span><span class="o">=</span><span class="n">exc</span><span class="p">)</span>
+                <span class="k">raise</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">_span</span> <span class="ow">in</span> <span class="n">spans</span><span class="p">:</span>
+                    <span class="n">finish_span</span><span class="p">(</span><span class="n">_span</span><span class="p">)</span>
+            <span class="c1"># restart - wait for next rebalance.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">in_recovery</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">_wait</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">coro</span><span class="p">:</span> <span class="n">WaitArgT</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">wait_result</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">wait_first</span><span class="p">(</span>
+            <span class="n">coro</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">signal_recovery_reset</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">signal_recovery_start</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">wait_result</span><span class="o">.</span><span class="n">stopped</span><span class="p">:</span>
+            <span class="c1"># service was stopped.</span>
+            <span class="k">raise</span> <span class="n">ServiceStopped</span><span class="p">()</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">signal_recovery_start</span> <span class="ow">in</span> <span class="n">wait_result</span><span class="o">.</span><span class="n">done</span><span class="p">:</span>
+            <span class="c1"># another rebalance started</span>
+            <span class="k">raise</span> <span class="n">RebalanceAgain</span><span class="p">()</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">signal_recovery_reset</span> <span class="ow">in</span> <span class="n">wait_result</span><span class="o">.</span><span class="n">done</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">RebalanceAgain</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="Recovery.on_recovery_completed"><a class="viewcode-back" href="../../../reference/faust.tables.recovery.html#faust.tables.recovery.Recovery.on_recovery_completed">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">on_recovery_completed</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Call when active table recovery is completed.&quot;&quot;&quot;</span>
+        <span class="n">consumer</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">consumer</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Restore complete!&#39;</span><span class="p">)</span>
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">on_rebalance_complete</span><span class="o">.</span><span class="n">send</span><span class="p">()</span>
+        <span class="c1"># This needs to happen if all goes well</span>
+        <span class="n">callback_coros</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">table</span><span class="o">.</span><span class="n">on_recovery_completed</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">actives_for_table</span><span class="p">[</span><span class="n">table</span><span class="p">],</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">standbys_for_table</span><span class="p">[</span><span class="n">table</span><span class="p">],</span>
+            <span class="p">)</span>
+            <span class="k">for</span> <span class="n">table</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">tables</span><span class="o">.</span><span class="n">values</span><span class="p">()</span>
+        <span class="p">]</span>
+        <span class="k">if</span> <span class="n">callback_coros</span><span class="p">:</span>
+            <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">wait</span><span class="p">(</span><span class="n">callback_coros</span><span class="p">)</span>
+        <span class="n">assignment</span> <span class="o">=</span> <span class="n">consumer</span><span class="o">.</span><span class="n">assignment</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">assignment</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Seek stream partitions to committed offsets.&#39;</span><span class="p">)</span>
+            <span class="k">await</span> <span class="n">consumer</span><span class="o">.</span><span class="n">perform_seek</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">completed</span><span class="o">.</span><span class="n">set</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">dev</span><span class="p">(</span><span class="s1">&#39;Resume stream partitions&#39;</span><span class="p">)</span>
+        <span class="n">consumer</span><span class="o">.</span><span class="n">resume_partitions</span><span class="p">({</span>
+            <span class="n">tp</span> <span class="k">for</span> <span class="n">tp</span> <span class="ow">in</span> <span class="n">assignment</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_changelog_tp</span><span class="p">(</span><span class="n">tp</span><span class="p">)</span>
+        <span class="p">})</span>
+        <span class="c1"># finally make sure the fetcher is running.</span>
+        <span class="k">await</span> <span class="n">cast</span><span class="p">(</span><span class="n">_App</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="p">)</span><span class="o">.</span><span class="n">_fetcher</span><span class="o">.</span><span class="n">maybe_start</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">tables</span><span class="o">.</span><span class="n">on_actives_ready</span><span class="p">()</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">assignor</span><span class="o">.</span><span class="n">assigned_standbys</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">tables</span><span class="o">.</span><span class="n">on_standbys_ready</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">on_rebalance_end</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Worker ready&#39;</span><span class="p">)</span></div>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">_build_highwaters</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                                <span class="n">consumer</span><span class="p">:</span> <span class="n">ConsumerT</span><span class="p">,</span>
+                                <span class="n">tps</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="n">TP</span><span class="p">],</span>
+                                <span class="n">destination</span><span class="p">:</span> <span class="n">Counter</span><span class="p">[</span><span class="n">TP</span><span class="p">],</span>
+                                <span class="n">title</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># -- Build highwater</span>
+        <span class="n">highwaters</span> <span class="o">=</span> <span class="k">await</span> <span class="n">consumer</span><span class="o">.</span><span class="n">highwaters</span><span class="p">(</span><span class="o">*</span><span class="n">tps</span><span class="p">)</span>
+        <span class="n">highwaters</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="c1"># FIXME the -1 here is because of the way we commit offsets</span>
+            <span class="n">tp</span><span class="p">:</span> <span class="n">value</span> <span class="o">-</span> <span class="mi">1</span> <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="o">-</span><span class="mi">1</span>
+            <span class="k">for</span> <span class="n">tp</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">highwaters</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+        <span class="p">}</span>
+        <span class="n">table</span> <span class="o">=</span> <span class="n">terminal</span><span class="o">.</span><span class="n">logtable</span><span class="p">(</span>
+            <span class="p">[[</span><span class="n">k</span><span class="o">.</span><span class="n">topic</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">k</span><span class="o">.</span><span class="n">partition</span><span class="p">),</span> <span class="nb">str</span><span class="p">(</span><span class="n">v</span><span class="p">)]</span>
+             <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">highwaters</span><span class="o">.</span><span class="n">items</span><span class="p">()],</span>
+            <span class="n">title</span><span class="o">=</span><span class="n">f</span><span class="s1">&#39;Highwater - {title.capitalize()}&#39;</span><span class="p">,</span>
+            <span class="n">headers</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;topic&#39;</span><span class="p">,</span> <span class="s1">&#39;partition&#39;</span><span class="p">,</span> <span class="s1">&#39;highwater&#39;</span><span class="p">],</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="s1">&#39;Highwater for </span><span class="si">%s</span><span class="s1"> changelog partitions:</span><span class="se">\n</span><span class="si">%s</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="n">table</span><span class="p">)</span>
+        <span class="n">destination</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+        <span class="n">destination</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">highwaters</span><span class="p">)</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">_build_offsets</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                             <span class="n">consumer</span><span class="p">:</span> <span class="n">ConsumerT</span><span class="p">,</span>
+                             <span class="n">tps</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="n">TP</span><span class="p">],</span>
+                             <span class="n">destination</span><span class="p">:</span> <span class="n">Counter</span><span class="p">[</span><span class="n">TP</span><span class="p">],</span>
+                             <span class="n">title</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># -- Update offsets</span>
+        <span class="c1"># Offsets may have been compacted, need to get to the recent ones</span>
+        <span class="n">earliest</span> <span class="o">=</span> <span class="k">await</span> <span class="n">consumer</span><span class="o">.</span><span class="n">earliest_offsets</span><span class="p">(</span><span class="o">*</span><span class="n">tps</span><span class="p">)</span>
+        <span class="c1"># FIXME To be consistent with the offset -1 logic</span>
+        <span class="n">earliest</span> <span class="o">=</span> <span class="p">{</span><span class="n">tp</span><span class="p">:</span> <span class="n">offset</span> <span class="o">-</span> <span class="mi">1</span> <span class="k">for</span> <span class="n">tp</span><span class="p">,</span> <span class="n">offset</span> <span class="ow">in</span> <span class="n">earliest</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+        <span class="k">for</span> <span class="n">tp</span> <span class="ow">in</span> <span class="n">tps</span><span class="p">:</span>
+            <span class="n">last_value</span> <span class="o">=</span> <span class="n">destination</span><span class="p">[</span><span class="n">tp</span><span class="p">]</span>
+            <span class="n">new_value</span> <span class="o">=</span> <span class="n">earliest</span><span class="p">[</span><span class="n">tp</span><span class="p">]</span>
+
+            <span class="k">if</span> <span class="n">last_value</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">destination</span><span class="p">[</span><span class="n">tp</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_value</span>
+            <span class="k">elif</span> <span class="n">new_value</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">destination</span><span class="p">[</span><span class="n">tp</span><span class="p">]</span> <span class="o">=</span> <span class="n">last_value</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">destination</span><span class="p">[</span><span class="n">tp</span><span class="p">]</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">last_value</span><span class="p">,</span> <span class="n">new_value</span><span class="p">)</span>
+        <span class="n">table</span> <span class="o">=</span> <span class="n">terminal</span><span class="o">.</span><span class="n">logtable</span><span class="p">(</span>
+            <span class="p">[[</span><span class="n">k</span><span class="o">.</span><span class="n">topic</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">k</span><span class="o">.</span><span class="n">partition</span><span class="p">),</span> <span class="nb">str</span><span class="p">(</span><span class="n">v</span><span class="p">)]</span>
+             <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">destination</span><span class="o">.</span><span class="n">items</span><span class="p">()],</span>
+            <span class="n">title</span><span class="o">=</span><span class="n">f</span><span class="s1">&#39;Reading Starts At - {title.capitalize()}&#39;</span><span class="p">,</span>
+            <span class="n">headers</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;topic&#39;</span><span class="p">,</span> <span class="s1">&#39;partition&#39;</span><span class="p">,</span> <span class="s1">&#39;offset&#39;</span><span class="p">],</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">%s</span><span class="s1"> offsets at start of reading:</span><span class="se">\n</span><span class="si">%s</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="n">table</span><span class="p">)</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">_seek_offsets</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                            <span class="n">consumer</span><span class="p">:</span> <span class="n">ConsumerT</span><span class="p">,</span>
+                            <span class="n">tps</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="n">TP</span><span class="p">],</span>
+                            <span class="n">offsets</span><span class="p">:</span> <span class="n">Counter</span><span class="p">[</span><span class="n">TP</span><span class="p">],</span>
+                            <span class="n">title</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># Seek to new offsets</span>
+        <span class="n">new_offsets</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">tp</span> <span class="ow">in</span> <span class="n">tps</span><span class="p">:</span>
+            <span class="n">offset</span> <span class="o">=</span> <span class="n">offsets</span><span class="p">[</span><span class="n">tp</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">offset</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">:</span>
+                <span class="n">offset</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="n">new_offsets</span><span class="p">[</span><span class="n">tp</span><span class="p">]</span> <span class="o">=</span> <span class="n">offset</span>
+        <span class="c1"># FIXME Remove check when fixed offset-1 discrepancy</span>
+        <span class="k">await</span> <span class="n">consumer</span><span class="o">.</span><span class="n">seek_wait</span><span class="p">(</span><span class="n">new_offsets</span><span class="p">)</span>
+
+    <span class="nd">@Service</span><span class="o">.</span><span class="n">task</span>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">_slurp_changelogs</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">changelog_queue</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">tables</span><span class="o">.</span><span class="n">changelog_queue</span>
+        <span class="n">tp_to_table</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">tp_to_table</span>
+
+        <span class="n">active_tps</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">active_tps</span>
+        <span class="n">standby_tps</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">standby_tps</span>
+        <span class="n">active_offsets</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">active_offsets</span>
+        <span class="n">standby_offsets</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">standby_offsets</span>
+
+        <span class="n">buffers</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">buffers</span>
+        <span class="n">buffer_sizes</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">buffer_sizes</span>
+
+        <span class="k">while</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">should_stop</span><span class="p">:</span>
+            <span class="n">event</span><span class="p">:</span> <span class="n">EventT</span> <span class="o">=</span> <span class="k">await</span> <span class="n">changelog_queue</span><span class="o">.</span><span class="n">get</span><span class="p">()</span>
+            <span class="n">message</span> <span class="o">=</span> <span class="n">event</span><span class="o">.</span><span class="n">message</span>
+            <span class="n">tp</span> <span class="o">=</span> <span class="n">message</span><span class="o">.</span><span class="n">tp</span>
+            <span class="n">offset</span> <span class="o">=</span> <span class="n">message</span><span class="o">.</span><span class="n">offset</span>
+
+            <span class="n">offsets</span><span class="p">:</span> <span class="n">Counter</span><span class="p">[</span><span class="n">TP</span><span class="p">]</span>
+            <span class="n">bufsize</span> <span class="o">=</span> <span class="n">buffer_sizes</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">tp</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">tp</span> <span class="ow">in</span> <span class="n">active_tps</span><span class="p">:</span>
+                <span class="n">table</span> <span class="o">=</span> <span class="n">tp_to_table</span><span class="p">[</span><span class="n">tp</span><span class="p">]</span>
+                <span class="n">offsets</span> <span class="o">=</span> <span class="n">active_offsets</span>
+                <span class="k">if</span> <span class="n">bufsize</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">bufsize</span> <span class="o">=</span> <span class="n">buffer_sizes</span><span class="p">[</span><span class="n">tp</span><span class="p">]</span> <span class="o">=</span> <span class="n">table</span><span class="o">.</span><span class="n">recovery_buffer_size</span>
+            <span class="k">elif</span> <span class="n">tp</span> <span class="ow">in</span> <span class="n">standby_tps</span><span class="p">:</span>
+                <span class="n">table</span> <span class="o">=</span> <span class="n">tp_to_table</span><span class="p">[</span><span class="n">tp</span><span class="p">]</span>
+                <span class="n">offsets</span> <span class="o">=</span> <span class="n">standby_offsets</span>
+                <span class="k">if</span> <span class="n">bufsize</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">bufsize</span> <span class="o">=</span> <span class="n">buffer_sizes</span><span class="p">[</span><span class="n">tp</span><span class="p">]</span> <span class="o">=</span> <span class="n">table</span><span class="o">.</span><span class="n">standby_buffer_size</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">continue</span>
+
+            <span class="n">seen_offset</span> <span class="o">=</span> <span class="n">offsets</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">tp</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">seen_offset</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">offset</span> <span class="o">&gt;</span> <span class="n">seen_offset</span><span class="p">:</span>
+                <span class="n">offsets</span><span class="p">[</span><span class="n">tp</span><span class="p">]</span> <span class="o">=</span> <span class="n">offset</span>
+                <span class="n">buf</span> <span class="o">=</span> <span class="n">buffers</span><span class="p">[</span><span class="n">table</span><span class="p">]</span>
+                <span class="n">buf</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">event</span><span class="p">)</span>
+                <span class="k">await</span> <span class="n">table</span><span class="o">.</span><span class="n">on_changelog_event</span><span class="p">(</span><span class="n">event</span><span class="p">)</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">buf</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">bufsize</span><span class="p">:</span>
+                    <span class="n">table</span><span class="o">.</span><span class="n">apply_changelog_batch</span><span class="p">(</span><span class="n">buf</span><span class="p">)</span>
+                    <span class="n">buf</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">in_recovery</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">active_remaining_total</span><span class="p">():</span>
+                <span class="c1"># apply anything stuck in the buffers</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">flush_buffers</span><span class="p">()</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">in_recovery</span> <span class="o">=</span> <span class="kc">False</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_actives_span</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_actives_span</span><span class="o">.</span><span class="n">set_tag</span><span class="p">(</span><span class="s1">&#39;Actives-Ready&#39;</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">signal_recovery_end</span><span class="o">.</span><span class="n">set</span><span class="p">()</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">standbys_pending</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">standby_remaining_total</span><span class="p">():</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_standbys_span</span><span class="p">:</span>
+                    <span class="n">finish_span</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_standbys_span</span><span class="p">)</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_standbys_span</span> <span class="o">=</span> <span class="kc">None</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">tables</span><span class="o">.</span><span class="n">on_standbys_ready</span><span class="p">()</span>
+
+<div class="viewcode-block" id="Recovery.flush_buffers"><a class="viewcode-back" href="../../../reference/faust.tables.recovery.html#faust.tables.recovery.Recovery.flush_buffers">[docs]</a>    <span class="k">def</span> <span class="nf">flush_buffers</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Flush changelog buffers.&quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">table</span><span class="p">,</span> <span class="n">buffer</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">buffers</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">table</span><span class="o">.</span><span class="n">apply_changelog_batch</span><span class="p">(</span><span class="n">buffer</span><span class="p">)</span>
+            <span class="n">buffer</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="Recovery.need_recovery"><a class="viewcode-back" href="../../../reference/faust.tables.recovery.html#faust.tables.recovery.Recovery.need_recovery">[docs]</a>    <span class="k">def</span> <span class="nf">need_recovery</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Return :const:`True` if recovery is required.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">any</span><span class="p">(</span><span class="n">v</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">active_remaining</span><span class="p">()</span><span class="o">.</span><span class="n">values</span><span class="p">())</span></div>
+
+<div class="viewcode-block" id="Recovery.active_remaining"><a class="viewcode-back" href="../../../reference/faust.tables.recovery.html#faust.tables.recovery.Recovery.active_remaining">[docs]</a>    <span class="k">def</span> <span class="nf">active_remaining</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Counter</span><span class="p">[</span><span class="n">TP</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;Return counter of remaining changes by active partition.&quot;&quot;&quot;</span>
+        <span class="n">highwaters</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">active_highwaters</span>
+        <span class="n">offsets</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">active_offsets</span>
+        <span class="k">return</span> <span class="n">Counter</span><span class="p">({</span>
+            <span class="n">tp</span><span class="p">:</span> <span class="n">highwater</span> <span class="o">-</span> <span class="n">offsets</span><span class="p">[</span><span class="n">tp</span><span class="p">]</span>
+            <span class="k">for</span> <span class="n">tp</span><span class="p">,</span> <span class="n">highwater</span> <span class="ow">in</span> <span class="n">highwaters</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">highwater</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">offsets</span><span class="p">[</span><span class="n">tp</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="p">})</span></div>
+
+<div class="viewcode-block" id="Recovery.standby_remaining"><a class="viewcode-back" href="../../../reference/faust.tables.recovery.html#faust.tables.recovery.Recovery.standby_remaining">[docs]</a>    <span class="k">def</span> <span class="nf">standby_remaining</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Counter</span><span class="p">[</span><span class="n">TP</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;Return counter of remaining changes by standby partition.&quot;&quot;&quot;</span>
+        <span class="n">highwaters</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">standby_highwaters</span>
+        <span class="n">offsets</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">standby_offsets</span>
+        <span class="k">return</span> <span class="n">Counter</span><span class="p">({</span>
+            <span class="n">tp</span><span class="p">:</span> <span class="n">highwater</span> <span class="o">-</span> <span class="n">offsets</span><span class="p">[</span><span class="n">tp</span><span class="p">]</span>
+            <span class="k">for</span> <span class="n">tp</span><span class="p">,</span> <span class="n">highwater</span> <span class="ow">in</span> <span class="n">highwaters</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">highwater</span> <span class="o">&gt;=</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">offsets</span><span class="p">[</span><span class="n">tp</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="mi">0</span>
+        <span class="p">})</span></div>
+
+<div class="viewcode-block" id="Recovery.active_remaining_total"><a class="viewcode-back" href="../../../reference/faust.tables.recovery.html#faust.tables.recovery.Recovery.active_remaining_total">[docs]</a>    <span class="k">def</span> <span class="nf">active_remaining_total</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Return number of changes remaining for actives to be up-to-date.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">sum</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">active_remaining</span><span class="p">()</span><span class="o">.</span><span class="n">values</span><span class="p">())</span></div>
+
+<div class="viewcode-block" id="Recovery.standby_remaining_total"><a class="viewcode-back" href="../../../reference/faust.tables.recovery.html#faust.tables.recovery.Recovery.standby_remaining_total">[docs]</a>    <span class="k">def</span> <span class="nf">standby_remaining_total</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Return number of changes remaining for standbys to be up-to-date.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">sum</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">standby_remaining</span><span class="p">()</span><span class="o">.</span><span class="n">values</span><span class="p">())</span></div>
+
+<div class="viewcode-block" id="Recovery.active_stats"><a class="viewcode-back" href="../../../reference/faust.tables.recovery.html#faust.tables.recovery.Recovery.active_stats">[docs]</a>    <span class="k">def</span> <span class="nf">active_stats</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MutableMapping</span><span class="p">[</span><span class="n">TP</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]:</span>
+        <span class="sd">&quot;&quot;&quot;Return current active recovery statistics.&quot;&quot;&quot;</span>
+        <span class="n">offsets</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">active_offsets</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="n">tp</span><span class="p">:</span> <span class="p">(</span><span class="n">highwater</span><span class="p">,</span> <span class="n">offsets</span><span class="p">[</span><span class="n">tp</span><span class="p">],</span> <span class="n">highwater</span> <span class="o">-</span> <span class="n">offsets</span><span class="p">[</span><span class="n">tp</span><span class="p">])</span>
+            <span class="k">for</span> <span class="n">tp</span><span class="p">,</span> <span class="n">highwater</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">active_highwaters</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">offsets</span><span class="p">[</span><span class="n">tp</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">highwater</span> <span class="o">-</span> <span class="n">offsets</span><span class="p">[</span><span class="n">tp</span><span class="p">]</span> <span class="o">!=</span> <span class="mi">0</span>
+        <span class="p">}</span></div>
+
+<div class="viewcode-block" id="Recovery.standby_stats"><a class="viewcode-back" href="../../../reference/faust.tables.recovery.html#faust.tables.recovery.Recovery.standby_stats">[docs]</a>    <span class="k">def</span> <span class="nf">standby_stats</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MutableMapping</span><span class="p">[</span><span class="n">TP</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]:</span>
+        <span class="sd">&quot;&quot;&quot;Return current standby recovery statistics.&quot;&quot;&quot;</span>
+        <span class="n">offsets</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">standby_offsets</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="n">tp</span><span class="p">:</span> <span class="p">(</span><span class="n">highwater</span><span class="p">,</span> <span class="n">offsets</span><span class="p">[</span><span class="n">tp</span><span class="p">],</span> <span class="n">highwater</span> <span class="o">-</span> <span class="n">offsets</span><span class="p">[</span><span class="n">tp</span><span class="p">])</span>
+            <span class="k">for</span> <span class="n">tp</span><span class="p">,</span> <span class="n">highwater</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">standby_highwaters</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">offsets</span><span class="p">[</span><span class="n">tp</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">highwater</span> <span class="o">-</span> <span class="n">offsets</span><span class="p">[</span><span class="n">tp</span><span class="p">]</span> <span class="o">!=</span> <span class="mi">0</span>
+
+        <span class="p">}</span></div>
+
+    <span class="nd">@Service</span><span class="o">.</span><span class="n">task</span>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">_publish_stats</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">interval</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">stats_interval</span>
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="n">interval</span><span class="p">)</span>
+        <span class="k">async</span> <span class="k">for</span> <span class="n">sleep_time</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">itertimer</span><span class="p">(</span>
+                <span class="n">interval</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;Recovery.stats&#39;</span><span class="p">):</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">in_recovery</span><span class="p">:</span>
+                <span class="n">stats</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">active_stats</span><span class="p">()</span>
+                <span class="k">if</span> <span class="n">stats</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Still fetching. Remaining: </span><span class="si">%s</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">stats</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_is_changelog_tp</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tp</span><span class="p">:</span> <span class="n">TP</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">tp</span><span class="o">.</span><span class="n">topic</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">tables</span><span class="o">.</span><span class="n">changelog_topics</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../../index.html">
+              <img class="logo" src="../../../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../../../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../playbooks/index.html">Playbooks</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../userguide/index.html">User Guide</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../reference/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../history/index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2019, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

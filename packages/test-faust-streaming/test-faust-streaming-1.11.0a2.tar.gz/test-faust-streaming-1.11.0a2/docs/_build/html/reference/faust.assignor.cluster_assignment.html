@@ -1,0 +1,270 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>faust.assignor.cluster_assignment &#8212; Faust 1.11.0a1 documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="copyright" title="Copyright" href="../copyright.html" />
+    <link rel="next" title="faust.assignor.copartitioned_assignor" href="faust.assignor.copartitioned_assignor.html" />
+    <link rel="prev" title="faust.assignor.client_assignment" href="faust.assignor.client_assignment.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="faust-assignor-cluster-assignment">
+<h1><code class="docutils literal notranslate"><span class="pre">faust.assignor.cluster_assignment</span></code><a class="headerlink" href="#faust-assignor-cluster-assignment" title="Permalink to this headline">¶</a></h1>
+<span class="target" id="module-faust.assignor.cluster_assignment"></span><p>Cluster assignment.</p>
+<dl class="attribute">
+<dt id="faust.assignor.cluster_assignment.CopartMapping">
+<code class="sig-prename descclassname">faust.assignor.cluster_assignment.</code><code class="sig-name descname">CopartMapping</code><a class="headerlink" href="#faust.assignor.cluster_assignment.CopartMapping" title="Permalink to this definition">¶</a></dt>
+<dd><p>alias of <a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.MutableMapping" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">typing.MutableMapping</span></code></a></p>
+</dd></dl>
+
+<dl class="class">
+<dt id="faust.assignor.cluster_assignment.ClusterAssignment">
+<em class="property">class </em><code class="sig-prename descclassname">faust.assignor.cluster_assignment.</code><code class="sig-name descname">ClusterAssignment</code><span class="sig-paren">(</span><em class="sig-param">subscriptions=None</em>, <em class="sig-param">assignments=None</em>, <em class="sig-param">*</em>, <em class="sig-param">__strict__=True</em>, <em class="sig-param">__faust=None</em>, <em class="sig-param">**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/faust/assignor/cluster_assignment.html#ClusterAssignment"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.assignor.cluster_assignment.ClusterAssignment" title="Permalink to this definition">¶</a></dt>
+<dd><p>Cluster assignment state.</p>
+<dl class="attribute">
+<dt id="faust.assignor.cluster_assignment.ClusterAssignment.subscriptions">
+<code class="sig-name descname">subscriptions</code><a class="headerlink" href="#faust.assignor.cluster_assignment.ClusterAssignment.subscriptions" title="Permalink to this definition">¶</a></dt>
+<dd><p>Describes a field.</p>
+<p>Used for every field in Record so that they can be used in join’s
+/group_by etc.</p>
+<p class="rubric">Examples</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="k">class</span> <span class="nc">Withdrawal</span><span class="p">(</span><span class="n">Record</span><span class="p">):</span>
+<span class="gp">... </span>   <span class="n">account_id</span><span class="p">:</span> <span class="nb">str</span>
+<span class="gp">... </span>   <span class="n">amount</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span>
+</pre></div>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">Withdrawal</span><span class="o">.</span><span class="n">account_id</span>
+<span class="go">&lt;FieldDescriptor: Withdrawal.account_id: str&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">Withdrawal</span><span class="o">.</span><span class="n">amount</span>
+<span class="go">&lt;FieldDescriptor: Withdrawal.amount: float = 0.0&gt;</span>
+</pre></div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>field</strong> (<a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – Name of field.</p></li>
+<li><p><strong>type</strong> (<em>Type</em>) – Field value type.</p></li>
+<li><p><strong>required</strong> (<a class="reference external" href="https://docs.python.org/dev/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – Set to false if field is optional.</p></li>
+<li><p><strong>default</strong> (<em>Any</em>) – Default value when <cite>required=False</cite>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Keyword Arguments</dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>model</strong> (<em>Type</em>) – Model class the field belongs to.</p></li>
+<li><p><strong>parent</strong> (<a class="reference internal" href="faust.types.models.html#faust.types.models.FieldDescriptorT" title="faust.types.models.FieldDescriptorT"><em>FieldDescriptorT</em></a>) – parent field if any.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.assignor.cluster_assignment.ClusterAssignment.assignments">
+<code class="sig-name descname">assignments</code><a class="headerlink" href="#faust.assignor.cluster_assignment.ClusterAssignment.assignments" title="Permalink to this definition">¶</a></dt>
+<dd><p>Describes a field.</p>
+<p>Used for every field in Record so that they can be used in join’s
+/group_by etc.</p>
+<p class="rubric">Examples</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="k">class</span> <span class="nc">Withdrawal</span><span class="p">(</span><span class="n">Record</span><span class="p">):</span>
+<span class="gp">... </span>   <span class="n">account_id</span><span class="p">:</span> <span class="nb">str</span>
+<span class="gp">... </span>   <span class="n">amount</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span>
+</pre></div>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">Withdrawal</span><span class="o">.</span><span class="n">account_id</span>
+<span class="go">&lt;FieldDescriptor: Withdrawal.account_id: str&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">Withdrawal</span><span class="o">.</span><span class="n">amount</span>
+<span class="go">&lt;FieldDescriptor: Withdrawal.amount: float = 0.0&gt;</span>
+</pre></div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>field</strong> (<a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – Name of field.</p></li>
+<li><p><strong>type</strong> (<em>Type</em>) – Field value type.</p></li>
+<li><p><strong>required</strong> (<a class="reference external" href="https://docs.python.org/dev/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – Set to false if field is optional.</p></li>
+<li><p><strong>default</strong> (<em>Any</em>) – Default value when <cite>required=False</cite>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Keyword Arguments</dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>model</strong> (<em>Type</em>) – Model class the field belongs to.</p></li>
+<li><p><strong>parent</strong> (<a class="reference internal" href="faust.types.models.html#faust.types.models.FieldDescriptorT" title="faust.types.models.FieldDescriptorT"><em>FieldDescriptorT</em></a>) – parent field if any.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.assignor.cluster_assignment.ClusterAssignment.topics">
+<code class="sig-name descname">topics</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; Set[str]<a class="reference internal" href="../_modules/faust/assignor/cluster_assignment.html#ClusterAssignment.topics"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.assignor.cluster_assignment.ClusterAssignment.topics" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Set" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Set</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.assignor.cluster_assignment.ClusterAssignment.add_client">
+<code class="sig-name descname">add_client</code><span class="sig-paren">(</span><em class="sig-param">client: str, subscription: List[str], metadata: faust.assignor.client_assignment.ClientMetadata</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/assignor/cluster_assignment.html#ClusterAssignment.add_client"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.assignor.cluster_assignment.ClusterAssignment.add_client" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.assignor.cluster_assignment.ClusterAssignment.copartitioned_assignments">
+<code class="sig-name descname">copartitioned_assignments</code><span class="sig-paren">(</span><em class="sig-param">copartitioned_topics: Set[str]</em><span class="sig-paren">)</span> &#x2192; MutableMapping[str, faust.assignor.client_assignment.CopartitionedAssignment]<a class="reference internal" href="../_modules/faust/assignor/cluster_assignment.html#ClusterAssignment.copartitioned_assignments"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.assignor.cluster_assignment.ClusterAssignment.copartitioned_assignments" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.MutableMapping" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">MutableMapping</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference internal" href="faust.assignor.client_assignment.html#faust.assignor.client_assignment.CopartitionedAssignment" title="faust.assignor.client_assignment.CopartitionedAssignment"><code class="xref py py-class docutils literal notranslate"><span class="pre">CopartitionedAssignment</span></code></a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.assignor.cluster_assignment.ClusterAssignment.asdict">
+<code class="sig-name descname">asdict</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#faust.assignor.cluster_assignment.ClusterAssignment.asdict" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../playbooks/index.html">Playbooks</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../userguide/index.html">User Guide</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../history/index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">API Reference</a><ul>
+      <li>Previous: <a href="faust.assignor.client_assignment.html" title="previous chapter"><code class="docutils literal notranslate"><span class="pre">faust.assignor.client_assignment</span></code></a></li>
+      <li>Next: <a href="faust.assignor.copartitioned_assignor.html" title="next chapter"><code class="docutils literal notranslate"><span class="pre">faust.assignor.copartitioned_assignor</span></code></a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2020, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../_sources/reference/faust.assignor.cluster_assignment.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

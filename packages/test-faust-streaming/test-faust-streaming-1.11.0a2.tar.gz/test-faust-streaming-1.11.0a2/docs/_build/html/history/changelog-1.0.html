@@ -1,0 +1,1179 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>Change history for Faust 1.0 &#8212; Faust 1.11.0a1 documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="copyright" title="Copyright" href="../copyright.html" />
+    <link rel="next" title="Change history for Faust 0.9" href="changelog-0.9.html" />
+    <link rel="prev" title="Change history for Faust 1.1" href="changelog-1.1.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="change-history-for-faust-1-0">
+<span id="changelog-1-0"></span><h1>Change history for Faust 1.0<a class="headerlink" href="#change-history-for-faust-1-0" title="Permalink to this headline">¶</a></h1>
+<p>This document contain change notes for bugfix releases in
+the Faust 1.x series. If you’re looking for changes in the latest
+series, please visit the latest <a class="reference internal" href="../changelog.html#changelog"><span class="std std-ref">Changes</span></a>.</p>
+<p>For even older releases you can visit the <a class="reference internal" href="index.html#history"><span class="std std-ref">History</span></a> section.</p>
+<div class="section" id="version-1-0-30">
+<span id="id1"></span><h2>1.0.30<a class="headerlink" href="#version-1-0-30" title="Permalink to this headline">¶</a></h2>
+<dl class="field-list simple">
+<dt class="field-odd">release-date</dt>
+<dd class="field-odd"><p>2018-08-15 3:17 P.M PDT</p>
+</dd>
+<dt class="field-even">release-by</dt>
+<dd class="field-even"><p>Ask Solem</p>
+</dd>
+</dl>
+<ul>
+<li><p><strong>Requirements</strong></p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Now depends on <a class="reference external" href="https://mode.readthedocs.io/en/latest/changelog.html#version-1-15-1" title="(in Mode v4.3)"><span class="xref std std-ref">Mode 1.15.1</span></a>.</p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><dl class="simple">
+<dt><strong>Typing</strong>: <code class="xref py py-attr docutils literal notranslate"><span class="pre">faust.types.Message.timestamp_type</span></code> is now the correct</dt><dd><p><a class="reference external" href="https://docs.python.org/dev/library/functions.html#int" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, previously it was string by message.</p>
+</dd>
+</dl>
+</li>
+<li><p><strong>Models</strong>: Records can now have recursive fields.</p>
+<blockquote>
+<div><p>For example a tree structure model having a field that refers back to
+itself:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">Node</span><span class="p">(</span><span class="n">faust</span><span class="o">.</span><span class="n">Record</span><span class="p">):</span>
+    <span class="n">data</span><span class="p">:</span> <span class="n">Any</span>
+    <span class="n">children</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="s1">&#39;Node&#39;</span><span class="p">]</span>
+</pre></div>
+</div>
+</div></blockquote>
+</li>
+<li><dl class="simple">
+<dt><strong>Models</strong>: A field of type <code class="docutils literal notranslate"><span class="pre">List[Model]</span></code> no longer raises an exception</dt><dd><p>if the value provided is <code class="xref py py-const docutils literal notranslate"><span class="pre">None</span></code>.</p>
+</dd>
+</dl>
+</li>
+<li><p><strong>Models</strong>: Adds support for <code class="docutils literal notranslate"><span class="pre">--strict-optional</span></code>-style fields.</p>
+<blockquote>
+<div><p>Previously the following would work:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">Order</span><span class="p">(</span><span class="n">Record</span><span class="p">):</span>
+    <span class="n">account</span><span class="p">:</span> <span class="n">Account</span> <span class="o">=</span> <span class="bp">None</span>
+</pre></div>
+</div>
+<p>The account is considered optional from a typing point of view, but only
+if the <a class="reference external" href="https://pypi.python.org/pypi/mypy/">mypy</a> option <code class="docutils literal notranslate"><span class="pre">--strict-optional</span></code> is disabled.</p>
+<p>Now that <code class="docutils literal notranslate"><span class="pre">--strict-optional</span></code> is enabled by default in <a class="reference external" href="https://pypi.python.org/pypi/mypy/">mypy</a>,
+this version adds support for fields such as:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">Order</span><span class="p">(</span><span class="n">Record</span><span class="p">):</span>
+    <span class="n">account</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Account</span><span class="p">]</span> <span class="o">=</span> <span class="bp">None</span>
+    <span class="n">history</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">OrderStatus</span><span class="p">]]</span>
+</pre></div>
+</div>
+</div></blockquote>
+</li>
+<li><dl class="simple">
+<dt><strong>Models</strong>: Class options such as <code class="docutils literal notranslate"><span class="pre">isodates</span></code>/<code class="docutils literal notranslate"><span class="pre">include_metadata</span></code>/etc. are</dt><dd><p>now inherited from parent class.</p>
+</dd>
+</dl>
+</li>
+<li><p><strong>Stream</strong>: Fixed <a class="reference external" href="https://docs.python.org/dev/library/exceptions.html#NameError" title="(in Python v3.9)"><code class="xref py py-exc docutils literal notranslate"><span class="pre">NameError</span></code></a> when pushing non-Event value into stream.</p></li>
+</ul>
+</div>
+<div class="section" id="version-1-0-29">
+<span id="id2"></span><h2>1.0.29<a class="headerlink" href="#version-1-0-29" title="Permalink to this headline">¶</a></h2>
+<dl class="field-list simple">
+<dt class="field-odd">release-date</dt>
+<dd class="field-odd"><p>2018-08-10 5:00 P.M PDT</p>
+</dd>
+<dt class="field-even">release-by</dt>
+<dd class="field-even"><p>Vineet Goel</p>
+</dd>
+</dl>
+<ul>
+<li><p><strong>Requirements</strong></p>
+<blockquote>
+<div><ul>
+<li><p>Now depends on <a class="reference external" href="https://pypi.python.org/pypi/robinhood-aiokafka/">robinhood-aiokafka</a> 0.4.18</p>
+<blockquote>
+<div><p>The coordination routine now ensures the program stops
+when receiving a <code class="xref py py-exc docutils literal notranslate"><span class="pre">aiokafka.errors.UnknownError</span></code> from the
+Kafka broker. This leaves recovery up to the supervisor.</p>
+</div></blockquote>
+</li>
+</ul>
+</div></blockquote>
+</li>
+<li><p><strong>Table</strong>: Fixed hanging at startup/rebalance on Python 3.7 (<span class="xref issue">Issue #134</span>).</p>
+<blockquote>
+<div><p>Workaround for <a class="reference external" href="https://docs.python.org/dev/library/asyncio.html#module-asyncio" title="(in Python v3.9)"><code class="xref py py-mod docutils literal notranslate"><span class="pre">asyncio</span></code></a> bug seemingly introduced in Python 3.7,
+that left the worker hanging at startup when attempting to recover
+a table without any data.</p>
+</div></blockquote>
+</li>
+<li><p><strong>Monitor</strong>: More efficient updating of highwater metrics (<span class="xref issue">Issue #139</span>).</p></li>
+<li><p><strong>Partition Assignor</strong>: The assignor now compresses the metadata being
+passed around to all application instances for efficiency and to avoid
+extreme cases where the metadata is too big.</p></li>
+</ul>
+</div>
+<div class="section" id="version-1-0-28">
+<span id="id3"></span><h2>1.0.28<a class="headerlink" href="#version-1-0-28" title="Permalink to this headline">¶</a></h2>
+<dl class="field-list simple">
+<dt class="field-odd">release-date</dt>
+<dd class="field-odd"><p>2018-08-08 11:25 P.M PDT</p>
+</dd>
+<dt class="field-even">release-by</dt>
+<dd class="field-even"><p>Vineet Goel</p>
+</dd>
+</dl>
+<ul class="simple">
+<li><p><strong>Monitor</strong>: Adds consumer stats such as last read offsets, last committed
+offsets and log end offsets to the monitor. Also added to the StatsdMonitor.</p></li>
+<li><p><strong>aiokafka</strong>: Changes how topics are created to make it more efficient. We
+now are smarter about finding kafka cluster controller instead of trial and
+error.</p></li>
+<li><p><strong>Documentation</strong>: Fixed links to Slack and other minor fixes.</p></li>
+</ul>
+</div>
+<div class="section" id="version-1-0-27">
+<span id="id4"></span><h2>1.0.27<a class="headerlink" href="#version-1-0-27" title="Permalink to this headline">¶</a></h2>
+<dl class="field-list simple">
+<dt class="field-odd">release-date</dt>
+<dd class="field-odd"><p>2018-07-30 04:00 P.M PDT</p>
+</dd>
+<dt class="field-even">release-by</dt>
+<dd class="field-even"><p>Ask Solem</p>
+</dd>
+</dl>
+<ul class="simple">
+<li><p>No code changes</p></li>
+<li><p>Fixed links to documentation in README.rst</p></li>
+</ul>
+</div>
+<div class="section" id="version-1-0-26">
+<span id="id5"></span><h2>1.0.26<a class="headerlink" href="#version-1-0-26" title="Permalink to this headline">¶</a></h2>
+<dl class="field-list simple">
+<dt class="field-odd">release-date</dt>
+<dd class="field-odd"><p>2018-07-30 08:00 A.M PDT</p>
+</dd>
+<dt class="field-even">release-by</dt>
+<dd class="field-even"><p>Ask Solem</p>
+</dd>
+</dl>
+<ul class="simple">
+<li><p>Public release.</p></li>
+</ul>
+</div>
+<div class="section" id="version-1-0-25">
+<span id="id6"></span><h2>1.0.25<a class="headerlink" href="#version-1-0-25" title="Permalink to this headline">¶</a></h2>
+<dl class="field-list simple">
+<dt class="field-odd">release-date</dt>
+<dd class="field-odd"><p>2018-07-27 12:43 P.M PDT</p>
+</dd>
+<dt class="field-even">release-by</dt>
+<dd class="field-even"><p>Ask Solem</p>
+</dd>
+</dl>
+<ul>
+<li><p><a class="reference internal" href="../userguide/settings.html#std:setting-stream_publish_on_commit"><code class="xref std std-setting docutils literal notranslate"><span class="pre">stream_publish_on_commit</span></code></a> accidentally disabled by default.</p>
+<blockquote>
+<div><p>This made the rate of producing much slower, as the default buffering
+settings are not optimized.</p>
+</div></blockquote>
+</li>
+<li><p>The <code class="docutils literal notranslate"><span class="pre">App.rebalancing</span></code> flag is now reset after the tables have
+recovered.</p></li>
+</ul>
+</div>
+<div class="section" id="version-1-0-24">
+<span id="id7"></span><h2>1.0.24<a class="headerlink" href="#version-1-0-24" title="Permalink to this headline">¶</a></h2>
+<dl class="field-list simple">
+<dt class="field-odd">release-date</dt>
+<dd class="field-odd"><p>2018-07-12 6:54 P.M PDT</p>
+</dd>
+<dt class="field-even">release-by</dt>
+<dd class="field-even"><p>Ask Solem</p>
+</dd>
+</dl>
+<ul>
+<li><p><strong>Requirements</strong></p>
+<blockquote>
+<div><ul>
+<li><p>Now depends on <a class="reference external" href="https://pypi.python.org/pypi/robinhood-aiokafka/">robinhood-aiokafka</a> 0.4.17</p>
+<blockquote>
+<div><p>This fixed an issue where the consumer would be left hanging
+without a connection to Kafka.</p>
+</div></blockquote>
+</li>
+</ul>
+</div></blockquote>
+</li>
+</ul>
+</div>
+<div class="section" id="version-1-0-23">
+<span id="id8"></span><h2>1.0.23<a class="headerlink" href="#version-1-0-23" title="Permalink to this headline">¶</a></h2>
+<dl class="field-list simple">
+<dt class="field-odd">release-date</dt>
+<dd class="field-odd"><p>2018-07-11 5:00 P.M PDT</p>
+</dd>
+<dt class="field-even">release-by</dt>
+<dd class="field-even"><p>Ask Solem</p>
+</dd>
+</dl>
+<ul>
+<li><p><strong>Requirements</strong></p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Now depends on <a class="reference external" href="https://pypi.python.org/pypi/robinhood-aiokafka/">robinhood-aiokafka</a> 0.4.16</p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p>Now compatible with Python 3.7.</p></li>
+<li><p>Setting <a class="reference internal" href="../userguide/settings.html#std:setting-stream_wait_empty"><code class="xref std std-setting docutils literal notranslate"><span class="pre">stream_wait_empty</span></code></a> is now disabled by default (<span class="xref issue">Issue #117</span>).</p></li>
+<li><p>Documentation build now compatible with Python 3.7.</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Fixed <code class="docutils literal notranslate"><span class="pre">ForwardRef</span> <span class="pre">has</span> <span class="pre">no</span> <span class="pre">attribute</span> <span class="pre">__origin__</span></code> error.</p></li>
+<li><p>Fixed <code class="docutils literal notranslate"><span class="pre">DeprecatedInSphinx2.0</span></code> warnings.</p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p><strong>Web</strong>: Adds <code class="docutils literal notranslate"><span class="pre">app.on_webserver_init(web)</span></code> callback for ability to serve static
+files using <code class="docutils literal notranslate"><span class="pre">web.add_static</span></code>.</p></li>
+<li><p><strong>Web</strong>: Adds <code class="docutils literal notranslate"><span class="pre">web.add_static(prefix,</span> <span class="pre">fs_path)</span></code></p></li>
+<li><p><strong>Worker</strong>: New <code class="docutils literal notranslate"><span class="pre">App.unassigned</span></code> attribute is now set if the worker
+does not have any assigned partitions.</p></li>
+<li><p><strong>CLI</strong>: Console colors was disabled by default.</p></li>
+</ul>
+</div>
+<div class="section" id="version-1-0-22">
+<span id="id9"></span><h2>1.0.22<a class="headerlink" href="#version-1-0-22" title="Permalink to this headline">¶</a></h2>
+<dl class="field-list simple">
+<dt class="field-odd">release-date</dt>
+<dd class="field-odd"><p>2018-06-27 5:35 P.M PDT</p>
+</dd>
+<dt class="field-even">release-by</dt>
+<dd class="field-even"><p>Vineet Goel</p>
+</dd>
+</dl>
+<ul class="simple">
+<li><p><strong>aiokafka</strong>: Timeout for topic creation now wraps entire topic creation.
+Earlier this timeout was for each individual request.</p></li>
+<li><p><strong>testing</strong>: Added stress testing suite.</p></li>
+</ul>
+</div>
+<div class="section" id="version-1-0-21">
+<span id="id10"></span><h2>1.0.21<a class="headerlink" href="#version-1-0-21" title="Permalink to this headline">¶</a></h2>
+<dl class="field-list simple">
+<dt class="field-odd">release-date</dt>
+<dd class="field-odd"><p>2018-06-27 1:43 P.M PDT</p>
+</dd>
+<dt class="field-even">release-by</dt>
+<dd class="field-even"><p>Ask Solem</p>
+</dd>
+</dl>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>This changes the package name of <code class="docutils literal notranslate"><span class="pre">kafka</span></code> to <code class="docutils literal notranslate"><span class="pre">rhkafka</span></code>.</p>
+</div>
+<ul>
+<li><p><strong>Requirements</strong></p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Now depends on <a class="reference external" href="https://pypi.python.org/pypi/robinhood-aiokafka/">robinhood-aiokafka</a> 0.4.14</p></li>
+<li><p>Now depends on <a class="reference external" href="https://mode.readthedocs.io/en/latest/changelog.html#version-1-15-0" title="(in Mode v4.3)"><span class="xref std std-ref">Mode 1.15.0</span></a>.</p></li>
+</ul>
+</div></blockquote>
+</li>
+</ul>
+</div>
+<div class="section" id="version-1-0-20">
+<span id="id11"></span><h2>1.0.20<a class="headerlink" href="#version-1-0-20" title="Permalink to this headline">¶</a></h2>
+<dl class="field-list simple">
+<dt class="field-odd">release-date</dt>
+<dd class="field-odd"><p>2018-06-26 2:35 P.M PDT</p>
+</dd>
+<dt class="field-even">release-by</dt>
+<dd class="field-even"><p>Vineet Goel</p>
+</dd>
+</dl>
+<ul class="simple">
+<li><p><strong>Monitor</strong>: Added <code class="docutils literal notranslate"><span class="pre">Monitor.count</span></code> to add arbitrary metrics to app monitor.</p></li>
+<li><p><strong>Statsd Monitor</strong>: Normalize agent metrics by removing memory address to
+avoid spamming statsd with thousands of unique metrics per agent.</p></li>
+</ul>
+</div>
+<div class="section" id="version-1-0-19">
+<span id="id12"></span><h2>1.0.19<a class="headerlink" href="#version-1-0-19" title="Permalink to this headline">¶</a></h2>
+<dl class="field-list simple">
+<dt class="field-odd">release-date</dt>
+<dd class="field-odd"><p>2018-06-25 6:40 P.M PDT</p>
+</dd>
+<dt class="field-even">release-by</dt>
+<dd class="field-even"><p>Vineet Goel</p>
+</dd>
+</dl>
+<ul class="simple">
+<li><p><strong>Assignor</strong>: Fixed crash if initial state of assignment is invalid. This
+was causing the following error: <code class="docutils literal notranslate"><span class="pre">ValueError('Actives</span> <span class="pre">and</span> <span class="pre">Standbys</span> <span class="pre">are</span>
+<span class="pre">disjoint',).</span></code> during partition assignment.</p></li>
+</ul>
+</div>
+<div class="section" id="version-1-0-18">
+<span id="id13"></span><h2>1.0.18<a class="headerlink" href="#version-1-0-18" title="Permalink to this headline">¶</a></h2>
+<dl class="field-list simple">
+<dt class="field-odd">release-date</dt>
+<dd class="field-odd"><p>2018-06-21 3:53 P.M PDT</p>
+</dd>
+<dt class="field-even">release-by</dt>
+<dd class="field-even"><p>Ask Solem</p>
+</dd>
+</dl>
+<ul class="simple">
+<li><p><strong>Worker</strong>: Fixed <code class="docutils literal notranslate"><span class="pre">KeyError:</span> <span class="pre">TopicPartition(topic='...',</span> <span class="pre">partition=x)</span></code>
+occurring during rebalance.</p></li>
+</ul>
+</div>
+<div class="section" id="version-1-0-17">
+<span id="id14"></span><h2>1.0.17<a class="headerlink" href="#version-1-0-17" title="Permalink to this headline">¶</a></h2>
+<dl class="field-list simple">
+<dt class="field-odd">release-date</dt>
+<dd class="field-odd"><p>2018-06-21 3:15 P.M PDT</p>
+</dd>
+<dt class="field-even">release-by</dt>
+<dd class="field-even"><p>Ask Solem</p>
+</dd>
+</dl>
+<ul>
+<li><p><strong>Requirements</strong></p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Now depends on <a class="reference external" href="https://pypi.python.org/pypi/robinhood-aiokafka/">robinhood-aiokafka</a> 0.4.13</p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p>We now raise an error if the official <a class="reference external" href="https://pypi.python.org/pypi/aiokafka/">aiokafka</a> or
+<a class="reference external" href="https://pypi.python.org/pypi/kafka-python/">kafka-python</a> is installed.</p>
+<blockquote>
+<div><p>Faust depends on a fork of <a class="reference external" href="https://pypi.python.org/pypi/aiokafka/">aiokafka</a> and can not be installed
+with the official versions of <a class="reference external" href="https://pypi.python.org/pypi/aiokafka/">aiokafka</a> and <a class="reference external" href="https://pypi.python.org/pypi/kafka-python/">kafka-python</a>.</p>
+<p>If you have those in requirements, please remove them from your
+<code class="docutils literal notranslate"><span class="pre">virtualenv</span></code> and remove them from requirements.</p>
+</div></blockquote>
+</li>
+<li><p><strong>Worker</strong>: Fixes hanging in wait_empty.</p>
+<blockquote>
+<div><p>This should also make rebalances faster.</p>
+</div></blockquote>
+</li>
+<li><p><strong>Worker</strong>: Adds timeout on topic creation.</p></li>
+</ul>
+</div>
+<div class="section" id="version-1-0-16">
+<span id="id15"></span><h2>1.0.16<a class="headerlink" href="#version-1-0-16" title="Permalink to this headline">¶</a></h2>
+<dl class="field-list simple">
+<dt class="field-odd">release-date</dt>
+<dd class="field-odd"><p>2018-06-19 3:46 P.M PDT</p>
+</dd>
+<dt class="field-even">release-by</dt>
+<dd class="field-even"><p>Ask Solem</p>
+</dd>
+</dl>
+<ul class="simple">
+<li><dl class="simple">
+<dt><strong>Worker</strong>: <a class="reference external" href="https://pypi.python.org/pypi/aiokafka/">aiokafka</a> create topic request default timeout now set</dt><dd><p>to 20 seconds (previously it was accidentally set to 1000
+seconds).</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><strong>Worker</strong>: Fixes crash from <a class="reference external" href="https://docs.python.org/dev/library/exceptions.html#AssertionError" title="(in Python v3.9)"><code class="xref py py-exc docutils literal notranslate"><span class="pre">AssertionError</span></code></a> where <code class="docutils literal notranslate"><span class="pre">table._revivers</span></code></dt><dd><p>is an empty list.</p>
+</dd>
+</dl>
+</li>
+<li><p><strong>Distribution</strong>: Adds
+<code class="file docutils literal notranslate"><span class="pre">t/misc/scripts/rebalance/killer-always-same-node.sh</span></code>.</p></li>
+</ul>
+</div>
+<div class="section" id="version-1-0-15">
+<span id="id16"></span><h2>1.0.15<a class="headerlink" href="#version-1-0-15" title="Permalink to this headline">¶</a></h2>
+<dl class="field-list simple">
+<dt class="field-odd">release-date</dt>
+<dd class="field-odd"><p>2018-06-14 7:36 P.M PDT</p>
+</dd>
+<dt class="field-even">release-by</dt>
+<dd class="field-even"><p>Ask Solem</p>
+</dd>
+</dl>
+<ul>
+<li><p><strong>Requirements</strong></p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Now depends on <a class="reference external" href="https://pypi.python.org/pypi/robinhood-aiokafka/">robinhood-aiokafka</a> 0.4.12</p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p><strong>Worker</strong>: Fixed problem where worker does not recover after MacBook
+sleeping and waking up.</p></li>
+<li><p><strong>Worker</strong>: Fixed crash that could lead to rebalancing loop.</p></li>
+<li><p><strong>Worker</strong>: Removed some noisy errors that weren’t really errors.</p></li>
+</ul>
+</div>
+<div class="section" id="version-1-0-14">
+<span id="id17"></span><h2>1.0.14<a class="headerlink" href="#version-1-0-14" title="Permalink to this headline">¶</a></h2>
+<dl class="field-list simple">
+<dt class="field-odd">release-date</dt>
+<dd class="field-odd"><p>2018-06-13 5:58 P.M PDT</p>
+</dd>
+<dt class="field-even">release-by</dt>
+<dd class="field-even"><p>Ask Solem</p>
+</dd>
+</dl>
+<ul>
+<li><p><strong>Requirements</strong></p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Now depends on <a class="reference external" href="https://pypi.python.org/pypi/robinhood-aiokafka/">robinhood-aiokafka</a> 0.4.11</p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p><strong>Worker</strong>: <a class="reference external" href="https://pypi.python.org/pypi/aiokafka/">aiokafka</a>’s heartbeat thread would sometimes keep the
+worker alive even though the worker was trying to shutdown.</p>
+<blockquote>
+<div><p>An error could have happened many hours ago causing the worker to crash
+and attempt a shutdown, but then the heartbeat thread kept the worker
+from terminating.</p>
+<p>Now the rebalance will check if the worker is stopped and then
+appropriately stop the heartbeat thread.</p>
+</div></blockquote>
+</li>
+<li><p><strong>Worker</strong>: Fixed error that caused rebalancing to hang:
+<code class="docutils literal notranslate"><span class="pre">&quot;ValueError:</span> <span class="pre">Set</span> <span class="pre">of</span> <span class="pre">coroutines/Futures</span> <span class="pre">is</span> <span class="pre">empty.&quot;</span></code>.</p></li>
+<li><p><strong>Worker</strong>: Fixed error “Coroutine x tried to break fence owned by y”</p>
+<blockquote>
+<div><p>This was added as an assertion to see if multiple threads would use the
+variable at the same time.</p>
+</div></blockquote>
+</li>
+<li><p><strong>Worker</strong>: Removed logged error “not assigned to topics” now that we
+automatically recover from non-existing topics.</p></li>
+<li><p><strong>Tables</strong>: Ignore <a class="reference external" href="https://docs.python.org/dev/library/asyncio-exceptions.html#asyncio.CancelledError" title="(in Python v3.9)"><code class="xref py py-exc docutils literal notranslate"><span class="pre">asyncio.CancelledError</span></code></a> while stopping standbys.</p></li>
+<li><p><strong>Distribution</strong>: Added scripts to help stress test rebalancing
+in <code class="file docutils literal notranslate"><span class="pre">t/misc/scripts/rebalance</span></code>.</p></li>
+</ul>
+</div>
+<div class="section" id="version-1-0-13">
+<span id="id18"></span><h2>1.0.13<a class="headerlink" href="#version-1-0-13" title="Permalink to this headline">¶</a></h2>
+<dl class="field-list simple">
+<dt class="field-odd">release-date</dt>
+<dd class="field-odd"><p>2018-06-12 2:10 P.M PDT</p>
+</dd>
+<dt class="field-even">release-by</dt>
+<dd class="field-even"><p>Ask Solem</p>
+</dd>
+</dl>
+<ul>
+<li><p><strong>Worker</strong>: The Kafka fetcher service was taking too long to shutdown
+on rebalance.</p>
+<blockquote>
+<div><p>If this takes longer than the session timeout, it triggers another
+rebalance, and if it happens repeatedly this will cause the cluster
+to be in a state of constant rebalancing.</p>
+<p>Now we use future cancellation to stop the service as fast as possible.</p>
+</div></blockquote>
+</li>
+<li><p><strong>Worker</strong>: Fetcher was accidentally started too early.</p>
+<blockquote>
+<div><p>This didn’t lead to any problems that we know of, but made the start a bit
+slower than it needs to.</p>
+</div></blockquote>
+</li>
+<li><p><strong>Worker</strong>: Fixed race condition where partitions were paused while fetching
+from them.</p></li>
+<li><p><strong>Worker</strong>: Fixed theoretical race condition hang if web server started and
+stopped in quick succession.</p></li>
+<li><p><strong>Statsd</strong>: The statsd monitor prematurely initialized the event loop
+on module import.</p>
+<blockquote>
+<div><p>We had a fix for this, but somehow forgot to remove the “hard coded
+super” that was set to call: <code class="docutils literal notranslate"><span class="pre">Service.__init__(self,</span> <span class="pre">**kwargs)</span></code>.</p>
+<p>The class is not even a subclass of Service anymore, and we are lucky it
+manifests merely when doing something drastic, like <code class="docutils literal notranslate"><span class="pre">py.test</span></code>,
+recursively importing all modules in a directory.</p>
+</div></blockquote>
+</li>
+</ul>
+</div>
+<div class="section" id="version-1-0-12">
+<span id="id19"></span><h2>1.0.12<a class="headerlink" href="#version-1-0-12" title="Permalink to this headline">¶</a></h2>
+<dl class="field-list simple">
+<dt class="field-odd">release-date</dt>
+<dd class="field-odd"><p>2018-06-06 1:34 P.M PDT</p>
+</dd>
+<dt class="field-even">release-by</dt>
+<dd class="field-even"><p>Ask Solem</p>
+</dd>
+</dl>
+<ul>
+<li><p><strong>Requirements</strong></p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Now depends on <a class="reference external" href="https://mode.readthedocs.io/en/latest/changelog.html#version-1-14-1" title="(in Mode v4.3)"><span class="xref std std-ref">Mode 1.14.1</span></a>.</p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p><strong>Worker</strong>: Producer crashing no longer causes the consumer to hang
+at shutdown while trying to publish attached messages.</p></li>
+</ul>
+</div>
+<div class="section" id="version-1-0-11">
+<span id="id20"></span><h2>1.0.11<a class="headerlink" href="#version-1-0-11" title="Permalink to this headline">¶</a></h2>
+<dl class="field-list simple">
+<dt class="field-odd">release-date</dt>
+<dd class="field-odd"><p>2018-05-31  16:41 P.M PDT</p>
+</dd>
+<dt class="field-even">release-by</dt>
+<dd class="field-even"><p>Ask Solem</p>
+</dd>
+</dl>
+<ul>
+<li><p><strong>Requirements</strong></p>
+<blockquote>
+<div><ul>
+<li><p>Now depends on <a class="reference external" href="https://mode.readthedocs.io/en/latest/changelog.html#version-1-13-0" title="(in Mode v4.3)"><span class="xref std std-ref">Mode 1.13.0</span></a>.</p></li>
+<li><p>Now depends on <a class="reference external" href="https://pypi.python.org/pypi/robinhood-aiokafka/">robinhood-aiokafka</a></p>
+<blockquote>
+<div><p>We have forked <a class="reference external" href="https://pypi.python.org/pypi/aiokafka/">aiokafka</a> to fix some issues.</p>
+</div></blockquote>
+</li>
+</ul>
+</div></blockquote>
+</li>
+<li><p>Now handles missing topics automatically, so you don’t have to restart
+the worker the first time when topics are missing.</p></li>
+<li><p>Mode now registers as a library having static type annotations.</p>
+<blockquote>
+<div><p>This conforms to <span class="target" id="index-0"></span><a class="pep reference external" href="https://www.python.org/dev/peps/pep-0561"><strong>PEP 561</strong></a> – a new specification that defines
+how Python libraries register type stubs to make them available
+for use with static analyzers like <a class="reference external" href="https://pypi.python.org/pypi/mypy/">mypy</a> and <a class="reference external" href="https://pypi.python.org/pypi/pyre-check/">pyre-check</a>.</p>
+</div></blockquote>
+</li>
+<li><p><strong>Typing</strong>: Faust codebase now passes <code class="docutils literal notranslate"><span class="pre">--strict-optional</span></code>.</p></li>
+<li><p><strong>Settings</strong>: Added new settings</p>
+<blockquote>
+<div><ul class="simple">
+<li><p><a class="reference internal" href="../userguide/settings.html#std:setting-broker_heartbeat_interval"><code class="xref std std-setting docutils literal notranslate"><span class="pre">broker_heartbeat_interval</span></code></a></p></li>
+<li><p><a class="reference internal" href="../userguide/settings.html#std:setting-broker_session_timeout"><code class="xref std std-setting docutils literal notranslate"><span class="pre">broker_session_timeout</span></code></a></p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><dl class="simple">
+<dt><strong>Aiokafka</strong>: Removes need for consumer partitions lock: this fixes</dt><dd><p>rare deadlock.</p>
+</dd>
+</dl>
+</li>
+<li><p><strong>Worker</strong>: Worker no longer hangs for few minutes when there is an error.</p></li>
+</ul>
+</div>
+<div class="section" id="version-1-0-10">
+<span id="id21"></span><h2>1.0.10<a class="headerlink" href="#version-1-0-10" title="Permalink to this headline">¶</a></h2>
+<dl class="field-list simple">
+<dt class="field-odd">release-date</dt>
+<dd class="field-odd"><p>2018-05-15  16:02 P.M PDT</p>
+</dd>
+<dt class="field-even">release-by</dt>
+<dd class="field-even"><p>Vineet Goel</p>
+</dd>
+</dl>
+<ul class="simple">
+<li><p><strong>Worker</strong>: Stop reading changelog when no remaining messages.</p></li>
+</ul>
+</div>
+<div class="section" id="version-1-0-9">
+<span id="id22"></span><h2>1.0.9<a class="headerlink" href="#version-1-0-9" title="Permalink to this headline">¶</a></h2>
+<dl class="field-list simple">
+<dt class="field-odd">release-date</dt>
+<dd class="field-odd"><p>2018-05-15  15:42 P.M PDT</p>
+</dd>
+<dt class="field-even">release-by</dt>
+<dd class="field-even"><p>Vineet Goel</p>
+</dd>
+</dl>
+<ul class="simple">
+<li><p><strong>Worker</strong>: Do not stop reading standby updates.</p></li>
+</ul>
+</div>
+<div class="section" id="version-1-0-8">
+<span id="id23"></span><h2>1.0.8<a class="headerlink" href="#version-1-0-8" title="Permalink to this headline">¶</a></h2>
+<dl class="field-list simple">
+<dt class="field-odd">release-date</dt>
+<dd class="field-odd"><p>2018-05-15 11:00 A.M PDT</p>
+</dd>
+<dt class="field-even">release-by</dt>
+<dd class="field-even"><p>Vineet Goel</p>
+</dd>
+</dl>
+<ul>
+<li><p><strong>Tables</strong></p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Fixes bug due to which we were serializing <code class="docutils literal notranslate"><span class="pre">None</span></code> values while
+recording a key delete to the changelog. This was causing the deleted
+keys to never be deleted from the changelog.</p></li>
+<li><p>We were earlier not persisting offsets of messages read during
+changelog reading (or standby recovery). This would cause longer recovery
+times if recovery was ever interrupted.</p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p><strong>App</strong>: Added flight recorder for consumer group rebalances for debugging.</p></li>
+</ul>
+</div>
+<div class="section" id="version-1-0-7">
+<span id="id24"></span><h2>1.0.7<a class="headerlink" href="#version-1-0-7" title="Permalink to this headline">¶</a></h2>
+<dl class="field-list simple">
+<dt class="field-odd">release-date</dt>
+<dd class="field-odd"><p>2018-05-14 4:53 P.M PDT</p>
+</dd>
+<dt class="field-even">release-by</dt>
+<dd class="field-even"><p>Ask Solem</p>
+</dd>
+</dl>
+<ul>
+<li><p><strong>Requirements</strong></p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Now depends on <a class="reference external" href="https://mode.readthedocs.io/en/latest/changelog.html#version-1-12-5" title="(in Mode v4.3)"><span class="xref std std-ref">Mode 1.12.5</span></a>.</p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p><strong>App</strong>: <code class="docutils literal notranslate"><span class="pre">key_type</span></code> and <code class="docutils literal notranslate"><span class="pre">value_type</span></code> can now be set to:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p><a class="reference external" href="https://docs.python.org/dev/library/functions.html#int" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>:  key/value is number stored as string</p></li>
+<li><p><a class="reference external" href="https://docs.python.org/dev/library/functions.html#float" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>: key/value is floating point number stored as string.</p></li>
+<li><p><a class="reference external" href="https://docs.python.org/dev/library/decimal.html#decimal.Decimal" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">decimal.Decimal</span></code></a> key/value is decimal stored as string.</p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p><strong>Agent</strong>: Fixed support for <code class="docutils literal notranslate"><span class="pre">group_by</span></code>/<code class="docutils literal notranslate"><span class="pre">through</span></code> after
+change to reuse the same stream after agent crashing.</p></li>
+<li><p><strong>Agent</strong>: Fixed <code class="docutils literal notranslate"><span class="pre">isolated_partitions=True</span></code> after change in v1.0.3.</p>
+<blockquote>
+<div><p>Initialization of the agent-by-topic index was in <a class="reference internal" href="#version-1-0-3"><span class="std std-ref">1.0.3</span></a>
+moved to the <code class="docutils literal notranslate"><span class="pre">AgentManager.start</span></code> method, but it turns out
+<code class="docutils literal notranslate"><span class="pre">AgentManager</span></code> is a regular class, and not a service.</p>
+<p><code class="docutils literal notranslate"><span class="pre">AgentManager</span></code> is now a service responsible for
+starting/stopping the agents required by the app.</p>
+</div></blockquote>
+</li>
+<li><p><strong>Agent</strong>: Include active partitions in repr when
+<code class="docutils literal notranslate"><span class="pre">isolated_partitions=True</span></code>.</p></li>
+<li><p><strong>Agent</strong>: Removed extraneous ‘agent crashed’ exception in logs.</p></li>
+<li><p><strong>CLI</strong>: Fixed autodiscovery of commands when using <code class="docutils literal notranslate"><span class="pre">faust</span> <span class="pre">-A</span> <span class="pre">app</span></code>.</p></li>
+<li><p><strong>Consumer</strong>: Appropriately handle closed fetcher.</p></li>
+<li><p>New shortcut: <a class="reference internal" href="../reference/faust.html#faust.uuid" title="faust.uuid"><code class="xref py py-func docutils literal notranslate"><span class="pre">faust.uuid()</span></code></a> generates UUID4 ids as string.</p></li>
+</ul>
+</div>
+<div class="section" id="version-1-0-6">
+<span id="id25"></span><h2>1.0.6<a class="headerlink" href="#version-1-0-6" title="Permalink to this headline">¶</a></h2>
+<dl class="field-list simple">
+<dt class="field-odd">release-date</dt>
+<dd class="field-odd"><p>2018-05-11 11:15 A.M PDT</p>
+</dd>
+<dt class="field-even">release-by</dt>
+<dd class="field-even"><p>Vineet Goel</p>
+</dd>
+</dl>
+<ul>
+<li><p><strong>Requirements</strong>:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Now depends on Aiokafka 0.4.7.</p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p><strong>Table</strong>: Delete keys when raw value in changelog set to <code class="xref py py-const docutils literal notranslate"><span class="pre">None</span></code></p>
+<blockquote>
+<div><p>This was resulting in deleted keys still being present with value
+<code class="xref py py-const docutils literal notranslate"><span class="pre">None</span></code> upon recovery.</p>
+</div></blockquote>
+</li>
+<li><p><strong>Transports</strong>: Crash app on CommitFailedError thrown by <a class="reference external" href="https://pypi.python.org/pypi/aiokafka/">aiokafka</a>.</p>
+<blockquote>
+<div><p>App would get into a weird state upon a commit failed error thrown by the
+consumer thread in the <a class="reference external" href="https://pypi.python.org/pypi/aiokafka/">aiokafka</a> driver.</p>
+</div></blockquote>
+</li>
+</ul>
+</div>
+<div class="section" id="version-1-0-5">
+<span id="id26"></span><h2>1.0.5<a class="headerlink" href="#version-1-0-5" title="Permalink to this headline">¶</a></h2>
+<dl class="field-list simple">
+<dt class="field-odd">release-date</dt>
+<dd class="field-odd"><p>2018-05-08 4:09 P.M PDT</p>
+</dd>
+<dt class="field-even">release-by</dt>
+<dd class="field-even"><p>Ask Solem</p>
+</dd>
+</dl>
+<ul>
+<li><p><strong>Requirements</strong>:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Now depends on <a class="reference external" href="https://mode.readthedocs.io/en/latest/changelog.html#version-1-12-4" title="(in Mode v4.3)"><span class="xref std std-ref">Mode 1.12.4</span></a>.</p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p><strong>Agents</strong>: Fixed problem with hanging after agent raises exception.</p>
+<blockquote>
+<div><p>If an agent raises an exception we cannot handle it within
+the stream iteration, so we need to restart the agent.</p>
+<p>Starting from this change, even though we restart the agent, we reuse
+the same <a class="reference internal" href="../reference/faust.html#faust.Stream" title="faust.Stream"><code class="xref py py-class docutils literal notranslate"><span class="pre">faust.Stream</span></code></a> object that the crashed agent was using.</p>
+<p>This makes recovery more seamless and there are fewer steps
+involved.</p>
+</div></blockquote>
+</li>
+<li><p><strong>Transports</strong>: Fixed worker hanging issue introduced in 1.0.4.</p>
+<blockquote>
+<div><p>In version <a class="reference internal" href="#version-1-0-4"><span class="std std-ref">1.0.4</span></a> we introduced a bug in the round-robin
+scheduling of topic partitions that manifested itself by hanging
+with 100% CPU usage.</p>
+<p>After processing all records in all topic partitions, the worker
+would spin loop.</p>
+</div></blockquote>
+</li>
+<li><p><strong>API</strong>: Added new base class for windows: <a class="reference internal" href="../reference/faust.html#faust.Window" title="faust.Window"><code class="xref py py-class docutils literal notranslate"><span class="pre">faust.Window</span></code></a></p>
+<blockquote>
+<div><p>There was the typing interface <a class="reference internal" href="../reference/faust.types.windows.html#faust.types.windows.WindowT" title="faust.types.windows.WindowT"><code class="xref py py-class docutils literal notranslate"><span class="pre">faust.types.windows.WindowT</span></code></a>,
+but now there is also a concrete base class that can be used in
+for example <code class="docutils literal notranslate"><span class="pre">Mock(autospec=Window)</span></code>.</p>
+</div></blockquote>
+</li>
+<li><p><strong>Tests</strong>: Now takes advantage of the new
+<a class="reference external" href="https://mode.readthedocs.io/en/latest/reference/mode.utils.mocks.html#mode.utils.mocks.AsyncMock" title="(in Mode v4.3)"><code class="xref py py-class docutils literal notranslate"><span class="pre">AsyncMock</span></code></a>.</p></li>
+</ul>
+</div>
+<div class="section" id="version-1-0-4">
+<span id="id27"></span><h2>1.0.4<a class="headerlink" href="#version-1-0-4" title="Permalink to this headline">¶</a></h2>
+<dl class="field-list simple">
+<dt class="field-odd">release-date</dt>
+<dd class="field-odd"><p>2018-05-08 11:45 A.M PDT</p>
+</dd>
+<dt class="field-even">release-by</dt>
+<dd class="field-even"><p>Vineet Goel</p>
+</dd>
+</dl>
+<ul>
+<li><p><strong>Transports</strong>:</p>
+<blockquote>
+<div><p>In <a class="reference internal" href="#version-1-0-2">version-1.0.2</a> we implemented fair scheduling in <a class="reference external" href="https://pypi.python.org/pypi/aiokafka/">aiokafka</a>
+transport such that while processing the worker had an equal chance of
+processing each assigned Topic. Now we also round-robin through topic
+partitions within topics such that the worker has an equal chance of
+processing message from each assigned partition within a topic as well.</p>
+</div></blockquote>
+</li>
+</ul>
+</div>
+<div class="section" id="version-1-0-3">
+<span id="id28"></span><h2>1.0.3<a class="headerlink" href="#version-1-0-3" title="Permalink to this headline">¶</a></h2>
+<dl class="field-list simple">
+<dt class="field-odd">release-date</dt>
+<dd class="field-odd"><p>2018-05-07 3:45 P.M PDT</p>
+</dd>
+<dt class="field-even">release-by</dt>
+<dd class="field-even"><p>Ask Solem</p>
+</dd>
+</dl>
+<ul>
+<li><p><strong>Tests</strong>:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Adds 5650 lines of tests, increasing test coverage to 90%.</p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p><strong>Requirements</strong>:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Now depends on <a class="reference external" href="https://mode.readthedocs.io/en/latest/changelog.html#version-1-12-3" title="(in Mode v4.3)"><span class="xref std std-ref">Mode 1.12.3</span></a>.</p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p><strong>Development</strong>:</p>
+<blockquote>
+<div><ul>
+<li><p>CI now builds coverage.</p></li>
+<li><p>CI now tests multiple CPython versions:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>CPython 3.6.0</p></li>
+<li><p>CPython 3.6.1</p></li>
+<li><p>CPython 3.6.2</p></li>
+<li><p>CPython 3.6.3</p></li>
+<li><p>CPython 3.6.4</p></li>
+<li><p>CPython 3.6.5</p></li>
+</ul>
+</div></blockquote>
+</li>
+</ul>
+</div></blockquote>
+</li>
+<li><p><strong>Backward incompatible changes</strong>:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Removed <code class="docutils literal notranslate"><span class="pre">faust.Set</span></code> unused by any internal applications.</p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p><strong>Fixes</strong>:</p>
+<blockquote>
+<div><ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">app.agents</span></code> did not forward app to
+<code class="xref py py-class docutils literal notranslate"><span class="pre">AgentManager</span></code>.</p>
+<blockquote>
+<div><p>The agent manager does not use the app, but fixing this
+in anticipation of people writing custom agent managers.</p>
+</div></blockquote>
+</li>
+<li><dl>
+<dt><code class="xref py py-class docutils literal notranslate"><span class="pre">AgentManager</span></code>: On partitions revoked</dt><dd><p>the agent manager now makes sure there’s only one call
+to each agents <code class="docutils literal notranslate"><span class="pre">agent.on_partitions_revoked</span></code> callback.</p>
+<p>This is more of a pedantic change, but could have caused problems
+for advanced topic configurations.</p>
+</dd>
+</dl>
+</li>
+</ul>
+</div></blockquote>
+</li>
+</ul>
+</div>
+<div class="section" id="version-1-0-2">
+<span id="id29"></span><h2>1.0.2<a class="headerlink" href="#version-1-0-2" title="Permalink to this headline">¶</a></h2>
+<dl class="field-list simple">
+<dt class="field-odd">release-date</dt>
+<dd class="field-odd"><p>2018-05-03 3:32 P.M PDT</p>
+</dd>
+<dt class="field-even">release-by</dt>
+<dd class="field-even"><p>Ask Solem</p>
+</dd>
+</dl>
+<ul>
+<li><p><strong>Transports</strong>: Implements fair scheduling in <a class="reference external" href="https://pypi.python.org/pypi/aiokafka/">aiokafka</a> transport.</p>
+<blockquote>
+<div><p>We now round-robin through topics when processing fetched records from
+Kafka. This helps us avoid starvation when some topics have many
+more records than others, and also takes into account that different
+topics may have wildly varying partition counts.</p>
+<p>In this version when a worker is subscribed to partitions:</p>
+<div class="highlight-python3 notranslate"><div class="highlight"><pre><span></span><span class="p">[</span>
+    <span class="n">TP</span><span class="p">(</span><span class="n">topic</span><span class="o">=</span><span class="s1">&#39;foo&#39;</span><span class="p">,</span> <span class="n">partition</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span>
+    <span class="n">TP</span><span class="p">(</span><span class="n">topic</span><span class="o">=</span><span class="s1">&#39;foo&#39;</span><span class="p">,</span> <span class="n">partition</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span>
+    <span class="n">TP</span><span class="p">(</span><span class="n">topic</span><span class="o">=</span><span class="s1">&#39;foo&#39;</span><span class="p">,</span> <span class="n">partition</span><span class="o">=</span><span class="mi">2</span><span class="p">),</span>
+    <span class="n">TP</span><span class="p">(</span><span class="n">topic</span><span class="o">=</span><span class="s1">&#39;foo&#39;</span><span class="p">,</span> <span class="n">partition</span><span class="o">=</span><span class="mi">3</span><span class="p">),</span>
+
+    <span class="n">TP</span><span class="p">(</span><span class="n">topic</span><span class="o">=</span><span class="s1">&#39;bar&#39;</span><span class="p">,</span> <span class="n">partition</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span>
+    <span class="n">TP</span><span class="p">(</span><span class="n">topic</span><span class="o">=</span><span class="s1">&#39;bar&#39;</span><span class="p">,</span> <span class="n">partition</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span>
+    <span class="n">TP</span><span class="p">(</span><span class="n">topic</span><span class="o">=</span><span class="s1">&#39;bar&#39;</span><span class="p">,</span> <span class="n">partition</span><span class="o">=</span><span class="mi">2</span><span class="p">),</span>
+    <span class="n">TP</span><span class="p">(</span><span class="n">topic</span><span class="o">=</span><span class="s1">&#39;bar&#39;</span><span class="p">,</span> <span class="n">partition</span><span class="o">=</span><span class="mi">3</span><span class="p">),</span>
+
+    <span class="n">TP</span><span class="p">(</span><span class="n">topic</span><span class="o">=</span><span class="s1">&#39;baz&#39;</span><span class="p">,</span> <span class="n">partition</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="p">]</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><code class="docutils literal notranslate"><span class="pre">TP</span></code> is short for <em>topic and partition</em>.</p>
+</div>
+<p>When processing messages in these partitions, the worker will
+round robin between the topics in such a way that each topic
+will have an equal chance of being processed.</p>
+</div></blockquote>
+</li>
+<li><p><strong>Transports</strong>: Fixed crash in <a class="reference external" href="https://pypi.python.org/pypi/aiokafka/">aiokafka</a> transport.</p>
+<blockquote>
+<div><p>The worker would attempt to commit an empty set of partitions,
+causing an exception to be raised.  This has now been fixed.</p>
+</div></blockquote>
+</li>
+<li><p><strong>Stream</strong>: Removed unused method <code class="docutils literal notranslate"><span class="pre">Stream.tee</span></code>.</p>
+<blockquote>
+<div><p>This method was an example implementation and not used by any
+of our internal apps.</p>
+</div></blockquote>
+</li>
+<li><dl>
+<dt><strong>Stream</strong>: Fixed bug when something raises <a class="reference external" href="https://docs.python.org/dev/library/exceptions.html#StopAsyncIteration" title="(in Python v3.9)"><code class="xref py py-exc docutils literal notranslate"><span class="pre">StopAsyncIteration</span></code></a></dt><dd><p>while processing the stream.</p>
+<blockquote>
+<div><p>The Python async iterator protocol mandates that it’s illegal
+to raise <a class="reference external" href="https://docs.python.org/dev/library/exceptions.html#StopAsyncIteration" title="(in Python v3.9)"><code class="xref py py-exc docutils literal notranslate"><span class="pre">StopAsyncIteration</span></code></a> in an <code class="docutils literal notranslate"><span class="pre">__aiter__</span></code> method.</p>
+<p>Before this change, code such as this:</p>
+<div class="highlight-python3 notranslate"><div class="highlight"><pre><span></span><span class="k">async</span> <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">stream</span><span class="p">:</span>
+    <span class="n">value</span> <span class="o">=</span> <span class="n">anext</span><span class="p">(</span><span class="n">other_async_iterator</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>where <code class="docutils literal notranslate"><span class="pre">anext</span></code> raises <a class="reference external" href="https://docs.python.org/dev/library/exceptions.html#StopAsyncIteration" title="(in Python v3.9)"><code class="xref py py-exc docutils literal notranslate"><span class="pre">StopAsyncIteration</span></code></a>, Python would
+have the outer <code class="docutils literal notranslate"><span class="pre">__aiter__</span></code> reraise that exception as:</p>
+<div class="highlight-python3 notranslate"><div class="highlight"><pre><span></span><span class="ne">RuntimeError</span><span class="p">(</span><span class="s1">&#39;__aiter__ raised StopAsyncIteration&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>This no longer happens as we catch the <a class="reference external" href="https://docs.python.org/dev/library/exceptions.html#StopAsyncIteration" title="(in Python v3.9)"><code class="xref py py-exc docutils literal notranslate"><span class="pre">StopAsyncIteration</span></code></a> exception
+early to ensure it does not propagate.</p>
+</div></blockquote>
+</dd>
+</dl>
+</li>
+</ul>
+</div>
+<div class="section" id="version-1-0-1">
+<span id="id30"></span><h2>1.0.1<a class="headerlink" href="#version-1-0-1" title="Permalink to this headline">¶</a></h2>
+<dl class="field-list simple">
+<dt class="field-odd">release-date</dt>
+<dd class="field-odd"><p>2018-05-01 9:52 A.M PDT</p>
+</dd>
+<dt class="field-even">release-by</dt>
+<dd class="field-even"><p>Ask Solem</p>
+</dd>
+</dl>
+<ul>
+<li><p><strong>Stream</strong>: Fixed issue with using <a class="reference external" href="https://docs.python.org/dev/reference/simple_stmts.html#break" title="(in Python v3.9)"><code class="xref std std-keyword docutils literal notranslate"><span class="pre">break</span></code></a> when iterating
+over stream.</p>
+<blockquote>
+<div><p>The last message in a stream would not be acked if the <a class="reference external" href="https://docs.python.org/dev/reference/simple_stmts.html#break" title="(in Python v3.9)"><code class="xref std std-keyword docutils literal notranslate"><span class="pre">break</span></code></a>
+keyword was used:</p>
+<div class="highlight-python3 notranslate"><div class="highlight"><pre><span></span><span class="k">async</span> <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">stream</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">value</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+        <span class="k">break</span>
+</pre></div>
+</div>
+</div></blockquote>
+</li>
+<li><p><strong>Stream</strong>: <code class="docutils literal notranslate"><span class="pre">.take</span></code> now acks events <em>after</em> buffer processed.</p>
+<blockquote>
+<div><p>Previously the events were erroneously acked at the time
+of entering the buffer.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>To accomplish this we maintain a list of events to ack
+as soon as the buffer is processed. The operation is
+<code class="docutils literal notranslate"><span class="pre">O(n)</span></code> where <code class="docutils literal notranslate"><span class="pre">n</span></code> is the size of the buffer, so please
+keep buffer sizes small (e.g. 1000).</p>
+<p>A large buffer will increase the chance of consistency
+issues where events are processed more than once.</p>
+</div>
+</div></blockquote>
+</li>
+<li><p><strong>Stream</strong>: New <code class="docutils literal notranslate"><span class="pre">noack</span></code> modifier disables acking of messages in the
+stream.</p>
+<blockquote>
+<div><p>Use this to disable automatic acknowledgment of events:</p>
+<div class="highlight-python3 notranslate"><div class="highlight"><pre><span></span><span class="k">async</span> <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">stream</span><span class="o">.</span><span class="n">noack</span><span class="p">():</span>
+    <span class="c1"># manual acknowledgment</span>
+    <span class="k">await</span> <span class="n">stream</span><span class="o">.</span><span class="n">ack</span><span class="p">(</span><span class="n">stream</span><span class="o">.</span><span class="n">current_event</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="admonition-manual-acknowledgment admonition">
+<p class="admonition-title">Manual Acknowledgment</p>
+<p>The stream is a sequence of events, where each event has a sequence
+number: the “offset”.</p>
+<p>To mark an event as processed, so that we do not process it again,
+the Kafka broker will keep track of the last committed offset
+for any topic.</p>
+<p>This means “acknowledgment” works quite differently from other
+message brokers, such as RabbitMQ where you can selectively
+ack some messages, but not others.</p>
+<p>If the messages in the topic look like this sequence:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>1 2 3 4 5 6 7 8
+</pre></div>
+</div>
+<p>You can commit the offset for #5, only after processing all
+events before it. This means you MUST ack offsets (1, 2, 3, 4)
+<em>before</em> being allowed to commit 5 as the new offset.</p>
+</div>
+</div></blockquote>
+</li>
+<li><p><strong>Stream</strong>: Fixed issue with <code class="docutils literal notranslate"><span class="pre">.take</span></code> not properly respecting the
+<code class="docutils literal notranslate"><span class="pre">within</span></code> argument.</p>
+<blockquote>
+<div><p>The new implementation of take now starts a background thread
+to fill the buffer. This avoids having to restart iterating
+over the stream, which caused issues.</p>
+</div></blockquote>
+</li>
+</ul>
+</div>
+<div class="section" id="version-1-0-0">
+<span id="id31"></span><h2>1.0.0<a class="headerlink" href="#version-1-0-0" title="Permalink to this headline">¶</a></h2>
+<dl class="field-list simple">
+<dt class="field-odd">release-date</dt>
+<dd class="field-odd"><p>2018-04-27 4:13 P.M PDT</p>
+</dd>
+<dt class="field-even">release-by</dt>
+<dd class="field-even"><p>Ask Solem</p>
+</dd>
+</dl>
+<ul>
+<li><p><strong>Models</strong>: Raise error if <code class="docutils literal notranslate"><span class="pre">Record.asdict()</span></code> is overridden.</p></li>
+<li><p><strong>Models</strong>: Can now override <code class="docutils literal notranslate"><span class="pre">Record._prepare_dict</span></code> to change the
+payload generated.</p>
+<blockquote>
+<div><p>For example if you want your model to serialize to a dictionary,
+but not have any fields with <code class="xref py py-const docutils literal notranslate"><span class="pre">None</span></code> values, you can override
+<code class="docutils literal notranslate"><span class="pre">_prepare_dict</span></code> to accomplish this:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">Quote</span><span class="p">(</span><span class="n">faust</span><span class="o">.</span><span class="n">Record</span><span class="p">):</span>
+    <span class="n">ask_price</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="bp">None</span>
+    <span class="n">bid_price</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="bp">None</span>
+
+    <span class="k">def</span> <span class="nf">_prepare_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
+        <span class="c1"># Remove keys with None values from payload.</span>
+        <span class="k">return</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">data</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">v</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">}</span>
+
+<span class="k">assert</span> <span class="n">Quote</span><span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="bp">None</span><span class="p">)</span><span class="o">.</span><span class="n">asdict</span><span class="p">()</span> <span class="o">==</span> <span class="p">{</span><span class="s1">&#39;ask_price&#39;</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">}</span>
+</pre></div>
+</div>
+</div></blockquote>
+</li>
+<li><p><strong>Stream</strong>: Removed annoying <code class="docutils literal notranslate"><span class="pre">Flight</span> <span class="pre">Recorder</span></code> logging that was too noisy.</p></li>
+</ul>
+</div>
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../playbooks/index.html">Playbooks</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../userguide/index.html">User Guide</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">History</a><ul>
+      <li>Previous: <a href="changelog-1.1.html" title="previous chapter">Change history for Faust 1.1</a></li>
+      <li>Next: <a href="changelog-0.9.html" title="next chapter">Change history for Faust 0.9</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2020, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../_sources/history/changelog-1.0.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

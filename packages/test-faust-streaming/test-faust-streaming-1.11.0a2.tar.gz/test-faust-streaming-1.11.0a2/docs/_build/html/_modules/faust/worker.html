@@ -1,0 +1,457 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>faust.worker &#8212; Faust 1.9.0 documentation</title>
+    <link rel="stylesheet" href="../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="copyright" title="Copyright" href="../../copyright.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for faust.worker</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Worker.</span>
+
+<span class="sd">A &quot;worker&quot; starts a single instance of a Faust application.</span>
+
+<span class="sd">See Also:</span>
+<span class="sd">    :ref:`app-starting`: for more information.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">import</span> <span class="nn">asyncio</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">sys</span>
+
+<span class="kn">from</span> <span class="nn">collections</span> <span class="k">import</span> <span class="n">defaultdict</span>
+<span class="kn">from</span> <span class="nn">itertools</span> <span class="k">import</span> <span class="n">chain</span>
+<span class="kn">from</span> <span class="nn">pathlib</span> <span class="k">import</span> <span class="n">Path</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="k">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">IO</span><span class="p">,</span> <span class="n">Iterable</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Set</span><span class="p">,</span> <span class="n">Union</span>
+
+<span class="kn">import</span> <span class="nn">mode</span>
+<span class="kn">from</span> <span class="nn">mode</span> <span class="k">import</span> <span class="n">ServiceT</span><span class="p">,</span> <span class="n">get_logger</span>
+<span class="kn">from</span> <span class="nn">mode.utils.logging</span> <span class="k">import</span> <span class="n">Severity</span><span class="p">,</span> <span class="n">formatter</span>
+
+<span class="kn">from</span> <span class="nn">.types</span> <span class="k">import</span> <span class="n">AppT</span><span class="p">,</span> <span class="n">SensorT</span><span class="p">,</span> <span class="n">TP</span><span class="p">,</span> <span class="n">TopicT</span>
+<span class="kn">from</span> <span class="nn">.types._env</span> <span class="k">import</span> <span class="n">BLOCKING_TIMEOUT</span><span class="p">,</span> <span class="n">CONSOLE_PORT</span><span class="p">,</span> <span class="n">DEBUG</span>
+<span class="kn">from</span> <span class="nn">.utils</span> <span class="k">import</span> <span class="n">terminal</span>
+
+<span class="k">try</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+    <span class="c1"># if installed we use this to set ps.name (argv[0])</span>
+    <span class="kn">from</span> <span class="nn">setproctitle</span> <span class="k">import</span> <span class="n">setproctitle</span>
+<span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+    <span class="k">def</span> <span class="nf">setproctitle</span><span class="p">(</span><span class="n">title</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span> <span class="o">...</span>  <span class="c1"># noqa</span>
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;Worker&#39;</span><span class="p">]</span>
+
+<span class="c1">#: Name prefix of process in ps/top listings.</span>
+<span class="n">PSIDENT</span> <span class="o">=</span> <span class="s1">&#39;[Faust:Worker]&#39;</span>
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">get_logger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+
+<span class="nd">@formatter</span>
+<span class="k">def</span> <span class="nf">format_log_arguments</span><span class="p">(</span><span class="n">arg</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+    <span class="c1"># This adds custom formatting to certain log messages.</span>
+
+    <span class="k">if</span> <span class="n">arg</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">arg</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">):</span>
+        <span class="n">first_k</span><span class="p">,</span> <span class="n">first_v</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">(</span><span class="n">arg</span><span class="o">.</span><span class="n">items</span><span class="p">()))</span>
+        <span class="c1"># Mapping of name to TopicT is changed to terminal table.</span>
+        <span class="k">if</span> <span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">first_k</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">first_v</span><span class="p">,</span> <span class="nb">set</span><span class="p">)</span> <span class="ow">and</span>
+                <span class="nb">isinstance</span><span class="p">(</span><span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">(</span><span class="n">first_v</span><span class="p">),</span> <span class="kc">None</span><span class="p">),</span> <span class="n">TopicT</span><span class="p">)):</span>
+            <span class="k">return</span> <span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span> <span class="o">+</span> <span class="n">terminal</span><span class="o">.</span><span class="n">logtable</span><span class="p">(</span>
+                <span class="nb">list</span><span class="p">(</span><span class="n">arg</span><span class="o">.</span><span class="n">items</span><span class="p">()),</span>
+                <span class="n">title</span><span class="o">=</span><span class="s1">&#39;Subscription&#39;</span><span class="p">,</span>
+                <span class="n">headers</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;Topic&#39;</span><span class="p">,</span> <span class="s1">&#39;Descriptions&#39;</span><span class="p">],</span>
+            <span class="p">)</span>
+        <span class="c1"># Mapping where values are TopicPartition tuples are changed</span>
+        <span class="c1"># to a terminal table.</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">first_v</span><span class="p">,</span> <span class="n">TP</span><span class="p">):</span>
+            <span class="k">return</span> <span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span> <span class="o">+</span> <span class="n">terminal</span><span class="o">.</span><span class="n">logtable</span><span class="p">(</span>
+                <span class="p">[(</span><span class="n">k</span><span class="o">.</span><span class="n">topic</span><span class="p">,</span> <span class="n">k</span><span class="o">.</span><span class="n">partition</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">arg</span><span class="o">.</span><span class="n">items</span><span class="p">()],</span>
+                <span class="n">title</span><span class="o">=</span><span class="s1">&#39;Topic Partition Map&#39;</span><span class="p">,</span>
+                <span class="n">headers</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;topic&#39;</span><span class="p">,</span> <span class="s1">&#39;partition&#39;</span><span class="p">,</span> <span class="s1">&#39;offset&#39;</span><span class="p">],</span>
+            <span class="p">)</span>
+    <span class="k">elif</span> <span class="n">arg</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">arg</span><span class="p">,</span> <span class="p">(</span><span class="nb">set</span><span class="p">,</span> <span class="nb">list</span><span class="p">)):</span>
+        <span class="c1"># Sets/Lists of TopicPartition are converted to terminal table.</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">(</span><span class="n">arg</span><span class="p">)),</span> <span class="n">TP</span><span class="p">):</span>
+            <span class="n">topics</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Set</span><span class="p">[</span><span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">set</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">tp</span> <span class="ow">in</span> <span class="n">arg</span><span class="p">:</span>
+                <span class="n">topics</span><span class="p">[</span><span class="n">tp</span><span class="o">.</span><span class="n">topic</span><span class="p">]</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">tp</span><span class="o">.</span><span class="n">partition</span><span class="p">)</span>
+
+            <span class="k">return</span> <span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span> <span class="o">+</span> <span class="n">terminal</span><span class="o">.</span><span class="n">logtable</span><span class="p">(</span>
+                <span class="p">[(</span><span class="n">k</span><span class="p">,</span> <span class="nb">repr</span><span class="p">(</span><span class="n">v</span><span class="p">))</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">topics</span><span class="o">.</span><span class="n">items</span><span class="p">()],</span>
+                <span class="n">title</span><span class="o">=</span><span class="s1">&#39;Topic Partition Set&#39;</span><span class="p">,</span>
+                <span class="n">headers</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;topic&#39;</span><span class="p">,</span> <span class="s1">&#39;partitions&#39;</span><span class="p">],</span>
+            <span class="p">)</span>
+
+
+<div class="viewcode-block" id="Worker"><a class="viewcode-back" href="../../reference/faust.worker.html#faust.Worker">[docs]</a><span class="k">class</span> <span class="nc">Worker</span><span class="p">(</span><span class="n">mode</span><span class="o">.</span><span class="n">Worker</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Worker.</span>
+
+<span class="sd">    See Also:</span>
+<span class="sd">        This is a subclass of :class:`mode.Worker`.</span>
+
+<span class="sd">    Usage:</span>
+<span class="sd">        You can start a worker using:</span>
+
+<span class="sd">            1) the :program:`faust worker` program.</span>
+
+<span class="sd">            2) instantiating Worker programmatically and calling</span>
+<span class="sd">               `execute_from_commandline()`::</span>
+
+<span class="sd">                    &gt;&gt;&gt; worker = Worker(app)</span>
+<span class="sd">                    &gt;&gt;&gt; worker.execute_from_commandline()</span>
+
+<span class="sd">            3) or if you already have an event loop, calling ``await start``,</span>
+<span class="sd">               but in that case *you are responsible for gracefully shutting</span>
+<span class="sd">               down the event loop*::</span>
+
+<span class="sd">                    async def start_worker(worker: Worker) -&gt; None:</span>
+<span class="sd">                        await worker.start()</span>
+
+<span class="sd">                    def manage_loop():</span>
+<span class="sd">                        loop = asyncio.get_event_loop()</span>
+<span class="sd">                        worker = Worker(app, loop=loop)</span>
+<span class="sd">                        try:</span>
+<span class="sd">                            loop.run_until_complete(start_worker(worker)</span>
+<span class="sd">                        finally:</span>
+<span class="sd">                            worker.stop_and_shutdown_loop()</span>
+
+<span class="sd">    Arguments:</span>
+<span class="sd">        app: The Faust app to start.</span>
+<span class="sd">        *services: Services to start with worker.</span>
+<span class="sd">            This includes application instances to start.</span>
+
+<span class="sd">        sensors (Iterable[SensorT]): List of sensors to include.</span>
+<span class="sd">        debug (bool): Enables debugging mode [disabled by default].</span>
+<span class="sd">        quiet (bool): Do not output anything to console [disabled by default].</span>
+<span class="sd">        loglevel (Union[str, int]): Level to use for logging, can be string</span>
+<span class="sd">            (one of: CRIT|ERROR|WARN|INFO|DEBUG), or integer.</span>
+<span class="sd">        logfile (Union[str, IO]): Name of file or a stream to log to.</span>
+<span class="sd">        stdout (IO): Standard out stream.</span>
+<span class="sd">        stderr (IO): Standard err stream.</span>
+<span class="sd">        blocking_timeout (float): When :attr:`debug` is enabled this</span>
+<span class="sd">            sets the timeout for detecting that the event loop is blocked.</span>
+<span class="sd">        workdir (Union[str, Path]): Custom working directory for the process</span>
+<span class="sd">            that the worker will change into when started.</span>
+<span class="sd">            This working directory change is permanent for the process,</span>
+<span class="sd">            or until something else changes the working directory again.</span>
+<span class="sd">        loop (asyncio.AbstractEventLoop): Custom event loop object.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">logger</span> <span class="o">=</span> <span class="n">logger</span>
+
+    <span class="c1">#: The Faust app started by this worker.</span>
+    <span class="n">app</span><span class="p">:</span> <span class="n">AppT</span>
+
+    <span class="c1">#: Additional sensors to add to the Faust app.</span>
+    <span class="n">sensors</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="n">SensorT</span><span class="p">]</span>
+
+    <span class="c1">#: Current working directory.</span>
+    <span class="c1">#: Note that if passed as an argument to Worker, the worker</span>
+    <span class="c1">#: will change to this directory when started.</span>
+    <span class="n">workdir</span><span class="p">:</span> <span class="n">Path</span>
+
+    <span class="c1">#: Class that displays a terminal progress spinner (see :pypi:`progress`).</span>
+    <span class="n">spinner</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">terminal</span><span class="o">.</span><span class="n">Spinner</span><span class="p">]</span>
+
+    <span class="c1">#: Set by signal to avoid printing an OK status.</span>
+    <span class="n">_shutdown_immediately</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                 <span class="n">app</span><span class="p">:</span> <span class="n">AppT</span><span class="p">,</span>
+                 <span class="o">*</span><span class="n">services</span><span class="p">:</span> <span class="n">ServiceT</span><span class="p">,</span>
+                 <span class="n">sensors</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">SensorT</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">debug</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="n">DEBUG</span><span class="p">,</span>
+                 <span class="n">quiet</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+                 <span class="n">loglevel</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">logfile</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">IO</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">stdout</span><span class="p">:</span> <span class="n">IO</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="p">,</span>
+                 <span class="n">stderr</span><span class="p">:</span> <span class="n">IO</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">stderr</span><span class="p">,</span>
+                 <span class="n">blocking_timeout</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">BLOCKING_TIMEOUT</span><span class="p">,</span>
+                 <span class="n">workdir</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Path</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">console_port</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">CONSOLE_PORT</span><span class="p">,</span>
+                 <span class="n">loop</span><span class="p">:</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">AbstractEventLoop</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">redirect_stdouts</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">redirect_stdouts_level</span><span class="p">:</span> <span class="n">Severity</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">logging_config</span><span class="p">:</span> <span class="n">Dict</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">app</span> <span class="o">=</span> <span class="n">app</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sensors</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">sensors</span> <span class="ow">or</span> <span class="p">[])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">workdir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">workdir</span> <span class="ow">or</span> <span class="n">Path</span><span class="o">.</span><span class="n">cwd</span><span class="p">())</span>
+        <span class="n">conf</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">conf</span>
+        <span class="k">if</span> <span class="n">redirect_stdouts</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">redirect_stdouts</span> <span class="o">=</span> <span class="n">conf</span><span class="o">.</span><span class="n">worker_redirect_stdouts</span>
+        <span class="k">if</span> <span class="n">redirect_stdouts_level</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">redirect_stdouts_level</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">conf</span><span class="o">.</span><span class="n">worker_redirect_stdouts_level</span> <span class="ow">or</span> <span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">logging_config</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">logging_config</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">conf</span><span class="o">.</span><span class="n">logging_config</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="o">*</span><span class="n">services</span><span class="p">,</span>
+            <span class="n">debug</span><span class="o">=</span><span class="n">debug</span><span class="p">,</span>
+            <span class="n">quiet</span><span class="o">=</span><span class="n">quiet</span><span class="p">,</span>
+            <span class="n">loglevel</span><span class="o">=</span><span class="n">loglevel</span><span class="p">,</span>
+            <span class="n">logfile</span><span class="o">=</span><span class="n">logfile</span><span class="p">,</span>
+            <span class="n">loghandlers</span><span class="o">=</span><span class="n">app</span><span class="o">.</span><span class="n">conf</span><span class="o">.</span><span class="n">loghandlers</span><span class="p">,</span>
+            <span class="n">stdout</span><span class="o">=</span><span class="n">stdout</span><span class="p">,</span>
+            <span class="n">stderr</span><span class="o">=</span><span class="n">stderr</span><span class="p">,</span>
+            <span class="n">blocking_timeout</span><span class="o">=</span><span class="n">blocking_timeout</span><span class="p">,</span>
+            <span class="n">console_port</span><span class="o">=</span><span class="n">console_port</span><span class="p">,</span>
+            <span class="n">redirect_stdouts</span><span class="o">=</span><span class="n">redirect_stdouts</span><span class="p">,</span>
+            <span class="n">redirect_stdouts_level</span><span class="o">=</span><span class="n">redirect_stdouts_level</span><span class="p">,</span>
+            <span class="n">logging_config</span><span class="o">=</span><span class="n">logging_config</span><span class="p">,</span>
+            <span class="n">loop</span><span class="o">=</span><span class="n">loop</span><span class="p">,</span>
+            <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">spinner</span> <span class="o">=</span> <span class="n">terminal</span><span class="o">.</span><span class="n">Spinner</span><span class="p">(</span><span class="n">file</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">stdout</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Worker.on_start"><a class="viewcode-back" href="../../reference/faust.worker.html#faust.Worker.on_start">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">on_start</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Signal called every time the worker starts.&quot;&quot;&quot;</span>
+        <span class="c1"># This flag is set when running inside a worker process.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">in_worker</span> <span class="o">=</span> <span class="kc">True</span>
+
+        <span class="k">await</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">on_start</span><span class="p">()</span></div>
+
+    <span class="k">def</span> <span class="nf">_on_sigint</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_flag_as_shutdown_by_signal</span><span class="p">()</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">_on_sigint</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">_on_sigterm</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_flag_as_shutdown_by_signal</span><span class="p">()</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">_on_sigterm</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">_flag_as_shutdown_by_signal</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_shutdown_immediately</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">spinner</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">spinner</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>
+
+<div class="viewcode-block" id="Worker.on_startup_finished"><a class="viewcode-back" href="../../reference/faust.worker.html#faust.Worker.on_startup_finished">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">on_startup_finished</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Signal called when worker has started.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_shutdown_immediately</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_on_shutdown_immediately</span><span class="p">()</span>
+        <span class="c1"># block detection started here after changelog stuff,</span>
+        <span class="c1"># and blocking RocksDB bulk updates.</span>
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">maybe_start_blockdetection</span><span class="p">()</span>
+
+        <span class="c1"># end progress spinner, or it will mangle terminal output.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_on_startup_end_spinner</span><span class="p">()</span></div>
+
+    <span class="k">def</span> <span class="nf">_on_startup_end_spinner</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">spinner</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">spinner</span><span class="o">.</span><span class="n">finish</span><span class="p">()</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">spinner</span><span class="o">.</span><span class="n">file</span><span class="o">.</span><span class="n">isatty</span><span class="p">():</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">say</span><span class="p">(</span><span class="s1">&#39; 😊&#39;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">say</span><span class="p">(</span><span class="s1">&#39; OK ^&#39;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Ready&#39;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_on_shutdown_immediately</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">say</span><span class="p">(</span><span class="s1">&#39;&#39;</span><span class="p">)</span>  <span class="c1"># make sure spinner newlines.</span>
+
+<div class="viewcode-block" id="Worker.on_init_dependencies"><a class="viewcode-back" href="../../reference/faust.worker.html#faust.Worker.on_init_dependencies">[docs]</a>    <span class="k">def</span> <span class="nf">on_init_dependencies</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">ServiceT</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;Return service dependencies that must start with the worker.&quot;&quot;&quot;</span>
+        <span class="c1"># App service is now a child of worker.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">beacon</span><span class="o">.</span><span class="n">reattach</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">beacon</span><span class="p">)</span>
+        <span class="c1"># Transfer sensors to app</span>
+        <span class="k">for</span> <span class="n">sensor</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">sensors</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">sensors</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">sensor</span><span class="p">)</span>
+        <span class="c1"># Callback called once the app is running and fully</span>
+        <span class="c1"># functional, we use it to e.g. print the &quot;ready&quot; message.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">on_startup_finished</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">on_startup_finished</span>
+        <span class="k">return</span> <span class="n">chain</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">services</span><span class="p">,</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="p">])</span></div>
+
+<div class="viewcode-block" id="Worker.on_first_start"><a class="viewcode-back" href="../../reference/faust.worker.html#faust.Worker.on_first_start">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">on_first_start</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Signal called the first time the worker starts.</span>
+
+<span class="sd">        First time, means this callback is not called if the</span>
+<span class="sd">        worker is restarted by an exception being raised.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">change_workdir</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">workdir</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">autodiscover</span><span class="p">()</span>
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">default_on_first_start</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="Worker.change_workdir"><a class="viewcode-back" href="../../reference/faust.worker.html#faust.Worker.change_workdir">[docs]</a>    <span class="k">def</span> <span class="nf">change_workdir</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Change the current working directory (CWD).&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">path</span> <span class="ow">and</span> <span class="n">path</span><span class="o">.</span><span class="n">absolute</span><span class="p">()</span> <span class="o">!=</span> <span class="n">path</span><span class="o">.</span><span class="n">cwd</span><span class="p">()</span><span class="o">.</span><span class="n">absolute</span><span class="p">():</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">chdir</span><span class="p">(</span><span class="n">path</span><span class="o">.</span><span class="n">absolute</span><span class="p">())</span></div>
+
+<div class="viewcode-block" id="Worker.autodiscover"><a class="viewcode-back" href="../../reference/faust.worker.html#faust.Worker.autodiscover">[docs]</a>    <span class="k">def</span> <span class="nf">autodiscover</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Autodiscover modules and files to find @agent decorators, etc.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">conf</span><span class="o">.</span><span class="n">autodiscover</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">discover</span><span class="p">()</span></div>
+
+    <span class="k">def</span> <span class="nf">_setproctitle</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">info</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">ident</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">PSIDENT</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">setproctitle</span><span class="p">(</span><span class="n">f</span><span class="s1">&#39;</span><span class="si">{ident}</span><span class="s1"> -</span><span class="si">{info}</span><span class="s1">- {self._proc_ident()}&#39;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_proc_ident</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="n">conf</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">conf</span>
+        <span class="k">return</span> <span class="n">f</span><span class="s1">&#39;</span><span class="si">{conf.id}</span><span class="s1"> {self._proc_web_ident()} {conf.datadir.absolute()}&#39;</span>
+
+    <span class="k">def</span> <span class="nf">_proc_web_ident</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="n">conf</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">conf</span>
+        <span class="k">if</span> <span class="n">conf</span><span class="o">.</span><span class="n">web_transport</span><span class="o">.</span><span class="n">scheme</span> <span class="o">==</span> <span class="s1">&#39;unix&#39;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">f</span><span class="s1">&#39;</span><span class="si">{conf.web_transport}</span><span class="s1">&#39;</span>
+        <span class="k">return</span> <span class="n">f</span><span class="s1">&#39;-p </span><span class="si">{conf.web_port}</span><span class="s1">&#39;</span>
+
+<div class="viewcode-block" id="Worker.on_execute"><a class="viewcode-back" href="../../reference/faust.worker.html#faust.Worker.on_execute">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">on_execute</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Signal called when the worker is about to start.&quot;&quot;&quot;</span>
+        <span class="c1"># This is called as soon as we start</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_setproctitle</span><span class="p">(</span><span class="s1">&#39;init&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">spinner</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">spinner</span><span class="o">.</span><span class="n">file</span><span class="o">.</span><span class="n">isatty</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_say</span><span class="p">(</span><span class="s1">&#39;starting➢ &#39;</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Worker.on_worker_shutdown"><a class="viewcode-back" href="../../reference/faust.worker.html#faust.Worker.on_worker_shutdown">[docs]</a>    <span class="k">def</span> <span class="nf">on_worker_shutdown</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Signal called before the worker is shutting down.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_setproctitle</span><span class="p">(</span><span class="s1">&#39;stopping&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">spinner</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">spinner</span><span class="o">.</span><span class="n">file</span><span class="o">.</span><span class="n">isatty</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">spinner</span><span class="o">.</span><span class="n">reset</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_say</span><span class="p">(</span><span class="s1">&#39;stopping➢ &#39;</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Worker.on_setup_root_logger"><a class="viewcode-back" href="../../reference/faust.worker.html#faust.Worker.on_setup_root_logger">[docs]</a>    <span class="k">def</span> <span class="nf">on_setup_root_logger</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">logger</span><span class="p">:</span> <span class="n">logging</span><span class="o">.</span><span class="n">Logger</span><span class="p">,</span> <span class="n">level</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Signal called when the root logger is being configured.&quot;&quot;&quot;</span>
+        <span class="c1"># This is used to set up the terminal progress spinner</span>
+        <span class="c1"># so that it spins for every log message emitted.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_disable_spinner_if_level_below_WARN</span><span class="p">(</span><span class="n">level</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_setup_spinner_handler</span><span class="p">(</span><span class="n">logger</span><span class="p">,</span> <span class="n">level</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_disable_spinner_if_level_below_WARN</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">level</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">level</span> <span class="ow">and</span> <span class="n">level</span> <span class="o">&lt;</span> <span class="n">logging</span><span class="o">.</span><span class="n">WARN</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">spinner</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">def</span> <span class="nf">_setup_spinner_handler</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span> <span class="n">logger</span><span class="p">:</span> <span class="n">logging</span><span class="o">.</span><span class="n">Logger</span><span class="p">,</span> <span class="n">level</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">spinner</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">handlers</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">level</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">addHandler</span><span class="p">(</span>
+                <span class="n">terminal</span><span class="o">.</span><span class="n">SpinnerHandler</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">spinner</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">))</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">)</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../index.html">
+              <img class="logo" src="../../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../playbooks/index.html">Playbooks</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../userguide/index.html">User Guide</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../reference/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../history/index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2019, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

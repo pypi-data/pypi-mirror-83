@@ -1,0 +1,461 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>faust.web.drivers.aiohttp &#8212; Faust 1.11.0a1 documentation</title>
+    <link rel="stylesheet" href="../../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../../" src="../../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../../../../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" />
+    <link rel="copyright" title="Copyright" href="../../../../copyright.html" />
+   
+  <link rel="stylesheet" href="../../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for faust.web.drivers.aiohttp</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Web driver using :pypi:`aiohttp`.&quot;&quot;&quot;</span>
+<span class="kn">from</span> <span class="nn">pathlib</span> <span class="k">import</span> <span class="n">Path</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">Any</span><span class="p">,</span>
+    <span class="n">Callable</span><span class="p">,</span>
+    <span class="n">Mapping</span><span class="p">,</span>
+    <span class="n">MutableMapping</span><span class="p">,</span>
+    <span class="n">Optional</span><span class="p">,</span>
+    <span class="n">Union</span><span class="p">,</span>
+    <span class="n">cast</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="kn">import</span> <span class="nn">aiohttp_cors</span>
+<span class="kn">from</span> <span class="nn">aiohttp</span> <span class="k">import</span> <span class="n">__version__</span> <span class="k">as</span> <span class="n">aiohttp_version</span>
+<span class="kn">from</span> <span class="nn">aiohttp.web</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">AppRunner</span><span class="p">,</span>
+    <span class="n">Application</span><span class="p">,</span>
+    <span class="n">BaseSite</span><span class="p">,</span>
+    <span class="n">Request</span><span class="p">,</span>
+    <span class="n">Response</span><span class="p">,</span>
+    <span class="n">TCPSite</span><span class="p">,</span>
+    <span class="n">UnixSite</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">aiohttp.payload</span> <span class="k">import</span> <span class="n">Payload</span>
+<span class="kn">from</span> <span class="nn">aiohttp_cors</span> <span class="k">import</span> <span class="n">CorsConfig</span><span class="p">,</span> <span class="n">ResourceOptions</span>
+<span class="kn">from</span> <span class="nn">faust.types</span> <span class="k">import</span> <span class="n">AppT</span>
+<span class="kn">from</span> <span class="nn">faust.utils</span> <span class="k">import</span> <span class="n">json</span> <span class="k">as</span> <span class="n">_json</span>
+<span class="kn">from</span> <span class="nn">faust.web</span> <span class="k">import</span> <span class="n">base</span>
+<span class="kn">from</span> <span class="nn">faust.types.web</span> <span class="k">import</span> <span class="n">ResourceOptions</span> <span class="k">as</span> <span class="n">_ResourceOptions</span>
+<span class="kn">from</span> <span class="nn">mode</span> <span class="k">import</span> <span class="n">Service</span>
+<span class="kn">from</span> <span class="nn">mode.threads</span> <span class="k">import</span> <span class="n">ServiceThread</span>
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;Web&#39;</span><span class="p">]</span>
+
+<span class="n">_bytes</span> <span class="o">=</span> <span class="nb">bytes</span>
+
+<span class="n">NON_OPTIONS_METHODS</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="s1">&#39;GET&#39;</span><span class="p">,</span> <span class="s1">&#39;PUT&#39;</span><span class="p">,</span> <span class="s1">&#39;POST&#39;</span><span class="p">,</span> <span class="s1">&#39;DELETE&#39;</span><span class="p">})</span>
+
+
+<span class="k">def</span> <span class="nf">_prepare_cors_options</span><span class="p">(</span>
+        <span class="n">opts</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">ResourceOptions</span><span class="p">]:</span>
+    <span class="k">return</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">_faust_to_aiohttp_options</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">opts</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+
+
+<span class="k">def</span> <span class="nf">_faust_to_aiohttp_options</span><span class="p">(</span>
+        <span class="n">opts</span><span class="p">:</span> <span class="n">ResourceOptions</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ResourceOptions</span><span class="p">:</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">opts</span><span class="p">,</span> <span class="n">_ResourceOptions</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">ResourceOptions</span><span class="p">(</span><span class="o">**</span><span class="n">opts</span><span class="o">.</span><span class="n">_asdict</span><span class="p">())</span>
+    <span class="k">return</span> <span class="n">opts</span>
+
+
+<span class="k">class</span> <span class="nc">ServerThread</span><span class="p">(</span><span class="n">ServiceThread</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A web server running in a dedicated thread.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">web</span><span class="p">:</span> <span class="s1">&#39;Web&#39;</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">web</span> <span class="o">=</span> <span class="n">web</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">on_start</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Call in parent thread when the service thread is starting.&quot;&quot;&quot;</span>
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">web</span><span class="o">.</span><span class="n">start_server</span><span class="p">()</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">on_thread_stop</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Call in thread when the service stops.&quot;&quot;&quot;</span>
+        <span class="c1"># on_stop() executes in parent thread, on_thread_stop in the thread.</span>
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">web</span><span class="o">.</span><span class="n">stop_server</span><span class="p">()</span>
+
+
+<span class="k">class</span> <span class="nc">Server</span><span class="p">(</span><span class="n">Service</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Web server service.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">web</span><span class="p">:</span> <span class="s1">&#39;Web&#39;</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">web</span> <span class="o">=</span> <span class="n">web</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">on_start</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Call when the web server starts.&quot;&quot;&quot;</span>
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">web</span><span class="o">.</span><span class="n">start_server</span><span class="p">()</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">on_stop</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Call when the web server stops.&quot;&quot;&quot;</span>
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">web</span><span class="o">.</span><span class="n">stop_server</span><span class="p">()</span>
+
+
+<div class="viewcode-block" id="Web"><a class="viewcode-back" href="../../../../reference/faust.web.drivers.aiohttp.html#faust.web.drivers.aiohttp.Web">[docs]</a><span class="k">class</span> <span class="nc">Web</span><span class="p">(</span><span class="n">base</span><span class="o">.</span><span class="n">Web</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Web server and framework implementation using :pypi:`aiohttp`.&quot;&quot;&quot;</span>
+
+    <span class="n">driver_version</span> <span class="o">=</span> <span class="n">f</span><span class="s1">&#39;aiohttp=</span><span class="si">{aiohttp_version}</span><span class="s1">&#39;</span>
+    <span class="n">handler_shutdown_timeout</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">60.0</span>
+    <span class="n">cors_options</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">ResourceOptions</span><span class="p">]</span>
+
+    <span class="c1">#: We serve the web server in a separate thread (and separate event loop).</span>
+    <span class="n">_thread</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Service</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="n">_transport_handlers</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Callable</span><span class="p">[[],</span> <span class="n">BaseSite</span><span class="p">]]</span>
+    <span class="n">_cors</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">CorsConfig</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">app</span><span class="p">:</span> <span class="n">AppT</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">app</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">web_app</span><span class="p">:</span> <span class="n">Application</span> <span class="o">=</span> <span class="n">Application</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cors_options</span> <span class="o">=</span> <span class="n">_prepare_cors_options</span><span class="p">(</span>
+            <span class="n">app</span><span class="o">.</span><span class="n">conf</span><span class="o">.</span><span class="n">web_cors_options</span> <span class="ow">or</span> <span class="p">{})</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_runner</span><span class="p">:</span> <span class="n">AppRunner</span> <span class="o">=</span> <span class="n">AppRunner</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">web_app</span><span class="p">,</span> <span class="n">access_log</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_transport_handlers</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s1">&#39;tcp&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_new_transport_tcp</span><span class="p">,</span>
+            <span class="s1">&#39;unix&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_new_transport_unix</span><span class="p">,</span>
+        <span class="p">}</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">cors</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CorsConfig</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Return CORS config object.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cors</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_cors</span> <span class="o">=</span> <span class="n">aiohttp_cors</span><span class="o">.</span><span class="n">setup</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">web_app</span><span class="p">,</span> <span class="n">defaults</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">cors_options</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cors</span>
+
+<div class="viewcode-block" id="Web.on_start"><a class="viewcode-back" href="../../../../reference/faust.web.drivers.aiohttp.html#faust.web.drivers.aiohttp.Web.on_start">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">on_start</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Call when the embedded web server starts.</span>
+
+<span class="sd">        Only used for `faust worker`, not when using :meth:`wsgi`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">cors</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cors</span>
+        <span class="k">assert</span> <span class="n">cors</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">init_server</span><span class="p">()</span>
+        <span class="n">server_cls</span> <span class="o">=</span> <span class="n">ServerThread</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">conf</span><span class="o">.</span><span class="n">web_in_thread</span> <span class="k">else</span> <span class="n">Server</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_thread</span> <span class="o">=</span> <span class="n">server_cls</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">loop</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">loop</span><span class="p">,</span> <span class="n">beacon</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">beacon</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">add_dependency</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_thread</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Web.wsgi"><a class="viewcode-back" href="../../../../reference/faust.web.drivers.aiohttp.html#faust.web.drivers.aiohttp.Web.wsgi">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">wsgi</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Call WSGI handler.</span>
+
+<span class="sd">        Used by :pypi:`gunicorn` and other WSGI compatible hosts</span>
+<span class="sd">        to access the Faust web entry point.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">init_server</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">web_app</span></div>
+
+<div class="viewcode-block" id="Web.text"><a class="viewcode-back" href="../../../../reference/faust.web.drivers.aiohttp.html#faust.web.drivers.aiohttp.Web.text">[docs]</a>    <span class="k">def</span> <span class="nf">text</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span>
+             <span class="n">content_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+             <span class="n">status</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">200</span><span class="p">,</span>
+             <span class="n">reason</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+             <span class="n">headers</span><span class="p">:</span> <span class="n">MutableMapping</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">base</span><span class="o">.</span><span class="n">Response</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Create text response, using &quot;text/plain&quot; content-type.&quot;&quot;&quot;</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="n">Response</span><span class="p">(</span>
+            <span class="n">text</span><span class="o">=</span><span class="n">value</span><span class="p">,</span>
+            <span class="n">content_type</span><span class="o">=</span><span class="n">content_type</span><span class="p">,</span>
+            <span class="n">status</span><span class="o">=</span><span class="n">status</span><span class="p">,</span>
+            <span class="n">reason</span><span class="o">=</span><span class="n">reason</span><span class="p">,</span>
+            <span class="n">headers</span><span class="o">=</span><span class="n">headers</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="n">base</span><span class="o">.</span><span class="n">Response</span><span class="p">,</span> <span class="n">response</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Web.html"><a class="viewcode-back" href="../../../../reference/faust.web.drivers.aiohttp.html#faust.web.drivers.aiohttp.Web.html">[docs]</a>    <span class="k">def</span> <span class="nf">html</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span>
+             <span class="n">content_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+             <span class="n">status</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">200</span><span class="p">,</span>
+             <span class="n">reason</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+             <span class="n">headers</span><span class="p">:</span> <span class="n">MutableMapping</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">base</span><span class="o">.</span><span class="n">Response</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Create HTML response from string, ``text/html`` content-type.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">text</span><span class="p">(</span>
+            <span class="n">value</span><span class="p">,</span>
+            <span class="n">status</span><span class="o">=</span><span class="n">status</span><span class="p">,</span>
+            <span class="n">content_type</span><span class="o">=</span><span class="n">content_type</span> <span class="ow">or</span> <span class="s1">&#39;text/html&#39;</span><span class="p">,</span>
+            <span class="n">reason</span><span class="o">=</span><span class="n">reason</span><span class="p">,</span>
+            <span class="n">headers</span><span class="o">=</span><span class="n">headers</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="Web.json"><a class="viewcode-back" href="../../../../reference/faust.web.drivers.aiohttp.html#faust.web.drivers.aiohttp.Web.json">[docs]</a>    <span class="k">def</span> <span class="nf">json</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span>
+             <span class="n">content_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+             <span class="n">status</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">200</span><span class="p">,</span>
+             <span class="n">reason</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+             <span class="n">headers</span><span class="p">:</span> <span class="n">MutableMapping</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Create new JSON response.</span>
+
+<span class="sd">        Accepts any JSON-serializable value and will automatically</span>
+<span class="sd">        serialize it for you.</span>
+
+<span class="sd">        The content-type is set to &quot;application/json&quot;.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">ctype</span> <span class="o">=</span> <span class="n">content_type</span> <span class="ow">or</span> <span class="s1">&#39;application/json&#39;</span>
+        <span class="n">payload</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="n">_json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+        <span class="c1"># normal json returns str, orjson returns bytes</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">payload</span><span class="p">,</span> <span class="nb">bytes</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">bytes</span><span class="p">(</span>
+                <span class="n">payload</span><span class="p">,</span>
+                <span class="n">content_type</span><span class="o">=</span><span class="n">ctype</span><span class="p">,</span>
+                <span class="n">status</span><span class="o">=</span><span class="n">status</span><span class="p">,</span>
+                <span class="n">reason</span><span class="o">=</span><span class="n">reason</span><span class="p">,</span>
+                <span class="n">headers</span><span class="o">=</span><span class="n">headers</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">text</span><span class="p">(</span>
+                <span class="n">payload</span><span class="p">,</span>
+                <span class="n">content_type</span><span class="o">=</span><span class="n">ctype</span><span class="p">,</span>
+                <span class="n">status</span><span class="o">=</span><span class="n">status</span><span class="p">,</span>
+                <span class="n">reason</span><span class="o">=</span><span class="n">reason</span><span class="p">,</span>
+                <span class="n">headers</span><span class="o">=</span><span class="n">headers</span><span class="p">,</span>
+            <span class="p">)</span></div>
+
+<div class="viewcode-block" id="Web.bytes"><a class="viewcode-back" href="../../../../reference/faust.web.drivers.aiohttp.html#faust.web.drivers.aiohttp.Web.bytes">[docs]</a>    <span class="k">def</span> <span class="nf">bytes</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+              <span class="n">value</span><span class="p">:</span> <span class="n">_bytes</span><span class="p">,</span>
+              <span class="o">*</span><span class="p">,</span>
+              <span class="n">content_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+              <span class="n">status</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">200</span><span class="p">,</span>
+              <span class="n">reason</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+              <span class="n">headers</span><span class="p">:</span> <span class="n">MutableMapping</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">base</span><span class="o">.</span><span class="n">Response</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Create new ``bytes`` response - for binary data.&quot;&quot;&quot;</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="n">Response</span><span class="p">(</span>
+            <span class="n">body</span><span class="o">=</span><span class="n">value</span><span class="p">,</span>
+            <span class="n">content_type</span><span class="o">=</span><span class="n">content_type</span><span class="p">,</span>
+            <span class="n">status</span><span class="o">=</span><span class="n">status</span><span class="p">,</span>
+            <span class="n">reason</span><span class="o">=</span><span class="n">reason</span><span class="p">,</span>
+            <span class="n">headers</span><span class="o">=</span><span class="n">headers</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="n">base</span><span class="o">.</span><span class="n">Response</span><span class="p">,</span> <span class="n">response</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Web.read_request_content"><a class="viewcode-back" href="../../../../reference/faust.web.drivers.aiohttp.html#faust.web.drivers.aiohttp.Web.read_request_content">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">read_request_content</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">request</span><span class="p">:</span> <span class="n">base</span><span class="o">.</span><span class="n">Request</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_bytes</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Return the request body as bytes.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="k">await</span> <span class="n">cast</span><span class="p">(</span><span class="n">Request</span><span class="p">,</span> <span class="n">request</span><span class="p">)</span><span class="o">.</span><span class="n">content</span><span class="o">.</span><span class="n">read</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="Web.route"><a class="viewcode-back" href="../../../../reference/faust.web.drivers.aiohttp.html#faust.web.drivers.aiohttp.Web.route">[docs]</a>    <span class="k">def</span> <span class="nf">route</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+              <span class="n">pattern</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+              <span class="n">handler</span><span class="p">:</span> <span class="n">Callable</span><span class="p">,</span>
+              <span class="n">cors_options</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">ResourceOptions</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Add route for web view or handler.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">cors_options</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">cors_options</span><span class="p">:</span>
+            <span class="n">async_handler</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_wrap_into_asyncdef</span><span class="p">(</span><span class="n">handler</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">method</span> <span class="ow">in</span> <span class="n">NON_OPTIONS_METHODS</span><span class="p">:</span>
+                <span class="n">r</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">web_app</span><span class="o">.</span><span class="n">router</span><span class="o">.</span><span class="n">add_route</span><span class="p">(</span>
+                    <span class="n">method</span><span class="p">,</span> <span class="n">pattern</span><span class="p">,</span> <span class="n">async_handler</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">cors</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">_prepare_cors_options</span><span class="p">(</span><span class="n">cors_options</span> <span class="ow">or</span> <span class="p">{}))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">web_app</span><span class="o">.</span><span class="n">router</span><span class="o">.</span><span class="n">add_route</span><span class="p">(</span>
+                <span class="s1">&#39;*&#39;</span><span class="p">,</span> <span class="n">pattern</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_wrap_into_asyncdef</span><span class="p">(</span><span class="n">handler</span><span class="p">))</span></div>
+
+    <span class="k">def</span> <span class="nf">_wrap_into_asyncdef</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">handler</span><span class="p">:</span> <span class="n">Callable</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">:</span>
+        <span class="c1"># get rid of pesky &quot;DeprecationWarning: Bare functions are</span>
+        <span class="c1"># deprecated, use async ones&quot; warnings.</span>
+        <span class="c1"># The handler is actually a class that defines `async def __call__`</span>
+        <span class="c1"># but aiohttp doesn&#39;t recognize it as such and emits the warning.</span>
+        <span class="c1"># To avoid that we just wrap it in an `async def` function</span>
+        <span class="k">async</span> <span class="k">def</span> <span class="nf">_dispatch</span><span class="p">(</span><span class="n">request</span><span class="p">:</span> <span class="n">base</span><span class="o">.</span><span class="n">Request</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">base</span><span class="o">.</span><span class="n">Response</span><span class="p">:</span>
+            <span class="k">return</span> <span class="k">await</span> <span class="n">handler</span><span class="p">(</span><span class="n">request</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">_dispatch</span>
+
+<div class="viewcode-block" id="Web.add_static"><a class="viewcode-back" href="../../../../reference/faust.web.drivers.aiohttp.html#faust.web.drivers.aiohttp.Web.add_static">[docs]</a>    <span class="k">def</span> <span class="nf">add_static</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                   <span class="n">prefix</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+                   <span class="n">path</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Path</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span>
+                   <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Add route for static assets.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">web_app</span><span class="o">.</span><span class="n">router</span><span class="o">.</span><span class="n">add_static</span><span class="p">(</span><span class="n">prefix</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">path</span><span class="p">),</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Web.bytes_to_response"><a class="viewcode-back" href="../../../../reference/faust.web.drivers.aiohttp.html#faust.web.drivers.aiohttp.Web.bytes_to_response">[docs]</a>    <span class="k">def</span> <span class="nf">bytes_to_response</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">s</span><span class="p">:</span> <span class="n">_bytes</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">base</span><span class="o">.</span><span class="n">Response</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Deserialize byte string back into a response object.&quot;&quot;&quot;</span>
+        <span class="n">status</span><span class="p">,</span> <span class="n">headers</span><span class="p">,</span> <span class="n">body</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_bytes_to_response</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="n">Response</span><span class="p">(</span>
+            <span class="n">body</span><span class="o">=</span><span class="n">body</span><span class="p">,</span>
+            <span class="n">status</span><span class="o">=</span><span class="n">status</span><span class="p">,</span>
+            <span class="n">headers</span><span class="o">=</span><span class="n">headers</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="n">base</span><span class="o">.</span><span class="n">Response</span><span class="p">,</span> <span class="n">response</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Web.response_to_bytes"><a class="viewcode-back" href="../../../../reference/faust.web.drivers.aiohttp.html#faust.web.drivers.aiohttp.Web.response_to_bytes">[docs]</a>    <span class="k">def</span> <span class="nf">response_to_bytes</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">response</span><span class="p">:</span> <span class="n">base</span><span class="o">.</span><span class="n">Response</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_bytes</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Convert response to serializable byte string.</span>
+
+<span class="sd">        The result is a byte string that can be deserialized</span>
+<span class="sd">        using :meth:`bytes_to_response`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">resp</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">Response</span><span class="p">,</span> <span class="n">response</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">resp</span><span class="o">.</span><span class="n">body</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">body</span> <span class="o">=</span> <span class="sa">b</span><span class="s1">&#39;&#39;</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">resp</span><span class="o">.</span><span class="n">body</span><span class="p">,</span> <span class="n">Payload</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s1">&#39;Does not support Payload&#39;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">body</span> <span class="o">=</span> <span class="n">resp</span><span class="o">.</span><span class="n">body</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_response_to_bytes</span><span class="p">(</span>
+            <span class="n">resp</span><span class="o">.</span><span class="n">status</span><span class="p">,</span>
+            <span class="n">resp</span><span class="o">.</span><span class="n">headers</span><span class="p">,</span>
+            <span class="n">body</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_create_site</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">BaseSite</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_new_transport</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">conf</span><span class="o">.</span><span class="n">web_transport</span><span class="o">.</span><span class="n">scheme</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_new_transport</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">type_</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">BaseSite</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_transport_handlers</span><span class="p">[</span><span class="n">type_</span><span class="p">]()</span>
+
+    <span class="k">def</span> <span class="nf">_new_transport_tcp</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">BaseSite</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">TCPSite</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_runner</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">conf</span><span class="o">.</span><span class="n">web_bind</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">conf</span><span class="o">.</span><span class="n">web_port</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_new_transport_unix</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">BaseSite</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">UnixSite</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_runner</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">conf</span><span class="o">.</span><span class="n">web_transport</span><span class="o">.</span><span class="n">path</span><span class="p">,</span>
+        <span class="p">)</span>
+
+<div class="viewcode-block" id="Web.start_server"><a class="viewcode-back" href="../../../../reference/faust.web.drivers.aiohttp.html#faust.web.drivers.aiohttp.Web.start_server">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">start_server</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Start the web server.&quot;&quot;&quot;</span>
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_runner</span><span class="o">.</span><span class="n">setup</span><span class="p">()</span>
+        <span class="n">site</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_site</span><span class="p">()</span>
+        <span class="k">await</span> <span class="n">site</span><span class="o">.</span><span class="n">start</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="Web.stop_server"><a class="viewcode-back" href="../../../../reference/faust.web.drivers.aiohttp.html#faust.web.drivers.aiohttp.Web.stop_server">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">stop_server</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Stop the web server.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_runner</span><span class="p">:</span>
+            <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_runner</span><span class="o">.</span><span class="n">cleanup</span><span class="p">()</span>
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cleanup_app</span><span class="p">()</span></div>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">_cleanup_app</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">web_app</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Cleanup&#39;</span><span class="p">)</span>
+            <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">web_app</span><span class="o">.</span><span class="n">cleanup</span><span class="p">()</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">_app</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Application</span><span class="p">:</span>
+        <span class="c1"># XXX compat alias</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">web_app</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../../../index.html">
+              <img class="logo" src="../../../../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../../../../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../playbooks/index.html">Playbooks</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../userguide/index.html">User Guide</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../reference/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../history/index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2020, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

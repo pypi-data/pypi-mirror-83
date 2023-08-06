@@ -1,0 +1,1221 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>mode.services &#8212; Faust 1.11.0a1 documentation</title>
+    <link rel="stylesheet" href="../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="copyright" title="Copyright" href="../../copyright.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for mode.services</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Async I/O services that can be started/stopped/shutdown.&quot;&quot;&quot;</span>
+<span class="kn">import</span> <span class="nn">asyncio</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">sys</span>
+
+<span class="kn">from</span> <span class="nn">functools</span> <span class="k">import</span> <span class="n">wraps</span>
+<span class="kn">from</span> <span class="nn">time</span> <span class="k">import</span> <span class="n">monotonic</span><span class="p">,</span> <span class="n">perf_counter</span>
+<span class="kn">from</span> <span class="nn">types</span> <span class="k">import</span> <span class="n">TracebackType</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">Any</span><span class="p">,</span>
+    <span class="n">AsyncIterator</span><span class="p">,</span>
+    <span class="n">Awaitable</span><span class="p">,</span>
+    <span class="n">Callable</span><span class="p">,</span>
+    <span class="n">ClassVar</span><span class="p">,</span>
+    <span class="n">ContextManager</span><span class="p">,</span>
+    <span class="n">Dict</span><span class="p">,</span>
+    <span class="n">Generator</span><span class="p">,</span>
+    <span class="n">Iterable</span><span class="p">,</span>
+    <span class="n">List</span><span class="p">,</span>
+    <span class="n">Mapping</span><span class="p">,</span>
+    <span class="n">MutableSequence</span><span class="p">,</span>
+    <span class="n">NamedTuple</span><span class="p">,</span>
+    <span class="n">Optional</span><span class="p">,</span>
+    <span class="n">Sequence</span><span class="p">,</span>
+    <span class="n">Set</span><span class="p">,</span>
+    <span class="n">Type</span><span class="p">,</span>
+    <span class="n">Union</span><span class="p">,</span>
+    <span class="n">cast</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="kn">from</span> <span class="nn">.timers</span> <span class="k">import</span> <span class="n">Timer</span>
+<span class="kn">from</span> <span class="nn">.types</span> <span class="k">import</span> <span class="n">DiagT</span><span class="p">,</span> <span class="n">ServiceT</span>
+<span class="kn">from</span> <span class="nn">.utils.contexts</span> <span class="k">import</span> <span class="n">AsyncExitStack</span><span class="p">,</span> <span class="n">ExitStack</span>
+<span class="kn">from</span> <span class="nn">.utils.locks</span> <span class="k">import</span> <span class="n">Event</span>
+<span class="kn">from</span> <span class="nn">.utils.logging</span> <span class="k">import</span> <span class="n">CompositeLogger</span><span class="p">,</span> <span class="n">get_logger</span><span class="p">,</span> <span class="n">level_number</span>
+<span class="kn">from</span> <span class="nn">.utils.objects</span> <span class="k">import</span> <span class="n">iter_mro_reversed</span><span class="p">,</span> <span class="n">qualname</span>
+<span class="kn">from</span> <span class="nn">.utils.text</span> <span class="k">import</span> <span class="n">maybecat</span>
+<span class="kn">from</span> <span class="nn">.utils.times</span> <span class="k">import</span> <span class="n">Seconds</span><span class="p">,</span> <span class="n">want_seconds</span>
+<span class="kn">from</span> <span class="nn">.utils.trees</span> <span class="k">import</span> <span class="n">Node</span>
+<span class="kn">from</span> <span class="nn">.utils.typing</span> <span class="k">import</span> <span class="n">AsyncContextManager</span>
+<span class="kn">from</span> <span class="nn">.utils.types.trees</span> <span class="k">import</span> <span class="n">NodeT</span>
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="s1">&#39;ServiceBase&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;Service&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;Diag&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;task&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;timer&#39;</span><span class="p">,</span>
+<span class="p">]</span>
+
+<span class="n">ClockArg</span> <span class="o">=</span> <span class="n">Callable</span><span class="p">[[],</span> <span class="nb">float</span><span class="p">]</span>
+
+<span class="c1">#: Future type: Different types of awaitables.</span>
+<span class="n">FutureT</span> <span class="o">=</span> <span class="n">Union</span><span class="p">[</span><span class="n">asyncio</span><span class="o">.</span><span class="n">Future</span><span class="p">,</span> <span class="n">Generator</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">Awaitable</span><span class="p">]</span>
+
+<span class="c1">#: Argument type for ``Service.wait(*events)``</span>
+<span class="c1">#: Wait can take any number of futures or events to wait for.</span>
+<span class="n">WaitArgT</span> <span class="o">=</span> <span class="n">Union</span><span class="p">[</span><span class="n">FutureT</span><span class="p">,</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">Event</span><span class="p">,</span> <span class="n">Event</span><span class="p">]</span>
+
+<span class="n">EVENT_TYPES</span> <span class="o">=</span> <span class="p">(</span><span class="n">asyncio</span><span class="o">.</span><span class="n">Event</span><span class="p">,</span> <span class="n">Event</span><span class="p">)</span>
+
+
+<span class="k">class</span> <span class="nc">WaitResults</span><span class="p">(</span><span class="n">NamedTuple</span><span class="p">):</span>
+    <span class="n">done</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">WaitArgT</span><span class="p">]</span>
+    <span class="n">results</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Any</span><span class="p">]</span>
+    <span class="n">stopped</span><span class="p">:</span> <span class="nb">bool</span>
+
+
+<span class="k">class</span> <span class="nc">WaitResult</span><span class="p">(</span><span class="n">NamedTuple</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Return value of :meth:`Service.wait`.&quot;&quot;&quot;</span>
+
+    <span class="c1">#: Return value of the future we were waiting for.</span>
+    <span class="n">result</span><span class="p">:</span> <span class="n">Any</span>
+
+    <span class="c1">#: Set to :const:`True` if the service was stopped while waiting.</span>
+    <span class="n">stopped</span><span class="p">:</span> <span class="nb">bool</span>
+
+
+<span class="k">class</span> <span class="nc">ServiceBase</span><span class="p">(</span><span class="n">ServiceT</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Base class for services.&quot;&quot;&quot;</span>
+
+    <span class="c1"># This class implements stuff common to Service + ServiceProxy</span>
+
+    <span class="c1">#: Set to True if this service class is abstract-only,</span>
+    <span class="c1">#: meaning it will only be used as a base class.</span>
+    <span class="n">abstract</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+
+    <span class="n">log</span><span class="p">:</span> <span class="n">CompositeLogger</span>
+
+    <span class="c1">#: Logger used by this service.</span>
+    <span class="c1">#: If not explicitly set this will be based on get_logger(cls.__name__)</span>
+    <span class="c1"># This is automatically set when class is constructed, and so is only</span>
+    <span class="c1"># None on the class, never on an instance. For simplicity we cast</span>
+    <span class="c1"># the None to logger.</span>
+    <span class="n">logger</span><span class="p">:</span> <span class="n">logging</span><span class="o">.</span><span class="n">Logger</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">Logger</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__init_subclass__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">abstract</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">abstract</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_init_subclass_logger</span><span class="p">()</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_init_subclass_logger</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># make sure class has a logger.</span>
+        <span class="n">logger</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">Optional</span><span class="p">[</span><span class="n">logging</span><span class="o">.</span><span class="n">Logger</span><span class="p">],</span> <span class="bp">cls</span><span class="o">.</span><span class="n">logger</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">logger</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">logger</span><span class="p">,</span> <span class="s1">&#39;__modex__&#39;</span><span class="p">,</span> <span class="kc">False</span><span class="p">):</span>
+            <span class="n">_logger</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="n">get_logger</span><span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="vm">__module__</span><span class="p">)</span>
+            <span class="n">_logger</span><span class="o">.</span><span class="n">__modex__</span> <span class="o">=</span> <span class="kc">True</span>  <span class="c1"># type: ignore</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">loop</span><span class="p">:</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">AbstractEventLoop</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span> <span class="o">=</span> <span class="n">CompositeLogger</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="p">,</span> <span class="n">formatter</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_format_log</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span> <span class="o">=</span> <span class="n">loop</span>
+
+    <span class="k">def</span> <span class="nf">_format_log</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">severity</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">msg</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+                    <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">f</span><span class="s1">&#39;[^{&quot;-&quot; * (self.beacon.depth - 1)}</span><span class="si">{self.shortlabel}</span><span class="s1">]: </span><span class="si">{msg}</span><span class="s1">&#39;</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">__aenter__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ServiceT</span><span class="p">:</span>
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">__aexit__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                        <span class="n">exc_type</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="ne">BaseException</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                        <span class="n">exc_val</span><span class="p">:</span> <span class="ne">BaseException</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                        <span class="n">exc_tb</span><span class="p">:</span> <span class="n">TracebackType</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>
+        <span class="k">finally</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">service_reset</span><span class="p">()</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="c1"># Override _repr_info to add additional text to repr.</span>
+        <span class="n">info</span> <span class="o">=</span> <span class="n">maybecat</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_repr_info</span><span class="p">(),</span> <span class="n">prefix</span><span class="o">=</span><span class="s1">&#39; &#39;</span><span class="p">)</span> <span class="ow">or</span> <span class="s1">&#39;&#39;</span>
+        <span class="k">return</span> <span class="n">f</span><span class="s1">&#39;&lt;{self._repr_name()}: </span><span class="si">{self.state}{info}</span><span class="s1">&gt;&#39;</span>
+
+    <span class="k">def</span> <span class="nf">_repr_info</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s1">&#39;&#39;</span>
+
+    <span class="k">def</span> <span class="nf">_repr_name</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">loop</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">AbstractEventLoop</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">get_event_loop</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span>
+
+    <span class="nd">@loop</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">loop</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">loop</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">asyncio</span><span class="o">.</span><span class="n">AbstractEventLoop</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span> <span class="o">=</span> <span class="n">loop</span>
+
+
+<span class="k">class</span> <span class="nc">Diag</span><span class="p">(</span><span class="n">DiagT</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Service diagnostics.</span>
+
+<span class="sd">    This can be used to track what your service is doing.</span>
+<span class="sd">    For example if your service is a Kafka consumer with a background</span>
+<span class="sd">    thread that commits the offset every 30 seconds, you may want to</span>
+<span class="sd">    see when this happens::</span>
+
+<span class="sd">        DIAG_COMMITTING = &#39;committing&#39;</span>
+
+<span class="sd">        class Consumer(Service):</span>
+
+<span class="sd">            @Service.task</span>
+<span class="sd">            async def _background_commit(self) -&gt; None:</span>
+<span class="sd">                while not self.should_stop:</span>
+<span class="sd">                    await self.sleep(30.0)</span>
+<span class="sd">                    self.diag.set_flag(DIAG_COMITTING)</span>
+<span class="sd">                    try:</span>
+<span class="sd">                        await self._consumer.commit()</span>
+<span class="sd">                    finally:</span>
+<span class="sd">                        self.diag.unset_flag(DIAG_COMMITTING)</span>
+
+<span class="sd">    The above code is setting the flag manually, but you can also use</span>
+<span class="sd">    a decorator to accomplish the same thing::</span>
+
+<span class="sd">        @Service.timer(30.0)</span>
+<span class="sd">        async def _background_commit(self) -&gt; None:</span>
+<span class="sd">            await self.commit()</span>
+
+<span class="sd">        @Service.transitions_with(DIAG_COMITTING)</span>
+<span class="sd">        async def commit(self) -&gt; None:</span>
+<span class="sd">            await self._consumer.commit()</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">service</span><span class="p">:</span> <span class="n">ServiceT</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">service</span> <span class="o">=</span> <span class="n">service</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">flags</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">last_transition</span> <span class="o">=</span> <span class="p">{}</span>
+
+    <span class="k">def</span> <span class="nf">set_flag</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">flag</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">flags</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">flag</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">last_transition</span><span class="p">[</span><span class="n">flag</span><span class="p">]</span> <span class="o">=</span> <span class="n">monotonic</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">unset_flag</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">flag</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">flags</span><span class="o">.</span><span class="n">discard</span><span class="p">(</span><span class="n">flag</span><span class="p">)</span>
+
+
+<span class="k">class</span> <span class="nc">ServiceTask</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;A background task.</span>
+
+<span class="sd">    You don&#39;t have to use this class directly, instead</span>
+<span class="sd">    use the ``@Service.task`` decorator::</span>
+
+<span class="sd">        class MyService(Service):</span>
+
+<span class="sd">            @Service.task</span>
+<span class="sd">            def _background_task(self):</span>
+<span class="sd">                while not self.should_stop:</span>
+<span class="sd">                    print(&#39;Hello&#39;)</span>
+<span class="sd">                    await self.sleep(1.0)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fun</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">Awaitable</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fun</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">Awaitable</span><span class="p">]</span> <span class="o">=</span> <span class="n">fun</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+        <span class="k">return</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">fun</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">repr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fun</span><span class="p">)</span>
+
+
+<span class="k">class</span> <span class="nc">ServiceCallbacks</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Service callback interface.</span>
+
+<span class="sd">    When calling ``await service.start()`` this happens:</span>
+
+<span class="sd">    .. sourcecode:: text</span>
+
+<span class="sd">        +--------------------+</span>
+<span class="sd">        | INIT (not started) |</span>
+<span class="sd">        +--------------------+</span>
+<span class="sd">                V</span>
+<span class="sd">        .-----------------------.</span>
+<span class="sd">        / await service.start() |</span>
+<span class="sd">        `-----------------------&#39;</span>
+<span class="sd">                V</span>
+<span class="sd">        +--------------------+</span>
+<span class="sd">        | on_first_start     |</span>
+<span class="sd">        +--------------------+</span>
+<span class="sd">                V</span>
+<span class="sd">        +--------------------+</span>
+<span class="sd">        | on_start           |</span>
+<span class="sd">        +--------------------+</span>
+<span class="sd">                V</span>
+<span class="sd">        +--------------------+</span>
+<span class="sd">        | on_started         |</span>
+<span class="sd">        +--------------------+</span>
+
+<span class="sd">    When stopping and ``wait_for_shutdown`` is unset, this happens:</span>
+
+<span class="sd">    .. sourcecode:: text</span>
+
+<span class="sd">        .-----------------------.</span>
+<span class="sd">        / await service.stop()  |</span>
+<span class="sd">        `-----------------------&#39;</span>
+<span class="sd">                V</span>
+<span class="sd">        +--------------------+</span>
+<span class="sd">        | on_stop             |</span>
+<span class="sd">        +--------------------+</span>
+<span class="sd">                V</span>
+<span class="sd">        +--------------------+</span>
+<span class="sd">        | on_shutdown        |</span>
+<span class="sd">        +--------------------+</span>
+
+<span class="sd">    When stopping and ``wait_for_shutdown`` is set, the stop operation</span>
+<span class="sd">    will wait for something to set the shutdown flag ``self.set_shutdown()``:</span>
+
+<span class="sd">    .. sourcecode:: text</span>
+
+<span class="sd">        .-----------------------.</span>
+<span class="sd">        / await service.stop()  |</span>
+<span class="sd">        `-----------------------&#39;</span>
+<span class="sd">                V</span>
+<span class="sd">        +--------------------+</span>
+<span class="sd">        | on_stop             |</span>
+<span class="sd">        +--------------------+</span>
+<span class="sd">                V</span>
+<span class="sd">        .-------------------------.</span>
+<span class="sd">        / service.set_shutdown()  |</span>
+<span class="sd">        `-------------------------&#39;</span>
+<span class="sd">                V</span>
+<span class="sd">        +--------------------+</span>
+<span class="sd">        | on_shutdown        |</span>
+<span class="sd">        +--------------------+</span>
+
+<span class="sd">    When restarting the order is as follows (assuming</span>
+<span class="sd">    ``wait_for_shutdown`` unset):</span>
+
+<span class="sd">    .. sourcecode:: text</span>
+
+<span class="sd">        .-------------------------.</span>
+<span class="sd">        / await service.restart() |</span>
+<span class="sd">        `-------------------------&#39;</span>
+<span class="sd">                V</span>
+<span class="sd">        +--------------------+</span>
+<span class="sd">        | on_stop             |</span>
+<span class="sd">        +--------------------+</span>
+<span class="sd">                V</span>
+<span class="sd">        +--------------------+</span>
+<span class="sd">        | on_shutdown        |</span>
+<span class="sd">        +--------------------+</span>
+<span class="sd">                V</span>
+<span class="sd">        +--------------------+</span>
+<span class="sd">        | on_restart         |</span>
+<span class="sd">        +--------------------+</span>
+<span class="sd">                V</span>
+<span class="sd">        +--------------------+</span>
+<span class="sd">        | on_start           |</span>
+<span class="sd">        +--------------------+</span>
+<span class="sd">                V</span>
+<span class="sd">        +--------------------+</span>
+<span class="sd">        | on_started         |</span>
+<span class="sd">        +--------------------+</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">on_first_start</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Service started for the first time in this process.&quot;&quot;&quot;</span>
+        <span class="o">...</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">on_start</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Service is starting.&quot;&quot;&quot;</span>
+        <span class="o">...</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">on_started</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Service has started.&quot;&quot;&quot;</span>
+        <span class="o">...</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">on_stop</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Service is being stopped/restarted.&quot;&quot;&quot;</span>
+        <span class="o">...</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">on_shutdown</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Service is being stopped/restarted.&quot;&quot;&quot;</span>
+        <span class="o">...</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">on_restart</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Service is being restarted.&quot;&quot;&quot;</span>
+        <span class="o">...</span>
+
+
+<div class="viewcode-block" id="Service"><a class="viewcode-back" href="../../reference/faust.html#faust.Service">[docs]</a><span class="k">class</span> <span class="nc">Service</span><span class="p">(</span><span class="n">ServiceBase</span><span class="p">,</span> <span class="n">ServiceCallbacks</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;An asyncio service that can be started/stopped/restarted.</span>
+
+<span class="sd">    Keyword Arguments:</span>
+<span class="sd">        beacon (NodeT): Beacon used to track services in a graph.</span>
+<span class="sd">        loop (asyncio.AbstractEventLoop): Event loop object.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">abstract</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">Diag</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">DiagT</span><span class="p">]</span> <span class="o">=</span> <span class="n">Diag</span>
+
+    <span class="c1">#: Set to True if .stop must wait for the shutdown flag to be set.</span>
+    <span class="n">wait_for_shutdown</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="c1">#: Time to wait for shutdown flag set before we give up.</span>
+    <span class="n">shutdown_timeout</span> <span class="o">=</span> <span class="mf">60.0</span>
+
+    <span class="c1">#: Current number of times this service instance has been restarted.</span>
+    <span class="n">restart_count</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="c1">#: The log level for mundane info such as `starting`, `stopping`, etc.</span>
+    <span class="c1">#: Set this to ``&quot;debug&quot;`` for less information.</span>
+    <span class="n">mundane_level</span> <span class="o">=</span> <span class="s1">&#39;info&#39;</span>
+    <span class="n">_mundane_level</span><span class="p">:</span> <span class="nb">int</span>
+
+    <span class="c1">#: Event set when service started.</span>
+    <span class="n">_started</span><span class="p">:</span> <span class="n">Event</span>
+
+    <span class="c1">#: Event set when service stopped.</span>
+    <span class="n">_stopped</span><span class="p">:</span> <span class="n">Event</span>
+
+    <span class="c1">#: Event set by user to signal service can be shutdown</span>
+    <span class="c1">#: (see :attr:`wait_for_shutdown)</span>
+    <span class="n">_shutdown</span><span class="p">:</span> <span class="n">Event</span>
+
+    <span class="c1">#: Event set when service crashed.</span>
+    <span class="n">_crashed</span><span class="p">:</span> <span class="n">Event</span>
+
+    <span class="c1">#: The reason for last crash (an exception instance).</span>
+    <span class="n">_crash_reason</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="ne">BaseException</span><span class="p">]</span>
+
+    <span class="c1">#: The beacon is used to maintain a graph of services.</span>
+    <span class="n">_beacon</span><span class="p">:</span> <span class="n">NodeT</span>
+
+    <span class="c1">#: .add_dependency and friends adds services to this list,</span>
+    <span class="c1">#: that are started/stopped/restarted with the service.</span>
+    <span class="n">_children</span><span class="p">:</span> <span class="n">MutableSequence</span><span class="p">[</span><span class="n">ServiceT</span><span class="p">]</span>
+
+    <span class="c1">#: .add_future adds futures to this list, and when stopping</span>
+    <span class="c1">#: we will wait for them a bit, then cancel them.</span>
+    <span class="c1">#: Note: Unlike ``add_dependency`` these futures will not be</span>
+    <span class="c1"># restarted with the service: if you want that to happen make sure</span>
+    <span class="c1"># calling service.start() again will add the future again.</span>
+    <span class="n">_futures</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="n">asyncio</span><span class="o">.</span><span class="n">Future</span><span class="p">]</span>
+
+    <span class="c1">#: The ``@Service.task`` decorator adds names of attributes</span>
+    <span class="c1">#: that are ServiceTasks to this list (which is a class variable).</span>
+    <span class="n">_tasks</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Set</span><span class="p">[</span><span class="nb">str</span><span class="p">]]]]</span> <span class="o">=</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="Service.from_awaitable"><a class="viewcode-back" href="../../reference/faust.html#faust.Service.from_awaitable">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">from_awaitable</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">coro</span><span class="p">:</span> <span class="n">Awaitable</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span>
+                       <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                       <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ServiceT</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">_AwaitableService</span><span class="p">(</span><span class="n">coro</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Service.task"><a class="viewcode-back" href="../../reference/faust.html#faust.Service.task">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">task</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">fun</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">Any</span><span class="p">],</span> <span class="n">Awaitable</span><span class="p">[</span><span class="kc">None</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="n">ServiceTask</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Decorate function to be used as background task.</span>
+
+<span class="sd">        Example:</span>
+<span class="sd">            &gt;&gt;&gt; class S(Service):</span>
+<span class="sd">            ...</span>
+<span class="sd">            ...     @Service.task</span>
+<span class="sd">            ...     async def background_task(self):</span>
+<span class="sd">            ...         while not self.should_stop:</span>
+<span class="sd">            ...             await self.sleep(1.0)</span>
+<span class="sd">            ...             print(&#39;Waking up&#39;)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">ServiceTask</span><span class="p">(</span><span class="n">fun</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Service.timer"><a class="viewcode-back" href="../../reference/faust.html#faust.Service.timer">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">timer</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">interval</span><span class="p">:</span> <span class="n">Seconds</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">Callable</span><span class="p">],</span> <span class="n">ServiceTask</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;Background timer executing every ``n`` seconds.</span>
+
+<span class="sd">        Example:</span>
+<span class="sd">            &gt;&gt;&gt; class S(Service):</span>
+<span class="sd">            ...</span>
+<span class="sd">            ...     @Service.timer(1.0)</span>
+<span class="sd">            ...     async def background_timer(self):</span>
+<span class="sd">            ...         print(&#39;Waking up&#39;)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">_interval</span> <span class="o">=</span> <span class="n">want_seconds</span><span class="p">(</span><span class="n">interval</span><span class="p">)</span>
+
+        <span class="k">def</span> <span class="nf">_decorate</span><span class="p">(</span>
+                <span class="n">fun</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">ServiceT</span><span class="p">],</span> <span class="n">Awaitable</span><span class="p">[</span><span class="kc">None</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="n">ServiceTask</span><span class="p">:</span>
+            <span class="nd">@wraps</span><span class="p">(</span><span class="n">fun</span><span class="p">)</span>
+            <span class="k">async</span> <span class="k">def</span> <span class="nf">_repeater</span><span class="p">(</span><span class="bp">self</span><span class="p">:</span> <span class="n">Service</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="n">_interval</span><span class="p">)</span>
+                <span class="k">async</span> <span class="k">for</span> <span class="n">sleep_time</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">itertimer</span><span class="p">(</span>
+                        <span class="n">_interval</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">qualname</span><span class="p">(</span><span class="n">fun</span><span class="p">)):</span>
+                    <span class="k">await</span> <span class="n">fun</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+            <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">task</span><span class="p">(</span><span class="n">_repeater</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">_decorate</span></div>
+
+<div class="viewcode-block" id="Service.transitions_to"><a class="viewcode-back" href="../../reference/faust.html#faust.Service.transitions_to">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">transitions_to</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">flag</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Decorate function to set and reset diagnostic flag.&quot;&quot;&quot;</span>
+        <span class="k">def</span> <span class="nf">_decorate</span><span class="p">(</span>
+                <span class="n">fun</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">Awaitable</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">Awaitable</span><span class="p">]:</span>
+            <span class="nd">@wraps</span><span class="p">(</span><span class="n">fun</span><span class="p">)</span>
+            <span class="k">async</span> <span class="k">def</span> <span class="nf">_and_transition</span><span class="p">(</span><span class="bp">self</span><span class="p">:</span> <span class="n">ServiceT</span><span class="p">,</span>
+                                      <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">diag</span><span class="o">.</span><span class="n">set_flag</span><span class="p">(</span><span class="n">flag</span><span class="p">)</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="k">await</span> <span class="n">fun</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+                <span class="k">finally</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">diag</span><span class="o">.</span><span class="n">unset_flag</span><span class="p">(</span><span class="n">flag</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">_and_transition</span>
+        <span class="k">return</span> <span class="n">_decorate</span></div>
+
+    <span class="k">def</span> <span class="nf">__init_subclass__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># Every new subclass adds @Service.task decorated methods</span>
+        <span class="c1"># to the class-local `_tasks` list.</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">abstract</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">abstract</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_init_subclass_logger</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_init_subclass_tasks</span><span class="p">()</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_init_subclass_tasks</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># XXX Python 3.6.3 introduces mysterious bug</span>
+        <span class="c1"># where the storage for subclasses is always the same,</span>
+        <span class="c1"># so when we set cls._tasks = [], it will actually clear the</span>
+        <span class="c1"># tasks for all subclasses.  Hacked around this situation</span>
+        <span class="c1"># by making _tasks a mapping from classid -&gt; list of tasks,</span>
+        <span class="c1"># that way all subclasses can share the same attribute.</span>
+        <span class="n">clsid</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_get_class_id</span><span class="p">()</span>
+        <span class="k">if</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_tasks</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">cls</span><span class="o">.</span><span class="n">_tasks</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">tasks</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">base</span> <span class="ow">in</span> <span class="n">iter_mro_reversed</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">stop</span><span class="o">=</span><span class="n">Service</span><span class="p">):</span>
+            <span class="n">tasks</span> <span class="o">|=</span> <span class="p">{</span>
+                <span class="n">attr_name</span> <span class="k">for</span> <span class="n">attr_name</span><span class="p">,</span> <span class="n">attr_value</span> <span class="ow">in</span> <span class="nb">vars</span><span class="p">(</span><span class="n">base</span><span class="p">)</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">attr_value</span><span class="p">,</span> <span class="n">ServiceTask</span><span class="p">)</span>
+            <span class="p">}</span>
+        <span class="bp">cls</span><span class="o">.</span><span class="n">_tasks</span><span class="p">[</span><span class="n">clsid</span><span class="p">]</span> <span class="o">=</span> <span class="n">tasks</span>
+
+    <span class="k">def</span> <span class="nf">_get_tasks</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">ServiceTask</span><span class="p">]:</span>
+        <span class="n">seen</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="n">ServiceTask</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="bp">cls</span> <span class="o">=</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_tasks</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">attr_name</span> <span class="ow">in</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_tasks</span><span class="p">[</span><span class="bp">cls</span><span class="o">.</span><span class="n">_get_class_id</span><span class="p">()]:</span>
+                <span class="n">task</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">attr_name</span><span class="p">)</span>
+                <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">task</span><span class="p">,</span> <span class="n">ServiceTask</span><span class="p">)</span>
+                <span class="k">assert</span> <span class="n">task</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">seen</span>
+                <span class="n">seen</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">task</span><span class="p">)</span>
+                <span class="k">yield</span> <span class="n">task</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_get_class_id</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s1">&#39;.&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="bp">cls</span><span class="o">.</span><span class="vm">__module__</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="vm">__qualname__</span><span class="p">])</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span>
+                 <span class="n">beacon</span><span class="p">:</span> <span class="n">NodeT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">loop</span><span class="p">:</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">AbstractEventLoop</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">diag</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">Diag</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span> <span class="o">=</span> <span class="n">loop</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_started</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_new_started_event</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_stopped</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_new_stopped_event</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_shutdown</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_new_shutdown_event</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_crashed</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_new_crashed_event</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_crash_reason</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_beacon</span> <span class="o">=</span> <span class="n">Node</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="k">if</span> <span class="n">beacon</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">beacon</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_children</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_futures</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_mundane_level</span> <span class="o">=</span> <span class="n">level_number</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mundane_level</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">async_exit_stack</span> <span class="o">=</span> <span class="n">AsyncExitStack</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">exit_stack</span> <span class="o">=</span> <span class="n">ExitStack</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">on_init</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__post_init__</span><span class="p">()</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">loop</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_new_started_event</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Event</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">Event</span><span class="p">(</span><span class="n">loop</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_new_stopped_event</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Event</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">Event</span><span class="p">(</span><span class="n">loop</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_new_shutdown_event</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Event</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">Event</span><span class="p">(</span><span class="n">loop</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_new_crashed_event</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Event</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">Event</span><span class="p">(</span><span class="n">loop</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Service.transition_with"><a class="viewcode-back" href="../../reference/faust.html#faust.Service.transition_with">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">transition_with</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">flag</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">fut</span><span class="p">:</span> <span class="n">Awaitable</span><span class="p">,</span>
+                              <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">diag</span><span class="o">.</span><span class="n">set_flag</span><span class="p">(</span><span class="n">flag</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="k">await</span> <span class="n">fut</span>
+        <span class="k">finally</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">diag</span><span class="o">.</span><span class="n">unset_flag</span><span class="p">(</span><span class="n">flag</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Service.add_dependency"><a class="viewcode-back" href="../../reference/faust.html#faust.Service.add_dependency">[docs]</a>    <span class="k">def</span> <span class="nf">add_dependency</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">service</span><span class="p">:</span> <span class="n">ServiceT</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ServiceT</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Add dependency to other service.</span>
+
+<span class="sd">        The service will be started/stopped with this service.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">service</span><span class="o">.</span><span class="n">beacon</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">service</span><span class="o">.</span><span class="n">beacon</span><span class="o">.</span><span class="n">reattach</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">beacon</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_children</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">service</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">service</span></div>
+
+<div class="viewcode-block" id="Service.add_runtime_dependency"><a class="viewcode-back" href="../../reference/faust.html#faust.Service.add_runtime_dependency">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">add_runtime_dependency</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">service</span><span class="p">:</span> <span class="n">ServiceT</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ServiceT</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">add_dependency</span><span class="p">(</span><span class="n">service</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_started</span><span class="o">.</span><span class="n">is_set</span><span class="p">():</span>
+            <span class="k">await</span> <span class="n">service</span><span class="o">.</span><span class="n">maybe_start</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">service</span></div>
+
+<div class="viewcode-block" id="Service.remove_dependency"><a class="viewcode-back" href="../../reference/faust.html#faust.Service.remove_dependency">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">remove_dependency</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">service</span><span class="p">:</span> <span class="n">ServiceT</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ServiceT</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Stop and remove dependency of this service.&quot;&quot;&quot;</span>
+        <span class="k">await</span> <span class="n">service</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_children</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">service</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">service</span><span class="o">.</span><span class="n">beacon</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">service</span><span class="o">.</span><span class="n">beacon</span><span class="o">.</span><span class="n">detach</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">beacon</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">service</span></div>
+
+<div class="viewcode-block" id="Service.add_async_context"><a class="viewcode-back" href="../../reference/faust.html#faust.Service.add_async_context">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">add_async_context</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">context</span><span class="p">:</span> <span class="n">AsyncContextManager</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">AsyncContextManager</span><span class="p">):</span>
+            <span class="k">return</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">async_exit_stack</span><span class="o">.</span><span class="n">enter_async_context</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">ContextManager</span><span class="p">):</span>  <span class="c1"># type: ignore</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+                <span class="s1">&#39;Use `self.add_context(ctx)` for non-async context&#39;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="n">f</span><span class="s1">&#39;Not a context/async context: {type(context)!r}&#39;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Service.add_context"><a class="viewcode-back" href="../../reference/faust.html#faust.Service.add_context">[docs]</a>    <span class="k">def</span> <span class="nf">add_context</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">context</span><span class="p">:</span> <span class="n">ContextManager</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">AsyncContextManager</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+                <span class="s1">&#39;Use `await self.add_async_context(ctx)` for async context&#39;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">ContextManager</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">exit_stack</span><span class="o">.</span><span class="n">enter_context</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="n">f</span><span class="s1">&#39;Not a context/async context: {type(context)!r}&#39;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Service.add_future"><a class="viewcode-back" href="../../reference/faust.html#faust.Service.add_future">[docs]</a>    <span class="k">def</span> <span class="nf">add_future</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">coro</span><span class="p">:</span> <span class="n">Awaitable</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">Future</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Add relationship to asyncio.Future.</span>
+
+<span class="sd">        The future will be joined when this service is stopped.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">fut</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">ensure_future</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_execute_task</span><span class="p">(</span><span class="n">coro</span><span class="p">),</span> <span class="n">loop</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">loop</span><span class="p">)</span>
+        <span class="n">fut</span><span class="o">.</span><span class="n">__wrapped__</span> <span class="o">=</span> <span class="n">coro</span>  <span class="c1"># type: ignore</span>
+        <span class="n">fut</span><span class="o">.</span><span class="n">add_done_callback</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_on_future_done</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_futures</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">fut</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">fut</span></div>
+
+    <span class="k">def</span> <span class="nf">_on_future_done</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fut</span><span class="p">:</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">Future</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_futures</span><span class="o">.</span><span class="n">discard</span><span class="p">(</span><span class="n">fut</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Additional user initialization.&quot;&quot;&quot;</span>
+        <span class="o">...</span>
+
+<div class="viewcode-block" id="Service.on_init"><a class="viewcode-back" href="../../reference/faust.html#faust.Service.on_init">[docs]</a>    <span class="k">def</span> <span class="nf">on_init</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span>  <span class="c1"># deprecated: use __post_init__</span></div>
+
+<div class="viewcode-block" id="Service.on_init_dependencies"><a class="viewcode-back" href="../../reference/faust.html#faust.Service.on_init_dependencies">[docs]</a>    <span class="k">def</span> <span class="nf">on_init_dependencies</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">ServiceT</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;Return list of service dependencies for this service.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">[]</span></div>
+
+<div class="viewcode-block" id="Service.join_services"><a class="viewcode-back" href="../../reference/faust.html#faust.Service.join_services">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">join_services</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">services</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">ServiceT</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">service</span> <span class="ow">in</span> <span class="n">services</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">await</span> <span class="n">service</span><span class="o">.</span><span class="n">maybe_start</span><span class="p">()</span>
+            <span class="k">except</span> <span class="ne">BaseException</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+                <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">crash</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">service</span> <span class="ow">in</span> <span class="nb">reversed</span><span class="p">(</span><span class="n">services</span><span class="p">):</span>
+            <span class="k">await</span> <span class="n">service</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="Service.sleep"><a class="viewcode-back" href="../../reference/faust.html#faust.Service.sleep">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">sleep</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n</span><span class="p">:</span> <span class="n">Seconds</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span>
+                    <span class="n">loop</span><span class="p">:</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">AbstractEventLoop</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Sleep for ``n`` seconds, or until service stopped.&quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">wait_for</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_stopped</span><span class="o">.</span><span class="n">wait</span><span class="p">(),</span>
+                <span class="n">timeout</span><span class="o">=</span><span class="n">want_seconds</span><span class="p">(</span><span class="n">n</span><span class="p">),</span>
+                <span class="n">loop</span><span class="o">=</span><span class="n">loop</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">loop</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">except</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">TimeoutError</span><span class="p">:</span>
+            <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="Service.wait_for_stopped"><a class="viewcode-back" href="../../reference/faust.html#faust.Service.wait_for_stopped">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">wait_for_stopped</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">coros</span><span class="p">:</span> <span class="n">WaitArgT</span><span class="p">,</span>
+                               <span class="n">timeout</span><span class="p">:</span> <span class="n">Seconds</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">(</span><span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">wait</span><span class="p">(</span><span class="o">*</span><span class="n">coros</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="n">timeout</span><span class="p">))</span><span class="o">.</span><span class="n">stopped</span></div>
+
+<div class="viewcode-block" id="Service.wait"><a class="viewcode-back" href="../../reference/faust.html#faust.Service.wait">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">wait</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">coros</span><span class="p">:</span> <span class="n">WaitArgT</span><span class="p">,</span>
+                   <span class="n">timeout</span><span class="p">:</span> <span class="n">Seconds</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">WaitResult</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Wait for coroutines to complete, or until the service stops.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">coros</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">coros</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span>
+            <span class="k">return</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_wait_one</span><span class="p">(</span><span class="n">coros</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">timeout</span><span class="o">=</span><span class="n">timeout</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_wait_stopped</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="n">timeout</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">WaitResult</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Service.wait_many"><a class="viewcode-back" href="../../reference/faust.html#faust.Service.wait_many">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">wait_many</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">coros</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">WaitArgT</span><span class="p">],</span>
+                        <span class="o">*</span><span class="p">,</span>
+                        <span class="n">timeout</span><span class="p">:</span> <span class="n">Seconds</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">WaitResult</span><span class="p">:</span>
+        <span class="n">coro</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">wait</span><span class="p">(</span>
+            <span class="n">cast</span><span class="p">(</span><span class="n">Iterable</span><span class="p">[</span><span class="n">Awaitable</span><span class="p">[</span><span class="n">Any</span><span class="p">]],</span> <span class="n">coros</span><span class="p">),</span>
+            <span class="n">return_when</span><span class="o">=</span><span class="n">asyncio</span><span class="o">.</span><span class="n">ALL_COMPLETED</span><span class="p">,</span>
+            <span class="n">timeout</span><span class="o">=</span><span class="n">want_seconds</span><span class="p">(</span><span class="n">timeout</span><span class="p">),</span>
+            <span class="n">loop</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">loop</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_wait_one</span><span class="p">(</span><span class="n">coro</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="n">timeout</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Service.wait_first"><a class="viewcode-back" href="../../reference/faust.html#faust.Service.wait_first">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">wait_first</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">coros</span><span class="p">:</span> <span class="n">WaitArgT</span><span class="p">,</span>
+                         <span class="n">timeout</span><span class="p">:</span> <span class="n">Seconds</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">WaitResults</span><span class="p">:</span>
+        <span class="n">_coros</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="n">WaitArgT</span><span class="p">,</span> <span class="n">FutureT</span><span class="p">]</span>
+        <span class="n">timeout</span> <span class="o">=</span> <span class="n">want_seconds</span><span class="p">(</span><span class="n">timeout</span><span class="p">)</span> <span class="k">if</span> <span class="n">timeout</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="n">stopped</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stopped</span>
+        <span class="n">crashed</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_crashed</span>
+        <span class="n">loop</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">loop</span>
+
+        <span class="c1"># asyncio.wait will also ensure_future, but we need the handle</span>
+        <span class="c1"># so we can cancel them (if we don&#39;t they will leak).</span>
+        <span class="n">futures</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">coro</span><span class="p">:</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">ensure_future</span><span class="p">(</span>
+                <span class="p">(</span><span class="n">coro</span><span class="o">.</span><span class="n">wait</span><span class="p">()</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">coro</span><span class="p">,</span> <span class="n">EVENT_TYPES</span><span class="p">)</span> <span class="k">else</span> <span class="n">coro</span><span class="p">),</span>
+                <span class="n">loop</span><span class="o">=</span><span class="n">loop</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">for</span> <span class="n">coro</span> <span class="ow">in</span> <span class="n">coros</span>
+        <span class="p">}</span>
+        <span class="n">futures</span><span class="p">[</span><span class="n">stopped</span><span class="p">]</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">ensure_future</span><span class="p">(</span><span class="n">stopped</span><span class="o">.</span><span class="n">wait</span><span class="p">(),</span> <span class="n">loop</span><span class="o">=</span><span class="n">loop</span><span class="p">)</span>
+        <span class="n">futures</span><span class="p">[</span><span class="n">crashed</span><span class="p">]</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">ensure_future</span><span class="p">(</span><span class="n">crashed</span><span class="o">.</span><span class="n">wait</span><span class="p">(),</span> <span class="n">loop</span><span class="o">=</span><span class="n">loop</span><span class="p">)</span>
+        <span class="n">done</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="n">asyncio</span><span class="o">.</span><span class="n">Future</span><span class="p">]</span>
+        <span class="n">pending</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="n">asyncio</span><span class="o">.</span><span class="n">Future</span><span class="p">]</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">done</span><span class="p">,</span> <span class="n">pending</span> <span class="o">=</span> <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">wait</span><span class="p">(</span>
+                <span class="n">futures</span><span class="o">.</span><span class="n">values</span><span class="p">(),</span>
+                <span class="n">return_when</span><span class="o">=</span><span class="n">asyncio</span><span class="o">.</span><span class="n">FIRST_COMPLETED</span><span class="p">,</span>
+                <span class="n">timeout</span><span class="o">=</span><span class="n">timeout</span><span class="p">,</span>
+                <span class="n">loop</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">loop</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">done</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">f</span><span class="o">.</span><span class="n">done</span><span class="p">()</span> <span class="ow">and</span> <span class="n">f</span><span class="o">.</span><span class="n">exception</span><span class="p">()</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">f</span><span class="o">.</span><span class="n">result</span><span class="p">()</span>  <span class="c1"># propagate exceptions</span>
+            <span class="n">winners</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">WaitArgT</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="n">results</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">coro</span><span class="p">,</span> <span class="n">fut</span> <span class="ow">in</span> <span class="n">futures</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">fut</span><span class="o">.</span><span class="n">done</span><span class="p">():</span>
+                    <span class="n">winners</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">coro</span><span class="p">)</span>
+                    <span class="n">results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">fut</span><span class="o">.</span><span class="n">result</span><span class="p">())</span>
+                <span class="k">elif</span> <span class="n">fut</span><span class="o">.</span><span class="n">cancelled</span><span class="p">():</span>
+                    <span class="k">raise</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">CancelledError</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">winners</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">stopped</span><span class="o">.</span><span class="n">is_set</span><span class="p">()</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">crashed</span><span class="o">.</span><span class="n">is_set</span><span class="p">():</span>
+                <span class="k">return</span> <span class="n">WaitResults</span><span class="p">(</span><span class="n">winners</span><span class="p">,</span> <span class="n">results</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">WaitResults</span><span class="p">([],</span> <span class="p">[],</span> <span class="kc">True</span><span class="p">)</span>
+        <span class="k">finally</span><span class="p">:</span>
+            <span class="c1"># cleanup</span>
+            <span class="k">for</span> <span class="n">fut</span> <span class="ow">in</span> <span class="n">futures</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">fut</span><span class="o">.</span><span class="n">done</span><span class="p">():</span>
+                    <span class="n">fut</span><span class="o">.</span><span class="n">cancel</span><span class="p">()</span></div>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">_wait_one</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">coro</span><span class="p">:</span> <span class="n">WaitArgT</span><span class="p">,</span>
+                        <span class="o">*</span><span class="p">,</span>
+                        <span class="n">timeout</span><span class="p">:</span> <span class="n">Seconds</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">WaitResult</span><span class="p">:</span>
+        <span class="n">results</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">wait_first</span><span class="p">(</span><span class="n">coro</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="n">timeout</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">results</span><span class="o">.</span><span class="n">stopped</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">WaitResult</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">WaitResult</span><span class="p">(</span><span class="n">results</span><span class="o">.</span><span class="n">results</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="kc">False</span><span class="p">)</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">_wait_stopped</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">timeout</span><span class="p">:</span> <span class="n">Seconds</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">timeout</span> <span class="o">=</span> <span class="n">want_seconds</span><span class="p">(</span><span class="n">timeout</span><span class="p">)</span> <span class="k">if</span> <span class="n">timeout</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="n">stopped</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stopped</span><span class="o">.</span><span class="n">wait</span><span class="p">()</span>
+        <span class="n">crashed</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_crashed</span><span class="o">.</span><span class="n">wait</span><span class="p">()</span>
+        <span class="n">done</span><span class="p">,</span> <span class="n">pending</span> <span class="o">=</span> <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">wait</span><span class="p">(</span>
+            <span class="p">[</span><span class="n">stopped</span><span class="p">,</span> <span class="n">crashed</span><span class="p">],</span>
+            <span class="n">return_when</span><span class="o">=</span><span class="n">asyncio</span><span class="o">.</span><span class="n">FIRST_COMPLETED</span><span class="p">,</span>
+            <span class="n">timeout</span><span class="o">=</span><span class="n">timeout</span><span class="p">,</span>
+            <span class="n">loop</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">loop</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">for</span> <span class="n">fut</span> <span class="ow">in</span> <span class="n">done</span><span class="p">:</span>
+            <span class="n">fut</span><span class="o">.</span><span class="n">result</span><span class="p">()</span>  <span class="c1"># propagate exceptions</span>
+        <span class="k">for</span> <span class="n">fut</span> <span class="ow">in</span> <span class="n">pending</span><span class="p">:</span>
+            <span class="n">fut</span><span class="o">.</span><span class="n">cancel</span><span class="p">()</span>
+        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">_crashed</span><span class="o">.</span><span class="n">is_set</span><span class="p">()</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stopped</span><span class="o">.</span><span class="n">is_set</span><span class="p">()</span>
+
+<div class="viewcode-block" id="Service.start"><a class="viewcode-back" href="../../reference/faust.html#faust.Service.start">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">start</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_default_start</span><span class="p">()</span></div>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">_default_start</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">loop</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">loop</span>
+        <span class="k">assert</span> <span class="n">loop</span>  <span class="c1"># make sure loop is set</span>
+        <span class="k">assert</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_started</span><span class="o">.</span><span class="n">is_set</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_started</span><span class="o">.</span><span class="n">set</span><span class="p">()</span>
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_actually_start</span><span class="p">()</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">_actually_start</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Start the service.&quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="p">[</span><span class="mi">1</span><span class="p">]:</span>  <span class="c1"># to use break</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">restart_count</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">dep</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">on_init_dependencies</span><span class="p">():</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">add_dependency</span><span class="p">(</span><span class="n">dep</span><span class="p">)</span>
+                <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">on_first_start</span><span class="p">()</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">should_stop</span><span class="p">:</span>
+                    <span class="k">break</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">exit_stack</span><span class="o">.</span><span class="fm">__enter__</span><span class="p">()</span>
+            <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">async_exit_stack</span><span class="o">.</span><span class="fm">__aenter__</span><span class="p">()</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">should_stop</span><span class="p">:</span>
+                <span class="k">break</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_log_mundane</span><span class="p">(</span><span class="s1">&#39;Starting...&#39;</span><span class="p">)</span>
+                <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">on_start</span><span class="p">()</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">should_stop</span><span class="p">:</span>
+                    <span class="k">break</span>
+                <span class="k">for</span> <span class="n">task</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_tasks</span><span class="p">():</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">add_future</span><span class="p">(</span><span class="n">task</span><span class="o">.</span><span class="n">fun</span><span class="p">(</span><span class="bp">self</span><span class="p">))</span>
+                <span class="k">for</span> <span class="n">child</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_children</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">child</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                        <span class="k">await</span> <span class="n">child</span><span class="o">.</span><span class="n">maybe_start</span><span class="p">()</span>
+                    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">should_stop</span><span class="p">:</span>
+                        <span class="k">break</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s1">&#39;Started.&#39;</span><span class="p">)</span>
+                <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">on_started</span><span class="p">()</span>
+            <span class="k">except</span> <span class="ne">BaseException</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">exit_stack</span><span class="o">.</span><span class="fm">__exit__</span><span class="p">(</span><span class="o">*</span><span class="n">sys</span><span class="o">.</span><span class="n">exc_info</span><span class="p">())</span>
+                <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">async_exit_stack</span><span class="o">.</span><span class="fm">__aexit__</span><span class="p">(</span><span class="o">*</span><span class="n">sys</span><span class="o">.</span><span class="n">exc_info</span><span class="p">())</span>
+                <span class="k">raise</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">_execute_task</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">task</span><span class="p">:</span> <span class="n">Awaitable</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">await</span> <span class="n">task</span>
+        <span class="k">except</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">CancelledError</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">should_stop</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_log_mundane</span><span class="p">(</span><span class="s1">&#39;Terminating cancelled task: </span><span class="si">%r</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">task</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">RuntimeError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+            <span class="k">if</span> <span class="s1">&#39;Event loop is closed&#39;</span> <span class="ow">in</span> <span class="nb">str</span><span class="p">(</span><span class="n">exc</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Cancelled task </span><span class="si">%r</span><span class="s1">: </span><span class="si">%s</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">task</span><span class="p">,</span> <span class="n">exc</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">crash</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">BaseException</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+            <span class="c1"># the exception will be re-raised by the main thread.</span>
+            <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">crash</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Service.maybe_start"><a class="viewcode-back" href="../../reference/faust.html#faust.Service.maybe_start">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">maybe_start</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Start the service, if it has not already been started.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_started</span><span class="o">.</span><span class="n">is_set</span><span class="p">():</span>
+            <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+            <span class="k">return</span> <span class="kc">True</span>
+        <span class="k">return</span> <span class="kc">False</span></div>
+
+    <span class="k">def</span> <span class="nf">_log_mundane</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">msg</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_mundane_level</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Service.crash"><a class="viewcode-back" href="../../reference/faust.html#faust.Service.crash">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">crash</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">reason</span><span class="p">:</span> <span class="ne">BaseException</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Crash the service and all child services.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="s1">&#39;Crashed reason=</span><span class="si">%r</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">reason</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_crashed</span><span class="o">.</span><span class="n">is_set</span><span class="p">():</span>
+            <span class="c1"># We record the stack by raising the exception.</span>
+
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">supervisor</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">supervisor</span><span class="o">.</span><span class="n">wakeup</span><span class="p">()</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># if the service has no supervisor we go ahead</span>
+                <span class="c1"># and mark parent nodes as crashed as well.</span>
+                <span class="n">root</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">beacon</span><span class="o">.</span><span class="n">root</span>
+                <span class="n">seen</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="n">NodeT</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+                <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">beacon</span><span class="o">.</span><span class="n">walk</span><span class="p">():</span>
+                    <span class="k">if</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">seen</span><span class="p">:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                            <span class="s1">&#39;Recursive loop in beacon: </span><span class="si">%r</span><span class="s1">: </span><span class="si">%r</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">node</span><span class="p">,</span> <span class="n">seen</span><span class="p">)</span>
+                        <span class="k">if</span> <span class="n">root</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">root</span><span class="o">.</span><span class="n">data</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">self</span><span class="p">:</span>
+                            <span class="n">cast</span><span class="p">(</span><span class="n">Service</span><span class="p">,</span> <span class="n">root</span><span class="o">.</span><span class="n">data</span><span class="p">)</span><span class="o">.</span><span class="n">_crash</span><span class="p">(</span><span class="n">reason</span><span class="p">)</span>
+                        <span class="k">break</span>
+                    <span class="n">seen</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+                    <span class="k">for</span> <span class="n">child</span> <span class="ow">in</span> <span class="p">[</span><span class="n">node</span><span class="o">.</span><span class="n">data</span><span class="p">]</span> <span class="o">+</span> <span class="n">node</span><span class="o">.</span><span class="n">children</span><span class="p">:</span>
+                        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">child</span><span class="p">,</span> <span class="n">Service</span><span class="p">):</span>
+                            <span class="n">child</span><span class="o">.</span><span class="n">_crash</span><span class="p">(</span><span class="n">reason</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_crash</span><span class="p">(</span><span class="n">reason</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_crash</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">reason</span><span class="p">:</span> <span class="ne">BaseException</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_crashed</span><span class="o">.</span><span class="n">set</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">crash_reason</span> <span class="o">=</span> <span class="n">reason</span>
+        <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_children</span><span class="p">:</span>
+            <span class="n">node</span><span class="o">.</span><span class="n">_crash</span><span class="p">(</span><span class="n">reason</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Service.stop"><a class="viewcode-back" href="../../reference/faust.html#faust.Service.stop">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">stop</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Stop the service.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stopped</span><span class="o">.</span><span class="n">is_set</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_log_mundane</span><span class="p">(</span><span class="s1">&#39;Stopping...&#39;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_stopped</span><span class="o">.</span><span class="n">set</span><span class="p">()</span>
+            <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">on_stop</span><span class="p">()</span>
+            <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stop_children</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s1">&#39;Shutting down...&#39;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">wait_for_shutdown</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s1">&#39;Waiting for shutdown&#39;</span><span class="p">)</span>
+                <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">wait_for</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_shutdown</span><span class="o">.</span><span class="n">wait</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">shutdown_timeout</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s1">&#39;Shutting down now&#39;</span><span class="p">)</span>
+            <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stop_futures</span><span class="p">()</span>
+            <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stop_exit_stacks</span><span class="p">()</span>
+            <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">on_shutdown</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s1">&#39;-Stopped!&#39;</span><span class="p">)</span></div>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">_stop_children</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_default_stop_children</span><span class="p">()</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">_default_stop_children</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">child</span> <span class="ow">in</span> <span class="nb">reversed</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_children</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">child</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">shield</span><span class="p">(</span><span class="n">child</span><span class="o">.</span><span class="n">stop</span><span class="p">())</span>
+                <span class="k">except</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">CancelledError</span><span class="p">:</span>
+                    <span class="k">pass</span>
+                <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span>
+                        <span class="s1">&#39;Error while stopping child </span><span class="si">%r</span><span class="s1">: </span><span class="si">%r</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">child</span><span class="p">,</span> <span class="n">exc</span><span class="p">)</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">_stop_futures</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_default_stop_futures</span><span class="p">()</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">_stop_exit_stacks</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_default_stop_exit_stacks</span><span class="p">()</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">_default_stop_exit_stacks</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">exit_stack</span><span class="o">.</span><span class="fm">__exit__</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">async_exit_stack</span><span class="o">.</span><span class="fm">__aexit__</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">_default_stop_futures</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_wait_for_futures</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">future</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_futures</span><span class="p">:</span>
+            <span class="n">future</span><span class="o">.</span><span class="n">cancel</span><span class="p">()</span>
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gather_futures</span><span class="p">()</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">_gather_futures</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">timeout</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">while</span> <span class="bp">self</span><span class="o">.</span><span class="n">_futures</span><span class="p">:</span>
+            <span class="c1"># Gather all futures added via .add_future</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_maybe_wait_for_futures</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="n">timeout</span><span class="p">)</span>
+            <span class="k">except</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">CancelledError</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">break</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_futures</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">_maybe_wait_for_futures</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">timeout</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_futures</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">shield</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_wait_for_futures</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="n">timeout</span><span class="p">))</span>
+            <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_futures</span><span class="p">:</span>
+                    <span class="k">raise</span>
+                <span class="c1"># race condition:</span>
+                <span class="c1"># _futures non-empty when loop starts,</span>
+                <span class="c1"># but empty when asyncio.wait receives it.</span>
+            <span class="k">except</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">CancelledError</span><span class="p">:</span>
+                <span class="k">pass</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">_wait_for_futures</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">timeout</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_futures</span><span class="p">:</span>
+            <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">wait</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_futures</span><span class="p">,</span>
+                <span class="n">return_when</span><span class="o">=</span><span class="n">asyncio</span><span class="o">.</span><span class="n">ALL_COMPLETED</span><span class="p">,</span>
+                <span class="n">loop</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">loop</span><span class="p">,</span>
+                <span class="n">timeout</span><span class="o">=</span><span class="n">timeout</span><span class="p">,</span>
+            <span class="p">)</span>
+
+<div class="viewcode-block" id="Service.restart"><a class="viewcode-back" href="../../reference/faust.html#faust.Service.restart">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">restart</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Restart this service.&quot;&quot;&quot;</span>
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">service_reset</span><span class="p">()</span>
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">on_restart</span><span class="p">()</span>
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">start</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="Service.service_reset"><a class="viewcode-back" href="../../reference/faust.html#faust.Service.service_reset">[docs]</a>    <span class="k">def</span> <span class="nf">service_reset</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">restart_count</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="k">for</span> <span class="n">ev</span> <span class="ow">in</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_started</span><span class="p">,</span>
+                   <span class="bp">self</span><span class="o">.</span><span class="n">_stopped</span><span class="p">,</span>
+                   <span class="bp">self</span><span class="o">.</span><span class="n">_shutdown</span><span class="p">,</span>
+                   <span class="bp">self</span><span class="o">.</span><span class="n">_crashed</span><span class="p">):</span>
+            <span class="n">ev</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">crash_reason</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">for</span> <span class="n">child</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_children</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">child</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">child</span><span class="o">.</span><span class="n">service_reset</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="Service.wait_until_stopped"><a class="viewcode-back" href="../../reference/faust.html#faust.Service.wait_until_stopped">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">wait_until_stopped</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Wait until the service is signalled to stop.&quot;&quot;&quot;</span>
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">wait</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="Service.set_shutdown"><a class="viewcode-back" href="../../reference/faust.html#faust.Service.set_shutdown">[docs]</a>    <span class="k">def</span> <span class="nf">set_shutdown</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Set the shutdown signal.</span>
+
+<span class="sd">        Notes:</span>
+<span class="sd">            If :attr:`wait_for_shutdown` is set, stopping the service</span>
+<span class="sd">            will wait for this flag to be set.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_shutdown</span><span class="o">.</span><span class="n">set</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="Service.itertimer"><a class="viewcode-back" href="../../reference/faust.html#faust.Service.itertimer">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">itertimer</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                        <span class="n">interval</span><span class="p">:</span> <span class="n">Seconds</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span>
+                        <span class="n">max_drift_correction</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.1</span><span class="p">,</span>
+                        <span class="n">loop</span><span class="p">:</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">AbstractEventLoop</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                        <span class="n">sleep</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">Awaitable</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                        <span class="n">clock</span><span class="p">:</span> <span class="n">ClockArg</span> <span class="o">=</span> <span class="n">perf_counter</span><span class="p">,</span>
+                        <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AsyncIterator</span><span class="p">[</span><span class="nb">float</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;Sleep ``interval`` seconds for every iteration.</span>
+
+<span class="sd">        This is an async iterator that takes advantage</span>
+<span class="sd">        of :func:`~mode.timers.Timer` to monitor drift and timer</span>
+<span class="sd">        oerlap.</span>
+
+<span class="sd">        Uses ``Service.sleep`` so exits fast when the service is</span>
+<span class="sd">        stopped.</span>
+
+<span class="sd">        Note:</span>
+<span class="sd">            Will sleep the full `interval` seconds before returning</span>
+<span class="sd">            from first iteration.</span>
+
+<span class="sd">        Examples:</span>
+<span class="sd">            &gt;&gt;&gt; async for sleep_time in self.itertimer(1.0):</span>
+<span class="sd">            ...   print(&#39;another second passed, just woke up...&#39;)</span>
+<span class="sd">            ...   await perform_some_http_request()</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">sleepfun</span> <span class="o">=</span> <span class="n">sleep</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">sleep</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">should_stop</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">async</span> <span class="k">for</span> <span class="n">sleep_time</span> <span class="ow">in</span> <span class="n">Timer</span><span class="p">(</span>
+                    <span class="n">interval</span><span class="p">,</span>
+                    <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span>
+                    <span class="n">max_drift_correction</span><span class="o">=</span><span class="n">max_drift_correction</span><span class="p">,</span>
+                    <span class="n">clock</span><span class="o">=</span><span class="n">clock</span><span class="p">,</span>
+                    <span class="n">sleep</span><span class="o">=</span><span class="n">sleepfun</span><span class="p">):</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">should_stop</span><span class="p">:</span>
+                    <span class="k">break</span>
+                <span class="k">yield</span> <span class="n">sleep_time</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">should_stop</span><span class="p">:</span>
+                    <span class="k">break</span>
+        <span class="k">finally</span><span class="p">:</span>
+            <span class="c1"># this is required to collect the async_generator_athrow()</span>
+            <span class="c1"># tasks left running after the `async for` block ends.</span>
+            <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">started</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Return :const:`True` if the service was started.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">bool</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_started</span><span class="o">.</span><span class="n">is_set</span><span class="p">())</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">crashed</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">bool</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_crashed</span><span class="o">.</span><span class="n">is_set</span><span class="p">())</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">should_stop</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Return :const:`True` if the service must stop.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">bool</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_stopped</span><span class="o">.</span><span class="n">is_set</span><span class="p">()</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_crashed</span><span class="o">.</span><span class="n">is_set</span><span class="p">())</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">state</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Service state - as a human readable string.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_crashed</span><span class="o">.</span><span class="n">is_set</span><span class="p">():</span>
+            <span class="k">return</span> <span class="s1">&#39;crashed&#39;</span>
+        <span class="k">elif</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_started</span><span class="o">.</span><span class="n">is_set</span><span class="p">():</span>
+            <span class="k">return</span> <span class="s1">&#39;init&#39;</span>
+        <span class="k">elif</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stopped</span><span class="o">.</span><span class="n">is_set</span><span class="p">():</span>
+            <span class="k">return</span> <span class="s1">&#39;running&#39;</span>
+        <span class="k">elif</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_shutdown</span><span class="o">.</span><span class="n">is_set</span><span class="p">():</span>
+            <span class="k">return</span> <span class="s1">&#39;stopping&#39;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="s1">&#39;shutdown&#39;</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">label</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Label used for graphs.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_repr_name</span><span class="p">()</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">shortlabel</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Label used for logging.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">label</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">beacon</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">NodeT</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Beacon used to track services in a dependency graph.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_beacon</span>
+
+    <span class="nd">@beacon</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">beacon</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">beacon</span><span class="p">:</span> <span class="n">NodeT</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_beacon</span> <span class="o">=</span> <span class="n">beacon</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">crash_reason</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="ne">BaseException</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_crash_reason</span>
+
+    <span class="nd">@crash_reason</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">crash_reason</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">reason</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="ne">BaseException</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_crash_reason</span> <span class="o">=</span> <span class="n">reason</span></div>
+
+
+<span class="n">task</span> <span class="o">=</span> <span class="n">Service</span><span class="o">.</span><span class="n">task</span>
+<span class="n">timer</span> <span class="o">=</span> <span class="n">Service</span><span class="o">.</span><span class="n">timer</span>
+
+
+<span class="k">class</span> <span class="nc">_AwaitableService</span><span class="p">(</span><span class="n">Service</span><span class="p">):</span>
+    <span class="n">mundane_level</span> <span class="o">=</span> <span class="s1">&#39;debug&#39;</span>
+
+    <span class="n">_fut</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">asyncio</span><span class="o">.</span><span class="n">Future</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">coro</span><span class="p">:</span> <span class="n">Awaitable</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span>
+                 <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">coro</span> <span class="o">=</span> <span class="n">coro</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_fut</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">name</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">on_start</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># convert to future, so we can cancel on_stop</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_fut</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">ensure_future</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">coro</span><span class="p">,</span> <span class="n">loop</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">loop</span><span class="p">)</span>
+            <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fut</span>
+        <span class="k">except</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">CancelledError</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">should_stop</span><span class="p">:</span>
+                <span class="k">raise</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">on_stop</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">fut</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fut</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fut</span><span class="p">,</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">fut</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">fut</span><span class="o">.</span><span class="n">done</span><span class="p">():</span>
+                <span class="n">fut</span><span class="o">.</span><span class="n">cancel</span><span class="p">()</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">fut</span><span class="o">.</span><span class="n">result</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">_repr_name</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="ow">or</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">coro</span><span class="p">)</span>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../index.html">
+              <img class="logo" src="../../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../playbooks/index.html">Playbooks</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../userguide/index.html">User Guide</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../reference/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../history/index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2020, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

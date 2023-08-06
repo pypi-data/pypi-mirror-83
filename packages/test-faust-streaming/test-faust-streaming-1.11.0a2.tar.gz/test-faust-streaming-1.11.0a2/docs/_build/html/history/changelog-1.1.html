@@ -1,0 +1,662 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>Change history for Faust 1.1 &#8212; Faust 1.11.0a1 documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="copyright" title="Copyright" href="../copyright.html" />
+    <link rel="next" title="Change history for Faust 1.0" href="changelog-1.0.html" />
+    <link rel="prev" title="Change history for Faust 1.2" href="changelog-1.2.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="change-history-for-faust-1-1">
+<span id="changelog-1-1"></span><h1>Change history for Faust 1.1<a class="headerlink" href="#change-history-for-faust-1-1" title="Permalink to this headline">¶</a></h1>
+<p>This document contain change notes for bugfix releases in
+the Faust 1.1.x series. If you’re looking for changes in the latest
+series, please visit the latest <a class="reference internal" href="../changelog.html#changelog"><span class="std std-ref">Changes</span></a>.</p>
+<p>For even older releases you can visit the <a class="reference internal" href="index.html#history"><span class="std std-ref">History</span></a> section.</p>
+<div class="section" id="version-1-1-3">
+<span id="id1"></span><h2>1.1.3<a class="headerlink" href="#version-1-1-3" title="Permalink to this headline">¶</a></h2>
+<dl class="field-list simple">
+<dt class="field-odd">release-date</dt>
+<dd class="field-odd"><p>2018-09-21 4:23 P.M PDT</p>
+</dd>
+<dt class="field-even">release-by</dt>
+<dd class="field-even"><p>Ask Solem (<a class="reference external" href="https://github.com/ask/">&#64;ask</a>)</p>
+</dd>
+</dl>
+<ul>
+<li><p><strong>Producer</strong>: Producing messages is now 8x to 20x faster.</p></li>
+<li><dl>
+<dt><strong>Stream</strong>: The <a class="reference internal" href="../userguide/settings.html#std:setting-stream_publish_on_commit"><code class="xref std std-setting docutils literal notranslate"><span class="pre">stream_publish_on_commit</span></code></a> setting</dt><dd><blockquote>
+<div><p>is now disabled by default.</p>
+</div></blockquote>
+<p>Some agents produce data into topics: they forward data after processing
+or modify tables requiring changelog events to be sent.</p>
+<p>Kafka’s at-least-once delivery guarantee means we will never lose
+a message, and we can be certain any event sent to the source topic
+will be processed.  It also means any source event can be processed
+multiple times.</p>
+<p>If the source event is processed many times and part of the agents
+processing includes forwarding that event, or producing a new kind of
+event, then that will also happen as many times as the source event
+is reprocessed.</p>
+<p>The <a class="reference internal" href="../userguide/settings.html#std:setting-stream_publish_on_commit"><code class="xref std std-setting docutils literal notranslate"><span class="pre">stream_publish_on_commit</span></code></a> setting attempts to minimize
+the chances of duplicate messages being produced, by buffering
+up any events sent in the agent and holding on to it until the offset
+of the source event is committed.</p>
+<p>Here’s an agent forwarding values to another topic:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@app.agent</span><span class="p">(</span><span class="n">source_topic</span><span class="p">)</span>
+<span class="n">async</span> <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="n">stream</span><span class="p">):</span>
+    <span class="n">async</span> <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">stream</span><span class="p">:</span>
+        <span class="n">await</span> <span class="n">destination_topic</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">value</span><span class="o">=</span><span class="n">value</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>If we execute this with <a class="reference internal" href="../userguide/settings.html#std:setting-stream_publish_on_commit"><code class="xref std std-setting docutils literal notranslate"><span class="pre">stream_publish_on_commit</span></code></a> enabled,
+then the send operation will be delayed until we have committed the
+offset for the source event.</p>
+<p>This works well when we commit often, but completely falls apart
+if the buffer grows too large and we have too much to do
+during commit.</p>
+<p>The commit operation works like this (in pseudo code) when
+<a class="reference internal" href="../userguide/settings.html#std:setting-stream_publish_on_commit"><code class="xref std std-setting docutils literal notranslate"><span class="pre">stream_publish_on_commit</span></code></a> is enabled:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">async</span> <span class="k">def</span> <span class="nf">commit</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="n">committable_offsets</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="n">TopicPartition</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="o">...</span>
+    <span class="c1"># Operation A (send buffered messages related to source offsets)</span>
+    <span class="k">for</span> <span class="n">tp</span><span class="p">,</span> <span class="n">offset</span> <span class="ow">in</span> <span class="n">committable_offsets</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="n">send_messages_buffered_up_until_offset</span><span class="p">(</span><span class="n">tp</span><span class="p">,</span> <span class="n">offset</span><span class="p">)</span>
+    <span class="c1"># Operation B (actually tell Kafka the new offsets)</span>
+    <span class="n">consumer</span><span class="o">.</span><span class="n">commit</span><span class="p">(</span><span class="n">committable_offsets</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>This is not an atomic operation - the worker could crash
+between completing Operation A and Operation B.
+If there are 1000 messages to send, it could send 500 of them then crash
+without committing.</p>
+<p>In this case we end up with 500 duplicate messages
+when the source offsets are reprocessed.  Is this safer than producing
+one and one, and committing fast? Probably not.</p>
+<p>That said, if you make sure the buffer never grows too large
+then you can take advantage of this setting to actually reduce the number
+of duplicate messages sent when a source topic is reprocessed.</p>
+<p>If you want to experiment with this, tweak the
+<a class="reference internal" href="../userguide/settings.html#std:setting-broker_commit_every"><code class="xref std std-setting docutils literal notranslate"><span class="pre">broker_commit_every</span></code></a> and
+<a class="reference internal" href="../userguide/settings.html#std:setting-broker_commit_interval"><code class="xref std std-setting docutils literal notranslate"><span class="pre">broker_commit_interval</span></code></a> settings:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">app</span> <span class="o">=</span> <span class="n">faust</span><span class="o">.</span><span class="n">App</span><span class="p">(</span><span class="s1">&#39;name&#39;</span><span class="p">,</span>
+                <span class="n">broker_commit_every</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
+                <span class="n">broker_commit_interval</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
+                <span class="n">stream_publish_on_commit</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The good news is that Kafka transactions are on the horizon.
+As soon as we have support in a Python client, we can perform
+this atomically, and without the overhead of buffering up messages until
+commit time (note from future: “exactly-once” was implemented in Faust 1.5).</p>
+</dd>
+</dl>
+</li>
+</ul>
+</div>
+<div class="section" id="version-1-1-2">
+<span id="id2"></span><h2>1.1.2<a class="headerlink" href="#version-1-1-2" title="Permalink to this headline">¶</a></h2>
+<dl class="field-list simple">
+<dt class="field-odd">release-date</dt>
+<dd class="field-odd"><p>2018-09-19 5:09 P.M PDT</p>
+</dd>
+<dt class="field-even">release-by</dt>
+<dd class="field-even"><p>Ask Solem (<a class="reference external" href="https://github.com/ask/">&#64;ask</a>)</p>
+</dd>
+</dl>
+<ul>
+<li><p><strong>Requirements</strong></p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Now depends on <a class="reference external" href="https://mode.readthedocs.io/en/latest/changelog.html#version-1-17-3" title="(in Mode v4.3)"><span class="xref std std-ref">Mode 1.17.3</span></a>.</p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p><strong>Agent</strong>: Agents having concurrency=n was executing events n times.</p>
+<blockquote>
+<div><p>An unrelated change caused these additional actors to have separate
+channels, when they should share the same channel.</p>
+<p>The only tests verifying this was using mocks, so we’ve added
+a new functional test in <code class="docutils literal notranslate"><span class="pre">t/functional/agents</span></code> to be
+sure it won’t happen again.</p>
+<p>This test also demonstrated a case of starvation when using concurrency:
+a single concurrency slot could starve others from doing work.
+To fix this a <code class="docutils literal notranslate"><span class="pre">sleep(0)</span></code> was added to <code class="docutils literal notranslate"><span class="pre">Stream.__aiter__</span></code>,
+this could improve performance in general for workers with many agents.</p>
+<p>Huge thanks to Zhy on the Faust slack channel for testing and
+identifying this issue.</p>
+</div></blockquote>
+</li>
+<li><p><strong>Agent</strong>: Less logging noise when using <code class="docutils literal notranslate"><span class="pre">concurrency</span></code>.</p>
+<blockquote>
+<div><p>This removes the additionally emitted “Starting…”/”Stopping…” logs,
+especially noisy with <code class="docutils literal notranslate"><span class="pre">&#64;app.agent(concurrency=1000)</span></code>.</p>
+</div></blockquote>
+</li>
+</ul>
+</div>
+<div class="section" id="version-1-1-1">
+<span id="id3"></span><h2>1.1.1<a class="headerlink" href="#version-1-1-1" title="Permalink to this headline">¶</a></h2>
+<dl class="field-list simple">
+<dt class="field-odd">release-date</dt>
+<dd class="field-odd"><p>2018-09-17 4:06 P.M PDT</p>
+</dd>
+<dt class="field-even">release-by</dt>
+<dd class="field-even"><p>Ask Solem (<a class="reference external" href="https://github.com/ask/">&#64;ask</a>)</p>
+</dd>
+</dl>
+<ul>
+<li><p><strong>Requirements</strong></p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Now depends on <a class="reference external" href="https://mode.readthedocs.io/en/latest/changelog.html#version-1-17-2" title="(in Mode v4.3)"><span class="xref std std-ref">Mode 1.17.2</span></a>.</p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><dl class="simple">
+<dt><strong>Web</strong>: Blueprint registered to app with URL prefix would end up</dt><dd><p>having double-slash.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><strong>Documentation</strong>: Added <a class="reference internal" href="../userguide/application.html#project-layout"><span class="std std-ref">project layout suggestions</span></a></dt><dd><p>to the application user guide.</p>
+</dd>
+</dl>
+</li>
+<li><p><strong>Types</strong>: annotations now passing checks on <a class="reference external" href="https://pypi.python.org/pypi/mypy/">mypy</a> 0.630.</p></li>
+</ul>
+</div>
+<div class="section" id="version-1-1-0">
+<span id="id4"></span><h2>1.1.0<a class="headerlink" href="#version-1-1-0" title="Permalink to this headline">¶</a></h2>
+<dl class="field-list simple">
+<dt class="field-odd">release-date</dt>
+<dd class="field-odd"><p>2018-09-14 1:07 P.M PDT</p>
+</dd>
+<dt class="field-even">release-by</dt>
+<dd class="field-even"><p>Ask Solem (<a class="reference external" href="https://github.com/ask/">&#64;ask</a>)</p>
+</dd>
+</dl>
+<div class="section" id="important-notes">
+<span id="v110-important-notes"></span><h3>Important Notes<a class="headerlink" href="#important-notes" title="Permalink to this headline">¶</a></h3>
+<ul>
+<li><p><strong>API</strong>: Agent/Channel.send now support keyword-only arguments only</p>
+<blockquote>
+<div><p>Users often make the mistake of doing:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">channel</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>and expect that to send <code class="docutils literal notranslate"><span class="pre">x</span></code> as the value.</p>
+<p>But the signature is <code class="docutils literal notranslate"><span class="pre">(key,</span> <span class="pre">value,</span> <span class="pre">...)</span></code>, so it ends up being
+<code class="docutils literal notranslate"><span class="pre">channel.send(key=x,</span> <span class="pre">value=None)</span></code>.</p>
+<p>Fixing this will come in two parts:</p>
+<ol class="arabic">
+<li><p>Faust 1.1 (this change): Make them keyword-only arguments</p>
+<blockquote>
+<div><p>This will make it an error if the names of arguments are not
+specified:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">channel</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Needs to be changed to:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">channel</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="n">value</span><span class="p">)</span>
+</pre></div>
+</div>
+</div></blockquote>
+</li>
+<li><dl>
+<dt>Faust 1.2: We will change the signature</dt><dd><p>to <code class="docutils literal notranslate"><span class="pre">channel.send(value,</span> <span class="pre">key=key,</span> <span class="pre">...)</span></code></p>
+<p>At this stage all existing code will have changed to using
+keyword-only arguments.</p>
+</dd>
+</dl>
+</li>
+</ol>
+</div></blockquote>
+</li>
+<li><p><strong>App</strong>: The default key serializer is now <code class="docutils literal notranslate"><span class="pre">raw</span></code> (<span class="xref issue">Issue #142</span>).</p>
+<blockquote>
+<div><p>The default <em>value</em> serializer will still be <code class="docutils literal notranslate"><span class="pre">json</span></code>, but for keys
+it does not make as much sense to use json as the default: keys are very
+rarely expressed using complex structures.</p>
+<p>If you depend on the Faust 1.0 behavior you should override the
+default key serializer for the app:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">app</span> <span class="o">=</span> <span class="n">faust</span><span class="o">.</span><span class="n">App</span><span class="p">(</span><span class="s1">&#39;myapp&#39;</span><span class="p">,</span> <span class="o">...</span><span class="p">,</span> <span class="n">key_serializer</span><span class="o">=</span><span class="s1">&#39;json&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Contributed by Allison Wang (<a class="reference external" href="https://github.com/allisonwang/">&#64;allisonwang</a>)</p>
+</div></blockquote>
+</li>
+<li><p>No longer depends on <a class="reference external" href="https://pypi.python.org/pypi/click_completion/">click_completion</a></p>
+<blockquote>
+<div><p>If you want to use the shell completion command,
+you now have to install that dependency locally first:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> ./examples/withdrawals.py completion
+<span class="go">Usage: withdrawals.py completion [OPTIONS]</span>
+
+<span class="go">Error: Missing required dependency, but this is easy to fix.</span>
+<span class="go">Run `pip install click_completion` from your virtualenv</span>
+<span class="go">and try again!</span>
+</pre></div>
+</div>
+<p>Installing <a class="reference external" href="https://pypi.python.org/pypi/click_completion/">click_completion</a>:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> pip install click_completion
+<span class="go">[...]</span>
+</pre></div>
+</div>
+</div></blockquote>
+</li>
+</ul>
+</div>
+<div class="section" id="news">
+<span id="v110-news"></span><h3>News<a class="headerlink" href="#news" title="Permalink to this headline">¶</a></h3>
+<ul>
+<li><p><strong>Requirements</strong></p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Now depends on <a class="reference external" href="https://mode.readthedocs.io/en/latest/changelog.html#version-1-17-1" title="(in Mode v4.3)"><span class="xref std std-ref">Mode 1.17.1</span></a>.</p></li>
+<li><p>No longer depends on <a class="reference external" href="https://pypi.python.org/pypi/click_completion/">click_completion</a></p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p>Now works with CPython 3.6.0.</p></li>
+<li><p><strong>Models</strong>: Record: Now supports <cite>decimals</cite> option to convert string
+decimals back to Decimal</p>
+<blockquote>
+<div><p>This can be used for any model to enable “Decimal-fields”:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">Fundamentals</span><span class="p">(</span><span class="n">faust</span><span class="o">.</span><span class="n">Record</span><span class="p">,</span> <span class="n">decimals</span><span class="o">=</span><span class="bp">True</span><span class="p">):</span>
+    <span class="nb">open</span><span class="p">:</span> <span class="n">Decimal</span>
+    <span class="n">high</span><span class="p">:</span> <span class="n">Decimal</span>
+    <span class="n">low</span><span class="p">:</span> <span class="n">Decimal</span>
+    <span class="n">volume</span><span class="p">:</span> <span class="n">Decimal</span>
+</pre></div>
+</div>
+<p>When serialized this model will use string for decimal fields
+(the Javascript float type cannot be used without losing precision, it
+is a float after all), but when deserializing Faust will reconstruct
+them as Decimal objects from that string.</p>
+</div></blockquote>
+</li>
+<li><p><strong>Model</strong>: Records now support custom coercion handlers.</p>
+<blockquote>
+<div><p>Coercion converts one type into another, for example from string to
+<code class="xref py py-class docutils literal notranslate"><span class="pre">datettime</span></code>, or int/string to <a class="reference external" href="https://docs.python.org/dev/library/decimal.html#decimal.Decimal" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Decimal</span></code></a>.</p>
+<p>In models this means conversion from the serialized form back into
+a corresponding Python type.</p>
+<p>To define a model where all <a class="reference external" href="https://docs.python.org/dev/library/uuid.html#uuid.UUID" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">UUID</span></code></a> fields are serialized
+to string, but then converted back to <a class="reference external" href="https://docs.python.org/dev/library/uuid.html#uuid.UUID" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">UUID</span></code></a> objects
+when deserialized, do this:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">uuid</span> <span class="kn">import</span> <span class="n">UUID</span>
+<span class="kn">import</span> <span class="nn">faust</span>
+
+<span class="k">class</span> <span class="nc">Account</span><span class="p">(</span><span class="n">faust</span><span class="o">.</span><span class="n">Record</span><span class="p">,</span> <span class="n">coercions</span><span class="o">=</span><span class="p">{</span><span class="n">UUID</span><span class="p">:</span> <span class="n">UUID</span><span class="p">}):</span>
+    <span class="nb">id</span><span class="p">:</span> <span class="n">UUID</span>
+</pre></div>
+</div>
+<div class="admonition-what-about-non-json-serializable-types admonition">
+<p class="admonition-title">What about non-json serializable types?</p>
+<p>The use of UUID in this example leaves one important detail
+out: json doesn’t support this type so how can models serialize it?</p>
+<p>The Faust JSON serializer adds support for UUID objects by default,
+but if you have a custom class you would need to add that capability
+by adding a <code class="docutils literal notranslate"><span class="pre">__json__</span></code> handler:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">MyType</span><span class="p">:</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="n">value</span>
+
+    <span class="k">def</span> <span class="nf">__json__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">value</span>
+</pre></div>
+</div>
+</div>
+<p>You’d get tired writing this out for every class, so why not make
+an abstract model subclass:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">uuid</span> <span class="kn">import</span> <span class="n">UUID</span>
+<span class="kn">import</span> <span class="nn">faust</span>
+
+<span class="k">class</span> <span class="nc">UUIDAwareRecord</span><span class="p">(</span><span class="n">faust</span><span class="o">.</span><span class="n">Record</span><span class="p">,</span>
+                      <span class="n">abstract</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span>
+                      <span class="n">coercions</span><span class="o">=</span><span class="p">{</span><span class="n">UUID</span><span class="p">:</span> <span class="n">UUID</span><span class="p">}):</span>
+    <span class="o">...</span>
+
+<span class="k">class</span> <span class="nc">Account</span><span class="p">(</span><span class="n">UUIDAwareRecord</span><span class="p">):</span>
+    <span class="nb">id</span><span class="p">:</span> <span class="n">UUID</span>
+</pre></div>
+</div>
+</div></blockquote>
+</li>
+<li><p><strong>App</strong>: New <a class="reference internal" href="../userguide/settings.html#std:setting-ssl_context"><code class="xref std std-setting docutils literal notranslate"><span class="pre">ssl_context</span></code></a> adds authentication support to Kafka.</p>
+<blockquote>
+<div><p>Contributed by Mika Eloranta (<a class="reference external" href="https://github.com/melor/">&#64;melor</a>).</p>
+</div></blockquote>
+</li>
+<li><p><strong>Monitor</strong>: New <a class="reference external" href="http://datadoghq.com">Datadog</a> monitor (<span class="xref issue">Issue #160</span>)</p>
+<blockquote>
+<div><p>Contributed by Allison Wang (<a class="reference external" href="https://github.com/allisonwang/">&#64;allisonwang</a>).</p>
+</div></blockquote>
+</li>
+<li><dl>
+<dt><strong>App</strong>: <code class="docutils literal notranslate"><span class="pre">&#64;app.task</span></code> decorator now accepts <code class="docutils literal notranslate"><span class="pre">on_leader</span></code></dt><dd><blockquote>
+<div><p>argument (<span class="xref issue">Issue #131</span>).</p>
+</div></blockquote>
+<p>Tasks created using the <code class="docutils literal notranslate"><span class="pre">&#64;app.task</span></code> decorator will run once a worker
+is fully started.</p>
+<p>Similar to the <code class="docutils literal notranslate"><span class="pre">&#64;app.timer</span></code> decorator, you can now create one-shot tasks
+that run on the leader worker only:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@app.task</span><span class="p">(</span><span class="n">on_leader</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+<span class="n">async</span> <span class="k">def</span> <span class="nf">mytask</span><span class="p">():</span>
+    <span class="k">print</span><span class="p">(</span><span class="s1">&#39;WORKER STARTED, AND I AM THE LEADER&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The decorated function may also accept the <code class="docutils literal notranslate"><span class="pre">app</span></code> as an argument:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@app.task</span><span class="p">(</span><span class="n">on_leader</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+<span class="n">async</span> <span class="k">def</span> <span class="nf">mytask</span><span class="p">(</span><span class="n">app</span><span class="p">):</span>
+    <span class="k">print</span><span class="p">(</span><span class="n">f</span><span class="s1">&#39;WORKER FOR APP {app} STARTED, AND I AM THE LEADER&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd>
+</dl>
+</li>
+<li><p><strong>App</strong>: New <code class="docutils literal notranslate"><span class="pre">app.producer_only</span></code> attribute.</p>
+<blockquote>
+<div><p>If set the worker will start the app without
+consumer/tables/agents/topics.</p>
+</div></blockquote>
+</li>
+<li><p><strong>App</strong>: <code class="docutils literal notranslate"><span class="pre">app.http_client</span></code> property is now read-write.</p></li>
+<li><p><strong>Channel</strong>: In-memory channels were not working as expected.</p>
+<blockquote>
+<div><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">Channel.send(key=key,</span> <span class="pre">value=value)</span></code> now works as expected.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">app.channel()</span></code> accidentally set the <code class="docutils literal notranslate"><span class="pre">maxsize</span></code> to 1 by default,
+creating a deadlock.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Channel.send()</span></code> now disregards the <a class="reference internal" href="../userguide/settings.html#std:setting-stream_publish_on_commit"><code class="xref std std-setting docutils literal notranslate"><span class="pre">stream_publish_on_commit</span></code></a>
+setting.</p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p><strong>Transport</strong>: <a class="reference external" href="https://pypi.python.org/pypi/aiokafka/">aiokafka</a>: Support timestamp-less messages</p>
+<blockquote>
+<div><p>Fixes error when data sent with old Kafka broker not supporting
+timestamps:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>[2018-08-27 08:00:49,262: ERROR]: [^--Consumer]: Drain messages raised:
+    TypeError(&quot;unsupported operand type(s) for /: &#39;NoneType&#39; and &#39;float&#39;&quot;,)
+Traceback (most recent call last):
+File &quot;faust/transport/consumer.py&quot;, line 497, in _drain_messages
+    async for tp, message in ait:
+File &quot;faust/transport/drivers/aiokafka.py&quot;, line 449, in getmany
+    record.timestamp / 1000.0,
+TypeError: unsupported operand type(s) for /: &#39;NoneType&#39; and &#39;float&#39;
+</pre></div>
+</div>
+<p>Contributed by Mika Eloranta (<a class="reference external" href="https://github.com/melor/">&#64;melor</a>).</p>
+</div></blockquote>
+</li>
+<li><p><strong>Distribution</strong>: <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">faust</span></code> no longer installs the examples
+directory.</p>
+<blockquote>
+<div><p>Fix contributed by Michael Seifert (<a class="reference external" href="https://github.com/seifertm/">&#64;seifertm</a>)</p>
+</div></blockquote>
+</li>
+<li><p><strong>Web</strong>: Adds exception handling to views.</p>
+<blockquote>
+<div><p>A view can now bail out early via <cite>raise self.NotFound()</cite> for example.</p>
+</div></blockquote>
+</li>
+<li><p><strong>Web</strong>: <code class="docutils literal notranslate"><span class="pre">&#64;table_route</span></code> decorator now supports taking key from
+the URL path.</p>
+<blockquote>
+<div><p>This is now used in the <code class="file docutils literal notranslate"><span class="pre">examples/word_count.py</span></code> example
+to add an endpoint <code class="docutils literal notranslate"><span class="pre">/count/{word}/</span></code> that routes to the correct
+worker with that count:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@app.page</span><span class="p">(</span><span class="s1">&#39;/word/{word}/count/&#39;</span><span class="p">)</span>
+<span class="nd">@table_route</span><span class="p">(</span><span class="n">table</span><span class="o">=</span><span class="n">word_counts</span><span class="p">,</span> <span class="n">match_info</span><span class="o">=</span><span class="s1">&#39;word&#39;</span><span class="p">)</span>
+<span class="n">async</span> <span class="k">def</span> <span class="nf">get_count</span><span class="p">(</span><span class="n">web</span><span class="p">,</span> <span class="n">request</span><span class="p">,</span> <span class="n">word</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">web</span><span class="o">.</span><span class="n">json</span><span class="p">({</span>
+        <span class="n">word</span><span class="p">:</span> <span class="n">word_counts</span><span class="p">[</span><span class="n">word</span><span class="p">]</span>
+    <span class="p">})</span>
+</pre></div>
+</div>
+</div></blockquote>
+</li>
+<li><p><strong>Web</strong>: Support reverse lookup from view name via <code class="docutils literal notranslate"><span class="pre">url_for</span></code></p>
+<blockquote>
+<div><div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">web</span><span class="o">.</span><span class="n">url_for</span><span class="p">(</span><span class="n">view_name</span><span class="p">,</span> <span class="o">**</span><span class="n">params</span><span class="p">)</span>
+</pre></div>
+</div>
+</div></blockquote>
+</li>
+<li><p><strong>Web</strong>: Adds support for Flask-like “blueprints”</p>
+<blockquote>
+<div><p>Blueprint is basically just a description of a reusable app
+that you can add to your web application.</p>
+<p>Blueprints are commonly used in most Flask-like web frameworks,
+but Flask blueprints are not compatible with e.g. Sanic blueprints.</p>
+<p>The Faust blueprint is not directly compatible with any of them,
+but that should be fine.</p>
+<p>To define a blueprint:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">faust</span> <span class="kn">import</span> <span class="n">web</span>
+
+<span class="n">blueprint</span> <span class="o">=</span> <span class="n">web</span><span class="o">.</span><span class="n">Blueprint</span><span class="p">(</span><span class="s1">&#39;user&#39;</span><span class="p">)</span>
+
+<span class="nd">@blueprint.route</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;list&#39;</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">UserListView</span><span class="p">(</span><span class="n">web</span><span class="o">.</span><span class="n">View</span><span class="p">):</span>
+
+    <span class="n">async</span> <span class="k">def</span> <span class="nf">get</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">request</span><span class="p">:</span> <span class="n">web</span><span class="o">.</span><span class="n">Request</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">web</span><span class="o">.</span><span class="n">Response</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">json</span><span class="p">({</span><span class="s1">&#39;hello&#39;</span><span class="p">:</span> <span class="s1">&#39;world&#39;</span><span class="p">})</span>
+
+<span class="nd">@blueprint.route</span><span class="p">(</span><span class="s1">&#39;/{username}/&#39;</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;detail&#39;</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">UserDetailView</span><span class="p">(</span><span class="n">web</span><span class="o">.</span><span class="n">View</span><span class="p">):</span>
+
+    <span class="n">async</span> <span class="k">def</span> <span class="nf">get</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">request</span><span class="p">:</span> <span class="n">web</span><span class="o">.</span><span class="n">Request</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">web</span><span class="o">.</span><span class="n">Response</span><span class="p">:</span>
+        <span class="n">name</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">match_info</span><span class="p">[</span><span class="s1">&#39;username&#39;</span><span class="p">]</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">json</span><span class="p">({</span><span class="s1">&#39;hello&#39;</span><span class="p">:</span> <span class="n">name</span><span class="p">})</span>
+
+    <span class="n">async</span> <span class="k">def</span> <span class="nf">post</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">request</span><span class="p">:</span> <span class="n">web</span><span class="o">.</span><span class="n">Request</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">web</span><span class="o">.</span><span class="n">Response</span><span class="p">:</span>
+        <span class="o">...</span>
+
+    <span class="n">async</span> <span class="k">def</span> <span class="nf">delete</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">request</span><span class="p">:</span> <span class="n">web</span><span class="o">.</span><span class="n">Request</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">web</span><span class="o">.</span><span class="n">Response</span><span class="p">:</span>
+        <span class="o">...</span>
+</pre></div>
+</div>
+<p>Then to add the blueprint to a Faust app you register it:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">blueprint</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">app</span><span class="p">,</span> <span class="n">url_prefix</span><span class="o">=</span><span class="s1">&#39;/users/&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>You can also create views from functions (in this case it will only
+support GET):</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@blueprint.route</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;index&#39;</span><span class="p">)</span>
+<span class="n">async</span> <span class="k">def</span> <span class="nf">hello</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">request</span><span class="p">):</span>
+    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">text</span><span class="p">(</span><span class="s1">&#39;Hello world&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="admonition-why admonition">
+<p class="admonition-title">Why?</p>
+<p>Asyncio web frameworks are moving quickly, and we want to be able
+to quickly experiment with different backend drivers.</p>
+<p>Blueprints is a tiny abstraction that fit well into the already
+small web abstraction that we do have.</p>
+</div>
+<ul>
+<li><p>Documentation and examples improvements by</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Tom Forbes (<a class="reference external" href="https://github.com/orf/">&#64;orf</a>).</p></li>
+<li><p>Matthew Grossman (<a class="reference external" href="https://github.com/matthewgrossman/">&#64;matthewgrossman</a>)</p></li>
+<li><p>Denis Kataev (<a class="reference external" href="https://github.com/kataev/">&#64;kataev</a>)</p></li>
+<li><p>Allison Wang (<a class="reference external" href="https://github.com/allisonwang/">&#64;allisonwang</a>)</p></li>
+<li><p>Huyuumi (<a class="reference external" href="https://github.com/diplozoon/">&#64;diplozoon</a>)</p></li>
+</ul>
+</div></blockquote>
+</li>
+</ul>
+</div></blockquote>
+</li>
+</ul>
+</div>
+<div class="section" id="project">
+<h3>Project<a class="headerlink" href="#project" title="Permalink to this headline">¶</a></h3>
+<ul>
+<li><p><strong>CI</strong>: The following Python versions have been added to the build matrix:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>CPython 3.7.0</p></li>
+<li><p>CPython 3.6.6</p></li>
+<li><p>CPython 3.6.0</p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p><strong>Git</strong>:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>All the version tags have been cleaned up to follow the format <code class="docutils literal notranslate"><span class="pre">v1.2.3</span></code>.</p></li>
+<li><p>New active maintenance branches: <code class="docutils literal notranslate"><span class="pre">1.0</span></code> and <code class="docutils literal notranslate"><span class="pre">1.1</span></code>.</p></li>
+</ul>
+</div></blockquote>
+</li>
+</ul>
+</div>
+</div>
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../playbooks/index.html">Playbooks</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../userguide/index.html">User Guide</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">History</a><ul>
+      <li>Previous: <a href="changelog-1.2.html" title="previous chapter">Change history for Faust 1.2</a></li>
+      <li>Next: <a href="changelog-1.0.html" title="next chapter">Change history for Faust 1.0</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2020, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../_sources/history/changelog-1.1.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

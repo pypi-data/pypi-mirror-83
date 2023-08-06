@@ -1,0 +1,248 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>Change history for Faust 0.9 &#8212; Faust 1.11.0a1 documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="copyright" title="Copyright" href="../copyright.html" />
+    <link rel="next" title="Authors" href="../authors.html" />
+    <link rel="prev" title="Change history for Faust 1.0" href="changelog-1.0.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="change-history-for-faust-0-9">
+<span id="changelog-0-9"></span><h1>Change history for Faust 0.9<a class="headerlink" href="#change-history-for-faust-0-9" title="Permalink to this headline">¶</a></h1>
+<p>This document contain historical change notes for bugfix releases in
+the Faust 0.x series. To see the most recent changelog
+please visit <a class="reference internal" href="../changelog.html#changelog"><span class="std std-ref">Changes</span></a>.</p>
+<div class="contents local topic" id="contents">
+<ul class="simple">
+<li><p><a class="reference internal" href="#version-0-9-65" id="id5">0.9.65</a></p></li>
+<li><p><a class="reference internal" href="#version-0-9-64" id="id6">0.9.64</a></p></li>
+<li><p><a class="reference internal" href="#version-0-9-63" id="id7">0.9.63</a></p></li>
+<li><p><a class="reference internal" href="#version-0-9-62" id="id8">0.9.62</a></p></li>
+</ul>
+</div>
+<div class="section" id="version-0-9-65">
+<span id="id1"></span><h2><a class="toc-backref" href="#id5">0.9.65</a><a class="headerlink" href="#version-0-9-65" title="Permalink to this headline">¶</a></h2>
+<dl class="field-list simple">
+<dt class="field-odd">release-date</dt>
+<dd class="field-odd"><p>2018-04-27 2:04 P.M PDT</p>
+</dd>
+<dt class="field-even">release-by</dt>
+<dd class="field-even"><p>Vineet Goel</p>
+</dd>
+</dl>
+<ul class="simple">
+<li><p><strong>Producer</strong>: New setting to configure compression.</p>
+<ul>
+<li><p>See <a class="reference internal" href="../userguide/settings.html#std:setting-producer_compression_type"><code class="xref std std-setting docutils literal notranslate"><span class="pre">producer_compression_type</span></code></a>.</p></li>
+</ul>
+</li>
+<li><p><strong>Documentation</strong>: New <a class="reference internal" href="../userguide/settings.html#settings-producer"><span class="std std-ref">Advanced Producer Settings</span></a> section.</p></li>
+</ul>
+</div>
+<div class="section" id="version-0-9-64">
+<span id="id2"></span><h2><a class="toc-backref" href="#id6">0.9.64</a><a class="headerlink" href="#version-0-9-64" title="Permalink to this headline">¶</a></h2>
+<dl class="field-list simple">
+<dt class="field-odd">release-date</dt>
+<dd class="field-odd"><p>2018-04-26 4:48 P.M PDT</p>
+</dd>
+<dt class="field-even">release-by</dt>
+<dd class="field-even"><p>Ask Solem</p>
+</dd>
+</dl>
+<ul class="simple">
+<li><p><strong>Models</strong>: Optimization for <code class="docutils literal notranslate"><span class="pre">FieldDescriptor.__get__</span></code>.</p></li>
+<li><p><strong>Serialization</strong>: Optimization for <a class="reference internal" href="../reference/faust.utils.json.html#module-faust.utils.json" title="faust.utils.json"><code class="xref py py-mod docutils literal notranslate"><span class="pre">faust.utils.json</span></code></a>.</p></li>
+</ul>
+</div>
+<div class="section" id="version-0-9-63">
+<span id="id3"></span><h2><a class="toc-backref" href="#id7">0.9.63</a><a class="headerlink" href="#version-0-9-63" title="Permalink to this headline">¶</a></h2>
+<dl class="field-list simple">
+<dt class="field-odd">release-date</dt>
+<dd class="field-odd"><p>2018-04-26 04:32 P.M PDT</p>
+</dd>
+<dt class="field-even">release-by</dt>
+<dd class="field-even"><p>Vineet Goel</p>
+</dd>
+</dl>
+<ul>
+<li><p><strong>Requirements</strong>:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Now depends on <a class="reference external" href="https://pypi.python.org/pypi/aiokafka/">aiokafka</a> 0.4.5 (Robinhood fork).</p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p><strong>Models</strong>: <code class="docutils literal notranslate"><span class="pre">Record.asdict()</span></code> and <code class="docutils literal notranslate"><span class="pre">to_representation()</span></code> were slow
+on complicated models, so we are now using code generation to optimize them.</p>
+<blockquote>
+<div><div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>You are no longer allowed to override <code class="docutils literal notranslate"><span class="pre">Record.asdict()</span></code>.</p>
+</div>
+</div></blockquote>
+</li>
+</ul>
+</div>
+<div class="section" id="version-0-9-62">
+<span id="id4"></span><h2><a class="toc-backref" href="#id8">0.9.62</a><a class="headerlink" href="#version-0-9-62" title="Permalink to this headline">¶</a></h2>
+<dl class="field-list simple">
+<dt class="field-odd">release-date</dt>
+<dd class="field-odd"><p>2018-04-26 12:06 P.M PDT</p>
+</dd>
+<dt class="field-even">release-by</dt>
+<dd class="field-even"><p>Ask Solem</p>
+</dd>
+</dl>
+<ul>
+<li><p><strong>Requirements</strong>:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Now depends on <a class="reference external" href="https://mode.readthedocs.io/en/latest/changelog.html#version-1-12-2" title="(in Mode v4.3)"><span class="xref std std-ref">Mode 1.12.2</span></a>.</p></li>
+<li><p>Now depends on <a class="reference external" href="https://pypi.python.org/pypi/aiokafka/">aiokafka</a> 0.4.4 (Robinhood fork).</p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p><strong>Consumer</strong>: Fixed <code class="xref py py-exc docutils literal notranslate"><span class="pre">asyncio.base_futures.IllegalStateError</span></code> error
+in commit handler.</p></li>
+<li><p><strong>CLI</strong>: Fixed bug when invoking worker using <code class="docutils literal notranslate"><span class="pre">faust</span> <span class="pre">-A</span></code>.</p></li>
+</ul>
+</div>
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../playbooks/index.html">Playbooks</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../userguide/index.html">User Guide</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">History</a><ul>
+      <li>Previous: <a href="changelog-1.0.html" title="previous chapter">Change history for Faust 1.0</a></li>
+      <li>Next: <a href="../authors.html" title="next chapter">Authors</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2020, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../_sources/history/changelog-0.9.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

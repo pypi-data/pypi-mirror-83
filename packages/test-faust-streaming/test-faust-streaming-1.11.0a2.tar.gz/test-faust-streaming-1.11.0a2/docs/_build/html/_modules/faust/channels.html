@@ -1,0 +1,802 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>faust.channels &#8212; Faust 1.11.0a1 documentation</title>
+    <link rel="stylesheet" href="../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="copyright" title="Copyright" href="../../copyright.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for faust.channels</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Channel.</span>
+
+<span class="sd">A channel is used to send values to streams.</span>
+
+<span class="sd">The stream will iterate over incoming events in the channel.</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">import</span> <span class="nn">asyncio</span>
+
+<span class="kn">from</span> <span class="nn">typing</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">Any</span><span class="p">,</span>
+    <span class="n">Awaitable</span><span class="p">,</span>
+    <span class="n">Callable</span><span class="p">,</span>
+    <span class="n">Mapping</span><span class="p">,</span>
+    <span class="n">MutableSet</span><span class="p">,</span>
+    <span class="n">Optional</span><span class="p">,</span>
+    <span class="n">Set</span><span class="p">,</span>
+    <span class="n">Tuple</span><span class="p">,</span>
+    <span class="n">TypeVar</span><span class="p">,</span>
+    <span class="n">cast</span><span class="p">,</span>
+    <span class="n">no_type_check</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">weakref</span> <span class="k">import</span> <span class="n">WeakSet</span>
+
+<span class="kn">from</span> <span class="nn">mode</span> <span class="k">import</span> <span class="n">Seconds</span><span class="p">,</span> <span class="n">get_logger</span><span class="p">,</span> <span class="n">want_seconds</span>
+<span class="kn">from</span> <span class="nn">mode.utils.futures</span> <span class="k">import</span> <span class="n">maybe_async</span><span class="p">,</span> <span class="n">stampede</span>
+<span class="kn">from</span> <span class="nn">mode.utils.queues</span> <span class="k">import</span> <span class="n">ThrowableQueue</span>
+
+<span class="kn">from</span> <span class="nn">.types</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">AppT</span><span class="p">,</span>
+    <span class="n">ChannelT</span><span class="p">,</span>
+    <span class="n">CodecArg</span><span class="p">,</span>
+    <span class="n">EventT</span><span class="p">,</span>
+    <span class="n">FutureMessage</span><span class="p">,</span>
+    <span class="n">K</span><span class="p">,</span>
+    <span class="n">Message</span><span class="p">,</span>
+    <span class="n">MessageSentCallback</span><span class="p">,</span>
+    <span class="n">ModelArg</span><span class="p">,</span>
+    <span class="n">PendingMessage</span><span class="p">,</span>
+    <span class="n">RecordMetadata</span><span class="p">,</span>
+    <span class="n">SchemaT</span><span class="p">,</span>
+    <span class="n">StreamT</span><span class="p">,</span>
+    <span class="n">TP</span><span class="p">,</span>
+    <span class="n">V</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">.types.core</span> <span class="k">import</span> <span class="n">HeadersArg</span><span class="p">,</span> <span class="n">OpenHeadersArg</span><span class="p">,</span> <span class="n">prepare_headers</span>
+<span class="kn">from</span> <span class="nn">.types.tuples</span> <span class="k">import</span> <span class="n">_PendingMessage_to_Message</span>
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;Channel&#39;</span><span class="p">]</span>
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">get_logger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+<span class="n">T</span> <span class="o">=</span> <span class="n">TypeVar</span><span class="p">(</span><span class="s1">&#39;T&#39;</span><span class="p">)</span>
+<span class="n">T_contra</span> <span class="o">=</span> <span class="n">TypeVar</span><span class="p">(</span><span class="s1">&#39;T_contra&#39;</span><span class="p">,</span> <span class="n">contravariant</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="Channel"><a class="viewcode-back" href="../../userguide/channels.html#faust.Channel">[docs]</a><span class="k">class</span> <span class="nc">Channel</span><span class="p">(</span><span class="n">ChannelT</span><span class="p">[</span><span class="n">T</span><span class="p">]):</span>
+    <span class="sd">&quot;&quot;&quot;Create new channel.</span>
+
+<span class="sd">    Arguments:</span>
+<span class="sd">        app: The app that created this channel (``app.channel()``)</span>
+
+<span class="sd">        schema: Schema used for serialization/deserialization</span>
+<span class="sd">        key_type:  The Model used for keys in this channel.</span>
+<span class="sd">           (overrides schema if one is defined)</span>
+<span class="sd">        value_type: The Model used for values in this channel.</span>
+<span class="sd">           (overrides schema if one is defined)</span>
+<span class="sd">        maxsize: The maximum number of messages this channel can hold.</span>
+<span class="sd">                 If exceeded any new ``put`` call will block until a message</span>
+<span class="sd">                 is removed from the channel.</span>
+<span class="sd">        is_iterator: When streams iterate over a channel they will call</span>
+<span class="sd">            ``stream.clone(is_iterator=True)`` so this attribute</span>
+<span class="sd">            denotes that this channel instance is currently being iterated</span>
+<span class="sd">            over.</span>
+<span class="sd">        active_partitions: Set of active topic partitions this</span>
+<span class="sd">           channel instance is assigned to.</span>
+<span class="sd">        loop: The :mod:`asyncio` event loop to use.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">app</span><span class="p">:</span> <span class="n">AppT</span>
+    <span class="n">schema</span><span class="p">:</span> <span class="n">SchemaT</span>
+    <span class="n">key_type</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">ModelArg</span><span class="p">]</span>
+    <span class="n">value_type</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">ModelArg</span><span class="p">]</span>
+    <span class="n">is_iterator</span><span class="p">:</span> <span class="nb">bool</span>
+
+    <span class="n">_queue</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">ThrowableQueue</span><span class="p">]</span>
+    <span class="n">_root</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="s1">&#39;Channel&#39;</span><span class="p">]</span>
+    <span class="n">_subscribers</span><span class="p">:</span> <span class="n">MutableSet</span><span class="p">[</span><span class="s1">&#39;Channel&#39;</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                 <span class="n">app</span><span class="p">:</span> <span class="n">AppT</span><span class="p">,</span>
+                 <span class="o">*</span><span class="p">,</span>
+                 <span class="n">schema</span><span class="p">:</span> <span class="n">SchemaT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">key_type</span><span class="p">:</span> <span class="n">ModelArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">value_type</span><span class="p">:</span> <span class="n">ModelArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">is_iterator</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+                 <span class="n">queue</span><span class="p">:</span> <span class="n">ThrowableQueue</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">maxsize</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">root</span><span class="p">:</span> <span class="n">ChannelT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">active_partitions</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="n">TP</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">loop</span><span class="p">:</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">AbstractEventLoop</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">app</span> <span class="o">=</span> <span class="n">app</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">loop</span> <span class="o">=</span> <span class="n">loop</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">is_iterator</span> <span class="o">=</span> <span class="n">is_iterator</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_queue</span> <span class="o">=</span> <span class="n">queue</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">maxsize</span> <span class="o">=</span> <span class="n">maxsize</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">deliver</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_compile_deliver</span><span class="p">()</span>  <span class="c1"># type: ignore</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_root</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">Channel</span><span class="p">,</span> <span class="n">root</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">active_partitions</span> <span class="o">=</span> <span class="n">active_partitions</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_subscribers</span> <span class="o">=</span> <span class="n">WeakSet</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">schema</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">schema</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_default_schema</span><span class="p">(</span><span class="n">key_type</span><span class="p">,</span> <span class="n">value_type</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">schema</span> <span class="o">=</span> <span class="n">schema</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">schema</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">key_type</span><span class="o">=</span><span class="n">key_type</span><span class="p">,</span> <span class="n">value_type</span><span class="o">=</span><span class="n">value_type</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">key_type</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">schema</span><span class="o">.</span><span class="n">key_type</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">value_type</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">schema</span><span class="o">.</span><span class="n">value_type</span>
+
+    <span class="k">def</span> <span class="nf">_get_default_schema</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                            <span class="n">key_type</span><span class="p">:</span> <span class="n">ModelArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                            <span class="n">value_type</span><span class="p">:</span> <span class="n">ModelArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SchemaT</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">conf</span><span class="o">.</span><span class="n">Schema</span><span class="p">(</span>
+            <span class="n">key_type</span><span class="o">=</span><span class="n">key_type</span><span class="p">,</span>
+            <span class="n">value_type</span><span class="o">=</span><span class="n">value_type</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">queue</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ThrowableQueue</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Return the underlying queue/buffer backing this channel.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_queue</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># this should only be set after clone = channel.__aiter__()</span>
+            <span class="c1"># which means the loop is not accessed by merely defining</span>
+            <span class="c1"># a channel at module scope.</span>
+            <span class="n">maxsize</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">maxsize</span>
+            <span class="k">if</span> <span class="n">maxsize</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">maxsize</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">conf</span><span class="o">.</span><span class="n">stream_buffer_maxsize</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_queue</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">FlowControlQueue</span><span class="p">(</span>
+                <span class="n">maxsize</span><span class="o">=</span><span class="n">maxsize</span><span class="p">,</span>
+                <span class="n">loop</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">loop</span><span class="p">,</span>
+                <span class="n">clear_on_resume</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_queue</span>
+
+<div class="viewcode-block" id="Channel.clone"><a class="viewcode-back" href="../../reference/faust.channels.html#faust.Channel.clone">[docs]</a>    <span class="k">def</span> <span class="nf">clone</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">is_iterator</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ChannelT</span><span class="p">[</span><span class="n">T</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;Create clone of this channel.</span>
+
+<span class="sd">        Arguments:</span>
+<span class="sd">            is_iterator: Set to True if this is now a channel</span>
+<span class="sd">                that is being iterated over.</span>
+
+<span class="sd">        Keyword Arguments:</span>
+<span class="sd">            **kwargs: Any keyword arguments passed will override any</span>
+<span class="sd">                of the arguments supported by</span>
+<span class="sd">                :class:`Channel.__init__ &lt;Channel&gt;`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">is_it</span> <span class="o">=</span> <span class="n">is_iterator</span> <span class="k">if</span> <span class="n">is_iterator</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_iterator</span>
+        <span class="n">subchannel</span><span class="p">:</span> <span class="n">ChannelT</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_clone</span><span class="p">(</span><span class="n">is_iterator</span><span class="o">=</span><span class="n">is_it</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">is_it</span><span class="p">:</span>
+            <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_root</span> <span class="ow">or</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">_subscribers</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">cast</span><span class="p">(</span><span class="n">Channel</span><span class="p">,</span> <span class="n">subchannel</span><span class="p">))</span>
+        <span class="c1"># make sure queue is created at this point</span>
+        <span class="c1"># ^ it&#39;s a cached_property</span>
+        <span class="n">subchannel</span><span class="o">.</span><span class="n">queue</span>
+        <span class="k">return</span> <span class="n">subchannel</span></div>
+
+<div class="viewcode-block" id="Channel.clone_using_queue"><a class="viewcode-back" href="../../reference/faust.channels.html#faust.Channel.clone_using_queue">[docs]</a>    <span class="k">def</span> <span class="nf">clone_using_queue</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">queue</span><span class="p">:</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">Queue</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ChannelT</span><span class="p">[</span><span class="n">T</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;Create clone of this channel using specific queue instance.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">clone</span><span class="p">(</span><span class="n">queue</span><span class="o">=</span><span class="n">queue</span><span class="p">,</span> <span class="n">is_iterator</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_clone</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ChannelT</span><span class="p">[</span><span class="n">T</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)(</span><span class="o">**</span><span class="p">{</span><span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">_clone_args</span><span class="p">(),</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">})</span>
+
+    <span class="k">def</span> <span class="nf">_clone_args</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Mapping</span><span class="p">:</span>
+        <span class="c1"># How to create a copy of this channel.</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s1">&#39;app&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="p">,</span>
+            <span class="s1">&#39;loop&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">loop</span><span class="p">,</span>
+            <span class="s1">&#39;schema&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">schema</span><span class="p">,</span>
+            <span class="s1">&#39;key_type&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">key_type</span><span class="p">,</span>
+            <span class="s1">&#39;value_type&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">value_type</span><span class="p">,</span>
+            <span class="s1">&#39;maxsize&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">maxsize</span><span class="p">,</span>
+            <span class="s1">&#39;root&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_root</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_root</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="bp">self</span><span class="p">,</span>
+            <span class="s1">&#39;queue&#39;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="s1">&#39;active_partitions&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">active_partitions</span><span class="p">,</span>
+        <span class="p">}</span>
+
+<div class="viewcode-block" id="Channel.stream"><a class="viewcode-back" href="../../reference/faust.channels.html#faust.Channel.stream">[docs]</a>    <span class="k">def</span> <span class="nf">stream</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">StreamT</span><span class="p">[</span><span class="n">T</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;Create stream reading from this channel.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">stream</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Channel.get_topic_name"><a class="viewcode-back" href="../../reference/faust.channels.html#faust.Channel.get_topic_name">[docs]</a>    <span class="k">def</span> <span class="nf">get_topic_name</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Get the topic name, or raise if this is not a named channel.&quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s1">&#39;Channels are unnamed topics&#39;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Channel.send"><a class="viewcode-back" href="../../userguide/channels.html#faust.Channel.send">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">send</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                   <span class="o">*</span><span class="p">,</span>
+                   <span class="n">key</span><span class="p">:</span> <span class="n">K</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                   <span class="n">value</span><span class="p">:</span> <span class="n">V</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                   <span class="n">partition</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                   <span class="n">timestamp</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                   <span class="n">headers</span><span class="p">:</span> <span class="n">HeadersArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                   <span class="n">schema</span><span class="p">:</span> <span class="n">SchemaT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                   <span class="n">key_serializer</span><span class="p">:</span> <span class="n">CodecArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                   <span class="n">value_serializer</span><span class="p">:</span> <span class="n">CodecArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                   <span class="n">callback</span><span class="p">:</span> <span class="n">MessageSentCallback</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                   <span class="n">force</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Awaitable</span><span class="p">[</span><span class="n">RecordMetadata</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;Send message to channel.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_send_now</span><span class="p">(</span>
+            <span class="n">key</span><span class="p">,</span>
+            <span class="n">value</span><span class="p">,</span>
+            <span class="n">partition</span><span class="o">=</span><span class="n">partition</span><span class="p">,</span>
+            <span class="n">timestamp</span><span class="o">=</span><span class="n">timestamp</span><span class="p">,</span>
+            <span class="n">headers</span><span class="o">=</span><span class="n">headers</span><span class="p">,</span>
+            <span class="n">schema</span><span class="o">=</span><span class="n">schema</span><span class="p">,</span>
+            <span class="n">key_serializer</span><span class="o">=</span><span class="n">key_serializer</span><span class="p">,</span>
+            <span class="n">value_serializer</span><span class="o">=</span><span class="n">value_serializer</span><span class="p">,</span>
+            <span class="n">callback</span><span class="o">=</span><span class="n">callback</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="Channel.send_soon"><a class="viewcode-back" href="../../reference/faust.channels.html#faust.Channel.send_soon">[docs]</a>    <span class="k">def</span> <span class="nf">send_soon</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                  <span class="o">*</span><span class="p">,</span>
+                  <span class="n">key</span><span class="p">:</span> <span class="n">K</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                  <span class="n">value</span><span class="p">:</span> <span class="n">V</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                  <span class="n">partition</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                  <span class="n">timestamp</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                  <span class="n">headers</span><span class="p">:</span> <span class="n">HeadersArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                  <span class="n">schema</span><span class="p">:</span> <span class="n">SchemaT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                  <span class="n">key_serializer</span><span class="p">:</span> <span class="n">CodecArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                  <span class="n">value_serializer</span><span class="p">:</span> <span class="n">CodecArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                  <span class="n">callback</span><span class="p">:</span> <span class="n">MessageSentCallback</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                  <span class="n">force</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+                  <span class="n">eager_partitioning</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">FutureMessage</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Produce message by adding to buffer.</span>
+
+<span class="sd">        This method is only supported by :class:`~faust.Topic`.</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            NotImplementedError: always for in-memory channel.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="Channel.as_future_message"><a class="viewcode-back" href="../../userguide/channels.html#faust.Channel.as_future_message">[docs]</a>    <span class="k">def</span> <span class="nf">as_future_message</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">key</span><span class="p">:</span> <span class="n">K</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">value</span><span class="p">:</span> <span class="n">V</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">partition</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">timestamp</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">headers</span><span class="p">:</span> <span class="n">HeadersArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">schema</span><span class="p">:</span> <span class="n">SchemaT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">key_serializer</span><span class="p">:</span> <span class="n">CodecArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">value_serializer</span><span class="p">:</span> <span class="n">CodecArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">callback</span><span class="p">:</span> <span class="n">MessageSentCallback</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">eager_partitioning</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">FutureMessage</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Create promise that message will be transmitted.&quot;&quot;&quot;</span>
+        <span class="n">open_headers</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">prepare_headers</span><span class="p">(</span><span class="n">headers</span><span class="p">)</span>
+        <span class="n">final_key</span><span class="p">,</span> <span class="n">open_headers</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">prepare_key</span><span class="p">(</span>
+            <span class="n">key</span><span class="p">,</span> <span class="n">key_serializer</span><span class="p">,</span> <span class="n">schema</span><span class="p">,</span> <span class="n">open_headers</span><span class="p">)</span>
+        <span class="n">final_value</span><span class="p">,</span> <span class="n">open_headers</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">prepare_value</span><span class="p">(</span>
+            <span class="n">value</span><span class="p">,</span> <span class="n">value_serializer</span><span class="p">,</span> <span class="n">schema</span><span class="p">,</span> <span class="n">open_headers</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">partition</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">eager_partitioning</span><span class="p">:</span>
+            <span class="c1"># Note: raises NotImplementedError if used on unnamed channel.</span>
+            <span class="n">partition</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">producer</span><span class="o">.</span><span class="n">key_partition</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">get_topic_name</span><span class="p">(),</span> <span class="n">final_key</span><span class="p">)</span><span class="o">.</span><span class="n">partition</span>
+        <span class="k">return</span> <span class="n">FutureMessage</span><span class="p">(</span>
+            <span class="n">PendingMessage</span><span class="p">(</span>
+                <span class="bp">self</span><span class="p">,</span>
+                <span class="n">final_key</span><span class="p">,</span>
+                <span class="n">final_value</span><span class="p">,</span>
+                <span class="n">key_serializer</span><span class="o">=</span><span class="n">key_serializer</span><span class="p">,</span>
+                <span class="n">value_serializer</span><span class="o">=</span><span class="n">value_serializer</span><span class="p">,</span>
+                <span class="n">partition</span><span class="o">=</span><span class="n">partition</span><span class="p">,</span>
+                <span class="n">timestamp</span><span class="o">=</span><span class="n">timestamp</span><span class="p">,</span>
+                <span class="n">headers</span><span class="o">=</span><span class="n">open_headers</span><span class="p">,</span>
+                <span class="n">callback</span><span class="o">=</span><span class="n">callback</span><span class="p">,</span>
+                <span class="c1"># Python 3.6.0: NamedTuple doesn&#39;t support optional fields</span>
+                <span class="c1"># [ask]</span>
+                <span class="n">topic</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                <span class="n">offset</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="p">),</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="Channel.prepare_headers"><a class="viewcode-back" href="../../reference/faust.channels.html#faust.Channel.prepare_headers">[docs]</a>    <span class="k">def</span> <span class="nf">prepare_headers</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span> <span class="n">headers</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">HeadersArg</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">OpenHeadersArg</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Prepare ``headers`` passed before publishing.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">headers</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">prepare_headers</span><span class="p">(</span><span class="n">headers</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">{}</span></div>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">_send_now</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">key</span><span class="p">:</span> <span class="n">K</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">value</span><span class="p">:</span> <span class="n">V</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">partition</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">timestamp</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">headers</span><span class="p">:</span> <span class="n">HeadersArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">schema</span><span class="p">:</span> <span class="n">SchemaT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">key_serializer</span><span class="p">:</span> <span class="n">CodecArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">value_serializer</span><span class="p">:</span> <span class="n">CodecArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">callback</span><span class="p">:</span> <span class="n">MessageSentCallback</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Awaitable</span><span class="p">[</span><span class="n">RecordMetadata</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">publish_message</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">as_future_message</span><span class="p">(</span>
+                <span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">partition</span><span class="p">,</span> <span class="n">timestamp</span><span class="p">,</span> <span class="n">headers</span><span class="p">,</span>
+                <span class="n">schema</span><span class="p">,</span> <span class="n">key_serializer</span><span class="p">,</span> <span class="n">value_serializer</span><span class="p">,</span> <span class="n">callback</span><span class="p">))</span>
+
+<div class="viewcode-block" id="Channel.publish_message"><a class="viewcode-back" href="../../userguide/channels.html#faust.Channel.publish_message">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">publish_message</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fut</span><span class="p">:</span> <span class="n">FutureMessage</span><span class="p">,</span>
+                              <span class="n">wait</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Awaitable</span><span class="p">[</span><span class="n">RecordMetadata</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;Publish message to channel.</span>
+
+<span class="sd">        This is the interface used by ``topic.send()``, etc.</span>
+<span class="sd">        to actually publish the message on the channel</span>
+<span class="sd">        after being buffered up or similar.</span>
+
+<span class="sd">        It takes a :class:`~faust.types.FutureMessage` object,</span>
+<span class="sd">        which contains all the information required to send</span>
+<span class="sd">        the message, and acts as a promise that is resolved</span>
+<span class="sd">        once the message has been fully transmitted.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">event</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_future_message_to_event</span><span class="p">(</span><span class="n">fut</span><span class="p">)</span>
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">put</span><span class="p">(</span><span class="n">event</span><span class="p">)</span>
+        <span class="n">topic</span><span class="p">,</span> <span class="n">partition</span> <span class="o">=</span> <span class="n">tp</span> <span class="o">=</span> <span class="n">TP</span><span class="p">(</span>
+            <span class="n">fut</span><span class="o">.</span><span class="n">message</span><span class="o">.</span><span class="n">topic</span> <span class="ow">or</span> <span class="s1">&#39;&lt;anon&gt;&#39;</span><span class="p">,</span>
+            <span class="n">fut</span><span class="o">.</span><span class="n">message</span><span class="o">.</span><span class="n">partition</span> <span class="ow">or</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">return</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_finalize_message</span><span class="p">(</span>
+            <span class="n">fut</span><span class="p">,</span> <span class="n">RecordMetadata</span><span class="p">(</span>
+                <span class="n">topic</span><span class="o">=</span><span class="n">topic</span><span class="p">,</span>
+                <span class="n">partition</span><span class="o">=</span><span class="n">partition</span><span class="p">,</span>
+                <span class="n">topic_partition</span><span class="o">=</span><span class="n">tp</span><span class="p">,</span>
+                <span class="n">offset</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span>
+                <span class="n">timestamp</span><span class="o">=</span><span class="n">fut</span><span class="o">.</span><span class="n">message</span><span class="o">.</span><span class="n">timestamp</span><span class="p">,</span>
+                <span class="n">timestamp_type</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+            <span class="p">),</span>
+        <span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_future_message_to_event</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fut</span><span class="p">:</span> <span class="n">FutureMessage</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">EventT</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_event</span><span class="p">(</span>
+            <span class="n">fut</span><span class="o">.</span><span class="n">message</span><span class="o">.</span><span class="n">key</span><span class="p">,</span> <span class="n">fut</span><span class="o">.</span><span class="n">message</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="n">fut</span><span class="o">.</span><span class="n">message</span><span class="o">.</span><span class="n">headers</span><span class="p">,</span>
+            <span class="n">message</span><span class="o">=</span><span class="n">_PendingMessage_to_Message</span><span class="p">(</span><span class="n">fut</span><span class="o">.</span><span class="n">message</span><span class="p">))</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">_finalize_message</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fut</span><span class="p">:</span> <span class="n">FutureMessage</span><span class="p">,</span>
+                                <span class="n">result</span><span class="p">:</span> <span class="n">RecordMetadata</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">FutureMessage</span><span class="p">:</span>
+        <span class="n">fut</span><span class="o">.</span><span class="n">set_result</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">fut</span><span class="o">.</span><span class="n">message</span><span class="o">.</span><span class="n">callback</span><span class="p">:</span>
+            <span class="k">await</span> <span class="n">maybe_async</span><span class="p">(</span><span class="n">fut</span><span class="o">.</span><span class="n">message</span><span class="o">.</span><span class="n">callback</span><span class="p">(</span><span class="n">fut</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">fut</span>
+
+<div class="viewcode-block" id="Channel.maybe_declare"><a class="viewcode-back" href="../../userguide/channels.html#faust.Channel.maybe_declare">[docs]</a>    <span class="nd">@stampede</span>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">maybe_declare</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Declare/create this channel, but only if it doesn&#39;t exist.&quot;&quot;&quot;</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="Channel.declare"><a class="viewcode-back" href="../../userguide/channels.html#faust.Channel.declare">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">declare</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Declare/create this channel.</span>
+
+<span class="sd">        This is used to create this channel on a server,</span>
+<span class="sd">        if that is required to operate it.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="Channel.prepare_key"><a class="viewcode-back" href="../../reference/faust.channels.html#faust.Channel.prepare_key">[docs]</a>    <span class="k">def</span> <span class="nf">prepare_key</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">key</span><span class="p">:</span> <span class="n">K</span><span class="p">,</span>
+            <span class="n">key_serializer</span><span class="p">:</span> <span class="n">CodecArg</span><span class="p">,</span>
+            <span class="n">schema</span><span class="p">:</span> <span class="n">SchemaT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">headers</span><span class="p">:</span> <span class="n">OpenHeadersArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">OpenHeadersArg</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;Prepare key before it is sent to this channel.</span>
+
+<span class="sd">        :class:`~faust.Topic` uses this to implement serialization of keys</span>
+<span class="sd">        sent to the channel.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">key</span><span class="p">,</span> <span class="n">headers</span></div>
+
+<div class="viewcode-block" id="Channel.prepare_value"><a class="viewcode-back" href="../../reference/faust.channels.html#faust.Channel.prepare_value">[docs]</a>    <span class="k">def</span> <span class="nf">prepare_value</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">value</span><span class="p">:</span> <span class="n">V</span><span class="p">,</span>
+            <span class="n">value_serializer</span><span class="p">:</span> <span class="n">CodecArg</span><span class="p">,</span>
+            <span class="n">schema</span><span class="p">:</span> <span class="n">SchemaT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">headers</span><span class="p">:</span> <span class="n">OpenHeadersArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">OpenHeadersArg</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;Prepare value before it is sent to this channel.</span>
+
+<span class="sd">        :class:`~faust.Topic` uses this to implement serialization of values</span>
+<span class="sd">        sent to the channel.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">value</span><span class="p">,</span> <span class="n">headers</span></div>
+
+<div class="viewcode-block" id="Channel.decode"><a class="viewcode-back" href="../../reference/faust.channels.html#faust.Channel.decode">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">decode</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="p">:</span> <span class="n">Message</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span>
+                     <span class="n">propagate</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">EventT</span><span class="p">[</span><span class="n">T</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;Decode :class:`~faust.types.Message` into :class:`~faust.Event`.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_event</span><span class="p">(</span>
+            <span class="n">message</span><span class="o">.</span><span class="n">key</span><span class="p">,</span> <span class="n">message</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="n">message</span><span class="o">.</span><span class="n">headers</span><span class="p">,</span> <span class="n">message</span><span class="o">=</span><span class="n">message</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Channel.deliver"><a class="viewcode-back" href="../../reference/faust.channels.html#faust.Channel.deliver">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">deliver</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="p">:</span> <span class="n">Message</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+        <span class="sd">&quot;&quot;&quot;Deliver message to queue from consumer.</span>
+
+<span class="sd">        This is called by the consumer to deliver the message</span>
+<span class="sd">        to the channel.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="o">...</span>  <span class="c1"># closure compiled at __init__</span></div>
+
+    <span class="k">def</span> <span class="nf">_compile_deliver</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">Message</span><span class="p">],</span> <span class="n">Awaitable</span><span class="p">[</span><span class="kc">None</span><span class="p">]]:</span>
+        <span class="n">put</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="k">async</span> <span class="k">def</span> <span class="nf">deliver</span><span class="p">(</span><span class="n">message</span><span class="p">:</span> <span class="n">Message</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">nonlocal</span> <span class="n">put</span>
+            <span class="k">if</span> <span class="n">put</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="c1"># NOTE circumvents self.put, using queue directly</span>
+                <span class="n">put</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">queue</span><span class="o">.</span><span class="n">put</span>
+            <span class="n">event</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="n">message</span><span class="p">)</span>
+            <span class="k">await</span> <span class="n">put</span><span class="p">(</span><span class="n">event</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">deliver</span>
+
+    <span class="k">def</span> <span class="nf">_create_event</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                      <span class="n">key</span><span class="p">:</span> <span class="n">K</span><span class="p">,</span>
+                      <span class="n">value</span><span class="p">:</span> <span class="n">V</span><span class="p">,</span>
+                      <span class="n">headers</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">HeadersArg</span><span class="p">],</span>
+                      <span class="n">message</span><span class="p">:</span> <span class="n">Message</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">EventT</span><span class="p">[</span><span class="n">T</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">create_event</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">headers</span><span class="p">,</span> <span class="n">message</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Channel.put"><a class="viewcode-back" href="../../reference/faust.channels.html#faust.Channel.put">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">put</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">EventT</span><span class="p">[</span><span class="n">T_contra</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Put event onto this channel.&quot;&quot;&quot;</span>
+        <span class="n">root</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_root</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_root</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="bp">self</span>
+        <span class="k">for</span> <span class="n">subscriber</span> <span class="ow">in</span> <span class="n">root</span><span class="o">.</span><span class="n">_subscribers</span><span class="p">:</span>
+            <span class="k">await</span> <span class="n">subscriber</span><span class="o">.</span><span class="n">queue</span><span class="o">.</span><span class="n">put</span><span class="p">(</span><span class="n">value</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Channel.get"><a class="viewcode-back" href="../../reference/faust.channels.html#faust.Channel.get">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">get</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">timeout</span><span class="p">:</span> <span class="n">Seconds</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">EventT</span><span class="p">[</span><span class="n">T</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;Get the next :class:`~faust.Event` received on this channel.&quot;&quot;&quot;</span>
+        <span class="n">timeout_</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">want_seconds</span><span class="p">(</span><span class="n">timeout</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">timeout_</span><span class="p">:</span>
+            <span class="k">return</span> <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">wait_for</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">queue</span><span class="o">.</span><span class="n">get</span><span class="p">(),</span> <span class="n">timeout</span><span class="o">=</span><span class="n">timeout_</span><span class="p">)</span>
+        <span class="k">return</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">queue</span><span class="o">.</span><span class="n">get</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="Channel.empty"><a class="viewcode-back" href="../../reference/faust.channels.html#faust.Channel.empty">[docs]</a>    <span class="k">def</span> <span class="nf">empty</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Return :const:`True` if the queue is empty.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">queue</span><span class="o">.</span><span class="n">empty</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="Channel.on_key_decode_error"><a class="viewcode-back" href="../../reference/faust.channels.html#faust.Channel.on_key_decode_error">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">on_key_decode_error</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">exc</span><span class="p">:</span> <span class="ne">Exception</span><span class="p">,</span>
+                                  <span class="n">message</span><span class="p">:</span> <span class="n">Message</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Unable to decode the key of an item in the queue.</span>
+
+<span class="sd">        See Also:</span>
+<span class="sd">            :meth:`on_decode_error`</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">on_decode_error</span><span class="p">(</span><span class="n">exc</span><span class="p">,</span> <span class="n">message</span><span class="p">)</span>
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">throw</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Channel.on_value_decode_error"><a class="viewcode-back" href="../../reference/faust.channels.html#faust.Channel.on_value_decode_error">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">on_value_decode_error</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">exc</span><span class="p">:</span> <span class="ne">Exception</span><span class="p">,</span>
+                                    <span class="n">message</span><span class="p">:</span> <span class="n">Message</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Unable to decode the value of an item in the queue.</span>
+
+<span class="sd">        See Also:</span>
+<span class="sd">            :meth:`on_decode_error`</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">on_decode_error</span><span class="p">(</span><span class="n">exc</span><span class="p">,</span> <span class="n">message</span><span class="p">)</span>
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">throw</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Channel.on_decode_error"><a class="viewcode-back" href="../../reference/faust.channels.html#faust.Channel.on_decode_error">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">on_decode_error</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">exc</span><span class="p">:</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">message</span><span class="p">:</span> <span class="n">Message</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Signal that there was an error reading an event in the queue.</span>
+
+<span class="sd">        When a message in the channel needs deserialization</span>
+<span class="sd">        to be reconstructed back to its original form, we will sometimes</span>
+<span class="sd">        see decoding/deserialization errors being raised, from missing</span>
+<span class="sd">        fields or malformed payloads, and so on.</span>
+
+<span class="sd">        We will log the exception, but you can also override this</span>
+<span class="sd">        to perform additional actions.</span>
+
+<span class="sd">        Admonition: Kafka</span>
+<span class="sd">            In the event a deserialization error occurs, we</span>
+<span class="sd">            HAVE to commit the offset of the source message to continue</span>
+<span class="sd">            processing the stream.</span>
+
+<span class="sd">            For this reason it is important that you keep a close eye on</span>
+<span class="sd">            error logs. For easy of use, we suggest using log aggregation</span>
+<span class="sd">            software, such as Sentry, to surface these errors to your</span>
+<span class="sd">            operations team.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="Channel.on_stop_iteration"><a class="viewcode-back" href="../../reference/faust.channels.html#faust.Channel.on_stop_iteration">[docs]</a>    <span class="k">def</span> <span class="nf">on_stop_iteration</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Signal that iteration over this channel was stopped.</span>
+
+<span class="sd">        Tip:</span>
+<span class="sd">            Remember to call ``super`` when overriding this method.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="Channel.derive"><a class="viewcode-back" href="../../reference/faust.channels.html#faust.Channel.derive">[docs]</a>    <span class="k">def</span> <span class="nf">derive</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ChannelT</span><span class="p">[</span><span class="n">T</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;Derive new channel from this channel, using new configuration.</span>
+
+<span class="sd">        See :class:`faust.Topic.derive`.</span>
+
+<span class="sd">        For local channels this will simply return the same channel.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+    <span class="k">def</span> <span class="nf">__aiter__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ChannelT</span><span class="p">[</span><span class="n">T</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="bp">self</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_iterator</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">clone</span><span class="p">(</span><span class="n">is_iterator</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">__anext__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">EventT</span><span class="p">[</span><span class="n">T</span><span class="p">]:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_iterator</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s1">&#39;Need to call channel.__aiter__()&#39;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">queue</span><span class="o">.</span><span class="n">get</span><span class="p">()</span>
+
+<div class="viewcode-block" id="Channel.throw"><a class="viewcode-back" href="../../reference/faust.channels.html#faust.Channel.throw">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">throw</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">exc</span><span class="p">:</span> <span class="ne">BaseException</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Throw exception to be received by channel subscribers.</span>
+
+<span class="sd">        Tip:</span>
+<span class="sd">            When you find yourself having to call this from</span>
+<span class="sd">            a regular, non-``async def`` function, you can use :meth:`_throw`</span>
+<span class="sd">            instead.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">queue</span><span class="o">.</span><span class="n">_throw</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_throw</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">exc</span><span class="p">:</span> <span class="ne">BaseException</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Non-async version of :meth:`throw`.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">queue</span><span class="o">.</span><span class="n">_throw</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="n">f</span><span class="s1">&#39;&lt;</span><span class="si">{self.label}</span><span class="s1">@{self._object_id_as_hex()}&#39;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">active_partitions</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># if we are restricted to a specific set of topic partitions,</span>
+            <span class="c1"># then include that in repr(channel).</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">active_partitions</span><span class="p">:</span>
+                <span class="n">active</span> <span class="o">=</span> <span class="s1">&#39;{&#39;</span> <span class="o">+</span> <span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span>
+                    <span class="n">f</span><span class="s1">&#39;</span><span class="si">{tp.topic}</span><span class="s1">:</span><span class="si">{tp.partition}</span><span class="s1">&#39;</span>
+                    <span class="k">for</span> <span class="n">tp</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">active_partitions</span><span class="p">))</span> <span class="o">+</span> <span class="s1">&#39;}&#39;</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># a defined, but empty .active_partitions signifies</span>
+                <span class="c1"># that we are still waiting for an assignment</span>
+                <span class="c1"># from the Consumer.</span>
+                <span class="n">active</span> <span class="o">=</span> <span class="s1">&#39;{&lt;pending for assignment&gt;}&#39;</span>
+            <span class="n">s</span> <span class="o">+=</span> <span class="n">f</span><span class="s1">&#39; active=</span><span class="si">{active}</span><span class="s1">&#39;</span>
+        <span class="n">s</span> <span class="o">+=</span> <span class="s1">&#39;&gt;&#39;</span>
+        <span class="k">return</span> <span class="n">s</span>
+
+    <span class="k">def</span> <span class="nf">_object_id_as_hex</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="c1"># hexadecimal version of id(self)</span>
+        <span class="k">return</span> <span class="n">f</span><span class="s1">&#39;{id(self):#x}&#39;</span>
+
+    <span class="k">def</span> <span class="nf">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="c1"># subclasses should override this</span>
+        <span class="k">return</span> <span class="s1">&#39;&lt;ANON&gt;&#39;</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">subscriber_count</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Return number of active subscribers to local channel.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_subscribers</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">label</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Short textual description of channel.&quot;&quot;&quot;</span>
+        <span class="n">sym</span> <span class="o">=</span> <span class="s1">&#39;(*)&#39;</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_iterator</span> <span class="k">else</span> <span class="s1">&#39;&#39;</span>
+        <span class="k">return</span> <span class="n">f</span><span class="s1">&#39;</span><span class="si">{sym}</span><span class="s1">{type(self).__name__}: </span><span class="si">{self}</span><span class="s1">&#39;</span></div>
+
+
+<span class="k">class</span> <span class="nc">SerializedChannel</span><span class="p">(</span><span class="n">Channel</span><span class="p">[</span><span class="n">T</span><span class="p">]):</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                 <span class="n">app</span><span class="p">:</span> <span class="n">AppT</span><span class="p">,</span>
+                 <span class="o">*</span><span class="p">,</span>
+                 <span class="n">schema</span><span class="p">:</span> <span class="n">SchemaT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">key_type</span><span class="p">:</span> <span class="n">ModelArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">value_type</span><span class="p">:</span> <span class="n">ModelArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">key_serializer</span><span class="p">:</span> <span class="n">CodecArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">value_serializer</span><span class="p">:</span> <span class="n">CodecArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">allow_empty</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">app</span> <span class="o">=</span> <span class="n">app</span>  <span class="c1"># need to set early</span>
+        <span class="k">if</span> <span class="n">schema</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_contribute_to_schema</span><span class="p">(</span>
+                <span class="n">schema</span><span class="p">,</span>
+                <span class="n">key_type</span><span class="o">=</span><span class="n">key_type</span><span class="p">,</span>
+                <span class="n">value_type</span><span class="o">=</span><span class="n">value_type</span><span class="p">,</span>
+                <span class="n">key_serializer</span><span class="o">=</span><span class="n">key_serializer</span><span class="p">,</span>
+                <span class="n">value_serializer</span><span class="o">=</span><span class="n">value_serializer</span><span class="p">,</span>
+                <span class="n">allow_empty</span><span class="o">=</span><span class="n">allow_empty</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">schema</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_default_schema</span><span class="p">(</span>
+                <span class="n">key_type</span><span class="p">,</span> <span class="n">value_type</span><span class="p">,</span>
+                <span class="n">key_serializer</span><span class="p">,</span> <span class="n">value_serializer</span><span class="p">,</span>
+                <span class="n">allow_empty</span><span class="p">)</span>
+
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="n">app</span><span class="p">,</span>
+            <span class="n">schema</span><span class="o">=</span><span class="n">schema</span><span class="p">,</span>
+            <span class="n">key_type</span><span class="o">=</span><span class="n">key_type</span><span class="p">,</span>
+            <span class="n">value_type</span><span class="o">=</span><span class="n">value_type</span><span class="p">,</span>
+            <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">key_serializer</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">schema</span><span class="o">.</span><span class="n">key_serializer</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">value_serializer</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">schema</span><span class="o">.</span><span class="n">value_serializer</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">allow_empty</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">schema</span><span class="o">.</span><span class="n">allow_empty</span>
+
+    <span class="k">def</span> <span class="nf">_contribute_to_schema</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">schema</span><span class="p">:</span> <span class="n">SchemaT</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span>
+                              <span class="n">key_type</span><span class="p">:</span> <span class="n">ModelArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                              <span class="n">value_type</span><span class="p">:</span> <span class="n">ModelArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                              <span class="n">key_serializer</span><span class="p">:</span> <span class="n">CodecArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                              <span class="n">value_serializer</span><span class="p">:</span> <span class="n">CodecArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                              <span class="n">allow_empty</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># Update schema and take compat attributes</span>
+        <span class="c1"># from passed schema.</span>
+        <span class="n">schema</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
+            <span class="n">key_type</span><span class="o">=</span><span class="n">key_type</span><span class="p">,</span>
+            <span class="n">value_type</span><span class="o">=</span><span class="n">value_type</span><span class="p">,</span>
+            <span class="n">key_serializer</span><span class="o">=</span><span class="n">key_serializer</span><span class="p">,</span>
+            <span class="n">value_serializer</span><span class="o">=</span><span class="n">value_serializer</span><span class="p">,</span>
+            <span class="n">allow_empty</span><span class="o">=</span><span class="n">allow_empty</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_get_default_schema</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                            <span class="n">key_type</span><span class="p">:</span> <span class="n">ModelArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                            <span class="n">value_type</span><span class="p">:</span> <span class="n">ModelArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                            <span class="n">key_serializer</span><span class="p">:</span> <span class="n">CodecArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                            <span class="n">value_serializer</span><span class="p">:</span> <span class="n">CodecArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                            <span class="n">allow_empty</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SchemaT</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">conf</span><span class="o">.</span><span class="n">Schema</span><span class="p">(</span>
+            <span class="n">key_type</span><span class="o">=</span><span class="n">key_type</span><span class="p">,</span>
+            <span class="n">value_type</span><span class="o">=</span><span class="n">value_type</span><span class="p">,</span>
+            <span class="n">key_serializer</span><span class="o">=</span><span class="n">key_serializer</span><span class="p">,</span>
+            <span class="n">value_serializer</span><span class="o">=</span><span class="n">value_serializer</span><span class="p">,</span>
+            <span class="n">allow_empty</span><span class="o">=</span><span class="n">allow_empty</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="nd">@no_type_check</span>  <span class="c1"># incompatible with base class, but OK</span>
+    <span class="k">def</span> <span class="nf">_clone_args</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Mapping</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="o">**</span><span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">_clone_args</span><span class="p">(),</span>
+            <span class="o">**</span><span class="p">{</span>
+                <span class="s1">&#39;key_serializer&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">key_serializer</span><span class="p">,</span>
+                <span class="s1">&#39;value_serializer&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">value_serializer</span><span class="p">,</span>
+            <span class="p">},</span>
+        <span class="p">}</span>
+
+    <span class="k">def</span> <span class="nf">prepare_key</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">key</span><span class="p">:</span> <span class="n">K</span><span class="p">,</span>
+            <span class="n">key_serializer</span><span class="p">:</span> <span class="n">CodecArg</span><span class="p">,</span>
+            <span class="n">schema</span><span class="p">:</span> <span class="n">SchemaT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">headers</span><span class="p">:</span> <span class="n">OpenHeadersArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">OpenHeadersArg</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;Serialize key to format suitable for transport.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">key</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">schema</span> <span class="o">=</span> <span class="n">schema</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">schema</span>
+            <span class="k">assert</span> <span class="n">schema</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="k">return</span> <span class="n">schema</span><span class="o">.</span><span class="n">dumps_key</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span>
+                                    <span class="n">serializer</span><span class="o">=</span><span class="n">key_serializer</span><span class="p">,</span>
+                                    <span class="n">headers</span><span class="o">=</span><span class="n">headers</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="n">headers</span>
+
+    <span class="k">def</span> <span class="nf">prepare_value</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">value</span><span class="p">:</span> <span class="n">V</span><span class="p">,</span>
+            <span class="n">value_serializer</span><span class="p">:</span> <span class="n">CodecArg</span><span class="p">,</span>
+            <span class="n">schema</span><span class="p">:</span> <span class="n">SchemaT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">headers</span><span class="p">:</span> <span class="n">OpenHeadersArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">OpenHeadersArg</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;Serialize value to format suitable for transport.&quot;&quot;&quot;</span>
+        <span class="n">schema</span> <span class="o">=</span> <span class="n">schema</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">schema</span>
+        <span class="k">assert</span> <span class="n">schema</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="n">schema</span><span class="o">.</span><span class="n">dumps_value</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span>
+                                  <span class="n">serializer</span><span class="o">=</span><span class="n">value_serializer</span><span class="p">,</span>
+                                  <span class="n">headers</span><span class="o">=</span><span class="n">headers</span><span class="p">)</span>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../index.html">
+              <img class="logo" src="../../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../playbooks/index.html">Playbooks</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../userguide/index.html">User Guide</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../reference/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../history/index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2020, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

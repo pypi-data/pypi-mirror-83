@@ -1,0 +1,452 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>faust.tables.base &#8212; Faust 1.11.0a1 documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="copyright" title="Copyright" href="../copyright.html" />
+    <link rel="next" title="faust.tables.globaltable" href="faust.tables.globaltable.html" />
+    <link rel="prev" title="faust.tables" href="faust.tables.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="faust-tables-base">
+<h1><code class="docutils literal notranslate"><span class="pre">faust.tables.base</span></code><a class="headerlink" href="#faust-tables-base" title="Permalink to this headline">¶</a></h1>
+<span class="target" id="module-faust.tables.base"></span><p>Base class Collection for Table and future data structures.</p>
+<dl class="class">
+<dt id="faust.tables.base.Collection">
+<em class="property">class </em><code class="sig-prename descclassname">faust.tables.base.</code><code class="sig-name descname">Collection</code><span class="sig-paren">(</span><em class="sig-param">app: faust.types.app.AppT, *, name: str = None, default: Callable[Any] = None, store: Union[str, yarl.URL] = None, schema: faust.types.serializers.SchemaT = None, key_type: Union[Type[faust.types.models.ModelT], Type[bytes], Type[str]] = None, value_type: Union[Type[faust.types.models.ModelT], Type[bytes], Type[str]] = None, partitions: int = None, window: faust.types.windows.WindowT = None, changelog_topic: faust.types.topics.TopicT = None, help: str = None, on_recover: Callable[Awaitable[None]] = None, on_changelog_event: Callable[faust.types.events.EventT, Awaitable[None]] = None, recovery_buffer_size: int = 1000, standby_buffer_size: int = None, extra_topic_configs: Mapping[str, Any] = None, recover_callbacks: Set[Callable[Awaitable[None]]] = None, options: Mapping[str, Any] = None, use_partitioner: bool = False, on_window_close: Callable[[Any, Any], Union[None, Awaitable[None]]] = None, is_global: bool = False, **kwargs: Any</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/tables/base.html#Collection"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.tables.base.Collection" title="Permalink to this definition">¶</a></dt>
+<dd><p>Base class for changelog-backed data structures stored in Kafka.</p>
+<dl class="method">
+<dt id="faust.tables.base.Collection.data">
+<em class="property">property </em><code class="sig-name descname">data</code><a class="headerlink" href="#faust.tables.base.Collection.data" title="Permalink to this definition">¶</a></dt>
+<dd><p>Underlying table storage.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.tables.base.Collection.on_start">
+<em class="property">async </em><code class="sig-name descname">on_start</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/tables/base.html#Collection.on_start"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.tables.base.Collection.on_start" title="Permalink to this definition">¶</a></dt>
+<dd><p>Call when table starts.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.tables.base.Collection.on_recover">
+<code class="sig-name descname">on_recover</code><span class="sig-paren">(</span><em class="sig-param">fun: Callable[Awaitable[None]]</em><span class="sig-paren">)</span> &#x2192; Callable[Awaitable[None]]<a class="reference internal" href="../_modules/faust/tables/base.html#Collection.on_recover"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.tables.base.Collection.on_recover" title="Permalink to this definition">¶</a></dt>
+<dd><p>Add function as callback to be called on table recovery.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Callable" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Callable</span></code></a>[[], <a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Awaitable" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Awaitable</span></code></a>[<code class="docutils literal notranslate"><span class="pre">None</span></code>]]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.tables.base.Collection.info">
+<code class="sig-name descname">info</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; Mapping[str, Any]<a class="reference internal" href="../_modules/faust/tables/base.html#Collection.info"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.tables.base.Collection.info" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return table attributes as dictionary.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Mapping" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Mapping</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Any" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code></a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.tables.base.Collection.persisted_offset">
+<code class="sig-name descname">persisted_offset</code><span class="sig-paren">(</span><em class="sig-param">tp: faust.types.tuples.TP</em><span class="sig-paren">)</span> &#x2192; Optional[int]<a class="reference internal" href="../_modules/faust/tables/base.html#Collection.persisted_offset"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.tables.base.Collection.persisted_offset" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return the last persisted offset for topic partition.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Optional" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/functions.html#int" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.tables.base.Collection.need_active_standby_for">
+<em class="property">async </em><code class="sig-name descname">need_active_standby_for</code><span class="sig-paren">(</span><em class="sig-param">tp: faust.types.tuples.TP</em><span class="sig-paren">)</span> &#x2192; bool<a class="reference internal" href="../_modules/faust/tables/base.html#Collection.need_active_standby_for"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.tables.base.Collection.need_active_standby_for" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return <code class="xref py py-const docutils literal notranslate"><span class="pre">False</span></code> if we have access to partition data.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/functions.html#bool" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.tables.base.Collection.reset_state">
+<code class="sig-name descname">reset_state</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/tables/base.html#Collection.reset_state"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.tables.base.Collection.reset_state" title="Permalink to this definition">¶</a></dt>
+<dd><p>Reset local state.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.tables.base.Collection.send_changelog">
+<code class="sig-name descname">send_changelog</code><span class="sig-paren">(</span><em class="sig-param">partition: Optional[int], key: Any, value: Any, key_serializer: Union[faust.types.codecs.CodecT, str, None] = None, value_serializer: Union[faust.types.codecs.CodecT, str, None] = None</em><span class="sig-paren">)</span> &#x2192; faust.types.tuples.FutureMessage<a class="reference internal" href="../_modules/faust/tables/base.html#Collection.send_changelog"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.tables.base.Collection.send_changelog" title="Permalink to this definition">¶</a></dt>
+<dd><p>Send modification event to changelog topic.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="faust.types.tuples.html#faust.types.tuples.FutureMessage" title="faust.types.tuples.FutureMessage"><code class="xref py py-class docutils literal notranslate"><span class="pre">FutureMessage</span></code></a>[]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.tables.base.Collection.partition_for_key">
+<code class="sig-name descname">partition_for_key</code><span class="sig-paren">(</span><em class="sig-param">key: Any</em><span class="sig-paren">)</span> &#x2192; Optional[int]<a class="reference internal" href="../_modules/faust/tables/base.html#Collection.partition_for_key"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.tables.base.Collection.partition_for_key" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return partition number for table key.</p>
+<p>Always returns <code class="xref py py-const docutils literal notranslate"><span class="pre">None</span></code> when <code class="xref py py-attr docutils literal notranslate"><span class="pre">use_partitioner</span></code>
+is enabled.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Optional" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/functions.html#int" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>]</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>specific partition or <code class="xref py py-const docutils literal notranslate"><span class="pre">None</span></code> if</dt><dd><p>the producer should select partition using its partitioner.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>Optional[<a class="reference external" href="https://docs.python.org/dev/library/functions.html#int" title="(in Python v3.9)">int</a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.tables.base.Collection.on_window_close">
+<em class="property">async </em><code class="sig-name descname">on_window_close</code><span class="sig-paren">(</span><em class="sig-param">key: Any</em>, <em class="sig-param">value: Any</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/tables/base.html#Collection.on_window_close"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.tables.base.Collection.on_window_close" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.tables.base.Collection.join">
+<code class="sig-name descname">join</code><span class="sig-paren">(</span><em class="sig-param">*fields: faust.types.models.FieldDescriptorT</em><span class="sig-paren">)</span> &#x2192; faust.types.streams.StreamT<a class="reference internal" href="../_modules/faust/tables/base.html#Collection.join"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.tables.base.Collection.join" title="Permalink to this definition">¶</a></dt>
+<dd><p>Right join of this table and another stream/table.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="faust.types.streams.html#faust.types.streams.StreamT" title="faust.types.streams.StreamT"><code class="xref py py-class docutils literal notranslate"><span class="pre">StreamT</span></code></a>[+T_co]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.tables.base.Collection.left_join">
+<code class="sig-name descname">left_join</code><span class="sig-paren">(</span><em class="sig-param">*fields: faust.types.models.FieldDescriptorT</em><span class="sig-paren">)</span> &#x2192; faust.types.streams.StreamT<a class="reference internal" href="../_modules/faust/tables/base.html#Collection.left_join"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.tables.base.Collection.left_join" title="Permalink to this definition">¶</a></dt>
+<dd><p>Left join of this table and another stream/table.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="faust.types.streams.html#faust.types.streams.StreamT" title="faust.types.streams.StreamT"><code class="xref py py-class docutils literal notranslate"><span class="pre">StreamT</span></code></a>[+T_co]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.tables.base.Collection.inner_join">
+<code class="sig-name descname">inner_join</code><span class="sig-paren">(</span><em class="sig-param">*fields: faust.types.models.FieldDescriptorT</em><span class="sig-paren">)</span> &#x2192; faust.types.streams.StreamT<a class="reference internal" href="../_modules/faust/tables/base.html#Collection.inner_join"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.tables.base.Collection.inner_join" title="Permalink to this definition">¶</a></dt>
+<dd><p>Inner join of this table and another stream/table.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="faust.types.streams.html#faust.types.streams.StreamT" title="faust.types.streams.StreamT"><code class="xref py py-class docutils literal notranslate"><span class="pre">StreamT</span></code></a>[+T_co]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.tables.base.Collection.outer_join">
+<code class="sig-name descname">outer_join</code><span class="sig-paren">(</span><em class="sig-param">*fields: faust.types.models.FieldDescriptorT</em><span class="sig-paren">)</span> &#x2192; faust.types.streams.StreamT<a class="reference internal" href="../_modules/faust/tables/base.html#Collection.outer_join"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.tables.base.Collection.outer_join" title="Permalink to this definition">¶</a></dt>
+<dd><p>Outer join of this table and another stream/table.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="faust.types.streams.html#faust.types.streams.StreamT" title="faust.types.streams.StreamT"><code class="xref py py-class docutils literal notranslate"><span class="pre">StreamT</span></code></a>[+T_co]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.tables.base.Collection.clone">
+<code class="sig-name descname">clone</code><span class="sig-paren">(</span><em class="sig-param">**kwargs: Any</em><span class="sig-paren">)</span> &#x2192; Any<a class="reference internal" href="../_modules/faust/tables/base.html#Collection.clone"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.tables.base.Collection.clone" title="Permalink to this definition">¶</a></dt>
+<dd><p>Clone table instance.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Any" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.tables.base.Collection.combine">
+<code class="sig-name descname">combine</code><span class="sig-paren">(</span><em class="sig-param">*nodes: faust.types.streams.JoinableT</em>, <em class="sig-param">**kwargs: Any</em><span class="sig-paren">)</span> &#x2192; faust.types.streams.StreamT<a class="reference internal" href="../_modules/faust/tables/base.html#Collection.combine"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.tables.base.Collection.combine" title="Permalink to this definition">¶</a></dt>
+<dd><p>Combine tables and streams.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="faust.types.streams.html#faust.types.streams.StreamT" title="faust.types.streams.StreamT"><code class="xref py py-class docutils literal notranslate"><span class="pre">StreamT</span></code></a>[+T_co]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.tables.base.Collection.contribute_to_stream">
+<code class="sig-name descname">contribute_to_stream</code><span class="sig-paren">(</span><em class="sig-param">active: faust.types.streams.StreamT</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/tables/base.html#Collection.contribute_to_stream"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.tables.base.Collection.contribute_to_stream" title="Permalink to this definition">¶</a></dt>
+<dd><p>Contribute table to stream join.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.tables.base.Collection.remove_from_stream">
+<em class="property">async </em><code class="sig-name descname">remove_from_stream</code><span class="sig-paren">(</span><em class="sig-param">stream: faust.types.streams.StreamT</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/tables/base.html#Collection.remove_from_stream"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.tables.base.Collection.remove_from_stream" title="Permalink to this definition">¶</a></dt>
+<dd><p>Remove table from stream join after stream stopped.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.tables.base.Collection.on_rebalance">
+<em class="property">async </em><code class="sig-name descname">on_rebalance</code><span class="sig-paren">(</span><em class="sig-param">assigned: Set[faust.types.tuples.TP], revoked: Set[faust.types.tuples.TP], newly_assigned: Set[faust.types.tuples.TP]</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/tables/base.html#Collection.on_rebalance"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.tables.base.Collection.on_rebalance" title="Permalink to this definition">¶</a></dt>
+<dd><p>Call when cluster is rebalancing.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.tables.base.Collection.on_recovery_completed">
+<em class="property">async </em><code class="sig-name descname">on_recovery_completed</code><span class="sig-paren">(</span><em class="sig-param">active_tps: Set[faust.types.tuples.TP], standby_tps: Set[faust.types.tuples.TP]</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/tables/base.html#Collection.on_recovery_completed"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.tables.base.Collection.on_recovery_completed" title="Permalink to this definition">¶</a></dt>
+<dd><p>Call when recovery has completed after rebalancing.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.tables.base.Collection.call_recover_callbacks">
+<em class="property">async </em><code class="sig-name descname">call_recover_callbacks</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/tables/base.html#Collection.call_recover_callbacks"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.tables.base.Collection.call_recover_callbacks" title="Permalink to this definition">¶</a></dt>
+<dd><p>Call any configured recovery callbacks after rebalancing.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.tables.base.Collection.on_changelog_event">
+<em class="property">async </em><code class="sig-name descname">on_changelog_event</code><span class="sig-paren">(</span><em class="sig-param">event: faust.types.events.EventT</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/tables/base.html#Collection.on_changelog_event"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.tables.base.Collection.on_changelog_event" title="Permalink to this definition">¶</a></dt>
+<dd><p>Call when a new changelog event is received.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.tables.base.Collection.label">
+<em class="property">property </em><code class="sig-name descname">label</code><a class="headerlink" href="#faust.tables.base.Collection.label" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return human-readable label used to represent this table.
+:rtype: <a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.tables.base.Collection.shortlabel">
+<em class="property">property </em><code class="sig-name descname">shortlabel</code><a class="headerlink" href="#faust.tables.base.Collection.shortlabel" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return short label used to represent this table in logs.
+:rtype: <a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.tables.base.Collection.changelog_topic">
+<em class="property">property </em><code class="sig-name descname">changelog_topic</code><a class="headerlink" href="#faust.tables.base.Collection.changelog_topic" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return the changelog topic used by this table.
+:rtype: <a class="reference internal" href="faust.types.topics.html#faust.types.topics.TopicT" title="faust.types.topics.TopicT"><code class="xref py py-class docutils literal notranslate"><span class="pre">TopicT</span></code></a>[]</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.tables.base.Collection.logger">
+<code class="sig-name descname">logger</code><em class="property"> = &lt;Logger faust.tables.base (WARNING)&gt;</em><a class="headerlink" href="#faust.tables.base.Collection.logger" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="faust.tables.base.Collection.changelog_topic_name">
+<em class="property">property </em><code class="sig-name descname">changelog_topic_name</code><a class="headerlink" href="#faust.tables.base.Collection.changelog_topic_name" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.tables.base.Collection.apply_changelog_batch">
+<code class="sig-name descname">apply_changelog_batch</code><span class="sig-paren">(</span><em class="sig-param">batch: Iterable[faust.types.events.EventT]</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/tables/base.html#Collection.apply_changelog_batch"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.tables.base.Collection.apply_changelog_batch" title="Permalink to this definition">¶</a></dt>
+<dd><p>Apply batch of events from changelog topic local table storage.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../playbooks/index.html">Playbooks</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../userguide/index.html">User Guide</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../history/index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">API Reference</a><ul>
+      <li>Previous: <a href="faust.tables.html" title="previous chapter"><code class="docutils literal notranslate"><span class="pre">faust.tables</span></code></a></li>
+      <li>Next: <a href="faust.tables.globaltable.html" title="next chapter"><code class="docutils literal notranslate"><span class="pre">faust.tables.globaltable</span></code></a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2020, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../_sources/reference/faust.tables.base.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

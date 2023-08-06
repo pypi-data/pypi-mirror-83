@@ -1,0 +1,544 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>faust.assignor.partition_assignor &#8212; Faust 1.11.0a1 documentation</title>
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../../../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <link rel="copyright" title="Copyright" href="../../../copyright.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for faust.assignor.partition_assignor</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Partition assignor.&quot;&quot;&quot;</span>
+<span class="kn">import</span> <span class="nn">socket</span>
+<span class="kn">import</span> <span class="nn">zlib</span>
+
+<span class="kn">from</span> <span class="nn">collections</span> <span class="k">import</span> <span class="n">defaultdict</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">Iterable</span><span class="p">,</span>
+    <span class="n">List</span><span class="p">,</span>
+    <span class="n">Mapping</span><span class="p">,</span>
+    <span class="n">MutableMapping</span><span class="p">,</span>
+    <span class="n">Sequence</span><span class="p">,</span>
+    <span class="n">Set</span><span class="p">,</span>
+    <span class="n">cast</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="kn">from</span> <span class="nn">kafka.cluster</span> <span class="k">import</span> <span class="n">ClusterMetadata</span>
+<span class="kn">from</span> <span class="nn">kafka.coordinator.assignors.abstract</span> <span class="k">import</span> <span class="n">AbstractPartitionAssignor</span>
+<span class="kn">from</span> <span class="nn">kafka.coordinator.protocol</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">ConsumerProtocolMemberAssignment</span><span class="p">,</span>
+    <span class="n">ConsumerProtocolMemberMetadata</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">mode</span> <span class="k">import</span> <span class="n">get_logger</span>
+<span class="kn">from</span> <span class="nn">yarl</span> <span class="k">import</span> <span class="n">URL</span>
+
+<span class="kn">from</span> <span class="nn">faust.types.app</span> <span class="k">import</span> <span class="n">AppT</span>
+<span class="kn">from</span> <span class="nn">faust.types.assignor</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">HostToPartitionMap</span><span class="p">,</span>
+    <span class="n">PartitionAssignorT</span><span class="p">,</span>
+    <span class="n">TopicToPartitionMap</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">faust.types.tables</span> <span class="k">import</span> <span class="n">TableManagerT</span>
+<span class="kn">from</span> <span class="nn">faust.types.tuples</span> <span class="k">import</span> <span class="n">TP</span>
+
+<span class="kn">from</span> <span class="nn">.client_assignment</span> <span class="k">import</span> <span class="n">ClientAssignment</span><span class="p">,</span> <span class="n">ClientMetadata</span>
+<span class="kn">from</span> <span class="nn">.cluster_assignment</span> <span class="k">import</span> <span class="n">ClusterAssignment</span>
+<span class="kn">from</span> <span class="nn">.copartitioned_assignor</span> <span class="k">import</span> <span class="n">CopartitionedAssignor</span>
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="s1">&#39;MemberAssignmentMapping&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;MemberMetadataMapping&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;MemberSubscriptionMapping&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;ClientMetadataMapping&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;ClientAssignmentMapping&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;CopartitionedGroups&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;PartitionAssignor&#39;</span><span class="p">,</span>
+<span class="p">]</span>
+
+<span class="n">MemberAssignmentMapping</span> <span class="o">=</span> <span class="n">MutableMapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">ConsumerProtocolMemberAssignment</span><span class="p">]</span>
+<span class="n">MemberMetadataMapping</span> <span class="o">=</span> <span class="n">MutableMapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">ConsumerProtocolMemberMetadata</span><span class="p">]</span>
+<span class="n">MemberSubscriptionMapping</span> <span class="o">=</span> <span class="n">MutableMapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span>
+<span class="n">ClientMetadataMapping</span> <span class="o">=</span> <span class="n">MutableMapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">ClientMetadata</span><span class="p">]</span>
+<span class="n">ClientAssignmentMapping</span> <span class="o">=</span> <span class="n">MutableMapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">ClientAssignment</span><span class="p">]</span>
+<span class="n">CopartitionedGroups</span> <span class="o">=</span> <span class="n">MutableMapping</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Set</span><span class="p">[</span><span class="nb">str</span><span class="p">]]]</span>
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">get_logger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="PartitionAssignor"><a class="viewcode-back" href="../../../reference/faust.assignor.partition_assignor.html#faust.assignor.partition_assignor.PartitionAssignor">[docs]</a><span class="k">class</span> <span class="nc">PartitionAssignor</span><span class="p">(</span>
+        <span class="n">AbstractPartitionAssignor</span><span class="p">,</span> <span class="n">PartitionAssignorT</span><span class="p">):</span>  <span class="c1"># type: ignore</span>
+    <span class="sd">&quot;&quot;&quot;PartitionAssignor handles internal topic creation.</span>
+
+<span class="sd">    Further, this assignor needs to be sticky and potentially redundant</span>
+
+<span class="sd">    Notes:</span>
+<span class="sd">        Interface copied from :mod:`kafka.coordinator.assignors.abstract`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">_assignment</span><span class="p">:</span> <span class="n">ClientAssignment</span>
+    <span class="n">_table_manager</span><span class="p">:</span> <span class="n">TableManagerT</span>
+    <span class="n">_member_urls</span><span class="p">:</span> <span class="n">MutableMapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span>
+    <span class="n">_changelog_distribution</span><span class="p">:</span> <span class="n">HostToPartitionMap</span>
+    <span class="n">_active_tps</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="n">TP</span><span class="p">]</span>
+    <span class="n">_standby_tps</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="n">TP</span><span class="p">]</span>
+    <span class="n">_tps_url</span><span class="p">:</span> <span class="n">MutableMapping</span><span class="p">[</span><span class="n">TP</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span>
+    <span class="n">_topic_groups</span><span class="p">:</span> <span class="n">MutableMapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">app</span><span class="p">:</span> <span class="n">AppT</span><span class="p">,</span> <span class="n">replicas</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">AbstractPartitionAssignor</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">app</span> <span class="o">=</span> <span class="n">app</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_table_manager</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">tables</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_assignment</span> <span class="o">=</span> <span class="n">ClientAssignment</span><span class="p">(</span><span class="n">actives</span><span class="o">=</span><span class="p">{},</span> <span class="n">standbys</span><span class="o">=</span><span class="p">{})</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_changelog_distribution</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">replicas</span> <span class="o">=</span> <span class="n">replicas</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_member_urls</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_tps_url</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_active_tps</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_standby_tps</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_topic_groups</span> <span class="o">=</span> <span class="p">{}</span>
+
+<div class="viewcode-block" id="PartitionAssignor.group_for_topic"><a class="viewcode-back" href="../../../reference/faust.assignor.partition_assignor.html#faust.assignor.partition_assignor.PartitionAssignor.group_for_topic">[docs]</a>    <span class="k">def</span> <span class="nf">group_for_topic</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">topic</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_topic_groups</span><span class="p">[</span><span class="n">topic</span><span class="p">]</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">changelog_distribution</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">HostToPartitionMap</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_changelog_distribution</span>
+
+    <span class="nd">@changelog_distribution</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">changelog_distribution</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">HostToPartitionMap</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_changelog_distribution</span> <span class="o">=</span> <span class="n">value</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_tps_url</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">TP</span><span class="p">(</span><span class="n">topic</span><span class="p">,</span> <span class="n">partition</span><span class="p">):</span> <span class="n">url</span>
+            <span class="k">for</span> <span class="n">url</span><span class="p">,</span> <span class="n">tps</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_changelog_distribution</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+            <span class="k">for</span> <span class="n">topic</span><span class="p">,</span> <span class="n">partitions</span> <span class="ow">in</span> <span class="n">tps</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">for</span> <span class="n">partition</span> <span class="ow">in</span> <span class="n">partitions</span>
+        <span class="p">}</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">_metadata</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ClientMetadata</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">ClientMetadata</span><span class="p">(</span>
+            <span class="n">assignment</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_assignment</span><span class="p">,</span>
+            <span class="n">url</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_url</span><span class="p">),</span>
+            <span class="n">changelog_distribution</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">changelog_distribution</span><span class="p">,</span>
+            <span class="n">topic_groups</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_topic_groups</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">_url</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">URL</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">conf</span><span class="o">.</span><span class="n">canonical_url</span>
+
+<div class="viewcode-block" id="PartitionAssignor.on_assignment"><a class="viewcode-back" href="../../../reference/faust.assignor.partition_assignor.html#faust.assignor.partition_assignor.PartitionAssignor.on_assignment">[docs]</a>    <span class="k">def</span> <span class="nf">on_assignment</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span> <span class="n">assignment</span><span class="p">:</span> <span class="n">ConsumerProtocolMemberMetadata</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">metadata</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">ClientMetadata</span><span class="p">,</span>
+                        <span class="n">ClientMetadata</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span>
+                            <span class="bp">self</span><span class="o">.</span><span class="n">_decompress</span><span class="p">(</span><span class="n">assignment</span><span class="o">.</span><span class="n">user_data</span><span class="p">)))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_assignment</span> <span class="o">=</span> <span class="n">metadata</span><span class="o">.</span><span class="n">assignment</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_topic_groups</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">metadata</span><span class="o">.</span><span class="n">topic_groups</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_active_tps</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_assignment</span><span class="o">.</span><span class="n">active_tps</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_standby_tps</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_assignment</span><span class="o">.</span><span class="n">standby_tps</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">changelog_distribution</span> <span class="o">=</span> <span class="n">metadata</span><span class="o">.</span><span class="n">changelog_distribution</span>
+        <span class="n">a</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">assignment</span><span class="o">.</span><span class="n">assignment</span><span class="p">)</span>
+        <span class="n">b</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_assignment</span><span class="o">.</span><span class="n">kafka_protocol_assignment</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_table_manager</span><span class="p">))</span>
+        <span class="k">assert</span> <span class="n">a</span> <span class="o">==</span> <span class="n">b</span><span class="p">,</span> <span class="n">f</span><span class="s1">&#39;</span><span class="si">{a!r}</span><span class="s1"> != </span><span class="si">{b!r}</span><span class="s1">&#39;</span>
+        <span class="k">assert</span> <span class="n">metadata</span><span class="o">.</span><span class="n">url</span> <span class="o">==</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_url</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="PartitionAssignor.metadata"><a class="viewcode-back" href="../../../reference/faust.assignor.partition_assignor.html#faust.assignor.partition_assignor.PartitionAssignor.metadata">[docs]</a>    <span class="k">def</span> <span class="nf">metadata</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">topics</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">ConsumerProtocolMemberMetadata</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">ConsumerProtocolMemberMetadata</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">version</span><span class="p">,</span> <span class="nb">list</span><span class="p">(</span><span class="n">topics</span><span class="p">),</span>
+                                              <span class="bp">self</span><span class="o">.</span><span class="n">_metadata</span><span class="o">.</span><span class="n">dumps</span><span class="p">())</span></div>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_group_co_subscribed</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">topics</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+                             <span class="n">subscriptions</span><span class="p">:</span> <span class="n">MemberSubscriptionMapping</span><span class="p">,</span>
+                             <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Set</span><span class="p">[</span><span class="nb">str</span><span class="p">]]:</span>
+        <span class="n">topic_subscriptions</span><span class="p">:</span> <span class="n">MutableMapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Set</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">set</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">client</span><span class="p">,</span> <span class="n">subscription</span> <span class="ow">in</span> <span class="n">subscriptions</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">for</span> <span class="n">topic</span> <span class="ow">in</span> <span class="n">subscription</span><span class="p">:</span>
+                <span class="n">topic_subscriptions</span><span class="p">[</span><span class="n">topic</span><span class="p">]</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">client</span><span class="p">)</span>
+        <span class="n">co_subscribed</span><span class="p">:</span> <span class="n">MutableMapping</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">Set</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span>
+            <span class="nb">set</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">topic</span> <span class="ow">in</span> <span class="n">topics</span><span class="p">:</span>
+            <span class="n">clients</span> <span class="o">=</span> <span class="n">topic_subscriptions</span><span class="p">[</span><span class="n">topic</span><span class="p">]</span>
+            <span class="k">assert</span> <span class="n">clients</span><span class="p">,</span> <span class="s1">&#39;Subscribed clients for topic cannot be empty&#39;</span>
+            <span class="n">co_subscribed</span><span class="p">[</span><span class="nb">tuple</span><span class="p">(</span><span class="n">clients</span><span class="p">)]</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">topic</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">co_subscribed</span><span class="o">.</span><span class="n">values</span><span class="p">()</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_get_copartitioned_groups</span><span class="p">(</span>
+            <span class="bp">cls</span><span class="p">,</span> <span class="n">topics</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+            <span class="n">cluster</span><span class="p">:</span> <span class="n">ClusterMetadata</span><span class="p">,</span>
+            <span class="n">subscriptions</span><span class="p">:</span> <span class="n">MemberSubscriptionMapping</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CopartitionedGroups</span><span class="p">:</span>
+        <span class="n">topics_by_partitions</span><span class="p">:</span> <span class="n">MutableMapping</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">Set</span><span class="p">]</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">set</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">topic</span> <span class="ow">in</span> <span class="n">topics</span><span class="p">:</span>
+            <span class="n">num_partitions</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">cluster</span><span class="o">.</span><span class="n">partitions_for_topic</span><span class="p">(</span><span class="n">topic</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">set</span><span class="p">())</span>
+            <span class="k">if</span> <span class="n">num_partitions</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s1">&#39;Ignoring missing topic: </span><span class="si">%r</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">topic</span><span class="p">)</span>
+                <span class="k">continue</span>
+            <span class="n">topics_by_partitions</span><span class="p">[</span><span class="n">num_partitions</span><span class="p">]</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">topic</span><span class="p">)</span>
+        <span class="c1"># We group copartitioned topics by subscribed clients such that</span>
+        <span class="c1"># a group of co-subscribed topics with the same number of partitions</span>
+        <span class="c1"># are copartitioned</span>
+        <span class="n">copart_grouped</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">num_partitions</span><span class="p">:</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_group_co_subscribed</span><span class="p">(</span><span class="n">topics</span><span class="p">,</span> <span class="n">subscriptions</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">num_partitions</span><span class="p">,</span> <span class="n">topics</span> <span class="ow">in</span> <span class="n">topics_by_partitions</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+        <span class="p">}</span>
+        <span class="k">return</span> <span class="n">copart_grouped</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_get_client_metadata</span><span class="p">(</span>
+            <span class="bp">cls</span><span class="p">,</span> <span class="n">metadata</span><span class="p">:</span> <span class="n">ConsumerProtocolMemberMetadata</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ClientMetadata</span><span class="p">:</span>
+        <span class="n">client_metadata</span> <span class="o">=</span> <span class="n">ClientMetadata</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">metadata</span><span class="o">.</span><span class="n">user_data</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="n">ClientMetadata</span><span class="p">,</span> <span class="n">client_metadata</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_update_member_urls</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                            <span class="n">clients_metadata</span><span class="p">:</span> <span class="n">ClientMetadataMapping</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_member_urls</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">member_id</span><span class="p">:</span> <span class="n">client_metadata</span><span class="o">.</span><span class="n">url</span>
+            <span class="k">for</span> <span class="n">member_id</span><span class="p">,</span> <span class="n">client_metadata</span> <span class="ow">in</span> <span class="n">clients_metadata</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+        <span class="p">}</span>
+
+<div class="viewcode-block" id="PartitionAssignor.assign"><a class="viewcode-back" href="../../../reference/faust.assignor.partition_assignor.html#faust.assignor.partition_assignor.PartitionAssignor.assign">[docs]</a>    <span class="k">def</span> <span class="nf">assign</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">cluster</span><span class="p">:</span> <span class="n">ClusterMetadata</span><span class="p">,</span>
+            <span class="n">member_metadata</span><span class="p">:</span> <span class="n">MemberMetadataMapping</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MemberAssignmentMapping</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">tracer</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_trace_assign</span><span class="p">(</span><span class="n">cluster</span><span class="p">,</span> <span class="n">member_metadata</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_assign</span><span class="p">(</span><span class="n">cluster</span><span class="p">,</span> <span class="n">member_metadata</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_trace_assign</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">cluster</span><span class="p">:</span> <span class="n">ClusterMetadata</span><span class="p">,</span>
+            <span class="n">member_metadata</span><span class="p">:</span> <span class="n">MemberMetadataMapping</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MemberAssignmentMapping</span><span class="p">:</span>
+        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">tracer</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="n">span</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">tracer</span><span class="o">.</span><span class="n">get_tracer</span><span class="p">(</span><span class="s1">&#39;_faust&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">start_span</span><span class="p">(</span>
+            <span class="n">operation_name</span><span class="o">=</span><span class="s1">&#39;coordinator_assignment&#39;</span><span class="p">,</span>
+            <span class="n">tags</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;hostname&#39;</span><span class="p">:</span> <span class="n">socket</span><span class="o">.</span><span class="n">gethostname</span><span class="p">()},</span>
+        <span class="p">)</span>
+        <span class="k">with</span> <span class="n">span</span><span class="p">:</span>
+            <span class="n">assignment</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_assign</span><span class="p">(</span><span class="n">cluster</span><span class="p">,</span> <span class="n">member_metadata</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">_span_add_default_tags</span><span class="p">(</span><span class="n">span</span><span class="p">)</span>
+            <span class="n">span</span><span class="o">.</span><span class="n">set_tag</span><span class="p">(</span><span class="s1">&#39;assignment&#39;</span><span class="p">,</span> <span class="n">assignment</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">assignment</span>
+
+    <span class="k">def</span> <span class="nf">_assign</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">cluster</span><span class="p">:</span> <span class="n">ClusterMetadata</span><span class="p">,</span>
+            <span class="n">member_metadata</span><span class="p">:</span> <span class="n">MemberMetadataMapping</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MemberAssignmentMapping</span><span class="p">:</span>
+        <span class="n">sensor_state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">sensors</span><span class="o">.</span><span class="n">on_assignment_start</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">assignment</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_perform_assignment</span><span class="p">(</span><span class="n">cluster</span><span class="p">,</span> <span class="n">member_metadata</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">MemoryError</span><span class="p">:</span>
+            <span class="k">raise</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">sensors</span><span class="o">.</span><span class="n">on_assignment_error</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sensor_state</span><span class="p">,</span> <span class="n">exc</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">sensors</span><span class="o">.</span><span class="n">on_assignment_completed</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sensor_state</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">assignment</span>
+
+    <span class="k">def</span> <span class="nf">_perform_assignment</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">cluster</span><span class="p">:</span> <span class="n">ClusterMetadata</span><span class="p">,</span>
+            <span class="n">member_metadata</span><span class="p">:</span> <span class="n">MemberMetadataMapping</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MemberAssignmentMapping</span><span class="p">:</span>
+        <span class="n">cluster_assgn</span> <span class="o">=</span> <span class="n">ClusterAssignment</span><span class="p">()</span>
+
+        <span class="n">clients_metadata</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">member_id</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_client_metadata</span><span class="p">(</span><span class="n">metadata</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">member_id</span><span class="p">,</span> <span class="n">metadata</span> <span class="ow">in</span> <span class="n">member_metadata</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+        <span class="p">}</span>
+
+        <span class="n">subscriptions</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">member_id</span><span class="p">:</span> <span class="n">cast</span><span class="p">(</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">metadata</span><span class="o">.</span><span class="n">subscription</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">member_id</span><span class="p">,</span> <span class="n">metadata</span> <span class="ow">in</span> <span class="n">member_metadata</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+        <span class="p">}</span>
+
+        <span class="k">for</span> <span class="n">member_id</span> <span class="ow">in</span> <span class="n">member_metadata</span><span class="p">:</span>
+            <span class="n">cluster_assgn</span><span class="o">.</span><span class="n">add_client</span><span class="p">(</span><span class="n">member_id</span><span class="p">,</span> <span class="n">subscriptions</span><span class="p">[</span><span class="n">member_id</span><span class="p">],</span>
+                                     <span class="n">clients_metadata</span><span class="p">[</span><span class="n">member_id</span><span class="p">])</span>
+        <span class="n">topics</span> <span class="o">=</span> <span class="n">cluster_assgn</span><span class="o">.</span><span class="n">topics</span><span class="p">()</span>
+
+        <span class="n">copartitioned_groups</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_copartitioned_groups</span><span class="p">(</span>
+            <span class="n">topics</span><span class="p">,</span> <span class="n">cluster</span><span class="p">,</span> <span class="n">subscriptions</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_update_member_urls</span><span class="p">(</span><span class="n">clients_metadata</span><span class="p">)</span>
+
+        <span class="c1"># Initialize fresh assignment</span>
+        <span class="n">assignments</span><span class="p">:</span> <span class="n">ClientAssignmentMapping</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">member_id</span><span class="p">:</span> <span class="n">ClientAssignment</span><span class="p">(</span><span class="n">actives</span><span class="o">=</span><span class="p">{},</span> <span class="n">standbys</span><span class="o">=</span><span class="p">{})</span>
+            <span class="k">for</span> <span class="n">member_id</span> <span class="ow">in</span> <span class="n">member_metadata</span>
+        <span class="p">}</span>
+
+        <span class="n">topic_to_group_id</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">partitions_by_topic</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="k">for</span> <span class="n">group_id</span><span class="p">,</span> <span class="p">(</span><span class="n">num_partitions</span><span class="p">,</span> <span class="n">topic_groups</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span>
+                <span class="n">copartitioned_groups</span><span class="o">.</span><span class="n">items</span><span class="p">())):</span>
+            <span class="k">for</span> <span class="n">topics</span> <span class="ow">in</span> <span class="n">topic_groups</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">topic</span> <span class="ow">in</span> <span class="n">topics</span><span class="p">:</span>
+                    <span class="n">topic_to_group_id</span><span class="p">[</span><span class="n">topic</span><span class="p">]</span> <span class="o">=</span> <span class="n">group_id</span>
+                    <span class="n">partitions_by_topic</span><span class="p">[</span><span class="n">topic</span><span class="p">]</span> <span class="o">=</span> <span class="n">num_partitions</span>
+                <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">topics</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">num_partitions</span> <span class="o">&gt;</span> <span class="mi">0</span>
+                <span class="c1"># Get assignment for unique copartitioned group</span>
+                <span class="n">assgn</span> <span class="o">=</span> <span class="n">cluster_assgn</span><span class="o">.</span><span class="n">copartitioned_assignments</span><span class="p">(</span><span class="n">topics</span><span class="p">)</span>
+                <span class="n">assignor</span> <span class="o">=</span> <span class="n">CopartitionedAssignor</span><span class="p">(</span>
+                    <span class="n">topics</span><span class="o">=</span><span class="n">topics</span><span class="p">,</span>
+                    <span class="n">cluster_asgn</span><span class="o">=</span><span class="n">assgn</span><span class="p">,</span>
+                    <span class="n">num_partitions</span><span class="o">=</span><span class="n">num_partitions</span><span class="p">,</span>
+                    <span class="n">replicas</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">replicas</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="c1"># Update client assignments for copartitioned group</span>
+                <span class="k">for</span> <span class="n">client</span><span class="p">,</span> <span class="n">copart_assn</span> <span class="ow">in</span> <span class="n">assignor</span><span class="o">.</span><span class="n">get_assignment</span><span class="p">()</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                    <span class="n">assignments</span><span class="p">[</span><span class="n">client</span><span class="p">]</span><span class="o">.</span><span class="n">add_copartitioned_assignment</span><span class="p">(</span>
+                        <span class="n">copart_assn</span><span class="p">)</span>
+
+        <span class="c1"># Add all changelogs of global tables as standby for all members</span>
+        <span class="n">assignments</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_global_table_standby_assignments</span><span class="p">(</span>
+            <span class="n">assignments</span><span class="p">,</span> <span class="n">partitions_by_topic</span><span class="p">)</span>
+
+        <span class="n">changelog_distribution</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_changelog_distribution</span><span class="p">(</span><span class="n">assignments</span><span class="p">)</span>
+        <span class="n">res</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_protocol_assignments</span><span class="p">(</span>
+            <span class="n">assignments</span><span class="p">,</span>
+            <span class="n">changelog_distribution</span><span class="p">,</span>
+            <span class="n">topic_to_group_id</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">res</span>
+
+    <span class="k">def</span> <span class="nf">_global_table_standby_assignments</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">assignments</span><span class="p">:</span> <span class="n">ClientAssignmentMapping</span><span class="p">,</span>
+            <span class="n">partitions_by_topic</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">ClientAssignmentMapping</span><span class="p">:</span>
+        <span class="c1"># Ensures all members have access to all changelog partitions</span>
+        <span class="c1"># as standbys, if not already as actives</span>
+        <span class="k">for</span> <span class="n">table</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_table_manager</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+            <span class="c1"># Add changelog standbys only if global table</span>
+            <span class="k">if</span> <span class="n">table</span><span class="o">.</span><span class="n">is_global</span><span class="p">:</span>
+                <span class="n">changelog_topic_name</span> <span class="o">=</span> <span class="n">table</span><span class="o">.</span><span class="n">_changelog_topic_name</span><span class="p">()</span>
+                <span class="n">num_partitions</span> <span class="o">=</span> <span class="n">partitions_by_topic</span><span class="p">[</span><span class="n">changelog_topic_name</span><span class="p">]</span>
+                <span class="k">assert</span> <span class="n">num_partitions</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+                <span class="n">all_partitions</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">num_partitions</span><span class="p">))</span>
+                <span class="k">for</span> <span class="n">assignment</span> <span class="ow">in</span> <span class="n">assignments</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+                    <span class="n">active_partitions</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span>
+                        <span class="n">assignment</span><span class="o">.</span><span class="n">actives</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
+                            <span class="n">changelog_topic_name</span><span class="p">,</span> <span class="p">[]))</span>
+                    <span class="c1"># Only add those partitions as standby which aren&#39;t active</span>
+                    <span class="n">standby_partitions</span> <span class="o">=</span> <span class="n">all_partitions</span> <span class="o">-</span> <span class="n">active_partitions</span>
+                    <span class="n">assignment</span><span class="o">.</span><span class="n">standbys</span><span class="p">[</span>
+                        <span class="n">changelog_topic_name</span><span class="p">]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">standby_partitions</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">assignments</span>
+
+    <span class="k">def</span> <span class="nf">_protocol_assignments</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">assignments</span><span class="p">:</span> <span class="n">ClientAssignmentMapping</span><span class="p">,</span>
+            <span class="n">cl_distribution</span><span class="p">:</span> <span class="n">HostToPartitionMap</span><span class="p">,</span>
+            <span class="n">topic_groups</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">MemberAssignmentMapping</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="n">client</span><span class="p">:</span> <span class="n">ConsumerProtocolMemberAssignment</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">version</span><span class="p">,</span>
+                <span class="nb">sorted</span><span class="p">(</span>
+                    <span class="n">assignment</span><span class="o">.</span><span class="n">kafka_protocol_assignment</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_table_manager</span><span class="p">)),</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_compress</span><span class="p">(</span>
+                    <span class="n">ClientMetadata</span><span class="p">(</span>
+                        <span class="n">assignment</span><span class="o">=</span><span class="n">assignment</span><span class="p">,</span>
+                        <span class="n">url</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_member_urls</span><span class="p">[</span><span class="n">client</span><span class="p">],</span>
+                        <span class="n">changelog_distribution</span><span class="o">=</span><span class="n">cl_distribution</span><span class="p">,</span>
+                        <span class="n">topic_groups</span><span class="o">=</span><span class="n">topic_groups</span><span class="p">,</span>
+                    <span class="p">)</span><span class="o">.</span><span class="n">dumps</span><span class="p">(),</span>
+                <span class="p">),</span>
+            <span class="p">)</span>
+            <span class="k">for</span> <span class="n">client</span><span class="p">,</span> <span class="n">assignment</span> <span class="ow">in</span> <span class="n">assignments</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+        <span class="p">}</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_compress</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">raw</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bytes</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">zlib</span><span class="o">.</span><span class="n">compress</span><span class="p">(</span><span class="n">raw</span><span class="p">)</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_decompress</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">compressed</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bytes</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">zlib</span><span class="o">.</span><span class="n">decompress</span><span class="p">(</span><span class="n">compressed</span><span class="p">)</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_topics_filtered</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">assignment</span><span class="p">:</span> <span class="n">TopicToPartitionMap</span><span class="p">,</span>
+                         <span class="n">topics</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">TopicToPartitionMap</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="n">topic</span><span class="p">:</span> <span class="n">partitions</span>
+            <span class="k">for</span> <span class="n">topic</span><span class="p">,</span> <span class="n">partitions</span> <span class="ow">in</span> <span class="n">assignment</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">topic</span> <span class="ow">in</span> <span class="n">topics</span>
+        <span class="p">}</span>
+
+    <span class="k">def</span> <span class="nf">_get_changelog_distribution</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span> <span class="n">assignments</span><span class="p">:</span> <span class="n">ClientAssignmentMapping</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">HostToPartitionMap</span><span class="p">:</span>
+        <span class="n">topics</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_table_manager</span><span class="o">.</span><span class="n">changelog_topics</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_member_urls</span><span class="p">[</span><span class="n">client</span><span class="p">]:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_topics_filtered</span><span class="p">(</span>
+                <span class="n">assignment</span><span class="o">.</span><span class="n">actives</span><span class="p">,</span> <span class="n">topics</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">client</span><span class="p">,</span> <span class="n">assignment</span> <span class="ow">in</span> <span class="n">assignments</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+        <span class="p">}</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">name</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s1">&#39;faust&#39;</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">version</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="k">return</span> <span class="mi">4</span>
+
+<div class="viewcode-block" id="PartitionAssignor.assigned_standbys"><a class="viewcode-back" href="../../../reference/faust.assignor.partition_assignor.html#faust.assignor.partition_assignor.PartitionAssignor.assigned_standbys">[docs]</a>    <span class="k">def</span> <span class="nf">assigned_standbys</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Set</span><span class="p">[</span><span class="n">TP</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="n">TP</span><span class="p">(</span><span class="n">topic</span><span class="p">,</span> <span class="n">partition</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">topic</span><span class="p">,</span> <span class="n">partitions</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_assignment</span><span class="o">.</span><span class="n">standbys</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+            <span class="k">for</span> <span class="n">partition</span> <span class="ow">in</span> <span class="n">partitions</span>
+        <span class="p">}</span></div>
+
+<div class="viewcode-block" id="PartitionAssignor.assigned_actives"><a class="viewcode-back" href="../../../reference/faust.assignor.partition_assignor.html#faust.assignor.partition_assignor.PartitionAssignor.assigned_actives">[docs]</a>    <span class="k">def</span> <span class="nf">assigned_actives</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Set</span><span class="p">[</span><span class="n">TP</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="n">TP</span><span class="p">(</span><span class="n">topic</span><span class="p">,</span> <span class="n">partition</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">topic</span><span class="p">,</span> <span class="n">partitions</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_assignment</span><span class="o">.</span><span class="n">actives</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+            <span class="k">for</span> <span class="n">partition</span> <span class="ow">in</span> <span class="n">partitions</span>
+        <span class="p">}</span></div>
+
+<div class="viewcode-block" id="PartitionAssignor.table_metadata"><a class="viewcode-back" href="../../../reference/faust.assignor.partition_assignor.html#faust.assignor.partition_assignor.PartitionAssignor.table_metadata">[docs]</a>    <span class="k">def</span> <span class="nf">table_metadata</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">topic</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">HostToPartitionMap</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="n">host</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_topics_filtered</span><span class="p">(</span><span class="n">assignment</span><span class="p">,</span> <span class="p">{</span><span class="n">topic</span><span class="p">})</span>
+            <span class="k">for</span> <span class="n">host</span><span class="p">,</span> <span class="n">assignment</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">changelog_distribution</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+        <span class="p">}</span></div>
+
+<div class="viewcode-block" id="PartitionAssignor.tables_metadata"><a class="viewcode-back" href="../../../reference/faust.assignor.partition_assignor.html#faust.assignor.partition_assignor.PartitionAssignor.tables_metadata">[docs]</a>    <span class="k">def</span> <span class="nf">tables_metadata</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">HostToPartitionMap</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">changelog_distribution</span></div>
+
+<div class="viewcode-block" id="PartitionAssignor.key_store"><a class="viewcode-back" href="../../../reference/faust.assignor.partition_assignor.html#faust.assignor.partition_assignor.PartitionAssignor.key_store">[docs]</a>    <span class="k">def</span> <span class="nf">key_store</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">topic</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">URL</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">URL</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_tps_url</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">producer</span><span class="o">.</span><span class="n">key_partition</span><span class="p">(</span><span class="n">topic</span><span class="p">,</span> <span class="n">key</span><span class="p">)])</span></div>
+
+<div class="viewcode-block" id="PartitionAssignor.is_active"><a class="viewcode-back" href="../../../reference/faust.assignor.partition_assignor.html#faust.assignor.partition_assignor.PartitionAssignor.is_active">[docs]</a>    <span class="k">def</span> <span class="nf">is_active</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tp</span><span class="p">:</span> <span class="n">TP</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">tp</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_active_tps</span></div>
+
+<div class="viewcode-block" id="PartitionAssignor.is_standby"><a class="viewcode-back" href="../../../reference/faust.assignor.partition_assignor.html#faust.assignor.partition_assignor.PartitionAssignor.is_standby">[docs]</a>    <span class="k">def</span> <span class="nf">is_standby</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tp</span><span class="p">:</span> <span class="n">TP</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">tp</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_standby_tps</span></div></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../../index.html">
+              <img class="logo" src="../../../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../../../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../playbooks/index.html">Playbooks</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../userguide/index.html">User Guide</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../reference/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../history/index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2020, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

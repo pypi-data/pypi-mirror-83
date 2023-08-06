@@ -1,0 +1,296 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>Contributors Guide to the Code &#8212; Faust 1.11.0a1 documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="copyright" title="Copyright" href="../copyright.html" />
+    <link rel="next" title="Partition Assignor" href="partition_assignor.html" />
+    <link rel="prev" title="Developer Guide" href="index.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="contributors-guide-to-the-code">
+<span id="devguide-overview"></span><h1>Contributors Guide to the Code<a class="headerlink" href="#contributors-guide-to-the-code" title="Permalink to this headline">¶</a></h1>
+<div class="contents local topic" id="contents">
+<ul class="simple">
+<li><p><a class="reference internal" href="#module-overview" id="id1">Module Overview</a></p></li>
+<li><p><a class="reference internal" href="#services" id="id2">Services</a></p>
+<ul>
+<li><p><a class="reference internal" href="#worker" id="id3"><code class="docutils literal notranslate"><span class="pre">Worker</span></code></a></p></li>
+<li><p><a class="reference internal" href="#app" id="id4"><code class="docutils literal notranslate"><span class="pre">App</span></code></a></p></li>
+<li><p><a class="reference internal" href="#monitor" id="id5"><code class="docutils literal notranslate"><span class="pre">Monitor</span></code></a></p></li>
+<li><p><a class="reference internal" href="#producer" id="id6"><code class="docutils literal notranslate"><span class="pre">Producer</span></code></a></p></li>
+<li><p><a class="reference internal" href="#consumer" id="id7"><code class="docutils literal notranslate"><span class="pre">Consumer</span></code></a></p></li>
+<li><p><a class="reference internal" href="#agent" id="id8"><code class="docutils literal notranslate"><span class="pre">Agent</span></code></a></p></li>
+<li><p><a class="reference internal" href="#conductor" id="id9"><code class="docutils literal notranslate"><span class="pre">Conductor</span></code></a></p></li>
+<li><p><a class="reference internal" href="#tablemanager" id="id10"><code class="docutils literal notranslate"><span class="pre">TableManager</span></code></a></p></li>
+<li><p><a class="reference internal" href="#table" id="id11"><code class="docutils literal notranslate"><span class="pre">Table</span></code></a></p></li>
+<li><p><a class="reference internal" href="#store" id="id12"><code class="docutils literal notranslate"><span class="pre">Store</span></code></a></p></li>
+<li><p><a class="reference internal" href="#stream" id="id13"><code class="docutils literal notranslate"><span class="pre">Stream</span></code></a></p></li>
+<li><p><a class="reference internal" href="#fetcher" id="id14"><code class="docutils literal notranslate"><span class="pre">Fetcher</span></code></a></p></li>
+<li><p><a class="reference internal" href="#web" id="id15"><code class="docutils literal notranslate"><span class="pre">Web</span></code></a></p></li>
+</ul>
+</li>
+</ul>
+</div>
+<div class="section" id="module-overview">
+<h2><a class="toc-backref" href="#id1">Module Overview</a><a class="headerlink" href="#module-overview" title="Permalink to this headline">¶</a></h2>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">faust.app</span></code></dt><dd><p>Defines the Faust application: configuration, sending messages, etc.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">faust.cli</span></code></dt><dd><p>Command-line interface.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">faust.exceptions</span></code></dt><dd><p>All custom exceptions are defined in this module.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">faust.models</span></code></dt><dd><p>Models describe how message keys and values are serialized/deserialized.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">faust.sensors</span></code></dt><dd><p>Sensors record statistics from a running Faust application.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">faust.serializers</span></code></dt><dd><p>Serialization using JSON, and codecs for encoding.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">faust.stores</span></code></dt><dd><p>Table storage: in-memory, RocksDB, etc.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">faust.streams</span></code></dt><dd><p>Stream and table implementation.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">faust.topics</span></code></dt><dd><p>Creating topic descriptions, and tools related to topics.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">faust.transport</span></code></dt><dd><p>Message transport implementations, e.g. aiokafka.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">faust.types</span></code></dt><dd><p>Public interface for static typing.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">faust.utils</span></code></dt><dd><p>Utilities.  Note: This package is not allowed to import from the
+top-level package.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">faust.web</span></code></dt><dd><p>Web abstractions and web applications served by the Faust web server.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">faust.windows</span></code></dt><dd><p>Windowing strategies.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">faust.worker</span></code></dt><dd><p>Deployment helper for faust applications: signal handling, graceful
+shutdown, etc.</p>
+</dd>
+</dl>
+</div>
+<div class="section" id="services">
+<h2><a class="toc-backref" href="#id2">Services</a><a class="headerlink" href="#services" title="Permalink to this headline">¶</a></h2>
+<p>Everything in Faust that can be started/stopped and restarted, is a
+<code class="xref py py-class docutils literal notranslate"><span class="pre">Service</span></code>.</p>
+<p>Services can start other services, but they can also start <a class="reference external" href="https://docs.python.org/dev/library/asyncio-task.html#asyncio.Task" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">asyncio.Task</span></code></a>
+via <cite>self.add_future</cite>.  These dependencies will be started/stopped/restarted with
+the service.</p>
+<div class="section" id="worker">
+<h3><a class="toc-backref" href="#id3"><code class="docutils literal notranslate"><span class="pre">Worker</span></code></a><a class="headerlink" href="#worker" title="Permalink to this headline">¶</a></h3>
+<p>The worker can be used to start a Faust application, and performs tasks like
+setting up logging, installs signal handlers and debugging tools etc.</p>
+</div>
+<div class="section" id="app">
+<h3><a class="toc-backref" href="#id4"><code class="docutils literal notranslate"><span class="pre">App</span></code></a><a class="headerlink" href="#app" title="Permalink to this headline">¶</a></h3>
+<p>The app configures the Faust instance, and is the entry point for just about
+everything that happens in a Faust instance.  Consuming/Producing messages,
+starting streams and agents, etc.</p>
+<p>The app is usually started by <code class="docutils literal notranslate"><span class="pre">Worker</span></code>, but can also be started alone if
+less operating system interaction is wanted, like if you want to embed Faust
+in an application that already sets up signal handling and logging.</p>
+</div>
+<div class="section" id="monitor">
+<h3><a class="toc-backref" href="#id5"><code class="docutils literal notranslate"><span class="pre">Monitor</span></code></a><a class="headerlink" href="#monitor" title="Permalink to this headline">¶</a></h3>
+<p>The monitor is a feature-complete sensor that collects statistics about
+the running instance.  The monitor data can be exposed by the web server.</p>
+</div>
+<div class="section" id="producer">
+<h3><a class="toc-backref" href="#id6"><code class="docutils literal notranslate"><span class="pre">Producer</span></code></a><a class="headerlink" href="#producer" title="Permalink to this headline">¶</a></h3>
+<p>The producer is used to publish messages to Kafka topics, and is started
+whenever necessary. The App will always starts this when a Faust instance is starting,
+in anticipation of messages to be produced.</p>
+</div>
+<div class="section" id="consumer">
+<h3><a class="toc-backref" href="#id7"><code class="docutils literal notranslate"><span class="pre">Consumer</span></code></a><a class="headerlink" href="#consumer" title="Permalink to this headline">¶</a></h3>
+<p>The Consumer is responsible for consuming messages from Kafka topics, to be
+delivered to the streams.  It does not actually fetch messages (the
+<code class="docutils literal notranslate"><span class="pre">Fetcher</span></code> services does that), but it handles everything to do with
+consumption, like managing topic subscriptions etc.</p>
+</div>
+<div class="section" id="agent">
+<h3><a class="toc-backref" href="#id8"><code class="docutils literal notranslate"><span class="pre">Agent</span></code></a><a class="headerlink" href="#agent" title="Permalink to this headline">¶</a></h3>
+<p>Agents are also services, and any async function decorated using <code class="docutils literal notranslate"><span class="pre">&#64;app.agent</span></code>
+will start with the app.</p>
+</div>
+<div class="section" id="conductor">
+<h3><a class="toc-backref" href="#id9"><code class="docutils literal notranslate"><span class="pre">Conductor</span></code></a><a class="headerlink" href="#conductor" title="Permalink to this headline">¶</a></h3>
+<p>The topic conductor manages topic subscriptions, and forward messages
+from the Kafka consumer to the streams.</p>
+<p><code class="docutils literal notranslate"><span class="pre">app.stream(topic)</span></code> will iterate over the topic: <code class="docutils literal notranslate"><span class="pre">aiter(topic)</span></code>.
+The conductor feeds messages into that iteration, so the stream
+receives messages in the topic:</p>
+<div class="highlight-python3 notranslate"><div class="highlight"><pre><span></span><span class="k">async</span> <span class="k">for</span> <span class="n">event</span> <span class="ow">in</span> <span class="n">stream</span><span class="p">(</span><span class="n">event</span> <span class="k">async</span> <span class="k">for</span> <span class="n">event</span> <span class="ow">in</span> <span class="n">topic</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="tablemanager">
+<h3><a class="toc-backref" href="#id10"><code class="docutils literal notranslate"><span class="pre">TableManager</span></code></a><a class="headerlink" href="#tablemanager" title="Permalink to this headline">¶</a></h3>
+<p>Manages tables, including recovery from changelog and caching table contents.
+The table manager also starts the tables themselves, and acts as a registry of
+tables in the Faust instance.</p>
+</div>
+<div class="section" id="table">
+<h3><a class="toc-backref" href="#id11"><code class="docutils literal notranslate"><span class="pre">Table</span></code></a><a class="headerlink" href="#table" title="Permalink to this headline">¶</a></h3>
+<p>Any user defined table.</p>
+</div>
+<div class="section" id="store">
+<h3><a class="toc-backref" href="#id12"><code class="docutils literal notranslate"><span class="pre">Store</span></code></a><a class="headerlink" href="#store" title="Permalink to this headline">¶</a></h3>
+<p>Every table has a separate store, the store describes how the table is stored
+in this instance.  It could be stored in-memory (default), or as a RocksDB
+key/value database if the data set is too big to fit in  memory.</p>
+</div>
+<div class="section" id="stream">
+<h3><a class="toc-backref" href="#id13"><code class="docutils literal notranslate"><span class="pre">Stream</span></code></a><a class="headerlink" href="#stream" title="Permalink to this headline">¶</a></h3>
+<p>These are individual streams, started after everything is set up.</p>
+</div>
+<div class="section" id="fetcher">
+<h3><a class="toc-backref" href="#id14"><code class="docutils literal notranslate"><span class="pre">Fetcher</span></code></a><a class="headerlink" href="#fetcher" title="Permalink to this headline">¶</a></h3>
+<p>The Fetcher is the service that actually retrieves messages from the kafka
+topic.  The fetcher forwards these messages to the TopicManager, which in
+turns forwards it to Topic’s and streams.</p>
+</div>
+<div class="section" id="web">
+<h3><a class="toc-backref" href="#id15"><code class="docutils literal notranslate"><span class="pre">Web</span></code></a><a class="headerlink" href="#web" title="Permalink to this headline">¶</a></h3>
+<p>This is a local web server started by the app (see <code class="xref std std-setting docutils literal notranslate"><span class="pre">web_enable</span></code>
+setting).</p>
+</div>
+</div>
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../playbooks/index.html">Playbooks</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../userguide/index.html">User Guide</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Developer Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../history/index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">Developer Guide</a><ul>
+      <li>Previous: <a href="index.html" title="previous chapter">Developer Guide</a></li>
+      <li>Next: <a href="partition_assignor.html" title="next chapter">Partition Assignor</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2020, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../_sources/developerguide/overview.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

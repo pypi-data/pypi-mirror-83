@@ -1,0 +1,231 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>faust.utils._iso8601_python &#8212; Faust 1.11.0a1 documentation</title>
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../../../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <link rel="copyright" title="Copyright" href="../../../copyright.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for faust.utils._iso8601_python</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Parsing ISO dates.</span>
+
+<span class="sd">Originally taken from pyiso8601 (http://code.google.com/p/pyiso8601/)</span>
+
+<span class="sd">Modified to match the behavior of dateutil.parser:</span>
+
+<span class="sd">    - raise ValueError instead of ParseError</span>
+<span class="sd">    - return naive datetimes by default</span>
+<span class="sd">    - uses pytz.FixedOffset</span>
+
+<span class="sd">This is the original License:</span>
+
+<span class="sd">Copyright (c) 2007 Michael Twomey</span>
+
+<span class="sd">Permission is hereby granted, free of charge, to any person obtaining a</span>
+<span class="sd">copy of this software and associated documentation files (the</span>
+<span class="sd">&quot;Software&quot;), to deal in the Software without restriction, including</span>
+<span class="sd">without limitation the rights to use, copy, modify, merge, publish,</span>
+<span class="sd">distribute, sublicense, and/or sell copies of the Software, and to</span>
+<span class="sd">permit persons to whom the Software is furnished to do so, subject to</span>
+<span class="sd">the following conditions:</span>
+
+<span class="sd">The above copyright notice and this permission notice shall be included</span>
+<span class="sd">in all copies or substantial portions of the Software.</span>
+
+<span class="sd">THE SOFTWARE IS PROVIDED &quot;AS IS&quot;, WITHOUT WARRANTY OF ANY KIND, EXPRESS</span>
+<span class="sd">OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF</span>
+<span class="sd">MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.</span>
+<span class="sd">IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY</span>
+<span class="sd">CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,</span>
+<span class="sd">TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE</span>
+<span class="sd">SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">import</span> <span class="nn">re</span>
+<span class="kn">from</span> <span class="nn">datetime</span> <span class="k">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timedelta</span><span class="p">,</span> <span class="n">timezone</span><span class="p">,</span> <span class="n">tzinfo</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="k">import</span> <span class="n">Mapping</span><span class="p">,</span> <span class="n">Match</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Pattern</span><span class="p">,</span> <span class="n">cast</span>
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;parse&#39;</span><span class="p">]</span>
+
+<span class="c1"># Adapted from http://delete.me.uk/2005/03/iso8601.html</span>
+<span class="n">RE_ISO8601</span><span class="p">:</span> <span class="n">Pattern</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span>  <span class="c1"># noqa</span>
+    <span class="sa">r</span><span class="s1">&#39;(?P&lt;year&gt;[0-9]</span><span class="si">{4}</span><span class="s1">)(-(?P&lt;month&gt;[0-9]{1,2})(-(?P&lt;day&gt;[0-9]{1,2})&#39;</span>
+    <span class="sa">r</span><span class="s1">&#39;((?P&lt;separator&gt;.)(?P&lt;hour&gt;[0-9]</span><span class="si">{2}</span><span class="s1">):(?P&lt;minute&gt;[0-9]</span><span class="si">{2}</span><span class="s1">)&#39;</span>
+    <span class="sa">r</span><span class="s1">&#39;(:(?P&lt;second&gt;[0-9]</span><span class="si">{2}</span><span class="s1">)(\.(?P&lt;microsecond&gt;[0-9]+))?)?&#39;</span>
+    <span class="sa">r</span><span class="s1">&#39;(?P&lt;timezone&gt;Z|(([-+])([0-9]</span><span class="si">{2}</span><span class="s1">).?([0-9]</span><span class="si">{2}</span><span class="s1">)))?)?)?)?&#39;</span><span class="p">)</span>
+<span class="n">RE_TIMEZONE</span><span class="p">:</span> <span class="n">Pattern</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span>
+    <span class="s1">&#39;(?P&lt;prefix&gt;[+-])(?P&lt;hours&gt;[0-9]</span><span class="si">{2}</span><span class="s1">).?(?P&lt;minutes&gt;[0-9]</span><span class="si">{2}</span><span class="s1">)$&#39;</span><span class="p">)</span>
+
+
+<span class="k">class</span> <span class="nc">InvalidTZ</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Isoformat date does not have a valid timezone.&quot;&quot;&quot;</span>
+
+
+<div class="viewcode-block" id="parse"><a class="viewcode-back" href="../../../reference/faust.utils.iso8601.html#faust.utils.iso8601.parse">[docs]</a><span class="k">def</span> <span class="nf">parse</span><span class="p">(</span><span class="n">datetime_string</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">datetime</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Parse and convert ISO 8601 string into a datetime object.&quot;&quot;&quot;</span>
+    <span class="n">m</span> <span class="o">=</span> <span class="n">RE_ISO8601</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="n">datetime_string</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">m</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="n">f</span><span class="s1">&#39;unable to parse date string </span><span class="si">{datetime_string!r}</span><span class="s1">&#39;</span><span class="p">)</span>
+    <span class="n">groups</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="n">m</span><span class="o">.</span><span class="n">groupdict</span><span class="p">())</span>
+    <span class="k">return</span> <span class="n">datetime</span><span class="p">(</span>
+        <span class="nb">int</span><span class="p">(</span><span class="n">groups</span><span class="p">[</span><span class="s1">&#39;year&#39;</span><span class="p">]),</span>
+        <span class="nb">int</span><span class="p">(</span><span class="n">groups</span><span class="p">[</span><span class="s1">&#39;month&#39;</span><span class="p">]),</span>
+        <span class="nb">int</span><span class="p">(</span><span class="n">groups</span><span class="p">[</span><span class="s1">&#39;day&#39;</span><span class="p">]),</span>
+        <span class="nb">int</span><span class="p">(</span><span class="n">groups</span><span class="p">[</span><span class="s1">&#39;hour&#39;</span><span class="p">]</span> <span class="ow">or</span> <span class="mi">0</span><span class="p">),</span>
+        <span class="nb">int</span><span class="p">(</span><span class="n">groups</span><span class="p">[</span><span class="s1">&#39;minute&#39;</span><span class="p">]</span> <span class="ow">or</span> <span class="mi">0</span><span class="p">),</span>
+        <span class="nb">int</span><span class="p">(</span><span class="n">groups</span><span class="p">[</span><span class="s1">&#39;second&#39;</span><span class="p">]</span> <span class="ow">or</span> <span class="mi">0</span><span class="p">),</span>
+        <span class="nb">int</span><span class="p">(</span><span class="n">groups</span><span class="p">[</span><span class="s1">&#39;microsecond&#39;</span><span class="p">]</span> <span class="ow">or</span> <span class="mi">0</span><span class="p">),</span>
+        <span class="n">parse_tz</span><span class="p">(</span><span class="n">groups</span><span class="p">[</span><span class="s1">&#39;timezone&#39;</span><span class="p">])</span> <span class="k">if</span> <span class="n">groups</span><span class="p">[</span><span class="s1">&#39;timezone&#39;</span><span class="p">]</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+<span class="k">def</span> <span class="nf">parse_tz</span><span class="p">(</span><span class="n">tz</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">tzinfo</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">tz</span> <span class="o">==</span> <span class="s1">&#39;Z&#39;</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">timezone</span><span class="o">.</span><span class="n">utc</span>
+    <span class="n">match</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Match</span><span class="p">]</span> <span class="o">=</span> <span class="n">RE_TIMEZONE</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="n">tz</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">match</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">prefix</span><span class="p">,</span> <span class="n">hours</span><span class="p">,</span> <span class="n">minutes</span> <span class="o">=</span> <span class="n">match</span><span class="o">.</span><span class="n">groups</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">_apply_tz_prefix</span><span class="p">(</span><span class="n">prefix</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">hours</span><span class="p">),</span> <span class="nb">int</span><span class="p">(</span><span class="n">minutes</span><span class="p">))</span>
+    <span class="k">raise</span> <span class="n">InvalidTZ</span><span class="p">(</span><span class="n">f</span><span class="s1">&#39;Missing or invalid timezone information: </span><span class="si">{tz!r}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_apply_tz_prefix</span><span class="p">(</span><span class="n">prefix</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">hours</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">minutes</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">tzinfo</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">prefix</span> <span class="o">==</span> <span class="s1">&#39;-&#39;</span><span class="p">:</span>
+        <span class="n">hours</span> <span class="o">=</span> <span class="o">-</span><span class="n">hours</span>
+        <span class="n">minutes</span> <span class="o">=</span> <span class="o">-</span><span class="n">minutes</span>
+    <span class="k">return</span> <span class="n">timezone</span><span class="p">(</span><span class="n">timedelta</span><span class="p">(</span><span class="n">minutes</span><span class="o">=</span><span class="p">(</span><span class="n">minutes</span> <span class="o">+</span> <span class="p">(</span><span class="n">hours</span> <span class="o">*</span> <span class="mi">60</span><span class="p">))))</span>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../../index.html">
+              <img class="logo" src="../../../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../../../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../playbooks/index.html">Playbooks</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../userguide/index.html">User Guide</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../reference/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../history/index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  <li><a href="../utils.html">faust.utils</a><ul>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2020, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

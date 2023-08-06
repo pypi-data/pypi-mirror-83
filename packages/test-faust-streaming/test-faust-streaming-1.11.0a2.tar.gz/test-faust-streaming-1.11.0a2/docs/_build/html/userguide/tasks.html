@@ -1,0 +1,489 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>Tasks, Timers, Cron Jobs, Web Views, WebSockets and CLI Commands &#8212; Faust 1.11.0a1 documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="copyright" title="Copyright" href="../copyright.html" />
+    <link rel="next" title="Command-line Interface" href="cli.html" />
+    <link rel="prev" title="Tables and Windowing" href="tables.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="tasks-timers-cron-jobs-web-views-websockets-and-cli-commands">
+<span id="guide-tasks"></span><h1>Tasks, Timers, Cron Jobs, Web Views, WebSockets and CLI Commands<a class="headerlink" href="#tasks-timers-cron-jobs-web-views-websockets-and-cli-commands" title="Permalink to this headline">¶</a></h1>
+<div class="contents local topic" id="contents">
+<ul class="simple">
+<li><p><a class="reference internal" href="#tasks" id="id1">Tasks</a></p></li>
+<li><p><a class="reference internal" href="#timers" id="id2">Timers</a></p></li>
+<li><p><a class="reference internal" href="#cron-jobs" id="id3">Cron Jobs</a></p></li>
+<li><p><a class="reference internal" href="#web-views" id="id4">Web Views</a></p></li>
+<li><p><a class="reference internal" href="#http-verbs-get-post-put-delete" id="id5">HTTP Verbs: <code class="docutils literal notranslate"><span class="pre">GET</span></code>/<code class="docutils literal notranslate"><span class="pre">POST</span></code>/<code class="docutils literal notranslate"><span class="pre">PUT</span></code>/<code class="docutils literal notranslate"><span class="pre">DELETE</span></code></a></p></li>
+<li><p><a class="reference internal" href="#websockets" id="id6">WebSockets</a></p></li>
+<li><p><a class="reference internal" href="#cli-commands" id="id7">CLI Commands</a></p></li>
+</ul>
+</div>
+<div class="section" id="tasks">
+<span id="tasks-basics"></span><h2><a class="toc-backref" href="#id1">Tasks</a><a class="headerlink" href="#tasks" title="Permalink to this headline">¶</a></h2>
+<p>Your application will have agents that process events in streams, but
+can also start <a class="reference external" href="https://docs.python.org/dev/library/asyncio-task.html#asyncio.Task" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">asyncio.Task</span></code></a>-s that do other things,
+like periodic timers, views for the embedded web server, or additional
+command-line commands.</p>
+<p>Decorating an async function with the <cite>&#64;app.task</cite> decorator will
+tell the worker to start that function as soon as the worker is fully
+operational:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@app.task</span>
+<span class="n">async</span> <span class="k">def</span> <span class="nf">on_started</span><span class="p">():</span>
+    <span class="k">print</span><span class="p">(</span><span class="s1">&#39;APP STARTED&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>If you add the above to the module that defines your app and start the worker,
+you should see the message printed in the output of the worker.</p>
+<p>A task is a one-off task; if you want to do something at periodic
+intervals, you can use a timer.</p>
+</div>
+<div class="section" id="timers">
+<span id="tasks-timers"></span><h2><a class="toc-backref" href="#id2">Timers</a><a class="headerlink" href="#timers" title="Permalink to this headline">¶</a></h2>
+<p>A timer is a task that executes every <code class="docutils literal notranslate"><span class="pre">n</span></code> seconds:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@app.timer</span><span class="p">(</span><span class="n">interval</span><span class="o">=</span><span class="mf">60.0</span><span class="p">)</span>
+<span class="n">async</span> <span class="k">def</span> <span class="nf">every_minute</span><span class="p">():</span>
+    <span class="k">print</span><span class="p">(</span><span class="s1">&#39;WAKE UP&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>After starting the worker, and it’s operational, the above timer will print
+something every minute.</p>
+</div>
+<div class="section" id="cron-jobs">
+<span id="tasks-cron-jobs"></span><h2><a class="toc-backref" href="#id3">Cron Jobs</a><a class="headerlink" href="#cron-jobs" title="Permalink to this headline">¶</a></h2>
+<p>A Cron job is a task that executes according to a Crontab format,
+usually at fixed times:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@app.crontab</span><span class="p">(</span><span class="s1">&#39;0 20 * * *&#39;</span><span class="p">)</span>
+<span class="n">async</span> <span class="k">def</span> <span class="nf">every_day_at_8_pm</span><span class="p">():</span>
+    <span class="k">print</span><span class="p">(</span><span class="s1">&#39;WAKE UP ONCE A DAY&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>After starting the worker, and it’s operational, the above Cron job will print
+something every day at 8pm.</p>
+<p><code class="docutils literal notranslate"><span class="pre">crontab</span></code> takes 1 mandatory argument <code class="docutils literal notranslate"><span class="pre">cron_format</span></code> and 2 optional arguments:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">tz</span></code>, represents the timezone. Defaults to None which gives behaves as UTC.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">on_leader</span></code>, boolean defaults to False, only run on leader?</p></li>
+</ul>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@app.crontab</span><span class="p">(</span><span class="s1">&#39;0 20 * * *&#39;</span><span class="p">,</span> <span class="n">tz</span><span class="o">=</span><span class="n">pytz</span><span class="o">.</span><span class="n">timezone</span><span class="p">(</span><span class="s1">&#39;US/Pacific&#39;</span><span class="p">),</span> <span class="n">on_leader</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+<span class="n">async</span> <span class="k">def</span> <span class="nf">every_day_at_8_pm_pacific</span><span class="p">():</span>
+    <span class="k">print</span><span class="p">(</span><span class="s1">&#39;WAKE UP AT 8:00pm PACIFIC TIME ONLY ON THE LEADER WORKER&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="web-views">
+<span id="tasks-web-views"></span><h2><a class="toc-backref" href="#id4">Web Views</a><a class="headerlink" href="#web-views" title="Permalink to this headline">¶</a></h2>
+<p>The Faust worker will also expose a web server on every instance,
+that by default runs on port 6066. You can access this in your web browser
+after starting a worker instance on your local machine:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> faust -A myapp worker -l info
+</pre></div>
+</div>
+<p>Just point your browser to the local port to see statistics about your
+running instance:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>http://localhost:6066
+</pre></div>
+</div>
+<p>You can define additional views for the web server (called pages). The server
+will use the <a class="reference external" href="https://pypi.python.org/pypi/aiohttp/">aiohttp</a> HTTP server library, but you can also
+write custom web server drivers.</p>
+<p>Add a simple page returning a JSON structure by adding this to your app module:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># this counter exists in-memory only,</span>
+<span class="c1"># so will be wiped when the worker restarts.</span>
+<span class="n">count</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+<span class="nd">@app.page</span><span class="p">(</span><span class="s1">&#39;/count/&#39;</span><span class="p">)</span>
+<span class="n">async</span> <span class="k">def</span> <span class="nf">get_count</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">request</span><span class="p">):</span>
+    <span class="c1"># update the counter</span>
+    <span class="n">count</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+    <span class="c1"># and return it.</span>
+    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">json</span><span class="p">({</span>
+        <span class="s1">&#39;count&#39;</span><span class="p">:</span> <span class="n">count</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+    <span class="p">})</span>
+</pre></div>
+</div>
+<p>This example view is of limited usefulness. It only provides you with
+a count of how many times the page is requested, on that particular server,
+for as long as it’s up, but you can also call actors or access table
+data in web views.</p>
+<p>Restart your Faust worker, and you can visit your new page at:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>http://localhost:6066/count/
+</pre></div>
+</div>
+<p>Your workers may have an arbitrary number of views, and it’s up to you what
+they provide. Just like other web applications they can communicate with Redis,
+SQL databases, and so on. Anything you want, really, and it’s executing
+in an asynchronous event loop.</p>
+<p>You can decide to develop your web app directly in the Faust workers, or you
+may choose to keep your regular web server separate from your Faust workers.</p>
+<p>You can create complex systems quickly, just by putting everything in a single
+Faust app.</p>
+</div>
+<div class="section" id="http-verbs-get-post-put-delete">
+<h2><a class="toc-backref" href="#id5">HTTP Verbs: <code class="docutils literal notranslate"><span class="pre">GET</span></code>/<code class="docutils literal notranslate"><span class="pre">POST</span></code>/<code class="docutils literal notranslate"><span class="pre">PUT</span></code>/<code class="docutils literal notranslate"><span class="pre">DELETE</span></code></a><a class="headerlink" href="#http-verbs-get-post-put-delete" title="Permalink to this headline">¶</a></h2>
+<p>Specify a <code class="xref py py-class docutils literal notranslate"><span class="pre">faust.web.View</span></code> class when you need to handle HTTP
+verbs other than <code class="docutils literal notranslate"><span class="pre">GET</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">faust.web</span> <span class="kn">import</span> <span class="n">Request</span><span class="p">,</span> <span class="n">Response</span><span class="p">,</span> <span class="n">View</span>
+
+<span class="nd">@app.page</span><span class="p">(</span><span class="s1">&#39;/count/&#39;</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">counter</span><span class="p">(</span><span class="n">View</span><span class="p">):</span>
+
+    <span class="n">count</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="n">async</span> <span class="k">def</span> <span class="nf">get</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">request</span><span class="p">:</span> <span class="n">Request</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Response</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">json</span><span class="p">({</span><span class="s1">&#39;count&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">count</span><span class="p">})</span>
+
+    <span class="n">async</span> <span class="k">def</span> <span class="nf">post</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">request</span><span class="p">:</span> <span class="n">Request</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Response</span><span class="p">:</span>
+        <span class="n">n</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">query</span><span class="p">[</span><span class="s1">&#39;n&#39;</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">count</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">json</span><span class="p">({</span><span class="s1">&#39;count&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">count</span><span class="p">})</span>
+
+    <span class="n">async</span> <span class="k">def</span> <span class="nf">delete</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">request</span><span class="p">:</span> <span class="n">Request</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Response</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">count</span> <span class="o">=</span> <span class="mi">0</span>
+</pre></div>
+</div>
+<div class="section" id="exposing-tables">
+<h3>Exposing Tables<a class="headerlink" href="#exposing-tables" title="Permalink to this headline">¶</a></h3>
+<p>A frequent requirement is the ability to expose table values in a web view,
+and while this is likely to be built-in to Faust in the future,
+you will have to implement this manually for now.</p>
+<p>Tables are partitioned by key, and data for any specific key will exist
+on a particular worker instance. You can use the <code class="docutils literal notranslate"><span class="pre">&#64;app.table_route</span></code>
+decorator to reroute the request to the worker holding that partition.</p>
+<p>We define our table, and an agent reading from the stream to populate the table:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">faust</span>
+
+<span class="n">app</span> <span class="o">=</span> <span class="n">faust</span><span class="o">.</span><span class="n">App</span><span class="p">(</span>
+    <span class="s1">&#39;word-counts&#39;</span><span class="p">,</span>
+    <span class="n">broker</span><span class="o">=</span><span class="s1">&#39;kafka://localhost:9092&#39;</span><span class="p">,</span>
+    <span class="n">store</span><span class="o">=</span><span class="s1">&#39;rocksdb://&#39;</span><span class="p">,</span>
+    <span class="n">topic_partitions</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">posts_topic</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">topic</span><span class="p">(</span><span class="s1">&#39;posts&#39;</span><span class="p">,</span> <span class="n">value_type</span><span class="o">=</span><span class="nb">str</span><span class="p">)</span>
+<span class="n">word_counts</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">Table</span><span class="p">(</span><span class="s1">&#39;word_counts&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span>
+                        <span class="n">help</span><span class="o">=</span><span class="s1">&#39;Keep count of words (str to int).&#39;</span><span class="p">)</span>
+
+
+<span class="k">class</span> <span class="nc">Word</span><span class="p">(</span><span class="n">faust</span><span class="o">.</span><span class="n">Record</span><span class="p">):</span>
+    <span class="n">word</span><span class="p">:</span> <span class="nb">str</span>
+
+<span class="nd">@app.agent</span><span class="p">(</span><span class="n">posts_topic</span><span class="p">)</span>
+<span class="n">async</span> <span class="k">def</span> <span class="nf">shuffle_words</span><span class="p">(</span><span class="n">posts</span><span class="p">):</span>
+    <span class="n">async</span> <span class="k">for</span> <span class="n">post</span> <span class="ow">in</span> <span class="n">posts</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">word</span> <span class="ow">in</span> <span class="n">post</span><span class="o">.</span><span class="n">split</span><span class="p">():</span>
+            <span class="n">await</span> <span class="n">count_words</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="n">word</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="n">Word</span><span class="p">(</span><span class="n">word</span><span class="o">=</span><span class="n">word</span><span class="p">))</span>
+
+<span class="nd">@app.agent</span><span class="p">()</span>
+<span class="n">async</span> <span class="k">def</span> <span class="nf">count_words</span><span class="p">(</span><span class="n">words</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Count words from blog post article body.&quot;&quot;&quot;</span>
+    <span class="n">async</span> <span class="k">for</span> <span class="n">word</span> <span class="ow">in</span> <span class="n">words</span><span class="p">:</span>
+        <span class="n">word_counts</span><span class="p">[</span><span class="n">word</span><span class="o">.</span><span class="n">word</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+</pre></div>
+</div>
+<p>After that we define the view, using the <code class="docutils literal notranslate"><span class="pre">&#64;app.table_route</span></code> decorator to
+reroute the request to the correct worker instance:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@app.page</span><span class="p">(</span><span class="s1">&#39;/count/{word}/&#39;</span><span class="p">)</span>
+<span class="nd">@app.table_route</span><span class="p">(</span><span class="n">table</span><span class="o">=</span><span class="n">word_counts</span><span class="p">,</span> <span class="n">match_info</span><span class="o">=</span><span class="s1">&#39;word&#39;</span><span class="p">)</span>
+<span class="n">async</span> <span class="k">def</span> <span class="nf">get_count</span><span class="p">(</span><span class="n">web</span><span class="p">,</span> <span class="n">request</span><span class="p">,</span> <span class="n">word</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">web</span><span class="o">.</span><span class="n">json</span><span class="p">({</span>
+        <span class="n">word</span><span class="p">:</span> <span class="n">word_counts</span><span class="p">[</span><span class="n">word</span><span class="p">],</span>
+    <span class="p">})</span>
+</pre></div>
+</div>
+<p>In the above example we used part of the URL to find the given word,
+but you may also want to get this from query parameters.</p>
+<p>Table route based on key in query parameter:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@app.page</span><span class="p">(</span><span class="s1">&#39;/count/&#39;</span><span class="p">)</span>
+<span class="nd">@app.table_route</span><span class="p">(</span><span class="n">table</span><span class="o">=</span><span class="n">word_counts</span><span class="p">,</span> <span class="n">query_param</span><span class="o">=</span><span class="s1">&#39;word&#39;</span><span class="p">)</span>
+<span class="n">async</span> <span class="k">def</span> <span class="nf">get_count</span><span class="p">(</span><span class="n">web</span><span class="p">,</span> <span class="n">request</span><span class="p">):</span>
+    <span class="n">word</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">query</span><span class="p">[</span><span class="s1">&#39;word&#39;</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">web</span><span class="o">.</span><span class="n">json</span><span class="p">({</span>
+        <span class="n">word</span><span class="p">:</span> <span class="n">word_counts</span><span class="p">[</span><span class="n">word</span><span class="p">],</span>
+    <span class="p">})</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="websockets">
+<span id="tasks-web-sockets"></span><h2><a class="toc-backref" href="#id6">WebSockets</a><a class="headerlink" href="#websockets" title="Permalink to this headline">¶</a></h2>
+<p>In order to handle WebSockets you only have to specify the handler:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">aiohttp</span>
+
+
+<span class="nd">@app.page</span><span class="p">(</span><span class="s1">&#39;/ws&#39;</span><span class="p">)</span>
+<span class="n">async</span> <span class="k">def</span> <span class="nf">websocket_handler</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">request</span><span class="p">):</span>
+
+    <span class="n">ws</span> <span class="o">=</span> <span class="n">aiohttp</span><span class="o">.</span><span class="n">web</span><span class="o">.</span><span class="n">WebSocketResponse</span><span class="p">()</span>
+    <span class="n">await</span> <span class="n">ws</span><span class="o">.</span><span class="n">prepare</span><span class="p">(</span><span class="n">request</span><span class="p">)</span>
+
+    <span class="n">async</span> <span class="k">for</span> <span class="n">msg</span> <span class="ow">in</span> <span class="n">ws</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">msg</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="n">aiohttp</span><span class="o">.</span><span class="n">WSMsgType</span><span class="o">.</span><span class="n">TEXT</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">msg</span><span class="o">.</span><span class="n">data</span> <span class="o">==</span> <span class="s1">&#39;close&#39;</span><span class="p">:</span>
+                <span class="n">await</span> <span class="n">ws</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">await</span> <span class="n">ws</span><span class="o">.</span><span class="n">send_str</span><span class="p">(</span><span class="n">msg</span><span class="o">.</span><span class="n">data</span> <span class="o">+</span> <span class="s1">&#39;/answer&#39;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">msg</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="n">aiohttp</span><span class="o">.</span><span class="n">WSMsgType</span><span class="o">.</span><span class="n">ERROR</span><span class="p">:</span>
+            <span class="k">print</span><span class="p">(</span><span class="s1">&#39;ws connection closed with exception </span><span class="si">%s</span><span class="s1">&#39;</span> <span class="o">%</span>
+                <span class="n">ws</span><span class="o">.</span><span class="n">exception</span><span class="p">())</span>
+
+    <span class="k">print</span><span class="p">(</span><span class="s1">&#39;websocket connection closed&#39;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">ws</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="cli-commands">
+<span id="tasks-cli-commands"></span><h2><a class="toc-backref" href="#id7">CLI Commands</a><a class="headerlink" href="#cli-commands" title="Permalink to this headline">¶</a></h2>
+<p>As you may already know, you can make your project into an executable,
+that can start Faust workers, list agents, models and more,
+just by calling <code class="docutils literal notranslate"><span class="pre">app.main()</span></code>.</p>
+<p>Even if you don’t do that, the <strong class="program">faust</strong> program is always available
+and you can point it to any app:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> faust -A myapp worker -l info
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">myapp</span></code> argument should point to a Python module/package having
+an <code class="docutils literal notranslate"><span class="pre">app</span></code> attribute.  If the attribute has a different name, please specify
+a fully qualified path:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> faust -A myproj.apps:faust_app worker -l info
+</pre></div>
+</div>
+<p>Do <code class="docutils literal notranslate"><span class="pre">--help</span></code> to get a list of subcommands supported by the app:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> faust -A myapp --help
+</pre></div>
+</div>
+<p>To turn your script into the <strong class="program">faust</strong> command, with the
+<a class="reference internal" href="cli.html#cmdoption-faust-a"><code class="xref std std-option docutils literal notranslate"><span class="pre">-A</span></code></a> option already set, add this to the end of the module:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s1">&#39;__main__&#39;</span><span class="p">:</span>
+    <span class="n">app</span><span class="o">.</span><span class="n">main</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>If saved as <code class="file docutils literal notranslate"><span class="pre">simple.py</span></code> you can now execute it as if it was
+the <strong class="program">faust</strong> program:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> python simple.py worker -l info
+</pre></div>
+</div>
+<div class="section" id="custom-cli-commands">
+<h3>Custom CLI Commands<a class="headerlink" href="#custom-cli-commands" title="Permalink to this headline">¶</a></h3>
+<p>To add a custom command to your app, see the <code class="file docutils literal notranslate"><span class="pre">examples/simple.py</span></code>
+example in the Faust distribution, where we added a <code class="docutils literal notranslate"><span class="pre">produce</span></code> command
+used to send example data into the stream processors:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">faust.cli</span> <span class="kn">import</span> <span class="n">option</span>
+
+<span class="c1"># the full example is in examples/simple.py in the Faust distribution.</span>
+<span class="c1"># this only shows the command part of this code.</span>
+
+<span class="nd">@app.command</span><span class="p">(</span>
+    <span class="n">option</span><span class="p">(</span><span class="s1">&#39;--max-latency&#39;</span><span class="p">,</span>
+           <span class="nb">type</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="n">PRODUCE_LATENCY</span><span class="p">,</span>
+           <span class="n">help</span><span class="o">=</span><span class="s1">&#39;Add delay of (at most) n seconds between publishing.&#39;</span><span class="p">),</span>
+    <span class="n">option</span><span class="p">(</span><span class="s1">&#39;--max-messages&#39;</span><span class="p">,</span>
+           <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span>
+           <span class="n">help</span><span class="o">=</span><span class="s1">&#39;Send at most N messages or 0 for infinity.&#39;</span><span class="p">),</span>
+<span class="p">)</span>
+<span class="n">async</span> <span class="k">def</span> <span class="nf">produce</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">max_latency</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">max_messages</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Produce example Withdrawal events.&quot;&quot;&quot;</span>
+    <span class="n">num_countries</span> <span class="o">=</span> <span class="mi">5</span>
+    <span class="n">countries</span> <span class="o">=</span> <span class="p">[</span><span class="n">f</span><span class="s1">&#39;country_{i}&#39;</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_countries</span><span class="p">)]</span>
+    <span class="n">country_dist</span> <span class="o">=</span> <span class="p">[</span><span class="mf">0.9</span><span class="p">]</span> <span class="o">+</span> <span class="p">([</span><span class="mf">0.10</span> <span class="o">/</span> <span class="n">num_countries</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">num_countries</span> <span class="o">-</span> <span class="mi">1</span><span class="p">))</span>
+    <span class="n">num_users</span> <span class="o">=</span> <span class="mi">500</span>
+    <span class="n">users</span> <span class="o">=</span> <span class="p">[</span><span class="n">f</span><span class="s1">&#39;user_{i}&#39;</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_users</span><span class="p">)]</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">say</span><span class="p">(</span><span class="s1">&#39;Done setting up. SENDING!&#39;</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">max_messages</span><span class="p">)</span> <span class="k">if</span> <span class="n">max_messages</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span> <span class="k">else</span> <span class="n">count</span><span class="p">():</span>
+        <span class="n">withdrawal</span> <span class="o">=</span> <span class="n">Withdrawal</span><span class="p">(</span>
+            <span class="n">user</span><span class="o">=</span><span class="n">random</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="n">users</span><span class="p">),</span>
+            <span class="n">amount</span><span class="o">=</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">25</span><span class="n">_000</span><span class="p">),</span>
+            <span class="n">country</span><span class="o">=</span><span class="n">random</span><span class="o">.</span><span class="n">choices</span><span class="p">(</span><span class="n">countries</span><span class="p">,</span> <span class="n">country_dist</span><span class="p">)[</span><span class="mi">0</span><span class="p">],</span>
+            <span class="n">date</span><span class="o">=</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">tzinfo</span><span class="o">=</span><span class="n">timezone</span><span class="o">.</span><span class="n">utc</span><span class="p">),</span>
+        <span class="p">)</span>
+        <span class="n">await</span> <span class="n">withdrawals_topic</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="n">withdrawal</span><span class="o">.</span><span class="n">user</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="n">withdrawal</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">i</span> <span class="o">%</span> <span class="mi">10000</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">say</span><span class="p">(</span><span class="n">f</span><span class="s1">&#39;+SEND {i}&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">max_latency</span><span class="p">:</span>
+            <span class="n">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">max_latency</span><span class="p">))</span>
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">&#64;app.command</span></code> decorator accepts both <code class="xref py py-class docutils literal notranslate"><span class="pre">click.option</span></code> and
+<code class="xref py py-class docutils literal notranslate"><span class="pre">click.argument</span></code>, so you can specify command-line options, as
+well as command-line positional arguments.</p>
+<div class="section" id="daemon-commands">
+<h4>Daemon Commands<a class="headerlink" href="#daemon-commands" title="Permalink to this headline">¶</a></h4>
+<p>The <code class="docutils literal notranslate"><span class="pre">daemon</span></code> flag can be set to mark the command as a background service
+that won’t exit until the user hits <kbd class="kbd docutils literal notranslate">Control-c</kbd>, or the process is
+terminated by another signal:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@app.command</span><span class="p">(</span>
+    <span class="n">option</span><span class="p">(</span><span class="s1">&#39;--foo&#39;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mf">1.33</span><span class="p">),</span>
+    <span class="n">daemon</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">async</span> <span class="k">def</span> <span class="nf">my_daemon</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">foo</span><span class="p">:</span> <span class="nb">float</span><span class="p">):</span>
+    <span class="k">print</span><span class="p">(</span><span class="s1">&#39;STARTING DAEMON&#39;</span><span class="p">)</span>
+    <span class="o">...</span>
+    <span class="c1"># set up some stuff</span>
+    <span class="c1"># we can return here but the program will not shut down</span>
+    <span class="c1"># until the user hits :kbd:`Control-c`, or the process is terminated</span>
+    <span class="c1"># by signal</span>
+    <span class="k">return</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../playbooks/index.html">Playbooks</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">User Guide</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="application.html">The App - Define your Faust project</a></li>
+<li class="toctree-l2"><a class="reference internal" href="agents.html">Agents - Self-organizing Stream Processors</a></li>
+<li class="toctree-l2"><a class="reference internal" href="streams.html">Streams - Infinite Data Structures</a></li>
+<li class="toctree-l2"><a class="reference internal" href="channels.html">Channels &amp; Topics - Data Sources</a></li>
+<li class="toctree-l2"><a class="reference internal" href="models.html">Models, Serialization, and Codecs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tables.html">Tables and Windowing</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Tasks, Timers, Cron Jobs, Web Views, WebSockets and CLI Commands</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cli.html">Command-line Interface</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sensors.html">Sensors - Monitors and Statistics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="testing.html">Testing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="livecheck.html">LiveCheck: End-to-end test for production/staging.</a></li>
+<li class="toctree-l2"><a class="reference internal" href="settings.html">Configuration Reference</a></li>
+<li class="toctree-l2"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="kafka.html">Kafka - The basics you need to know</a></li>
+<li class="toctree-l2"><a class="reference internal" href="debugging.html">Debugging</a></li>
+<li class="toctree-l2"><a class="reference internal" href="workers.html">Workers Guide</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../history/index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">User Guide</a><ul>
+      <li>Previous: <a href="tables.html" title="previous chapter">Tables and Windowing</a></li>
+      <li>Next: <a href="cli.html" title="next chapter">Command-line Interface</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2020, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../_sources/userguide/tasks.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

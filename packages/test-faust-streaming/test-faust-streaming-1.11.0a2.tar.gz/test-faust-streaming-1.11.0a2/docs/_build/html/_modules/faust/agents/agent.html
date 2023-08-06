@@ -1,0 +1,1279 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>faust.agents.agent &#8212; Faust 1.9.0 documentation</title>
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../../../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <link rel="copyright" title="Copyright" href="../../../copyright.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for faust.agents.agent</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Agent implementation.&quot;&quot;&quot;</span>
+<span class="kn">import</span> <span class="nn">asyncio</span>
+<span class="kn">import</span> <span class="nn">typing</span>
+
+<span class="kn">from</span> <span class="nn">contextlib</span> <span class="k">import</span> <span class="n">suppress</span>
+<span class="kn">from</span> <span class="nn">contextvars</span> <span class="k">import</span> <span class="n">ContextVar</span>
+<span class="kn">from</span> <span class="nn">time</span> <span class="k">import</span> <span class="n">time</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">Any</span><span class="p">,</span>
+    <span class="n">AsyncIterable</span><span class="p">,</span>
+    <span class="n">AsyncIterator</span><span class="p">,</span>
+    <span class="n">Awaitable</span><span class="p">,</span>
+    <span class="n">Callable</span><span class="p">,</span>
+    <span class="n">Dict</span><span class="p">,</span>
+    <span class="n">Iterable</span><span class="p">,</span>
+    <span class="n">List</span><span class="p">,</span>
+    <span class="n">Mapping</span><span class="p">,</span>
+    <span class="n">MutableMapping</span><span class="p">,</span>
+    <span class="n">MutableSequence</span><span class="p">,</span>
+    <span class="n">MutableSet</span><span class="p">,</span>
+    <span class="n">Optional</span><span class="p">,</span>
+    <span class="n">Set</span><span class="p">,</span>
+    <span class="n">Tuple</span><span class="p">,</span>
+    <span class="n">Type</span><span class="p">,</span>
+    <span class="n">Union</span><span class="p">,</span>
+    <span class="n">cast</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">uuid</span> <span class="k">import</span> <span class="n">uuid4</span>
+<span class="kn">from</span> <span class="nn">weakref</span> <span class="k">import</span> <span class="n">WeakSet</span><span class="p">,</span> <span class="n">WeakValueDictionary</span>
+
+<span class="kn">from</span> <span class="nn">mode</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">CrashingSupervisor</span><span class="p">,</span>
+    <span class="n">Service</span><span class="p">,</span>
+    <span class="n">ServiceT</span><span class="p">,</span>
+    <span class="n">SupervisorStrategyT</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">mode.utils.aiter</span> <span class="k">import</span> <span class="n">aenumerate</span><span class="p">,</span> <span class="n">aiter</span>
+<span class="kn">from</span> <span class="nn">mode.utils.compat</span> <span class="k">import</span> <span class="n">want_bytes</span><span class="p">,</span> <span class="n">want_str</span>
+<span class="kn">from</span> <span class="nn">mode.utils.futures</span> <span class="k">import</span> <span class="n">maybe_async</span>
+<span class="kn">from</span> <span class="nn">mode.utils.objects</span> <span class="k">import</span> <span class="n">canonshortname</span><span class="p">,</span> <span class="n">qualname</span>
+<span class="kn">from</span> <span class="nn">mode.utils.text</span> <span class="k">import</span> <span class="n">shorten_fqdn</span>
+<span class="kn">from</span> <span class="nn">mode.utils.types.trees</span> <span class="k">import</span> <span class="n">NodeT</span>
+
+<span class="kn">from</span> <span class="nn">faust.exceptions</span> <span class="k">import</span> <span class="n">ImproperlyConfigured</span>
+<span class="kn">from</span> <span class="nn">faust.utils.tracing</span> <span class="k">import</span> <span class="n">traced_from_parent_span</span>
+
+<span class="kn">from</span> <span class="nn">faust.types</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">AppT</span><span class="p">,</span>
+    <span class="n">ChannelT</span><span class="p">,</span>
+    <span class="n">CodecArg</span><span class="p">,</span>
+    <span class="n">EventT</span><span class="p">,</span>
+    <span class="n">HeadersArg</span><span class="p">,</span>
+    <span class="n">K</span><span class="p">,</span>
+    <span class="n">Message</span><span class="p">,</span>
+    <span class="n">MessageSentCallback</span><span class="p">,</span>
+    <span class="n">ModelArg</span><span class="p">,</span>
+    <span class="n">ModelT</span><span class="p">,</span>
+    <span class="n">RecordMetadata</span><span class="p">,</span>
+    <span class="n">StreamT</span><span class="p">,</span>
+    <span class="n">TP</span><span class="p">,</span>
+    <span class="n">TopicT</span><span class="p">,</span>
+    <span class="n">V</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">faust.types.agents</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">ActorRefT</span><span class="p">,</span>
+    <span class="n">ActorT</span><span class="p">,</span>
+    <span class="n">AgentErrorHandler</span><span class="p">,</span>
+    <span class="n">AgentFun</span><span class="p">,</span>
+    <span class="n">AgentT</span><span class="p">,</span>
+    <span class="n">AgentTestWrapperT</span><span class="p">,</span>
+    <span class="n">ReplyToArg</span><span class="p">,</span>
+    <span class="n">SinkT</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">faust.types.core</span> <span class="k">import</span> <span class="n">merge_headers</span><span class="p">,</span> <span class="n">prepare_headers</span>
+<span class="kn">from</span> <span class="nn">faust.types.serializers</span> <span class="k">import</span> <span class="n">SchemaT</span>
+
+<span class="kn">from</span> <span class="nn">.actor</span> <span class="k">import</span> <span class="n">AsyncIterableActor</span><span class="p">,</span> <span class="n">AwaitableActor</span>
+<span class="kn">from</span> <span class="nn">.models</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">ModelReqRepRequest</span><span class="p">,</span>
+    <span class="n">ModelReqRepResponse</span><span class="p">,</span>
+    <span class="n">ReqRepRequest</span><span class="p">,</span>
+    <span class="n">ReqRepResponse</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">.replies</span> <span class="k">import</span> <span class="n">BarrierState</span><span class="p">,</span> <span class="n">ReplyPromise</span>
+
+<span class="k">if</span> <span class="n">typing</span><span class="o">.</span><span class="n">TYPE_CHECKING</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+    <span class="kn">from</span> <span class="nn">faust.app.base</span> <span class="k">import</span> <span class="n">App</span> <span class="k">as</span> <span class="n">_App</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="k">class</span> <span class="nc">_App</span><span class="p">:</span> <span class="o">...</span>   <span class="c1"># noqa</span>
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;Agent&#39;</span><span class="p">]</span>
+
+<span class="c1"># --- What is an agent?</span>
+<span class="c1">#</span>
+<span class="c1"># An agent is an asynchronous function processing a stream</span>
+<span class="c1"># of events (messages), that have full programmatic control</span>
+<span class="c1"># over how that stream is iterated over: right, left, skip.</span>
+
+<span class="c1"># Agents are async generators so you can keep</span>
+<span class="c1"># state between events and associate a result for every event</span>
+<span class="c1"># by yielding.  Other agents, tasks and coroutines can execute</span>
+<span class="c1"># concurrently, by suspending the agent when it&#39;s waiting for something</span>
+<span class="c1"># and only resuming when that something is available.</span>
+<span class="c1">#</span>
+<span class="c1"># Here&#39;s an agent processing a stream of bank withdrawals</span>
+<span class="c1"># to find transfers larger than $1000, and if it finds one it will send</span>
+<span class="c1"># an alert:</span>
+<span class="c1">#</span>
+<span class="c1">#   class Withdrawal(faust.Record, serializer=&#39;json&#39;):</span>
+<span class="c1">#       account: str</span>
+<span class="c1">#       amount: float</span>
+<span class="c1">#</span>
+<span class="c1">#   app = faust.App(&#39;myid&#39;, broker=&#39;kafka://localhost:9092&#39;)</span>
+<span class="c1">#</span>
+<span class="c1">#   withdrawals_topic = app.topic(&#39;withdrawals&#39;, value_type=Withdrawal)</span>
+<span class="c1">#</span>
+<span class="c1">#   @app.agent(withdrawals_topic)</span>
+<span class="c1">#   async def alert_on_large_transfer(withdrawal):</span>
+<span class="c1">#       async for withdrawal in withdrawals:</span>
+<span class="c1">#           if withdrawal.amount &gt; 1000.0:</span>
+<span class="c1">#               alert(f&#39;Large withdrawal: {withdrawal}&#39;)</span>
+<span class="c1">#</span>
+<span class="c1"># The agent above does not ``yield`` so it can never reply to</span>
+<span class="c1"># an ``ask`` request, or add sinks that further process the results</span>
+<span class="c1"># of the stream.  This agent is an async generator that yields</span>
+<span class="c1"># to signal whether it found a large transfer or not:</span>
+<span class="c1">#</span>
+<span class="c1">#   @app.agent(withdrawals_topic)</span>
+<span class="c1">#   async def withdraw(withdrawals):</span>
+<span class="c1">#       async for withdrawal in withdrawals:</span>
+<span class="c1">#           if withdrawal.amount &gt; 1000.0:</span>
+<span class="c1">#               alert(f&#39;Large withdrawal: {withdrawal}&#39;)</span>
+<span class="c1">#               yield True</span>
+<span class="c1">#           yield False</span>
+<span class="c1">#</span>
+<span class="c1"># We can add a sink to process the yielded values.  A sink can be</span>
+<span class="c1"># 1) another agent, 2) a channel/topic, or 3) or callable accepting</span>
+<span class="c1"># the value as a single argument (that callable can be async or non-async):</span>
+<span class="c1">#</span>
+<span class="c1"># async def my_sink(result: bool) -&gt; None:</span>
+<span class="c1">#    if result:</span>
+<span class="c1">#        print(&#39;Agent withdraw just sent an alert!&#39;)</span>
+<span class="c1">#</span>
+<span class="c1"># withdraw.add_sink(my_sink)</span>
+<span class="c1">#</span>
+<span class="c1"># TIP: Sinks can also be added as an argument to the ``@agent`` decorator:</span>
+<span class="c1">#      ``@app.agent(sinks=[other_agent])``.</span>
+
+
+<span class="n">_current_agent</span><span class="p">:</span> <span class="n">ContextVar</span><span class="p">[</span><span class="n">Optional</span><span class="p">[</span><span class="n">AgentT</span><span class="p">]]</span>
+<span class="n">_current_agent</span> <span class="o">=</span> <span class="n">ContextVar</span><span class="p">(</span><span class="s1">&#39;current_agent&#39;</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="current_agent"><a class="viewcode-back" href="../../../reference/faust.agents.html#faust.current_agent">[docs]</a><span class="k">def</span> <span class="nf">current_agent</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">AgentT</span><span class="p">]:</span>
+    <span class="k">return</span> <span class="n">_current_agent</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Agent"><a class="viewcode-back" href="../../../reference/faust.agents.agent.html#faust.Agent">[docs]</a><span class="k">class</span> <span class="nc">Agent</span><span class="p">(</span><span class="n">AgentT</span><span class="p">,</span> <span class="n">Service</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Agent.</span>
+
+<span class="sd">    This is the type of object returned by the ``@app.agent`` decorator.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># supervisor is None until the agent is started so we cast to simplify.</span>
+    <span class="n">supervisor</span><span class="p">:</span> <span class="n">SupervisorStrategyT</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">SupervisorStrategyT</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="n">instances</span><span class="p">:</span> <span class="n">MutableSequence</span><span class="p">[</span><span class="n">ActorRefT</span><span class="p">]</span>
+
+    <span class="c1"># channel is loaded lazily on .channel property access</span>
+    <span class="c1"># to make sure configuration is not accessed when agent created</span>
+    <span class="c1"># at module-scope.</span>
+    <span class="n">_channel</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">ChannelT</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">_channel_arg</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">ChannelT</span><span class="p">]]</span>
+    <span class="n">_channel_kwargs</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span>
+    <span class="n">_channel_iterator</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">AsyncIterator</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">_sinks</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">SinkT</span><span class="p">]</span>
+
+    <span class="n">_actors</span><span class="p">:</span> <span class="n">MutableSet</span><span class="p">[</span><span class="n">ActorRefT</span><span class="p">]</span>
+    <span class="n">_actor_by_partition</span><span class="p">:</span> <span class="n">MutableMapping</span><span class="p">[</span><span class="n">TP</span><span class="p">,</span> <span class="n">ActorRefT</span><span class="p">]</span>
+
+    <span class="c1">#: This mutable set is used by the first agent we start,</span>
+    <span class="c1">#: so that we can update its active_partitions later</span>
+    <span class="c1">#: (in on_partitions_assigned, when we know what partitions we get).</span>
+    <span class="n">_pending_active_partitions</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Set</span><span class="p">[</span><span class="n">TP</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="n">_first_assignment_done</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                 <span class="n">fun</span><span class="p">:</span> <span class="n">AgentFun</span><span class="p">,</span>
+                 <span class="o">*</span><span class="p">,</span>
+                 <span class="n">app</span><span class="p">:</span> <span class="n">AppT</span><span class="p">,</span>
+                 <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">channel</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">ChannelT</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">concurrency</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+                 <span class="n">sink</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">SinkT</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">on_error</span><span class="p">:</span> <span class="n">AgentErrorHandler</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">supervisor_strategy</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">SupervisorStrategyT</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">help</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">schema</span><span class="p">:</span> <span class="n">SchemaT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">key_type</span><span class="p">:</span> <span class="n">ModelArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">value_type</span><span class="p">:</span> <span class="n">ModelArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">isolated_partitions</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+                 <span class="n">use_reply_headers</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">app</span> <span class="o">=</span> <span class="n">app</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fun</span><span class="p">:</span> <span class="n">AgentFun</span> <span class="o">=</span> <span class="n">fun</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">name</span> <span class="ow">or</span> <span class="n">canonshortname</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fun</span><span class="p">)</span>
+        <span class="c1"># key-type/value_type arguments only apply when a channel</span>
+        <span class="c1"># is not set</span>
+        <span class="k">if</span> <span class="n">schema</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="n">channel</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">channel</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">key_type</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="n">channel</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">channel</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_key_type</span> <span class="o">=</span> <span class="n">key_type</span>
+        <span class="k">if</span> <span class="n">value_type</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="n">channel</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">channel</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_schema</span> <span class="o">=</span> <span class="n">schema</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_value_type</span> <span class="o">=</span> <span class="n">value_type</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_channel_arg</span> <span class="o">=</span> <span class="n">channel</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_channel_kwargs</span> <span class="o">=</span> <span class="n">kwargs</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">concurrency</span> <span class="o">=</span> <span class="n">concurrency</span> <span class="ow">or</span> <span class="mi">1</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">isolated_partitions</span> <span class="o">=</span> <span class="n">isolated_partitions</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">help</span> <span class="o">=</span> <span class="n">help</span> <span class="ow">or</span> <span class="s1">&#39;&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_sinks</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">sink</span><span class="p">)</span> <span class="k">if</span> <span class="n">sink</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_on_error</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">AgentErrorHandler</span><span class="p">]</span> <span class="o">=</span> <span class="n">on_error</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">supervisor_strategy</span> <span class="o">=</span> <span class="n">supervisor_strategy</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_actors</span> <span class="o">=</span> <span class="n">WeakSet</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_actor_by_partition</span> <span class="o">=</span> <span class="n">WeakValueDictionary</span><span class="p">()</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">isolated_partitions</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">concurrency</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">ImproperlyConfigured</span><span class="p">(</span>
+                <span class="s1">&#39;Agent concurrency must be 1 when using isolated partitions&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">use_reply_headers</span> <span class="o">=</span> <span class="n">use_reply_headers</span>
+        <span class="n">Service</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Agent.on_init_dependencies"><a class="viewcode-back" href="../../../reference/faust.agents.agent.html#faust.Agent.on_init_dependencies">[docs]</a>    <span class="k">def</span> <span class="nf">on_init_dependencies</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">ServiceT</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;Return list of services dependencies required to start agent.&quot;&quot;&quot;</span>
+        <span class="c1"># Agent service is now a child of app.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">beacon</span><span class="o">.</span><span class="n">reattach</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">beacon</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">[]</span></div>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">_start_one</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                         <span class="o">*</span><span class="p">,</span>
+                         <span class="n">index</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                         <span class="n">active_partitions</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Set</span><span class="p">[</span><span class="n">TP</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                         <span class="n">stream</span><span class="p">:</span> <span class="n">StreamT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                         <span class="n">channel</span><span class="p">:</span> <span class="n">ChannelT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ActorT</span><span class="p">:</span>
+        <span class="c1"># an index of None means there&#39;s only one instance,</span>
+        <span class="c1"># and `index is None` is used as a test by functions that</span>
+        <span class="c1"># disallows concurrency.</span>
+        <span class="n">index</span> <span class="o">=</span> <span class="n">index</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">concurrency</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_start_task</span><span class="p">(</span>
+            <span class="n">index</span><span class="o">=</span><span class="n">index</span><span class="p">,</span>
+            <span class="n">active_partitions</span><span class="o">=</span><span class="n">active_partitions</span><span class="p">,</span>
+            <span class="n">stream</span><span class="o">=</span><span class="n">stream</span><span class="p">,</span>
+            <span class="n">channel</span><span class="o">=</span><span class="n">channel</span><span class="p">,</span>
+            <span class="n">beacon</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">beacon</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">_start_one_supervised</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">index</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">active_partitions</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Set</span><span class="p">[</span><span class="n">TP</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">stream</span><span class="p">:</span> <span class="n">StreamT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ActorT</span><span class="p">:</span>
+        <span class="n">aref</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_start_one</span><span class="p">(</span>
+            <span class="n">index</span><span class="o">=</span><span class="n">index</span><span class="p">,</span>
+            <span class="n">active_partitions</span><span class="o">=</span><span class="n">active_partitions</span><span class="p">,</span>
+            <span class="n">stream</span><span class="o">=</span><span class="n">stream</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">supervisor</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">aref</span><span class="p">)</span>
+        <span class="k">await</span> <span class="n">aref</span><span class="o">.</span><span class="n">maybe_start</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">aref</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">_start_for_partitions</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                                    <span class="n">active_partitions</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="n">TP</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">ActorT</span><span class="p">:</span>
+        <span class="k">assert</span> <span class="n">active_partitions</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Starting actor for partitions </span><span class="si">%s</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">active_partitions</span><span class="p">)</span>
+        <span class="k">return</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_start_one_supervised</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">active_partitions</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Agent.on_start"><a class="viewcode-back" href="../../../reference/faust.agents.agent.html#faust.Agent.on_start">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">on_start</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Call when an agent starts.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">supervisor</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_new_supervisor</span><span class="p">()</span>
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_on_start_supervisor</span><span class="p">()</span></div>
+
+    <span class="k">def</span> <span class="nf">_new_supervisor</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SupervisorStrategyT</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_supervisor_strategy</span><span class="p">()(</span>
+            <span class="n">max_restarts</span><span class="o">=</span><span class="mf">100.0</span><span class="p">,</span>
+            <span class="n">over</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
+            <span class="n">replacement</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_replace_actor</span><span class="p">,</span>
+            <span class="n">loop</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">loop</span><span class="p">,</span>
+            <span class="n">beacon</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">beacon</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">_replace_actor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">service</span><span class="p">:</span> <span class="n">ServiceT</span><span class="p">,</span> <span class="n">index</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ServiceT</span><span class="p">:</span>
+        <span class="n">aref</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">ActorRefT</span><span class="p">,</span> <span class="n">service</span><span class="p">)</span>
+        <span class="k">return</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_start_one</span><span class="p">(</span>
+            <span class="n">index</span><span class="o">=</span><span class="n">index</span><span class="p">,</span>
+            <span class="n">active_partitions</span><span class="o">=</span><span class="n">aref</span><span class="o">.</span><span class="n">active_partitions</span><span class="p">,</span>
+            <span class="n">stream</span><span class="o">=</span><span class="n">aref</span><span class="o">.</span><span class="n">stream</span><span class="p">,</span>
+            <span class="n">channel</span><span class="o">=</span><span class="n">cast</span><span class="p">(</span><span class="n">ChannelT</span><span class="p">,</span> <span class="n">aref</span><span class="o">.</span><span class="n">stream</span><span class="o">.</span><span class="n">channel</span><span class="p">),</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_get_supervisor_strategy</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Type</span><span class="p">[</span><span class="n">SupervisorStrategyT</span><span class="p">]:</span>
+        <span class="n">SupervisorStrategy</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">supervisor_strategy</span>
+        <span class="k">if</span> <span class="n">SupervisorStrategy</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">SupervisorStrategy</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">conf</span><span class="o">.</span><span class="n">agent_supervisor</span>
+        <span class="k">return</span> <span class="n">SupervisorStrategy</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">_on_start_supervisor</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">active_partitions</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_active_partitions</span><span class="p">()</span>
+        <span class="n">channel</span><span class="p">:</span> <span class="n">ChannelT</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">ChannelT</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">concurrency</span><span class="p">):</span>
+            <span class="n">res</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_start_one</span><span class="p">(</span>
+                <span class="n">index</span><span class="o">=</span><span class="n">i</span><span class="p">,</span>
+                <span class="n">active_partitions</span><span class="o">=</span><span class="n">active_partitions</span><span class="p">,</span>
+                <span class="n">channel</span><span class="o">=</span><span class="n">channel</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="n">channel</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="c1"># First concurrency actor creates channel,</span>
+                <span class="c1"># then we reuse it for --concurrency=n.</span>
+                <span class="c1"># This way they share the same queue.</span>
+                <span class="n">channel</span> <span class="o">=</span> <span class="n">res</span><span class="o">.</span><span class="n">stream</span><span class="o">.</span><span class="n">channel</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">supervisor</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">res</span><span class="p">)</span>
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">supervisor</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">_get_active_partitions</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Set</span><span class="p">[</span><span class="n">TP</span><span class="p">]]:</span>
+        <span class="n">active_partitions</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Set</span><span class="p">[</span><span class="n">TP</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">isolated_partitions</span><span class="p">:</span>
+            <span class="c1"># when we start our first agent, we create the set of</span>
+            <span class="c1"># partitions early, and save it in ._pending_active_partitions.</span>
+            <span class="c1"># That way we can update the set once partitions are assigned,</span>
+            <span class="c1"># and the actor we started may be assigned one of the partitions.</span>
+            <span class="n">active_partitions</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pending_active_partitions</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">active_partitions</span>
+
+<div class="viewcode-block" id="Agent.on_stop"><a class="viewcode-back" href="../../../reference/faust.agents.agent.html#faust.Agent.on_stop">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">on_stop</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Call when an agent stops.&quot;&quot;&quot;</span>
+        <span class="c1"># Agents iterate over infinite streams, so we cannot wait for it</span>
+        <span class="c1"># to stop.</span>
+        <span class="c1"># Instead we cancel it and this forces the stream to ack the</span>
+        <span class="c1"># last message processed (but not the message causing the error</span>
+        <span class="c1"># to be raised).</span>
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stop_supervisor</span><span class="p">()</span>
+        <span class="k">with</span> <span class="n">suppress</span><span class="p">(</span><span class="n">asyncio</span><span class="o">.</span><span class="n">CancelledError</span><span class="p">):</span>
+            <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">gather</span><span class="p">(</span><span class="o">*</span><span class="p">[</span>
+                <span class="n">aref</span><span class="o">.</span><span class="n">actor_task</span> <span class="k">for</span> <span class="n">aref</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_actors</span>
+                <span class="k">if</span> <span class="n">aref</span><span class="o">.</span><span class="n">actor_task</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_actors</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span></div>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">_stop_supervisor</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">supervisor</span><span class="p">:</span>
+            <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">supervisor</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">supervisor</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">SupervisorStrategyT</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Agent.cancel"><a class="viewcode-back" href="../../../reference/faust.agents.agent.html#faust.Agent.cancel">[docs]</a>    <span class="k">def</span> <span class="nf">cancel</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Cancel agent and its actor instances running in this process.&quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">aref</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_actors</span><span class="p">:</span>
+            <span class="n">aref</span><span class="o">.</span><span class="n">cancel</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="Agent.on_partitions_revoked"><a class="viewcode-back" href="../../../reference/faust.agents.agent.html#faust.Agent.on_partitions_revoked">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">on_partitions_revoked</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">revoked</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="n">TP</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Call when partitions are revoked.&quot;&quot;&quot;</span>
+        <span class="n">T</span> <span class="o">=</span> <span class="n">traced_from_parent_span</span><span class="p">()</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">isolated_partitions</span><span class="p">:</span>
+            <span class="c1"># isolated: start/stop actors for each partition</span>
+            <span class="k">await</span> <span class="n">T</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">on_isolated_partitions_revoked</span><span class="p">)(</span><span class="n">revoked</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">await</span> <span class="n">T</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">on_shared_partitions_revoked</span><span class="p">)(</span><span class="n">revoked</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Agent.on_partitions_assigned"><a class="viewcode-back" href="../../../reference/faust.agents.agent.html#faust.Agent.on_partitions_assigned">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">on_partitions_assigned</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">assigned</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="n">TP</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Call when partitions are assigned.&quot;&quot;&quot;</span>
+        <span class="n">T</span> <span class="o">=</span> <span class="n">traced_from_parent_span</span><span class="p">()</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">isolated_partitions</span><span class="p">:</span>
+            <span class="k">await</span> <span class="n">T</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">on_isolated_partitions_assigned</span><span class="p">)(</span><span class="n">assigned</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">await</span> <span class="n">T</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">on_shared_partitions_assigned</span><span class="p">)(</span><span class="n">assigned</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Agent.on_isolated_partitions_revoked"><a class="viewcode-back" href="../../../reference/faust.agents.agent.html#faust.Agent.on_isolated_partitions_revoked">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">on_isolated_partitions_revoked</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">revoked</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="n">TP</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Call when isolated partitions are revoked.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">dev</span><span class="p">(</span><span class="s1">&#39;Partitions revoked&#39;</span><span class="p">)</span>
+        <span class="n">T</span> <span class="o">=</span> <span class="n">traced_from_parent_span</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">tp</span> <span class="ow">in</span> <span class="n">revoked</span><span class="p">:</span>
+            <span class="n">aref</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">ActorRefT</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_actor_by_partition</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">tp</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">aref</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">await</span> <span class="n">T</span><span class="p">(</span><span class="n">aref</span><span class="o">.</span><span class="n">on_isolated_partition_revoked</span><span class="p">)(</span><span class="n">tp</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Agent.on_isolated_partitions_assigned"><a class="viewcode-back" href="../../../reference/faust.agents.agent.html#faust.Agent.on_isolated_partitions_assigned">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">on_isolated_partitions_assigned</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">assigned</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="n">TP</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Call when isolated partitions are assigned.&quot;&quot;&quot;</span>
+        <span class="n">T</span> <span class="o">=</span> <span class="n">traced_from_parent_span</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">tp</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">assigned</span><span class="p">):</span>
+            <span class="k">await</span> <span class="n">T</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_assign_isolated_partition</span><span class="p">)(</span><span class="n">tp</span><span class="p">)</span></div>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">_assign_isolated_partition</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tp</span><span class="p">:</span> <span class="n">TP</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">T</span> <span class="o">=</span> <span class="n">traced_from_parent_span</span><span class="p">()</span>
+        <span class="k">if</span> <span class="p">(</span><span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_first_assignment_done</span> <span class="ow">and</span>
+                <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_actor_by_partition</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_first_assignment_done</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="c1"># if this is the first time we are assigned</span>
+            <span class="c1"># we need to reassign the agent we started at boot to</span>
+            <span class="c1"># one of the partitions.</span>
+            <span class="n">T</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_on_first_isolated_partition_assigned</span><span class="p">)(</span><span class="n">tp</span><span class="p">)</span>
+        <span class="k">await</span> <span class="n">T</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_maybe_start_isolated</span><span class="p">)(</span><span class="n">tp</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_on_first_isolated_partition_assigned</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tp</span><span class="p">:</span> <span class="n">TP</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">_actors</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_actors</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_actor_by_partition</span><span class="p">[</span><span class="n">tp</span><span class="p">]</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_actors</span><span class="p">))</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pending_active_partitions</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pending_active_partitions</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_pending_active_partitions</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">tp</span><span class="p">)</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">_maybe_start_isolated</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tp</span><span class="p">:</span> <span class="n">TP</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">aref</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_actor_by_partition</span><span class="p">[</span><span class="n">tp</span><span class="p">]</span>
+        <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+            <span class="n">aref</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_start_isolated</span><span class="p">(</span><span class="n">tp</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_actor_by_partition</span><span class="p">[</span><span class="n">tp</span><span class="p">]</span> <span class="o">=</span> <span class="n">aref</span>
+        <span class="k">await</span> <span class="n">aref</span><span class="o">.</span><span class="n">on_isolated_partition_assigned</span><span class="p">(</span><span class="n">tp</span><span class="p">)</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">_start_isolated</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tp</span><span class="p">:</span> <span class="n">TP</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ActorT</span><span class="p">:</span>
+        <span class="k">return</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_start_for_partitions</span><span class="p">({</span><span class="n">tp</span><span class="p">})</span>
+
+<div class="viewcode-block" id="Agent.on_shared_partitions_revoked"><a class="viewcode-back" href="../../../reference/faust.agents.agent.html#faust.Agent.on_shared_partitions_revoked">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">on_shared_partitions_revoked</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">revoked</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="n">TP</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Call when non-isolated partitions are revoked.&quot;&quot;&quot;</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="Agent.on_shared_partitions_assigned"><a class="viewcode-back" href="../../../reference/faust.agents.agent.html#faust.Agent.on_shared_partitions_assigned">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">on_shared_partitions_assigned</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">assigned</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="n">TP</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Call when non-isolated partitions are assigned.&quot;&quot;&quot;</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="Agent.info"><a class="viewcode-back" href="../../../reference/faust.agents.agent.html#faust.Agent.info">[docs]</a>    <span class="k">def</span> <span class="nf">info</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Mapping</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Return agent attributes as a dictionary.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s1">&#39;app&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="p">,</span>
+            <span class="s1">&#39;fun&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">fun</span><span class="p">,</span>
+            <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+            <span class="s1">&#39;channel&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">channel</span><span class="p">,</span>
+            <span class="s1">&#39;concurrency&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">concurrency</span><span class="p">,</span>
+            <span class="s1">&#39;help&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">help</span><span class="p">,</span>
+            <span class="s1">&#39;sinks&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sinks</span><span class="p">,</span>
+            <span class="s1">&#39;on_error&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_on_error</span><span class="p">,</span>
+            <span class="s1">&#39;supervisor_strategy&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">supervisor_strategy</span><span class="p">,</span>
+            <span class="s1">&#39;isolated_partitions&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">isolated_partitions</span><span class="p">,</span>
+        <span class="p">}</span></div>
+
+<div class="viewcode-block" id="Agent.clone"><a class="viewcode-back" href="../../../reference/faust.agents.agent.html#faust.Agent.clone">[docs]</a>    <span class="k">def</span> <span class="nf">clone</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="bp">cls</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">AgentT</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AgentT</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Create clone of this agent object.</span>
+
+<span class="sd">        Keyword arguments can be passed to override any argument</span>
+<span class="sd">        supported by :class:`Agent.__init__ &lt;Agent&gt;`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">(</span><span class="bp">cls</span> <span class="ow">or</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">))(</span><span class="o">**</span><span class="p">{</span><span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">info</span><span class="p">(),</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">})</span></div>
+
+<div class="viewcode-block" id="Agent.test_context"><a class="viewcode-back" href="../../../reference/faust.agents.agent.html#faust.Agent.test_context">[docs]</a>    <span class="k">def</span> <span class="nf">test_context</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                     <span class="n">channel</span><span class="p">:</span> <span class="n">ChannelT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                     <span class="n">supervisor_strategy</span><span class="p">:</span> <span class="n">SupervisorStrategyT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                     <span class="n">on_error</span><span class="p">:</span> <span class="n">AgentErrorHandler</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                     <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AgentTestWrapperT</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+        <span class="sd">&quot;&quot;&quot;Create new unit-testing wrapper for this agent.&quot;&quot;&quot;</span>
+        <span class="c1"># flow control into channel queues are disabled at startup,</span>
+        <span class="c1"># so need to resume that.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">flow_control</span><span class="o">.</span><span class="n">resume</span><span class="p">()</span>
+
+        <span class="k">async</span> <span class="k">def</span> <span class="nf">on_agent_error</span><span class="p">(</span><span class="n">agent</span><span class="p">:</span> <span class="n">AgentT</span><span class="p">,</span> <span class="n">exc</span><span class="p">:</span> <span class="ne">BaseException</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">on_error</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">await</span> <span class="n">on_error</span><span class="p">(</span><span class="n">agent</span><span class="p">,</span> <span class="n">exc</span><span class="p">)</span>
+            <span class="k">await</span> <span class="n">cast</span><span class="p">(</span><span class="n">AgentTestWrapper</span><span class="p">,</span> <span class="n">agent</span><span class="p">)</span><span class="o">.</span><span class="n">crash_test_agent</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="n">AgentTestWrapperT</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">clone</span><span class="p">(</span>
+            <span class="bp">cls</span><span class="o">=</span><span class="n">AgentTestWrapper</span><span class="p">,</span>
+            <span class="n">channel</span><span class="o">=</span><span class="n">channel</span> <span class="k">if</span> <span class="n">channel</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">channel</span><span class="p">(),</span>
+            <span class="n">supervisor_strategy</span><span class="o">=</span><span class="n">supervisor_strategy</span> <span class="ow">or</span> <span class="n">CrashingSupervisor</span><span class="p">,</span>
+            <span class="n">original_channel</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">channel</span><span class="p">,</span>
+            <span class="n">on_error</span><span class="o">=</span><span class="n">on_agent_error</span><span class="p">,</span>
+            <span class="o">**</span><span class="n">kwargs</span><span class="p">))</span></div>
+
+    <span class="k">def</span> <span class="nf">_prepare_channel</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                         <span class="n">channel</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">ChannelT</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                         <span class="n">internal</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+                         <span class="n">schema</span><span class="p">:</span> <span class="n">SchemaT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                         <span class="n">key_type</span><span class="p">:</span> <span class="n">ModelArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                         <span class="n">value_type</span><span class="p">:</span> <span class="n">ModelArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                         <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ChannelT</span><span class="p">:</span>
+        <span class="n">app</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span>
+        <span class="n">has_prefix</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">if</span> <span class="n">channel</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">channel</span> <span class="o">=</span> <span class="n">f</span><span class="s1">&#39;</span><span class="si">{app.conf.id}</span><span class="s1">-</span><span class="si">{self.name}</span><span class="s1">&#39;</span>
+            <span class="n">has_prefix</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">channel</span><span class="p">,</span> <span class="n">ChannelT</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">channel</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">channel</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">app</span><span class="o">.</span><span class="n">topic</span><span class="p">(</span>
+                <span class="n">channel</span><span class="p">,</span>
+                <span class="n">internal</span><span class="o">=</span><span class="n">internal</span><span class="p">,</span>
+                <span class="n">schema</span><span class="o">=</span><span class="n">schema</span><span class="p">,</span>
+                <span class="n">key_type</span><span class="o">=</span><span class="n">key_type</span><span class="p">,</span>
+                <span class="n">value_type</span><span class="o">=</span><span class="n">value_type</span><span class="p">,</span>
+                <span class="n">has_prefix</span><span class="o">=</span><span class="n">has_prefix</span><span class="p">,</span>
+                <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+            <span class="n">f</span><span class="s1">&#39;Channel must be channel, topic, or str; not {type(channel)}&#39;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span>
+                 <span class="n">index</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">active_partitions</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="n">TP</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">stream</span><span class="p">:</span> <span class="n">StreamT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">channel</span><span class="p">:</span> <span class="n">ChannelT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ActorRefT</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Create new actor instance for this agent.&quot;&quot;&quot;</span>
+        <span class="c1"># The agent function can be reused by other agents/tasks.</span>
+        <span class="c1"># For example:</span>
+        <span class="c1">#</span>
+        <span class="c1">#   @app.agent(logs_topic, through=&#39;other-topic&#39;)</span>
+        <span class="c1">#   filter_log_errors_(stream):</span>
+        <span class="c1">#       async for event in stream:</span>
+        <span class="c1">#           if event.severity == &#39;error&#39;:</span>
+        <span class="c1">#               yield event</span>
+        <span class="c1">#</span>
+        <span class="c1">#   @app.agent(logs_topic)</span>
+        <span class="c1">#   def alert_on_log_error(stream):</span>
+        <span class="c1">#       async for event in filter_log_errors(stream):</span>
+        <span class="c1">#            alert(f&#39;Error occurred: {event!r}&#39;)</span>
+        <span class="c1">#</span>
+        <span class="c1"># Calling `res = filter_log_errors(it)` will end you up with</span>
+        <span class="c1"># an AsyncIterable that you can reuse (but only if the agent</span>
+        <span class="c1"># function is an `async def` function that yields)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">actor_from_stream</span><span class="p">(</span><span class="n">stream</span><span class="p">,</span>
+                                      <span class="n">index</span><span class="o">=</span><span class="n">index</span><span class="p">,</span>
+                                      <span class="n">active_partitions</span><span class="o">=</span><span class="n">active_partitions</span><span class="p">,</span>
+                                      <span class="n">channel</span><span class="o">=</span><span class="n">channel</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Agent.actor_from_stream"><a class="viewcode-back" href="../../../reference/faust.agents.agent.html#faust.Agent.actor_from_stream">[docs]</a>    <span class="k">def</span> <span class="nf">actor_from_stream</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                          <span class="n">stream</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">StreamT</span><span class="p">],</span>
+                          <span class="o">*</span><span class="p">,</span>
+                          <span class="n">index</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                          <span class="n">active_partitions</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="n">TP</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                          <span class="n">channel</span><span class="p">:</span> <span class="n">ChannelT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ActorRefT</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Create new actor from stream.&quot;&quot;&quot;</span>
+        <span class="n">we_created_stream</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="n">actual_stream</span><span class="p">:</span> <span class="n">StreamT</span>
+        <span class="k">if</span> <span class="n">stream</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">actual_stream</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">stream</span><span class="p">(</span>
+                <span class="n">channel</span><span class="o">=</span><span class="n">channel</span><span class="p">,</span>
+                <span class="n">concurrency_index</span><span class="o">=</span><span class="n">index</span><span class="p">,</span>
+                <span class="n">active_partitions</span><span class="o">=</span><span class="n">active_partitions</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">we_created_stream</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># reusing actor stream after agent restart</span>
+            <span class="k">assert</span> <span class="n">stream</span><span class="o">.</span><span class="n">concurrency_index</span> <span class="o">==</span> <span class="n">index</span>
+            <span class="k">assert</span> <span class="n">stream</span><span class="o">.</span><span class="n">active_partitions</span> <span class="o">==</span> <span class="n">active_partitions</span>
+            <span class="n">actual_stream</span> <span class="o">=</span> <span class="n">stream</span>
+
+        <span class="n">res</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fun</span><span class="p">(</span><span class="n">actual_stream</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">res</span><span class="p">,</span> <span class="n">AsyncIterable</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">we_created_stream</span><span class="p">:</span>
+                <span class="n">actual_stream</span><span class="o">.</span><span class="n">add_processor</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_maybe_unwrap_reply_request</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="n">ActorRefT</span><span class="p">,</span> <span class="n">AsyncIterableActor</span><span class="p">(</span>
+                <span class="bp">self</span><span class="p">,</span>
+                <span class="n">actual_stream</span><span class="p">,</span>
+                <span class="n">res</span><span class="p">,</span>
+                <span class="n">index</span><span class="o">=</span><span class="n">actual_stream</span><span class="o">.</span><span class="n">concurrency_index</span><span class="p">,</span>
+                <span class="n">active_partitions</span><span class="o">=</span><span class="n">actual_stream</span><span class="o">.</span><span class="n">active_partitions</span><span class="p">,</span>
+                <span class="n">loop</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">loop</span><span class="p">,</span>
+                <span class="n">beacon</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">beacon</span><span class="p">,</span>
+            <span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="n">ActorRefT</span><span class="p">,</span> <span class="n">AwaitableActor</span><span class="p">(</span>
+                <span class="bp">self</span><span class="p">,</span>
+                <span class="n">actual_stream</span><span class="p">,</span>
+                <span class="n">res</span><span class="p">,</span>
+                <span class="n">index</span><span class="o">=</span><span class="n">actual_stream</span><span class="o">.</span><span class="n">concurrency_index</span><span class="p">,</span>
+                <span class="n">active_partitions</span><span class="o">=</span><span class="n">actual_stream</span><span class="o">.</span><span class="n">active_partitions</span><span class="p">,</span>
+                <span class="n">loop</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">loop</span><span class="p">,</span>
+                <span class="n">beacon</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">beacon</span><span class="p">,</span>
+            <span class="p">))</span></div>
+
+<div class="viewcode-block" id="Agent.add_sink"><a class="viewcode-back" href="../../../reference/faust.agents.agent.html#faust.Agent.add_sink">[docs]</a>    <span class="k">def</span> <span class="nf">add_sink</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sink</span><span class="p">:</span> <span class="n">SinkT</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Add new sink to further handle results from this agent.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">sink</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sinks</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_sinks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">sink</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Agent.stream"><a class="viewcode-back" href="../../../reference/faust.agents.agent.html#faust.Agent.stream">[docs]</a>    <span class="k">def</span> <span class="nf">stream</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+               <span class="n">channel</span><span class="p">:</span> <span class="n">ChannelT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+               <span class="n">active_partitions</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="n">TP</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+               <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">StreamT</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Create underlying stream used by this agent.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">channel</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">channel</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">TopicT</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">channel_iterator</span><span class="p">)</span><span class="o">.</span><span class="n">clone</span><span class="p">(</span>
+                <span class="n">is_iterator</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                <span class="n">active_partitions</span><span class="o">=</span><span class="n">active_partitions</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="n">active_partitions</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="n">channel</span><span class="o">.</span><span class="n">active_partitions</span> <span class="o">==</span> <span class="n">active_partitions</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">stream</span><span class="p">(</span>
+            <span class="n">channel</span><span class="p">,</span>
+            <span class="n">loop</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">loop</span><span class="p">,</span>
+            <span class="n">active_partitions</span><span class="o">=</span><span class="n">active_partitions</span><span class="p">,</span>
+            <span class="n">prefix</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+            <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">s</span></div>
+
+    <span class="k">def</span> <span class="nf">_maybe_unwrap_reply_request</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">V</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">ReqRepRequest</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">value</span><span class="o">.</span><span class="n">value</span>
+        <span class="k">return</span> <span class="n">value</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">_start_task</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                          <span class="o">*</span><span class="p">,</span>
+                          <span class="n">index</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
+                          <span class="n">active_partitions</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Set</span><span class="p">[</span><span class="n">TP</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                          <span class="n">stream</span><span class="p">:</span> <span class="n">StreamT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                          <span class="n">channel</span><span class="p">:</span> <span class="n">ChannelT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                          <span class="n">beacon</span><span class="p">:</span> <span class="n">NodeT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ActorRefT</span><span class="p">:</span>
+        <span class="c1"># If the agent is an async function we simply start it,</span>
+        <span class="c1"># if it returns an AsyncIterable/AsyncGenerator we start a task</span>
+        <span class="c1"># that will consume it.</span>
+        <span class="n">actor</span> <span class="o">=</span> <span class="bp">self</span><span class="p">(</span>
+            <span class="n">index</span><span class="o">=</span><span class="n">index</span><span class="p">,</span>
+            <span class="n">active_partitions</span><span class="o">=</span><span class="n">active_partitions</span><span class="p">,</span>
+            <span class="n">stream</span><span class="o">=</span><span class="n">stream</span><span class="p">,</span>
+            <span class="n">channel</span><span class="o">=</span><span class="n">channel</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">assert</span> <span class="n">beacon</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_prepare_actor</span><span class="p">(</span><span class="n">actor</span><span class="p">,</span> <span class="n">beacon</span><span class="p">)</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">_prepare_actor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">aref</span><span class="p">:</span> <span class="n">ActorRefT</span><span class="p">,</span>
+                             <span class="n">beacon</span><span class="p">:</span> <span class="n">NodeT</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ActorRefT</span><span class="p">:</span>
+        <span class="n">coro</span><span class="p">:</span> <span class="n">Any</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">aref</span><span class="p">,</span> <span class="n">Awaitable</span><span class="p">):</span>
+            <span class="c1"># agent does not yield</span>
+            <span class="n">coro</span> <span class="o">=</span> <span class="n">aref</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sinks</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">ImproperlyConfigured</span><span class="p">(</span><span class="s1">&#39;Agent must yield to use sinks&#39;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># agent yields and is an AsyncIterator so we have to consume it.</span>
+            <span class="n">coro</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_slurp</span><span class="p">(</span><span class="n">aref</span><span class="p">,</span> <span class="n">aiter</span><span class="p">(</span><span class="n">aref</span><span class="p">))</span>
+        <span class="n">task</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">Task</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_execute_actor</span><span class="p">(</span><span class="n">coro</span><span class="p">,</span> <span class="n">aref</span><span class="p">),</span> <span class="n">loop</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">loop</span><span class="p">)</span>
+        <span class="n">task</span><span class="o">.</span><span class="n">_beacon</span> <span class="o">=</span> <span class="n">beacon</span>  <span class="c1"># type: ignore</span>
+        <span class="n">aref</span><span class="o">.</span><span class="n">actor_task</span> <span class="o">=</span> <span class="n">task</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_actors</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">aref</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">aref</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">_execute_actor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">coro</span><span class="p">:</span> <span class="n">Awaitable</span><span class="p">,</span> <span class="n">aref</span><span class="p">:</span> <span class="n">ActorRefT</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># This executes the agent task itself, and does exception handling.</span>
+        <span class="n">_current_agent</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">await</span> <span class="n">coro</span>
+        <span class="k">except</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">CancelledError</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">should_stop</span><span class="p">:</span>
+                <span class="k">raise</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_on_error</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_on_error</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">exc</span><span class="p">)</span>
+
+            <span class="c1"># Mark ActorRef as dead, so that supervisor thread</span>
+            <span class="c1"># can start a new one.</span>
+            <span class="k">await</span> <span class="n">aref</span><span class="o">.</span><span class="n">crash</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">supervisor</span><span class="o">.</span><span class="n">wakeup</span><span class="p">()</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">_slurp</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">res</span><span class="p">:</span> <span class="n">ActorRefT</span><span class="p">,</span> <span class="n">it</span><span class="p">:</span> <span class="n">AsyncIterator</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># this is used when the agent returns an AsyncIterator,</span>
+        <span class="c1"># and simply consumes that async iterator.</span>
+        <span class="n">stream</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">StreamT</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">async</span> <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">it</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">%r</span><span class="s1"> yielded: </span><span class="si">%r</span><span class="s1">&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">fun</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">stream</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">stream</span> <span class="o">=</span> <span class="n">res</span><span class="o">.</span><span class="n">stream</span><span class="o">.</span><span class="n">get_active_stream</span><span class="p">()</span>
+            <span class="n">event</span> <span class="o">=</span> <span class="n">stream</span><span class="o">.</span><span class="n">current_event</span>
+            <span class="k">if</span> <span class="n">event</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">headers</span> <span class="o">=</span> <span class="n">event</span><span class="o">.</span><span class="n">headers</span>
+                <span class="n">reply_to</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+                <span class="n">correlation_id</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">event</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="n">ReqRepRequest</span><span class="p">):</span>
+                    <span class="n">req</span><span class="p">:</span> <span class="n">ReqRepRequest</span> <span class="o">=</span> <span class="n">event</span><span class="o">.</span><span class="n">value</span>
+                    <span class="n">reply_to</span> <span class="o">=</span> <span class="n">req</span><span class="o">.</span><span class="n">reply_to</span>
+                    <span class="n">correlation_id</span> <span class="o">=</span> <span class="n">req</span><span class="o">.</span><span class="n">correlation_id</span>
+                <span class="k">elif</span> <span class="n">headers</span><span class="p">:</span>
+                    <span class="n">reply_to_bytes</span> <span class="o">=</span> <span class="n">headers</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;Faust-Ag-ReplyTo&#39;</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">reply_to_bytes</span><span class="p">:</span>
+                        <span class="n">reply_to</span> <span class="o">=</span> <span class="n">want_str</span><span class="p">(</span><span class="n">reply_to_bytes</span><span class="p">)</span>
+                        <span class="n">correlation_id_bytes</span> <span class="o">=</span> <span class="n">headers</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
+                            <span class="s1">&#39;Faust-Ag-CorrelationId&#39;</span><span class="p">)</span>
+                        <span class="k">if</span> <span class="n">correlation_id_bytes</span><span class="p">:</span>
+                            <span class="n">correlation_id</span> <span class="o">=</span> <span class="n">want_str</span><span class="p">(</span><span class="n">correlation_id_bytes</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">reply_to</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_reply</span><span class="p">(</span>
+                        <span class="n">event</span><span class="o">.</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">reply_to</span><span class="p">,</span> <span class="n">cast</span><span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">correlation_id</span><span class="p">))</span>
+            <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_delegate_to_sinks</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">_delegate_to_sinks</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">sink</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sinks</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">sink</span><span class="p">,</span> <span class="n">AgentT</span><span class="p">):</span>
+                <span class="k">await</span> <span class="n">sink</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">value</span><span class="o">=</span><span class="n">value</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">sink</span><span class="p">,</span> <span class="n">ChannelT</span><span class="p">):</span>
+                <span class="k">await</span> <span class="n">cast</span><span class="p">(</span><span class="n">TopicT</span><span class="p">,</span> <span class="n">sink</span><span class="p">)</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">value</span><span class="o">=</span><span class="n">value</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">await</span> <span class="n">maybe_async</span><span class="p">(</span><span class="n">cast</span><span class="p">(</span><span class="n">Callable</span><span class="p">,</span> <span class="n">sink</span><span class="p">)(</span><span class="n">value</span><span class="p">))</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">_reply</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+                     <span class="n">reply_to</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">correlation_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">assert</span> <span class="n">reply_to</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_response_class</span><span class="p">(</span><span class="n">value</span><span class="p">)(</span>
+            <span class="n">key</span><span class="o">=</span><span class="n">key</span><span class="p">,</span>
+            <span class="n">value</span><span class="o">=</span><span class="n">value</span><span class="p">,</span>
+            <span class="n">correlation_id</span><span class="o">=</span><span class="n">correlation_id</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">send</span><span class="p">(</span>
+            <span class="n">reply_to</span><span class="p">,</span>
+            <span class="n">key</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">value</span><span class="o">=</span><span class="n">response</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_response_class</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Type</span><span class="p">[</span><span class="n">ReqRepResponse</span><span class="p">]:</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">ModelT</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">ModelReqRepResponse</span>
+        <span class="k">return</span> <span class="n">ReqRepResponse</span>
+
+<div class="viewcode-block" id="Agent.cast"><a class="viewcode-back" href="../../../reference/faust.agents.agent.html#faust.Agent.cast">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">cast</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                   <span class="n">value</span><span class="p">:</span> <span class="n">V</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                   <span class="o">*</span><span class="p">,</span>
+                   <span class="n">key</span><span class="p">:</span> <span class="n">K</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                   <span class="n">partition</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                   <span class="n">timestamp</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                   <span class="n">headers</span><span class="p">:</span> <span class="n">HeadersArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;RPC operation: like :meth:`ask` but do not expect reply.</span>
+
+<span class="sd">        Cast here is like &quot;casting a spell&quot;, and will not expect</span>
+<span class="sd">        a reply back from the agent.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">send</span><span class="p">(</span>
+            <span class="n">key</span><span class="o">=</span><span class="n">key</span><span class="p">,</span>
+            <span class="n">value</span><span class="o">=</span><span class="n">value</span><span class="p">,</span>
+            <span class="n">partition</span><span class="o">=</span><span class="n">partition</span><span class="p">,</span>
+            <span class="n">timestamp</span><span class="o">=</span><span class="n">timestamp</span><span class="p">,</span>
+            <span class="n">headers</span><span class="o">=</span><span class="n">headers</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="Agent.ask"><a class="viewcode-back" href="../../../reference/faust.agents.agent.html#faust.Agent.ask">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">ask</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                  <span class="n">value</span><span class="p">:</span> <span class="n">V</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                  <span class="o">*</span><span class="p">,</span>
+                  <span class="n">key</span><span class="p">:</span> <span class="n">K</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                  <span class="n">partition</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                  <span class="n">timestamp</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                  <span class="n">headers</span><span class="p">:</span> <span class="n">HeadersArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                  <span class="n">reply_to</span><span class="p">:</span> <span class="n">ReplyToArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                  <span class="n">correlation_id</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;RPC operation: ask agent for result of processing value.</span>
+
+<span class="sd">        This version will wait until the result is available</span>
+<span class="sd">        and return the processed value.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">p</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">ask_nowait</span><span class="p">(</span>
+            <span class="n">value</span><span class="p">,</span>
+            <span class="n">key</span><span class="o">=</span><span class="n">key</span><span class="p">,</span>
+            <span class="n">partition</span><span class="o">=</span><span class="n">partition</span><span class="p">,</span>
+            <span class="n">timestamp</span><span class="o">=</span><span class="n">timestamp</span><span class="p">,</span>
+            <span class="n">headers</span><span class="o">=</span><span class="n">headers</span><span class="p">,</span>
+            <span class="n">reply_to</span><span class="o">=</span><span class="n">reply_to</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">conf</span><span class="o">.</span><span class="n">reply_to</span><span class="p">,</span>
+            <span class="n">correlation_id</span><span class="o">=</span><span class="n">correlation_id</span><span class="p">,</span>
+            <span class="n">force</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>  <span class="c1"># Send immediately, since we are waiting for result.</span>
+        <span class="p">)</span>
+        <span class="n">app</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">_App</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="p">)</span>
+        <span class="k">await</span> <span class="n">app</span><span class="o">.</span><span class="n">_reply_consumer</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">correlation_id</span><span class="p">,</span> <span class="n">p</span><span class="p">)</span>
+        <span class="k">await</span> <span class="n">app</span><span class="o">.</span><span class="n">maybe_start_client</span><span class="p">()</span>
+        <span class="k">return</span> <span class="k">await</span> <span class="n">p</span></div>
+
+<div class="viewcode-block" id="Agent.ask_nowait"><a class="viewcode-back" href="../../../reference/faust.agents.agent.html#faust.Agent.ask_nowait">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">ask_nowait</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                         <span class="n">value</span><span class="p">:</span> <span class="n">V</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                         <span class="o">*</span><span class="p">,</span>
+                         <span class="n">key</span><span class="p">:</span> <span class="n">K</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                         <span class="n">partition</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                         <span class="n">timestamp</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                         <span class="n">headers</span><span class="p">:</span> <span class="n">HeadersArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                         <span class="n">reply_to</span><span class="p">:</span> <span class="n">ReplyToArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                         <span class="n">correlation_id</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                         <span class="n">force</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ReplyPromise</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;RPC operation: ask agent for result of processing value.</span>
+
+<span class="sd">        This version does not wait for the result to arrive,</span>
+<span class="sd">        but instead returns a promise of future evaluation.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">reply_to</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s1">&#39;Missing reply_to argument&#39;</span><span class="p">)</span>
+        <span class="n">reply_to</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_strtopic</span><span class="p">(</span><span class="n">reply_to</span><span class="p">)</span>
+        <span class="n">correlation_id</span> <span class="o">=</span> <span class="n">correlation_id</span> <span class="ow">or</span> <span class="nb">str</span><span class="p">(</span><span class="n">uuid4</span><span class="p">())</span>
+        <span class="n">value</span><span class="p">,</span> <span class="n">headers</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_req</span><span class="p">(</span>
+            <span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">reply_to</span><span class="p">,</span> <span class="n">correlation_id</span><span class="p">,</span> <span class="n">headers</span><span class="p">)</span>
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">channel</span><span class="o">.</span><span class="n">send</span><span class="p">(</span>
+            <span class="n">key</span><span class="o">=</span><span class="n">key</span><span class="p">,</span>
+            <span class="n">value</span><span class="o">=</span><span class="n">value</span><span class="p">,</span>
+            <span class="n">partition</span><span class="o">=</span><span class="n">partition</span><span class="p">,</span>
+            <span class="n">timestamp</span><span class="o">=</span><span class="n">timestamp</span><span class="p">,</span>
+            <span class="n">headers</span><span class="o">=</span><span class="n">headers</span><span class="p">,</span>
+            <span class="n">force</span><span class="o">=</span><span class="n">force</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">ReplyPromise</span><span class="p">(</span><span class="n">reply_to</span><span class="p">,</span> <span class="n">correlation_id</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_create_req</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">key</span><span class="p">:</span> <span class="n">K</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">value</span><span class="p">:</span> <span class="n">V</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">reply_to</span><span class="p">:</span> <span class="n">ReplyToArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">correlation_id</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">headers</span><span class="p">:</span> <span class="n">HeadersArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">V</span><span class="p">,</span> <span class="n">Optional</span><span class="p">[</span><span class="n">HeadersArg</span><span class="p">]]:</span>
+        <span class="k">if</span> <span class="n">reply_to</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s1">&#39;Missing reply_to argument&#39;</span><span class="p">)</span>
+        <span class="n">topic_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_strtopic</span><span class="p">(</span><span class="n">reply_to</span><span class="p">)</span>
+        <span class="n">correlation_id</span> <span class="o">=</span> <span class="n">correlation_id</span> <span class="ow">or</span> <span class="nb">str</span><span class="p">(</span><span class="n">uuid4</span><span class="p">())</span>
+        <span class="n">open_headers</span> <span class="o">=</span> <span class="n">prepare_headers</span><span class="p">(</span><span class="n">headers</span> <span class="ow">or</span> <span class="p">{})</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">use_reply_headers</span><span class="p">:</span>
+            <span class="n">merge_headers</span><span class="p">(</span><span class="n">open_headers</span><span class="p">,</span> <span class="p">{</span>
+                <span class="s1">&#39;Faust-Ag-ReplyTo&#39;</span><span class="p">:</span> <span class="n">want_bytes</span><span class="p">(</span><span class="n">topic_name</span><span class="p">),</span>
+                <span class="s1">&#39;Faust-Ag-CorrelationId&#39;</span><span class="p">:</span> <span class="n">want_bytes</span><span class="p">(</span><span class="n">correlation_id</span><span class="p">),</span>
+            <span class="p">})</span>
+            <span class="k">return</span> <span class="n">value</span><span class="p">,</span> <span class="n">open_headers</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># wrap value in envelope</span>
+            <span class="n">req</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_request_class</span><span class="p">(</span><span class="n">value</span><span class="p">)(</span>
+                <span class="n">value</span><span class="o">=</span><span class="n">value</span><span class="p">,</span>
+                <span class="n">reply_to</span><span class="o">=</span><span class="n">topic_name</span><span class="p">,</span>
+                <span class="n">correlation_id</span><span class="o">=</span><span class="n">correlation_id</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="n">req</span><span class="p">,</span> <span class="n">open_headers</span>
+
+    <span class="k">def</span> <span class="nf">_request_class</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">V</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Type</span><span class="p">[</span><span class="n">ReqRepRequest</span><span class="p">]:</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">ModelT</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">ModelReqRepRequest</span>
+        <span class="k">return</span> <span class="n">ReqRepRequest</span>
+
+<div class="viewcode-block" id="Agent.send"><a class="viewcode-back" href="../../../reference/faust.agents.agent.html#faust.Agent.send">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">send</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                   <span class="o">*</span><span class="p">,</span>
+                   <span class="n">key</span><span class="p">:</span> <span class="n">K</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                   <span class="n">value</span><span class="p">:</span> <span class="n">V</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                   <span class="n">partition</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                   <span class="n">timestamp</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                   <span class="n">headers</span><span class="p">:</span> <span class="n">HeadersArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                   <span class="n">key_serializer</span><span class="p">:</span> <span class="n">CodecArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                   <span class="n">value_serializer</span><span class="p">:</span> <span class="n">CodecArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                   <span class="n">callback</span><span class="p">:</span> <span class="n">MessageSentCallback</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                   <span class="n">reply_to</span><span class="p">:</span> <span class="n">ReplyToArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                   <span class="n">correlation_id</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                   <span class="n">force</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Awaitable</span><span class="p">[</span><span class="n">RecordMetadata</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;Send message to topic used by agent.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">reply_to</span><span class="p">:</span>
+            <span class="n">value</span><span class="p">,</span> <span class="n">headers</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_req</span><span class="p">(</span>
+                <span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">reply_to</span><span class="p">,</span> <span class="n">correlation_id</span><span class="p">,</span> <span class="n">headers</span><span class="p">)</span>
+        <span class="k">return</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">channel</span><span class="o">.</span><span class="n">send</span><span class="p">(</span>
+            <span class="n">key</span><span class="o">=</span><span class="n">key</span><span class="p">,</span>
+            <span class="n">value</span><span class="o">=</span><span class="n">value</span><span class="p">,</span>
+            <span class="n">partition</span><span class="o">=</span><span class="n">partition</span><span class="p">,</span>
+            <span class="n">timestamp</span><span class="o">=</span><span class="n">timestamp</span><span class="p">,</span>
+            <span class="n">headers</span><span class="o">=</span><span class="n">headers</span><span class="p">,</span>
+            <span class="n">key_serializer</span><span class="o">=</span><span class="n">key_serializer</span><span class="p">,</span>
+            <span class="n">value_serializer</span><span class="o">=</span><span class="n">value_serializer</span><span class="p">,</span>
+            <span class="n">force</span><span class="o">=</span><span class="n">force</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_get_strtopic</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                      <span class="n">topic</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">ChannelT</span><span class="p">,</span> <span class="n">TopicT</span><span class="p">,</span> <span class="n">AgentT</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">topic</span><span class="p">,</span> <span class="n">AgentT</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_strtopic</span><span class="p">(</span><span class="n">topic</span><span class="o">.</span><span class="n">channel</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">topic</span><span class="p">,</span> <span class="n">TopicT</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">topic</span><span class="o">.</span><span class="n">get_topic_name</span><span class="p">()</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">topic</span><span class="p">,</span> <span class="n">ChannelT</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Channels are unnamed topics&#39;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">topic</span>
+
+<div class="viewcode-block" id="Agent.map"><a class="viewcode-back" href="../../../reference/faust.agents.agent.html#faust.Agent.map">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">map</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                  <span class="n">values</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">AsyncIterable</span><span class="p">,</span> <span class="n">Iterable</span><span class="p">],</span>
+                  <span class="n">key</span><span class="p">:</span> <span class="n">K</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                  <span class="n">reply_to</span><span class="p">:</span> <span class="n">ReplyToArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                  <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AsyncIterator</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+        <span class="sd">&quot;&quot;&quot;RPC map operation on a list of values.</span>
+
+<span class="sd">        A map operation iterates over results as they arrive.</span>
+<span class="sd">        See :meth:`join` and :meth:`kvjoin` if you want them in order.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Map takes only values, but can provide one key that is used for all.</span>
+        <span class="k">async</span> <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">kvmap</span><span class="p">(</span>
+                <span class="p">((</span><span class="n">key</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span> <span class="k">async</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">aiter</span><span class="p">(</span><span class="n">values</span><span class="p">)),</span> <span class="n">reply_to</span><span class="p">):</span>
+            <span class="k">yield</span> <span class="n">value</span></div>
+
+<div class="viewcode-block" id="Agent.kvmap"><a class="viewcode-back" href="../../../reference/faust.agents.agent.html#faust.Agent.kvmap">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">kvmap</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">items</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">AsyncIterable</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">K</span><span class="p">,</span> <span class="n">V</span><span class="p">]],</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">K</span><span class="p">,</span> <span class="n">V</span><span class="p">]]],</span>
+            <span class="n">reply_to</span><span class="p">:</span> <span class="n">ReplyToArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AsyncIterator</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>  <span class="c1"># pragma: no cover</span>
+        <span class="sd">&quot;&quot;&quot;RPC map operation on a list of ``(key, value)`` pairs.</span>
+
+<span class="sd">        A map operation iterates over results as they arrive.</span>
+<span class="sd">        See :meth:`join` and :meth:`kvjoin` if you want them in order.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># kvmap takes (key, value) pairs.</span>
+        <span class="n">reply_to</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_strtopic</span><span class="p">(</span><span class="n">reply_to</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">conf</span><span class="o">.</span><span class="n">reply_to</span><span class="p">)</span>
+
+        <span class="c1"># BarrierState is the promise that keeps track of pending results.</span>
+        <span class="c1"># It contains a list of individual ReplyPromises.</span>
+        <span class="n">barrier</span> <span class="o">=</span> <span class="n">BarrierState</span><span class="p">(</span><span class="n">reply_to</span><span class="p">)</span>
+
+        <span class="k">async</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_barrier_send</span><span class="p">(</span><span class="n">barrier</span><span class="p">,</span> <span class="n">items</span><span class="p">,</span> <span class="n">reply_to</span><span class="p">):</span>
+            <span class="c1"># Now that we&#39;ve sent a message, try to see if we have any</span>
+            <span class="c1"># replies.</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">_</span><span class="p">,</span> <span class="n">val</span> <span class="o">=</span> <span class="n">barrier</span><span class="o">.</span><span class="n">get_nowait</span><span class="p">()</span>
+            <span class="k">except</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">QueueEmpty</span><span class="p">:</span>
+                <span class="k">pass</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">yield</span> <span class="n">val</span>
+        <span class="c1"># All the messages have been sent so finalize the barrier.</span>
+        <span class="n">barrier</span><span class="o">.</span><span class="n">finalize</span><span class="p">()</span>
+
+        <span class="c1"># Then iterate over the results in the group.</span>
+        <span class="k">async</span> <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">barrier</span><span class="o">.</span><span class="n">iterate</span><span class="p">():</span>
+            <span class="k">yield</span> <span class="n">value</span></div>
+
+<div class="viewcode-block" id="Agent.join"><a class="viewcode-back" href="../../../reference/faust.agents.agent.html#faust.Agent.join">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">join</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                   <span class="n">values</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">AsyncIterable</span><span class="p">[</span><span class="n">V</span><span class="p">],</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">V</span><span class="p">]],</span>
+                   <span class="n">key</span><span class="p">:</span> <span class="n">K</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                   <span class="n">reply_to</span><span class="p">:</span> <span class="n">ReplyToArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                   <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>  <span class="c1"># pragma: no cover</span>
+        <span class="sd">&quot;&quot;&quot;RPC map operation on a list of values.</span>
+
+<span class="sd">        A join returns the results in order, and only returns once</span>
+<span class="sd">        all values have been processed.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">kvjoin</span><span class="p">(</span>
+            <span class="p">((</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span> <span class="k">async</span> <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">aiter</span><span class="p">(</span><span class="n">values</span><span class="p">)),</span>
+            <span class="n">reply_to</span><span class="o">=</span><span class="n">reply_to</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="Agent.kvjoin"><a class="viewcode-back" href="../../../reference/faust.agents.agent.html#faust.Agent.kvjoin">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">kvjoin</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">items</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">AsyncIterable</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">K</span><span class="p">,</span> <span class="n">V</span><span class="p">]],</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">K</span><span class="p">,</span> <span class="n">V</span><span class="p">]]],</span>
+            <span class="n">reply_to</span><span class="p">:</span> <span class="n">ReplyToArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>  <span class="c1"># pragma: no cover</span>
+        <span class="sd">&quot;&quot;&quot;RPC map operation on list of ``(key, value)`` pairs.</span>
+
+<span class="sd">        A join returns the results in order, and only returns once</span>
+<span class="sd">        all values have been processed.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">reply_to</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_strtopic</span><span class="p">(</span><span class="n">reply_to</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">conf</span><span class="o">.</span><span class="n">reply_to</span><span class="p">)</span>
+        <span class="n">barrier</span> <span class="o">=</span> <span class="n">BarrierState</span><span class="p">(</span><span class="n">reply_to</span><span class="p">)</span>
+
+        <span class="c1"># Map correlation_id -&gt; index</span>
+        <span class="n">posindex</span><span class="p">:</span> <span class="n">MutableMapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">cid</span><span class="p">:</span> <span class="n">i</span>
+            <span class="k">async</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">cid</span> <span class="ow">in</span> <span class="n">aenumerate</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_barrier_send</span><span class="p">(</span><span class="n">barrier</span><span class="p">,</span> <span class="n">items</span><span class="p">,</span> <span class="n">reply_to</span><span class="p">))</span>
+        <span class="p">}</span>
+
+        <span class="c1"># All the messages have been sent so finalize the barrier.</span>
+        <span class="n">barrier</span><span class="o">.</span><span class="n">finalize</span><span class="p">()</span>
+
+        <span class="c1"># wait until all replies received</span>
+        <span class="k">await</span> <span class="n">barrier</span>
+        <span class="c1"># then construct a list in the correct order.</span>
+        <span class="n">values</span><span class="p">:</span> <span class="n">List</span> <span class="o">=</span> <span class="p">[</span><span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="n">barrier</span><span class="o">.</span><span class="n">total</span>
+        <span class="k">async</span> <span class="k">for</span> <span class="n">correlation_id</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">barrier</span><span class="o">.</span><span class="n">iterate</span><span class="p">():</span>
+            <span class="n">values</span><span class="p">[</span><span class="n">posindex</span><span class="p">[</span><span class="n">correlation_id</span><span class="p">]]</span> <span class="o">=</span> <span class="n">value</span>
+        <span class="k">return</span> <span class="n">values</span></div>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">_barrier_send</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span> <span class="n">barrier</span><span class="p">:</span> <span class="n">BarrierState</span><span class="p">,</span>
+            <span class="n">items</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">AsyncIterable</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">K</span><span class="p">,</span> <span class="n">V</span><span class="p">]],</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">K</span><span class="p">,</span> <span class="n">V</span><span class="p">]]],</span>
+            <span class="n">reply_to</span><span class="p">:</span> <span class="n">ReplyToArg</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AsyncIterator</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>  <span class="c1"># pragma: no cover</span>
+        <span class="c1"># map: send many tasks to agents</span>
+        <span class="c1"># while trying to pop incoming results off.</span>
+        <span class="n">key</span><span class="p">:</span> <span class="n">K</span>
+        <span class="n">value</span><span class="p">:</span> <span class="n">V</span>
+        <span class="k">async</span> <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">aiter</span><span class="p">(</span><span class="n">items</span><span class="p">):</span>  <span class="c1"># type: ignore</span>
+            <span class="n">correlation_id</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">uuid4</span><span class="p">())</span>
+            <span class="n">p</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">ask_nowait</span><span class="p">(</span>
+                <span class="n">key</span><span class="o">=</span><span class="n">key</span><span class="p">,</span>
+                <span class="n">value</span><span class="o">=</span><span class="n">value</span><span class="p">,</span>
+                <span class="n">reply_to</span><span class="o">=</span><span class="n">reply_to</span><span class="p">,</span>
+                <span class="n">correlation_id</span><span class="o">=</span><span class="n">correlation_id</span><span class="p">)</span>
+            <span class="c1"># add reply promise to the barrier</span>
+            <span class="n">barrier</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
+
+            <span class="c1"># the ReplyConsumer will call the barrier whenever a new</span>
+            <span class="c1"># result comes in.</span>
+            <span class="n">app</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">_App</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="p">)</span>
+            <span class="k">await</span> <span class="n">app</span><span class="o">.</span><span class="n">maybe_start_client</span><span class="p">()</span>
+            <span class="k">await</span> <span class="n">app</span><span class="o">.</span><span class="n">_reply_consumer</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">correlation_id</span><span class="p">,</span> <span class="n">barrier</span><span class="p">)</span>
+
+            <span class="k">yield</span> <span class="n">correlation_id</span>
+
+    <span class="k">def</span> <span class="nf">_repr_info</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">shorten_fqdn</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Agent.get_topic_names"><a class="viewcode-back" href="../../../reference/faust.agents.agent.html#faust.Agent.get_topic_names">[docs]</a>    <span class="k">def</span> <span class="nf">get_topic_names</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterable</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;Return list of topic names this agent subscribes to.&quot;&quot;&quot;</span>
+        <span class="n">channel</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">channel</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">channel</span><span class="p">,</span> <span class="n">TopicT</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">channel</span><span class="o">.</span><span class="n">topics</span>
+        <span class="k">return</span> <span class="p">[]</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">channel</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ChannelT</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Return channel used by agent.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_channel</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_channel</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_prepare_channel</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_channel_arg</span><span class="p">,</span>
+                <span class="n">schema</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_schema</span><span class="p">,</span>
+                <span class="n">key_type</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_key_type</span><span class="p">,</span>
+                <span class="n">value_type</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_value_type</span><span class="p">,</span>
+                <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">_channel_kwargs</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_channel</span>
+
+    <span class="nd">@channel</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">channel</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">channel</span><span class="p">:</span> <span class="n">ChannelT</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_channel</span> <span class="o">=</span> <span class="n">channel</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">channel_iterator</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AsyncIterator</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Return channel agent iterates over.&quot;&quot;&quot;</span>
+        <span class="c1"># The channel is &quot;memoized&quot; here, so subsequent access to</span>
+        <span class="c1"># instance.channel_iterator will return the same value.</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_channel_iterator</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># we do not use aiter(channel) here, because</span>
+            <span class="c1"># that will also add it to the topic conductor too early.</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_channel_iterator</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">channel</span><span class="o">.</span><span class="n">clone</span><span class="p">(</span><span class="n">is_iterator</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_channel_iterator</span>
+
+    <span class="nd">@channel_iterator</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">channel_iterator</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">it</span><span class="p">:</span> <span class="n">AsyncIterator</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_channel_iterator</span> <span class="o">=</span> <span class="n">it</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">label</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Return human-readable description of agent.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_agent_label</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">_agent_label</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name_suffix</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="n">f</span><span class="s1">&#39;{type(self).__name__}</span><span class="si">{name_suffix}</span><span class="s1">: &#39;</span>
+        <span class="n">s</span> <span class="o">+=</span> <span class="n">f</span><span class="s1">&#39;{shorten_fqdn(qualname(self.fun))}&#39;</span>
+        <span class="k">return</span> <span class="n">s</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">shortlabel</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Return short description of agent.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_agent_label</span><span class="p">()</span></div>
+
+
+<span class="k">class</span> <span class="nc">AgentTestWrapper</span><span class="p">(</span><span class="n">Agent</span><span class="p">,</span> <span class="n">AgentTestWrapperT</span><span class="p">):</span>  <span class="c1"># pragma: no cover</span>
+
+    <span class="n">_stream</span><span class="p">:</span> <span class="n">StreamT</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                 <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+                 <span class="n">original_channel</span><span class="p">:</span> <span class="n">ChannelT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">results</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">new_value_processed</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">Condition</span><span class="p">(</span><span class="n">loop</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">loop</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">original_channel</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">ChannelT</span><span class="p">,</span> <span class="n">original_channel</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">add_sink</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_on_value_processed</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_stream</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">channel</span><span class="o">.</span><span class="n">stream</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sent_offset</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">processed_offset</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="k">def</span> <span class="nf">stream</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">StreamT</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stream</span><span class="o">.</span><span class="n">get_active_stream</span><span class="p">()</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">_on_value_processed</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">async</span> <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">new_value_processed</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">processed_offset</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">processed_offset</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">new_value_processed</span><span class="o">.</span><span class="n">notify_all</span><span class="p">()</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">crash_test_agent</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">exc</span><span class="p">:</span> <span class="ne">BaseException</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_crash</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span>
+        <span class="k">async</span> <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">new_value_processed</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">new_value_processed</span><span class="o">.</span><span class="n">notify_all</span><span class="p">()</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">put</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                  <span class="n">value</span><span class="p">:</span> <span class="n">V</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                  <span class="n">key</span><span class="p">:</span> <span class="n">K</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                  <span class="n">partition</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                  <span class="n">timestamp</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                  <span class="n">headers</span><span class="p">:</span> <span class="n">HeadersArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                  <span class="n">key_serializer</span><span class="p">:</span> <span class="n">CodecArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                  <span class="n">value_serializer</span><span class="p">:</span> <span class="n">CodecArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                  <span class="o">*</span><span class="p">,</span>
+                  <span class="n">reply_to</span><span class="p">:</span> <span class="n">ReplyToArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                  <span class="n">correlation_id</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                  <span class="n">wait</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">EventT</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">reply_to</span><span class="p">:</span>
+            <span class="n">value</span><span class="p">,</span> <span class="n">headers</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_req</span><span class="p">(</span>
+                <span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">reply_to</span><span class="p">,</span> <span class="n">correlation_id</span><span class="p">,</span> <span class="n">headers</span><span class="p">)</span>
+        <span class="n">channel</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">ChannelT</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">stream</span><span class="p">()</span><span class="o">.</span><span class="n">channel</span><span class="p">)</span>
+        <span class="n">message</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">to_message</span><span class="p">(</span>
+            <span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span>
+            <span class="n">partition</span><span class="o">=</span><span class="n">partition</span><span class="p">,</span>
+            <span class="n">offset</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">sent_offset</span><span class="p">,</span>
+            <span class="n">timestamp</span><span class="o">=</span><span class="n">timestamp</span><span class="p">,</span>
+            <span class="n">headers</span><span class="o">=</span><span class="n">headers</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">event</span><span class="p">:</span> <span class="n">EventT</span> <span class="o">=</span> <span class="k">await</span> <span class="n">channel</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="n">message</span><span class="p">)</span>
+        <span class="k">await</span> <span class="n">channel</span><span class="o">.</span><span class="n">put</span><span class="p">(</span><span class="n">event</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sent_offset</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="k">if</span> <span class="n">wait</span><span class="p">:</span>
+            <span class="k">async</span> <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">new_value_processed</span><span class="p">:</span>
+                <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">new_value_processed</span><span class="o">.</span><span class="n">wait</span><span class="p">()</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_crash_reason</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="bp">self</span><span class="o">.</span><span class="n">_crash_reason</span> <span class="kn">from</span> <span class="nn">self._crash_reason</span>
+        <span class="k">return</span> <span class="n">event</span>
+
+    <span class="k">def</span> <span class="nf">to_message</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                   <span class="n">key</span><span class="p">:</span> <span class="n">K</span><span class="p">,</span>
+                   <span class="n">value</span><span class="p">:</span> <span class="n">V</span><span class="p">,</span>
+                   <span class="o">*</span><span class="p">,</span>
+                   <span class="n">partition</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                   <span class="n">offset</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+                   <span class="n">timestamp</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                   <span class="n">timestamp_type</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+                   <span class="n">headers</span><span class="p">:</span> <span class="n">HeadersArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Message</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">topic_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_strtopic</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">original_channel</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+            <span class="n">topic_name</span> <span class="o">=</span> <span class="s1">&#39;&lt;internal&gt;&#39;</span>
+        <span class="k">return</span> <span class="n">Message</span><span class="p">(</span>
+            <span class="n">topic</span><span class="o">=</span><span class="n">topic_name</span><span class="p">,</span>
+            <span class="n">partition</span><span class="o">=</span><span class="n">partition</span> <span class="ow">or</span> <span class="mi">0</span><span class="p">,</span>
+            <span class="n">offset</span><span class="o">=</span><span class="n">offset</span><span class="p">,</span>
+            <span class="n">timestamp</span><span class="o">=</span><span class="n">timestamp</span> <span class="ow">or</span> <span class="n">time</span><span class="p">(),</span>
+            <span class="n">timestamp_type</span><span class="o">=</span><span class="n">timestamp_type</span><span class="p">,</span>
+            <span class="n">headers</span><span class="o">=</span><span class="n">headers</span><span class="p">,</span>
+            <span class="n">key</span><span class="o">=</span><span class="n">key</span><span class="p">,</span>
+            <span class="n">value</span><span class="o">=</span><span class="n">value</span><span class="p">,</span>
+            <span class="n">checksum</span><span class="o">=</span><span class="sa">b</span><span class="s1">&#39;&#39;</span><span class="p">,</span>
+            <span class="n">serialized_key_size</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+            <span class="n">serialized_value_size</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">throw</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">exc</span><span class="p">:</span> <span class="ne">BaseException</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">stream</span><span class="p">()</span><span class="o">.</span><span class="n">throw</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__aiter__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AsyncIterator</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">aiter</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_stream</span><span class="p">)</span>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../../index.html">
+              <img class="logo" src="../../../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../../../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../playbooks/index.html">Playbooks</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../userguide/index.html">User Guide</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../reference/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../history/index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2019, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

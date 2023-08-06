@@ -1,0 +1,1260 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>faust.sensors &#8212; Faust 1.11.0a1 documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="copyright" title="Copyright" href="../copyright.html" />
+    <link rel="next" title="faust.sensors.base" href="faust.sensors.base.html" />
+    <link rel="prev" title="faust.models.typing" href="faust.models.typing.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="faust-sensors">
+<h1><code class="docutils literal notranslate"><span class="pre">faust.sensors</span></code><a class="headerlink" href="#faust-sensors" title="Permalink to this headline">¶</a></h1>
+<span class="target" id="module-faust.sensors"></span><p>Sensors.</p>
+<dl class="class">
+<dt id="faust.sensors.Sensor">
+<em class="property">class </em><code class="sig-prename descclassname">faust.sensors.</code><code class="sig-name descname">Sensor</code><span class="sig-paren">(</span><em class="sig-param">*</em>, <em class="sig-param">beacon: mode.utils.types.trees.NodeT = None</em>, <em class="sig-param">loop: asyncio.events.AbstractEventLoop = None</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/sensors/base.html#Sensor"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.sensors.Sensor" title="Permalink to this definition">¶</a></dt>
+<dd><p>Base class for sensors.</p>
+<p>This sensor does not do anything at all, but can be subclassed
+to create new monitors.</p>
+<dl class="method">
+<dt id="faust.sensors.Sensor.on_message_in">
+<code class="sig-name descname">on_message_in</code><span class="sig-paren">(</span><em class="sig-param">tp: faust.types.tuples.TP</em>, <em class="sig-param">offset: int</em>, <em class="sig-param">message: faust.types.tuples.Message</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/sensors/base.html#Sensor.on_message_in"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.sensors.Sensor.on_message_in" title="Permalink to this definition">¶</a></dt>
+<dd><p>Message received by a consumer.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.sensors.Sensor.on_stream_event_in">
+<code class="sig-name descname">on_stream_event_in</code><span class="sig-paren">(</span><em class="sig-param">tp: faust.types.tuples.TP</em>, <em class="sig-param">offset: int</em>, <em class="sig-param">stream: faust.types.streams.StreamT</em>, <em class="sig-param">event: faust.types.events.EventT</em><span class="sig-paren">)</span> &#x2192; Optional[Dict]<a class="reference internal" href="../_modules/faust/sensors/base.html#Sensor.on_stream_event_in"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.sensors.Sensor.on_stream_event_in" title="Permalink to this definition">¶</a></dt>
+<dd><p>Message sent to a stream as an event.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Optional" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Dict" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code></a>[~KT, ~VT]]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.sensors.Sensor.on_stream_event_out">
+<code class="sig-name descname">on_stream_event_out</code><span class="sig-paren">(</span><em class="sig-param">tp: faust.types.tuples.TP</em>, <em class="sig-param">offset: int</em>, <em class="sig-param">stream: faust.types.streams.StreamT</em>, <em class="sig-param">event: faust.types.events.EventT</em>, <em class="sig-param">state: Dict = None</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/sensors/base.html#Sensor.on_stream_event_out"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.sensors.Sensor.on_stream_event_out" title="Permalink to this definition">¶</a></dt>
+<dd><p>Event was acknowledged by stream.</p>
+<p class="rubric">Notes</p>
+<p>Acknowledged means a stream finished processing the event, but
+given that multiple streams may be handling the same event,
+the message cannot be committed before all streams have
+processed it.  When all streams have acknowledged the event,
+it will go through <a class="reference internal" href="#faust.sensors.Sensor.on_message_out" title="faust.sensors.Sensor.on_message_out"><code class="xref py py-meth docutils literal notranslate"><span class="pre">on_message_out()</span></code></a> just before offsets
+are committed.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.sensors.Sensor.on_message_out">
+<code class="sig-name descname">on_message_out</code><span class="sig-paren">(</span><em class="sig-param">tp: faust.types.tuples.TP</em>, <em class="sig-param">offset: int</em>, <em class="sig-param">message: faust.types.tuples.Message</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/sensors/base.html#Sensor.on_message_out"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.sensors.Sensor.on_message_out" title="Permalink to this definition">¶</a></dt>
+<dd><p>All streams finished processing message.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.sensors.Sensor.on_topic_buffer_full">
+<code class="sig-name descname">on_topic_buffer_full</code><span class="sig-paren">(</span><em class="sig-param">topic: faust.types.topics.TopicT</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/sensors/base.html#Sensor.on_topic_buffer_full"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.sensors.Sensor.on_topic_buffer_full" title="Permalink to this definition">¶</a></dt>
+<dd><p>Topic buffer full so conductor had to wait.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.sensors.Sensor.on_table_get">
+<code class="sig-name descname">on_table_get</code><span class="sig-paren">(</span><em class="sig-param">table: faust.types.tables.CollectionT</em>, <em class="sig-param">key: Any</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/sensors/base.html#Sensor.on_table_get"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.sensors.Sensor.on_table_get" title="Permalink to this definition">¶</a></dt>
+<dd><p>Key retrieved from table.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.sensors.Sensor.on_table_set">
+<code class="sig-name descname">on_table_set</code><span class="sig-paren">(</span><em class="sig-param">table: faust.types.tables.CollectionT</em>, <em class="sig-param">key: Any</em>, <em class="sig-param">value: Any</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/sensors/base.html#Sensor.on_table_set"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.sensors.Sensor.on_table_set" title="Permalink to this definition">¶</a></dt>
+<dd><p>Value set for key in table.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.sensors.Sensor.on_table_del">
+<code class="sig-name descname">on_table_del</code><span class="sig-paren">(</span><em class="sig-param">table: faust.types.tables.CollectionT</em>, <em class="sig-param">key: Any</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/sensors/base.html#Sensor.on_table_del"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.sensors.Sensor.on_table_del" title="Permalink to this definition">¶</a></dt>
+<dd><p>Key deleted from table.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.sensors.Sensor.on_commit_initiated">
+<code class="sig-name descname">on_commit_initiated</code><span class="sig-paren">(</span><em class="sig-param">consumer: faust.types.transports.ConsumerT</em><span class="sig-paren">)</span> &#x2192; Any<a class="reference internal" href="../_modules/faust/sensors/base.html#Sensor.on_commit_initiated"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.sensors.Sensor.on_commit_initiated" title="Permalink to this definition">¶</a></dt>
+<dd><p>Consumer is about to commit topic offset.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Any" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.sensors.Sensor.on_commit_completed">
+<code class="sig-name descname">on_commit_completed</code><span class="sig-paren">(</span><em class="sig-param">consumer: faust.types.transports.ConsumerT</em>, <em class="sig-param">state: Any</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/sensors/base.html#Sensor.on_commit_completed"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.sensors.Sensor.on_commit_completed" title="Permalink to this definition">¶</a></dt>
+<dd><p>Consumer finished committing topic offset.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.sensors.Sensor.on_send_initiated">
+<code class="sig-name descname">on_send_initiated</code><span class="sig-paren">(</span><em class="sig-param">producer: faust.types.transports.ProducerT</em>, <em class="sig-param">topic: str</em>, <em class="sig-param">message: faust.types.tuples.PendingMessage</em>, <em class="sig-param">keysize: int</em>, <em class="sig-param">valsize: int</em><span class="sig-paren">)</span> &#x2192; Any<a class="reference internal" href="../_modules/faust/sensors/base.html#Sensor.on_send_initiated"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.sensors.Sensor.on_send_initiated" title="Permalink to this definition">¶</a></dt>
+<dd><p>About to send a message.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Any" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.sensors.Sensor.on_send_completed">
+<code class="sig-name descname">on_send_completed</code><span class="sig-paren">(</span><em class="sig-param">producer: faust.types.transports.ProducerT</em>, <em class="sig-param">state: Any</em>, <em class="sig-param">metadata: faust.types.tuples.RecordMetadata</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/sensors/base.html#Sensor.on_send_completed"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.sensors.Sensor.on_send_completed" title="Permalink to this definition">¶</a></dt>
+<dd><p>Message successfully sent.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.sensors.Sensor.on_send_error">
+<code class="sig-name descname">on_send_error</code><span class="sig-paren">(</span><em class="sig-param">producer: faust.types.transports.ProducerT</em>, <em class="sig-param">exc: BaseException</em>, <em class="sig-param">state: Any</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/sensors/base.html#Sensor.on_send_error"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.sensors.Sensor.on_send_error" title="Permalink to this definition">¶</a></dt>
+<dd><p>Error while sending message.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.sensors.Sensor.on_assignment_start">
+<code class="sig-name descname">on_assignment_start</code><span class="sig-paren">(</span><em class="sig-param">assignor: faust.types.assignor.PartitionAssignorT</em><span class="sig-paren">)</span> &#x2192; Dict<a class="reference internal" href="../_modules/faust/sensors/base.html#Sensor.on_assignment_start"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.sensors.Sensor.on_assignment_start" title="Permalink to this definition">¶</a></dt>
+<dd><p>Partition assignor is starting to assign partitions.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Dict" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code></a>[~KT, ~VT]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.sensors.Sensor.on_assignment_error">
+<code class="sig-name descname">on_assignment_error</code><span class="sig-paren">(</span><em class="sig-param">assignor: faust.types.assignor.PartitionAssignorT</em>, <em class="sig-param">state: Dict</em>, <em class="sig-param">exc: BaseException</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/sensors/base.html#Sensor.on_assignment_error"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.sensors.Sensor.on_assignment_error" title="Permalink to this definition">¶</a></dt>
+<dd><p>Partition assignor did not complete assignor due to error.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.sensors.Sensor.on_assignment_completed">
+<code class="sig-name descname">on_assignment_completed</code><span class="sig-paren">(</span><em class="sig-param">assignor: faust.types.assignor.PartitionAssignorT</em>, <em class="sig-param">state: Dict</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/sensors/base.html#Sensor.on_assignment_completed"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.sensors.Sensor.on_assignment_completed" title="Permalink to this definition">¶</a></dt>
+<dd><p>Partition assignor completed assignment.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.sensors.Sensor.on_rebalance_start">
+<code class="sig-name descname">on_rebalance_start</code><span class="sig-paren">(</span><em class="sig-param">app: faust.types.app.AppT</em><span class="sig-paren">)</span> &#x2192; Dict<a class="reference internal" href="../_modules/faust/sensors/base.html#Sensor.on_rebalance_start"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.sensors.Sensor.on_rebalance_start" title="Permalink to this definition">¶</a></dt>
+<dd><p>Cluster rebalance in progress.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Dict" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code></a>[~KT, ~VT]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.sensors.Sensor.on_rebalance_return">
+<code class="sig-name descname">on_rebalance_return</code><span class="sig-paren">(</span><em class="sig-param">app: faust.types.app.AppT</em>, <em class="sig-param">state: Dict</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/sensors/base.html#Sensor.on_rebalance_return"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.sensors.Sensor.on_rebalance_return" title="Permalink to this definition">¶</a></dt>
+<dd><p>Consumer replied assignment is done to broker.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.sensors.Sensor.on_rebalance_end">
+<code class="sig-name descname">on_rebalance_end</code><span class="sig-paren">(</span><em class="sig-param">app: faust.types.app.AppT</em>, <em class="sig-param">state: Dict</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/sensors/base.html#Sensor.on_rebalance_end"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.sensors.Sensor.on_rebalance_end" title="Permalink to this definition">¶</a></dt>
+<dd><p>Cluster rebalance fully completed (including recovery).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.sensors.Sensor.on_web_request_start">
+<code class="sig-name descname">on_web_request_start</code><span class="sig-paren">(</span><em class="sig-param">app: faust.types.app.AppT</em>, <em class="sig-param">request: faust.web.base.Request</em>, <em class="sig-param">*</em>, <em class="sig-param">view: faust.web.views.View = None</em><span class="sig-paren">)</span> &#x2192; Dict<a class="reference internal" href="../_modules/faust/sensors/base.html#Sensor.on_web_request_start"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.sensors.Sensor.on_web_request_start" title="Permalink to this definition">¶</a></dt>
+<dd><p>Web server started working on request.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Dict" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code></a>[~KT, ~VT]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.sensors.Sensor.on_web_request_end">
+<code class="sig-name descname">on_web_request_end</code><span class="sig-paren">(</span><em class="sig-param">app: faust.types.app.AppT, request: faust.web.base.Request, response: Optional[faust.web.base.Response], state: Dict, *, view: faust.web.views.View = None</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/sensors/base.html#Sensor.on_web_request_end"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.sensors.Sensor.on_web_request_end" title="Permalink to this definition">¶</a></dt>
+<dd><p>Web server finished working on request.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.sensors.Sensor.asdict">
+<code class="sig-name descname">asdict</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; Mapping<a class="reference internal" href="../_modules/faust/sensors/base.html#Sensor.asdict"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.sensors.Sensor.asdict" title="Permalink to this definition">¶</a></dt>
+<dd><p>Convert sensor state to dictionary.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Mapping" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Mapping</span></code></a>[~KT, +VT_co]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.sensors.Sensor.logger">
+<code class="sig-name descname">logger</code><em class="property"> = &lt;Logger faust.sensors.base (WARNING)&gt;</em><a class="headerlink" href="#faust.sensors.Sensor.logger" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="faust.sensors.SensorDelegate">
+<em class="property">class </em><code class="sig-prename descclassname">faust.sensors.</code><code class="sig-name descname">SensorDelegate</code><span class="sig-paren">(</span><em class="sig-param">app: faust.types.app.AppT</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/sensors/base.html#SensorDelegate"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.sensors.SensorDelegate" title="Permalink to this definition">¶</a></dt>
+<dd><p>A class that delegates sensor methods to a list of sensors.</p>
+<dl class="method">
+<dt id="faust.sensors.SensorDelegate.add">
+<code class="sig-name descname">add</code><span class="sig-paren">(</span><em class="sig-param">sensor: faust.types.sensors.SensorT</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/sensors/base.html#SensorDelegate.add"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.sensors.SensorDelegate.add" title="Permalink to this definition">¶</a></dt>
+<dd><p>Add sensor.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.sensors.SensorDelegate.remove">
+<code class="sig-name descname">remove</code><span class="sig-paren">(</span><em class="sig-param">sensor: faust.types.sensors.SensorT</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/sensors/base.html#SensorDelegate.remove"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.sensors.SensorDelegate.remove" title="Permalink to this definition">¶</a></dt>
+<dd><p>Remove sensor.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.sensors.SensorDelegate.on_message_in">
+<code class="sig-name descname">on_message_in</code><span class="sig-paren">(</span><em class="sig-param">tp: faust.types.tuples.TP</em>, <em class="sig-param">offset: int</em>, <em class="sig-param">message: faust.types.tuples.Message</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/sensors/base.html#SensorDelegate.on_message_in"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.sensors.SensorDelegate.on_message_in" title="Permalink to this definition">¶</a></dt>
+<dd><p>Call before message is delegated to streams.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.sensors.SensorDelegate.on_stream_event_in">
+<code class="sig-name descname">on_stream_event_in</code><span class="sig-paren">(</span><em class="sig-param">tp: faust.types.tuples.TP</em>, <em class="sig-param">offset: int</em>, <em class="sig-param">stream: faust.types.streams.StreamT</em>, <em class="sig-param">event: faust.types.events.EventT</em><span class="sig-paren">)</span> &#x2192; Optional[Dict]<a class="reference internal" href="../_modules/faust/sensors/base.html#SensorDelegate.on_stream_event_in"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.sensors.SensorDelegate.on_stream_event_in" title="Permalink to this definition">¶</a></dt>
+<dd><p>Call when stream starts processing an event.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Optional" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Dict" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code></a>[~KT, ~VT]]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.sensors.SensorDelegate.on_stream_event_out">
+<code class="sig-name descname">on_stream_event_out</code><span class="sig-paren">(</span><em class="sig-param">tp: faust.types.tuples.TP</em>, <em class="sig-param">offset: int</em>, <em class="sig-param">stream: faust.types.streams.StreamT</em>, <em class="sig-param">event: faust.types.events.EventT</em>, <em class="sig-param">state: Dict = None</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/sensors/base.html#SensorDelegate.on_stream_event_out"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.sensors.SensorDelegate.on_stream_event_out" title="Permalink to this definition">¶</a></dt>
+<dd><p>Call when stream is done processing an event.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.sensors.SensorDelegate.on_topic_buffer_full">
+<code class="sig-name descname">on_topic_buffer_full</code><span class="sig-paren">(</span><em class="sig-param">topic: faust.types.topics.TopicT</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/sensors/base.html#SensorDelegate.on_topic_buffer_full"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.sensors.SensorDelegate.on_topic_buffer_full" title="Permalink to this definition">¶</a></dt>
+<dd><p>Call when conductor topic buffer is full and has to wait.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.sensors.SensorDelegate.on_message_out">
+<code class="sig-name descname">on_message_out</code><span class="sig-paren">(</span><em class="sig-param">tp: faust.types.tuples.TP</em>, <em class="sig-param">offset: int</em>, <em class="sig-param">message: faust.types.tuples.Message</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/sensors/base.html#SensorDelegate.on_message_out"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.sensors.SensorDelegate.on_message_out" title="Permalink to this definition">¶</a></dt>
+<dd><p>Call when message is fully acknowledged and can be committed.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.sensors.SensorDelegate.on_table_get">
+<code class="sig-name descname">on_table_get</code><span class="sig-paren">(</span><em class="sig-param">table: faust.types.tables.CollectionT</em>, <em class="sig-param">key: Any</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/sensors/base.html#SensorDelegate.on_table_get"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.sensors.SensorDelegate.on_table_get" title="Permalink to this definition">¶</a></dt>
+<dd><p>Call when value in table is retrieved.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.sensors.SensorDelegate.on_table_set">
+<code class="sig-name descname">on_table_set</code><span class="sig-paren">(</span><em class="sig-param">table: faust.types.tables.CollectionT</em>, <em class="sig-param">key: Any</em>, <em class="sig-param">value: Any</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/sensors/base.html#SensorDelegate.on_table_set"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.sensors.SensorDelegate.on_table_set" title="Permalink to this definition">¶</a></dt>
+<dd><p>Call when new value for key in table is set.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.sensors.SensorDelegate.on_table_del">
+<code class="sig-name descname">on_table_del</code><span class="sig-paren">(</span><em class="sig-param">table: faust.types.tables.CollectionT</em>, <em class="sig-param">key: Any</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/sensors/base.html#SensorDelegate.on_table_del"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.sensors.SensorDelegate.on_table_del" title="Permalink to this definition">¶</a></dt>
+<dd><p>Call when key in a table is deleted.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.sensors.SensorDelegate.on_commit_initiated">
+<code class="sig-name descname">on_commit_initiated</code><span class="sig-paren">(</span><em class="sig-param">consumer: faust.types.transports.ConsumerT</em><span class="sig-paren">)</span> &#x2192; Any<a class="reference internal" href="../_modules/faust/sensors/base.html#SensorDelegate.on_commit_initiated"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.sensors.SensorDelegate.on_commit_initiated" title="Permalink to this definition">¶</a></dt>
+<dd><p>Call when consumer commit offset operation starts.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Any" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.sensors.SensorDelegate.on_commit_completed">
+<code class="sig-name descname">on_commit_completed</code><span class="sig-paren">(</span><em class="sig-param">consumer: faust.types.transports.ConsumerT</em>, <em class="sig-param">state: Any</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/sensors/base.html#SensorDelegate.on_commit_completed"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.sensors.SensorDelegate.on_commit_completed" title="Permalink to this definition">¶</a></dt>
+<dd><p>Call when consumer commit offset operation completed.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.sensors.SensorDelegate.on_send_initiated">
+<code class="sig-name descname">on_send_initiated</code><span class="sig-paren">(</span><em class="sig-param">producer: faust.types.transports.ProducerT</em>, <em class="sig-param">topic: str</em>, <em class="sig-param">message: faust.types.tuples.PendingMessage</em>, <em class="sig-param">keysize: int</em>, <em class="sig-param">valsize: int</em><span class="sig-paren">)</span> &#x2192; Any<a class="reference internal" href="../_modules/faust/sensors/base.html#SensorDelegate.on_send_initiated"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.sensors.SensorDelegate.on_send_initiated" title="Permalink to this definition">¶</a></dt>
+<dd><p>Call when message added to producer buffer.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Any" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.sensors.SensorDelegate.on_send_completed">
+<code class="sig-name descname">on_send_completed</code><span class="sig-paren">(</span><em class="sig-param">producer: faust.types.transports.ProducerT</em>, <em class="sig-param">state: Any</em>, <em class="sig-param">metadata: faust.types.tuples.RecordMetadata</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/sensors/base.html#SensorDelegate.on_send_completed"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.sensors.SensorDelegate.on_send_completed" title="Permalink to this definition">¶</a></dt>
+<dd><p>Call when producer finished sending message.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.sensors.SensorDelegate.on_send_error">
+<code class="sig-name descname">on_send_error</code><span class="sig-paren">(</span><em class="sig-param">producer: faust.types.transports.ProducerT</em>, <em class="sig-param">exc: BaseException</em>, <em class="sig-param">state: Any</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/sensors/base.html#SensorDelegate.on_send_error"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.sensors.SensorDelegate.on_send_error" title="Permalink to this definition">¶</a></dt>
+<dd><p>Call when producer was unable to publish message.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.sensors.SensorDelegate.on_assignment_start">
+<code class="sig-name descname">on_assignment_start</code><span class="sig-paren">(</span><em class="sig-param">assignor: faust.types.assignor.PartitionAssignorT</em><span class="sig-paren">)</span> &#x2192; Dict<a class="reference internal" href="../_modules/faust/sensors/base.html#SensorDelegate.on_assignment_start"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.sensors.SensorDelegate.on_assignment_start" title="Permalink to this definition">¶</a></dt>
+<dd><p>Partition assignor is starting to assign partitions.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Dict" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code></a>[~KT, ~VT]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.sensors.SensorDelegate.on_assignment_error">
+<code class="sig-name descname">on_assignment_error</code><span class="sig-paren">(</span><em class="sig-param">assignor: faust.types.assignor.PartitionAssignorT</em>, <em class="sig-param">state: Dict</em>, <em class="sig-param">exc: BaseException</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/sensors/base.html#SensorDelegate.on_assignment_error"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.sensors.SensorDelegate.on_assignment_error" title="Permalink to this definition">¶</a></dt>
+<dd><p>Partition assignor did not complete assignor due to error.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.sensors.SensorDelegate.on_assignment_completed">
+<code class="sig-name descname">on_assignment_completed</code><span class="sig-paren">(</span><em class="sig-param">assignor: faust.types.assignor.PartitionAssignorT</em>, <em class="sig-param">state: Dict</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/sensors/base.html#SensorDelegate.on_assignment_completed"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.sensors.SensorDelegate.on_assignment_completed" title="Permalink to this definition">¶</a></dt>
+<dd><p>Partition assignor completed assignment.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.sensors.SensorDelegate.on_rebalance_start">
+<code class="sig-name descname">on_rebalance_start</code><span class="sig-paren">(</span><em class="sig-param">app: faust.types.app.AppT</em><span class="sig-paren">)</span> &#x2192; Dict<a class="reference internal" href="../_modules/faust/sensors/base.html#SensorDelegate.on_rebalance_start"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.sensors.SensorDelegate.on_rebalance_start" title="Permalink to this definition">¶</a></dt>
+<dd><p>Cluster rebalance in progress.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Dict" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code></a>[~KT, ~VT]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.sensors.SensorDelegate.on_rebalance_return">
+<code class="sig-name descname">on_rebalance_return</code><span class="sig-paren">(</span><em class="sig-param">app: faust.types.app.AppT</em>, <em class="sig-param">state: Dict</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/sensors/base.html#SensorDelegate.on_rebalance_return"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.sensors.SensorDelegate.on_rebalance_return" title="Permalink to this definition">¶</a></dt>
+<dd><p>Consumer replied assignment is done to broker.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.sensors.SensorDelegate.on_rebalance_end">
+<code class="sig-name descname">on_rebalance_end</code><span class="sig-paren">(</span><em class="sig-param">app: faust.types.app.AppT</em>, <em class="sig-param">state: Dict</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/sensors/base.html#SensorDelegate.on_rebalance_end"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.sensors.SensorDelegate.on_rebalance_end" title="Permalink to this definition">¶</a></dt>
+<dd><p>Cluster rebalance fully completed (including recovery).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.sensors.SensorDelegate.on_web_request_start">
+<code class="sig-name descname">on_web_request_start</code><span class="sig-paren">(</span><em class="sig-param">app: faust.types.app.AppT</em>, <em class="sig-param">request: faust.web.base.Request</em>, <em class="sig-param">*</em>, <em class="sig-param">view: faust.web.views.View = None</em><span class="sig-paren">)</span> &#x2192; Dict<a class="reference internal" href="../_modules/faust/sensors/base.html#SensorDelegate.on_web_request_start"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.sensors.SensorDelegate.on_web_request_start" title="Permalink to this definition">¶</a></dt>
+<dd><p>Web server started working on request.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Dict" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code></a>[~KT, ~VT]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.sensors.SensorDelegate.on_web_request_end">
+<code class="sig-name descname">on_web_request_end</code><span class="sig-paren">(</span><em class="sig-param">app: faust.types.app.AppT, request: faust.web.base.Request, response: Optional[faust.web.base.Response], state: Dict, *, view: faust.web.views.View = None</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/sensors/base.html#SensorDelegate.on_web_request_end"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.sensors.SensorDelegate.on_web_request_end" title="Permalink to this definition">¶</a></dt>
+<dd><p>Web server finished working on request.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="faust.sensors.Monitor">
+<em class="property">class </em><code class="sig-prename descclassname">faust.sensors.</code><code class="sig-name descname">Monitor</code><span class="sig-paren">(</span><em class="sig-param">*</em>, <em class="sig-param">max_avg_history: int = None</em>, <em class="sig-param">max_commit_latency_history: int = None</em>, <em class="sig-param">max_send_latency_history: int = None</em>, <em class="sig-param">max_assignment_latency_history: int = None</em>, <em class="sig-param">messages_sent: int = 0</em>, <em class="sig-param">tables: MutableMapping[str</em>, <em class="sig-param">faust.sensors.monitor.TableState] = None</em>, <em class="sig-param">messages_active: int = 0</em>, <em class="sig-param">events_active: int = 0</em>, <em class="sig-param">messages_received_total: int = 0</em>, <em class="sig-param">messages_received_by_topic: Counter[str] = None</em>, <em class="sig-param">events_total: int = 0</em>, <em class="sig-param">events_by_stream: Counter[faust.types.streams.StreamT] = None</em>, <em class="sig-param">events_by_task: Counter[_asyncio.Task] = None</em>, <em class="sig-param">events_runtime: Deque[float] = None</em>, <em class="sig-param">commit_latency: Deque[float] = None</em>, <em class="sig-param">send_latency: Deque[float] = None</em>, <em class="sig-param">assignment_latency: Deque[float] = None</em>, <em class="sig-param">events_s: int = 0</em>, <em class="sig-param">messages_s: int = 0</em>, <em class="sig-param">events_runtime_avg: float = 0.0</em>, <em class="sig-param">topic_buffer_full: Counter[faust.types.topics.TopicT] = None</em>, <em class="sig-param">rebalances: int = None</em>, <em class="sig-param">rebalance_return_latency: Deque[float] = None</em>, <em class="sig-param">rebalance_end_latency: Deque[float] = None</em>, <em class="sig-param">rebalance_return_avg: float = 0.0</em>, <em class="sig-param">rebalance_end_avg: float = 0.0</em>, <em class="sig-param">time: Callable[float] = &lt;built-in function monotonic&gt;</em>, <em class="sig-param">http_response_codes: Counter[http.HTTPStatus] = None</em>, <em class="sig-param">http_response_latency: Deque[float] = None</em>, <em class="sig-param">http_response_latency_avg: float = 0.0</em>, <em class="sig-param">**kwargs: Any</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/sensors/monitor.html#Monitor"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.sensors.Monitor" title="Permalink to this definition">¶</a></dt>
+<dd><p>Default Faust Sensor.</p>
+<p>This is the default sensor, recording statistics about
+events, etc.</p>
+<dl class="attribute">
+<dt id="faust.sensors.Monitor.send_errors">
+<code class="sig-name descname">send_errors</code><em class="property"> = 0</em><a class="headerlink" href="#faust.sensors.Monitor.send_errors" title="Permalink to this definition">¶</a></dt>
+<dd><p>Number of produce operations that ended in error.</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.sensors.Monitor.assignments_completed">
+<code class="sig-name descname">assignments_completed</code><em class="property"> = 0</em><a class="headerlink" href="#faust.sensors.Monitor.assignments_completed" title="Permalink to this definition">¶</a></dt>
+<dd><p>Number of partition assignments completed.</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.sensors.Monitor.assignments_failed">
+<code class="sig-name descname">assignments_failed</code><em class="property"> = 0</em><a class="headerlink" href="#faust.sensors.Monitor.assignments_failed" title="Permalink to this definition">¶</a></dt>
+<dd><p>Number of partitions assignments that failed.</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.sensors.Monitor.max_avg_history">
+<code class="sig-name descname">max_avg_history</code><em class="property"> = 100</em><a class="headerlink" href="#faust.sensors.Monitor.max_avg_history" title="Permalink to this definition">¶</a></dt>
+<dd><p>Max number of total run time values to keep to build average.</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.sensors.Monitor.max_commit_latency_history">
+<code class="sig-name descname">max_commit_latency_history</code><em class="property"> = 30</em><a class="headerlink" href="#faust.sensors.Monitor.max_commit_latency_history" title="Permalink to this definition">¶</a></dt>
+<dd><p>Max number of commit latency numbers to keep.</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.sensors.Monitor.max_send_latency_history">
+<code class="sig-name descname">max_send_latency_history</code><em class="property"> = 30</em><a class="headerlink" href="#faust.sensors.Monitor.max_send_latency_history" title="Permalink to this definition">¶</a></dt>
+<dd><p>Max number of send latency numbers to keep.</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.sensors.Monitor.max_assignment_latency_history">
+<code class="sig-name descname">max_assignment_latency_history</code><em class="property"> = 30</em><a class="headerlink" href="#faust.sensors.Monitor.max_assignment_latency_history" title="Permalink to this definition">¶</a></dt>
+<dd><p>Max number of assignment latency numbers to keep.</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.sensors.Monitor.rebalances">
+<code class="sig-name descname">rebalances</code><em class="property"> = 0</em><a class="headerlink" href="#faust.sensors.Monitor.rebalances" title="Permalink to this definition">¶</a></dt>
+<dd><p>Number of rebalances seen by this worker.</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.sensors.Monitor.tables">
+<code class="sig-name descname">tables</code><em class="property"> = None</em><a class="headerlink" href="#faust.sensors.Monitor.tables" title="Permalink to this definition">¶</a></dt>
+<dd><p>Mapping of tables</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.sensors.Monitor.commit_latency">
+<code class="sig-name descname">commit_latency</code><em class="property"> = None</em><a class="headerlink" href="#faust.sensors.Monitor.commit_latency" title="Permalink to this definition">¶</a></dt>
+<dd><p>Deque of commit latency values</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.sensors.Monitor.send_latency">
+<code class="sig-name descname">send_latency</code><em class="property"> = None</em><a class="headerlink" href="#faust.sensors.Monitor.send_latency" title="Permalink to this definition">¶</a></dt>
+<dd><p>Deque of send latency values</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.sensors.Monitor.assignment_latency">
+<code class="sig-name descname">assignment_latency</code><em class="property"> = None</em><a class="headerlink" href="#faust.sensors.Monitor.assignment_latency" title="Permalink to this definition">¶</a></dt>
+<dd><p>Deque of assignment latency values.</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.sensors.Monitor.rebalance_return_latency">
+<code class="sig-name descname">rebalance_return_latency</code><em class="property"> = None</em><a class="headerlink" href="#faust.sensors.Monitor.rebalance_return_latency" title="Permalink to this definition">¶</a></dt>
+<dd><p>Deque of previous n rebalance return latencies.</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.sensors.Monitor.rebalance_end_latency">
+<code class="sig-name descname">rebalance_end_latency</code><em class="property"> = None</em><a class="headerlink" href="#faust.sensors.Monitor.rebalance_end_latency" title="Permalink to this definition">¶</a></dt>
+<dd><p>Deque of previous n rebalance end latencies.</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.sensors.Monitor.rebalance_return_avg">
+<code class="sig-name descname">rebalance_return_avg</code><em class="property"> = 0.0</em><a class="headerlink" href="#faust.sensors.Monitor.rebalance_return_avg" title="Permalink to this definition">¶</a></dt>
+<dd><p>Average rebalance return latency.</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.sensors.Monitor.rebalance_end_avg">
+<code class="sig-name descname">rebalance_end_avg</code><em class="property"> = 0.0</em><a class="headerlink" href="#faust.sensors.Monitor.rebalance_end_avg" title="Permalink to this definition">¶</a></dt>
+<dd><p>Average rebalance end latency.</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.sensors.Monitor.messages_active">
+<code class="sig-name descname">messages_active</code><em class="property"> = 0</em><a class="headerlink" href="#faust.sensors.Monitor.messages_active" title="Permalink to this definition">¶</a></dt>
+<dd><p>Number of messages currently being processed.</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.sensors.Monitor.messages_received_total">
+<code class="sig-name descname">messages_received_total</code><em class="property"> = 0</em><a class="headerlink" href="#faust.sensors.Monitor.messages_received_total" title="Permalink to this definition">¶</a></dt>
+<dd><p>Number of messages processed in total.</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.sensors.Monitor.messages_received_by_topic">
+<code class="sig-name descname">messages_received_by_topic</code><em class="property"> = None</em><a class="headerlink" href="#faust.sensors.Monitor.messages_received_by_topic" title="Permalink to this definition">¶</a></dt>
+<dd><p>Count of messages received by topic</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.sensors.Monitor.messages_sent">
+<code class="sig-name descname">messages_sent</code><em class="property"> = 0</em><a class="headerlink" href="#faust.sensors.Monitor.messages_sent" title="Permalink to this definition">¶</a></dt>
+<dd><p>Number of messages sent in total.</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.sensors.Monitor.messages_sent_by_topic">
+<code class="sig-name descname">messages_sent_by_topic</code><em class="property"> = None</em><a class="headerlink" href="#faust.sensors.Monitor.messages_sent_by_topic" title="Permalink to this definition">¶</a></dt>
+<dd><p>Number of messages sent by topic.</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.sensors.Monitor.messages_s">
+<code class="sig-name descname">messages_s</code><em class="property"> = 0</em><a class="headerlink" href="#faust.sensors.Monitor.messages_s" title="Permalink to this definition">¶</a></dt>
+<dd><p>Number of messages being processed this second.</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.sensors.Monitor.events_active">
+<code class="sig-name descname">events_active</code><em class="property"> = 0</em><a class="headerlink" href="#faust.sensors.Monitor.events_active" title="Permalink to this definition">¶</a></dt>
+<dd><p>Number of events currently being processed.</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.sensors.Monitor.events_total">
+<code class="sig-name descname">events_total</code><em class="property"> = 0</em><a class="headerlink" href="#faust.sensors.Monitor.events_total" title="Permalink to this definition">¶</a></dt>
+<dd><p>Number of events processed in total.</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.sensors.Monitor.events_by_task">
+<code class="sig-name descname">events_by_task</code><em class="property"> = None</em><a class="headerlink" href="#faust.sensors.Monitor.events_by_task" title="Permalink to this definition">¶</a></dt>
+<dd><p>Count of events processed by task</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.sensors.Monitor.events_by_stream">
+<code class="sig-name descname">events_by_stream</code><em class="property"> = None</em><a class="headerlink" href="#faust.sensors.Monitor.events_by_stream" title="Permalink to this definition">¶</a></dt>
+<dd><p>Count of events processed by stream</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.sensors.Monitor.events_s">
+<code class="sig-name descname">events_s</code><em class="property"> = 0</em><a class="headerlink" href="#faust.sensors.Monitor.events_s" title="Permalink to this definition">¶</a></dt>
+<dd><p>Number of events being processed this second.</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.sensors.Monitor.events_runtime_avg">
+<code class="sig-name descname">events_runtime_avg</code><em class="property"> = 0.0</em><a class="headerlink" href="#faust.sensors.Monitor.events_runtime_avg" title="Permalink to this definition">¶</a></dt>
+<dd><p>Average event runtime over the last second.</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.sensors.Monitor.events_runtime">
+<code class="sig-name descname">events_runtime</code><em class="property"> = None</em><a class="headerlink" href="#faust.sensors.Monitor.events_runtime" title="Permalink to this definition">¶</a></dt>
+<dd><p>Deque of run times used for averages</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.sensors.Monitor.topic_buffer_full">
+<code class="sig-name descname">topic_buffer_full</code><em class="property"> = None</em><a class="headerlink" href="#faust.sensors.Monitor.topic_buffer_full" title="Permalink to this definition">¶</a></dt>
+<dd><p>Counter of times a topics buffer was full</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.sensors.Monitor.http_response_codes">
+<code class="sig-name descname">http_response_codes</code><em class="property"> = None</em><a class="headerlink" href="#faust.sensors.Monitor.http_response_codes" title="Permalink to this definition">¶</a></dt>
+<dd><p>Counter of returned HTTP status codes.</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.sensors.Monitor.http_response_latency">
+<code class="sig-name descname">http_response_latency</code><em class="property"> = None</em><a class="headerlink" href="#faust.sensors.Monitor.http_response_latency" title="Permalink to this definition">¶</a></dt>
+<dd><p>Deque of previous n HTTP request-&gt;response latencies.</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.sensors.Monitor.http_response_latency_avg">
+<code class="sig-name descname">http_response_latency_avg</code><em class="property"> = 0.0</em><a class="headerlink" href="#faust.sensors.Monitor.http_response_latency_avg" title="Permalink to this definition">¶</a></dt>
+<dd><p>Average request-&gt;response latency.</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.sensors.Monitor.metric_counts">
+<code class="sig-name descname">metric_counts</code><em class="property"> = None</em><a class="headerlink" href="#faust.sensors.Monitor.metric_counts" title="Permalink to this definition">¶</a></dt>
+<dd><p>Arbitrary counts added by apps</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.sensors.Monitor.tp_committed_offsets">
+<code class="sig-name descname">tp_committed_offsets</code><em class="property"> = None</em><a class="headerlink" href="#faust.sensors.Monitor.tp_committed_offsets" title="Permalink to this definition">¶</a></dt>
+<dd><p>Last committed offsets by TopicPartition</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.sensors.Monitor.tp_read_offsets">
+<code class="sig-name descname">tp_read_offsets</code><em class="property"> = None</em><a class="headerlink" href="#faust.sensors.Monitor.tp_read_offsets" title="Permalink to this definition">¶</a></dt>
+<dd><p>Last read offsets by TopicPartition</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.sensors.Monitor.tp_end_offsets">
+<code class="sig-name descname">tp_end_offsets</code><em class="property"> = None</em><a class="headerlink" href="#faust.sensors.Monitor.tp_end_offsets" title="Permalink to this definition">¶</a></dt>
+<dd><p>Log end offsets by TopicPartition</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.sensors.Monitor.stream_inbound_time">
+<code class="sig-name descname">stream_inbound_time</code><em class="property"> = None</em><a class="headerlink" href="#faust.sensors.Monitor.stream_inbound_time" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="faust.sensors.Monitor.secs_since">
+<code class="sig-name descname">secs_since</code><span class="sig-paren">(</span><em class="sig-param">start_time: float</em><span class="sig-paren">)</span> &#x2192; float<a class="reference internal" href="../_modules/faust/sensors/monitor.html#Monitor.secs_since"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.sensors.Monitor.secs_since" title="Permalink to this definition">¶</a></dt>
+<dd><p>Given timestamp start, return number of seconds since that time.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/functions.html#float" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.sensors.Monitor.logger">
+<code class="sig-name descname">logger</code><em class="property"> = &lt;Logger faust.sensors.monitor (WARNING)&gt;</em><a class="headerlink" href="#faust.sensors.Monitor.logger" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="faust.sensors.Monitor.ms_since">
+<code class="sig-name descname">ms_since</code><span class="sig-paren">(</span><em class="sig-param">start_time: float</em><span class="sig-paren">)</span> &#x2192; float<a class="reference internal" href="../_modules/faust/sensors/monitor.html#Monitor.ms_since"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.sensors.Monitor.ms_since" title="Permalink to this definition">¶</a></dt>
+<dd><p>Given timestamp start, return number of ms since that time.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/functions.html#float" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.sensors.Monitor.secs_to_ms">
+<code class="sig-name descname">secs_to_ms</code><span class="sig-paren">(</span><em class="sig-param">timestamp: float</em><span class="sig-paren">)</span> &#x2192; float<a class="reference internal" href="../_modules/faust/sensors/monitor.html#Monitor.secs_to_ms"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.sensors.Monitor.secs_to_ms" title="Permalink to this definition">¶</a></dt>
+<dd><p>Convert seconds to milliseconds.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/functions.html#float" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.sensors.Monitor.asdict">
+<code class="sig-name descname">asdict</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; Mapping<a class="reference internal" href="../_modules/faust/sensors/monitor.html#Monitor.asdict"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.sensors.Monitor.asdict" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return monitor state as dictionary.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Mapping" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Mapping</span></code></a>[~KT, +VT_co]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.sensors.Monitor.on_message_in">
+<code class="sig-name descname">on_message_in</code><span class="sig-paren">(</span><em class="sig-param">tp: faust.types.tuples.TP</em>, <em class="sig-param">offset: int</em>, <em class="sig-param">message: faust.types.tuples.Message</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/sensors/monitor.html#Monitor.on_message_in"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.sensors.Monitor.on_message_in" title="Permalink to this definition">¶</a></dt>
+<dd><p>Call before message is delegated to streams.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.sensors.Monitor.on_stream_event_in">
+<code class="sig-name descname">on_stream_event_in</code><span class="sig-paren">(</span><em class="sig-param">tp: faust.types.tuples.TP</em>, <em class="sig-param">offset: int</em>, <em class="sig-param">stream: faust.types.streams.StreamT</em>, <em class="sig-param">event: faust.types.events.EventT</em><span class="sig-paren">)</span> &#x2192; Optional[Dict]<a class="reference internal" href="../_modules/faust/sensors/monitor.html#Monitor.on_stream_event_in"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.sensors.Monitor.on_stream_event_in" title="Permalink to this definition">¶</a></dt>
+<dd><p>Call when stream starts processing an event.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Optional" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Dict" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code></a>[~KT, ~VT]]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.sensors.Monitor.on_stream_event_out">
+<code class="sig-name descname">on_stream_event_out</code><span class="sig-paren">(</span><em class="sig-param">tp: faust.types.tuples.TP</em>, <em class="sig-param">offset: int</em>, <em class="sig-param">stream: faust.types.streams.StreamT</em>, <em class="sig-param">event: faust.types.events.EventT</em>, <em class="sig-param">state: Dict = None</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/sensors/monitor.html#Monitor.on_stream_event_out"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.sensors.Monitor.on_stream_event_out" title="Permalink to this definition">¶</a></dt>
+<dd><p>Call when stream is done processing an event.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.sensors.Monitor.on_topic_buffer_full">
+<code class="sig-name descname">on_topic_buffer_full</code><span class="sig-paren">(</span><em class="sig-param">topic: faust.types.topics.TopicT</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/sensors/monitor.html#Monitor.on_topic_buffer_full"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.sensors.Monitor.on_topic_buffer_full" title="Permalink to this definition">¶</a></dt>
+<dd><p>Call when conductor topic buffer is full and has to wait.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.sensors.Monitor.on_message_out">
+<code class="sig-name descname">on_message_out</code><span class="sig-paren">(</span><em class="sig-param">tp: faust.types.tuples.TP</em>, <em class="sig-param">offset: int</em>, <em class="sig-param">message: faust.types.tuples.Message</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/sensors/monitor.html#Monitor.on_message_out"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.sensors.Monitor.on_message_out" title="Permalink to this definition">¶</a></dt>
+<dd><p>Call when message is fully acknowledged and can be committed.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.sensors.Monitor.on_table_get">
+<code class="sig-name descname">on_table_get</code><span class="sig-paren">(</span><em class="sig-param">table: faust.types.tables.CollectionT</em>, <em class="sig-param">key: Any</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/sensors/monitor.html#Monitor.on_table_get"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.sensors.Monitor.on_table_get" title="Permalink to this definition">¶</a></dt>
+<dd><p>Call when value in table is retrieved.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.sensors.Monitor.on_table_set">
+<code class="sig-name descname">on_table_set</code><span class="sig-paren">(</span><em class="sig-param">table: faust.types.tables.CollectionT</em>, <em class="sig-param">key: Any</em>, <em class="sig-param">value: Any</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/sensors/monitor.html#Monitor.on_table_set"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.sensors.Monitor.on_table_set" title="Permalink to this definition">¶</a></dt>
+<dd><p>Call when new value for key in table is set.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.sensors.Monitor.on_table_del">
+<code class="sig-name descname">on_table_del</code><span class="sig-paren">(</span><em class="sig-param">table: faust.types.tables.CollectionT</em>, <em class="sig-param">key: Any</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/sensors/monitor.html#Monitor.on_table_del"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.sensors.Monitor.on_table_del" title="Permalink to this definition">¶</a></dt>
+<dd><p>Call when key in a table is deleted.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.sensors.Monitor.on_commit_initiated">
+<code class="sig-name descname">on_commit_initiated</code><span class="sig-paren">(</span><em class="sig-param">consumer: faust.types.transports.ConsumerT</em><span class="sig-paren">)</span> &#x2192; Any<a class="reference internal" href="../_modules/faust/sensors/monitor.html#Monitor.on_commit_initiated"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.sensors.Monitor.on_commit_initiated" title="Permalink to this definition">¶</a></dt>
+<dd><p>Consumer is about to commit topic offset.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Any" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.sensors.Monitor.on_commit_completed">
+<code class="sig-name descname">on_commit_completed</code><span class="sig-paren">(</span><em class="sig-param">consumer: faust.types.transports.ConsumerT</em>, <em class="sig-param">state: Any</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/sensors/monitor.html#Monitor.on_commit_completed"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.sensors.Monitor.on_commit_completed" title="Permalink to this definition">¶</a></dt>
+<dd><p>Call when consumer commit offset operation completed.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.sensors.Monitor.on_send_initiated">
+<code class="sig-name descname">on_send_initiated</code><span class="sig-paren">(</span><em class="sig-param">producer: faust.types.transports.ProducerT</em>, <em class="sig-param">topic: str</em>, <em class="sig-param">message: faust.types.tuples.PendingMessage</em>, <em class="sig-param">keysize: int</em>, <em class="sig-param">valsize: int</em><span class="sig-paren">)</span> &#x2192; Any<a class="reference internal" href="../_modules/faust/sensors/monitor.html#Monitor.on_send_initiated"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.sensors.Monitor.on_send_initiated" title="Permalink to this definition">¶</a></dt>
+<dd><p>Call when message added to producer buffer.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Any" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.sensors.Monitor.on_send_completed">
+<code class="sig-name descname">on_send_completed</code><span class="sig-paren">(</span><em class="sig-param">producer: faust.types.transports.ProducerT</em>, <em class="sig-param">state: Any</em>, <em class="sig-param">metadata: faust.types.tuples.RecordMetadata</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/sensors/monitor.html#Monitor.on_send_completed"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.sensors.Monitor.on_send_completed" title="Permalink to this definition">¶</a></dt>
+<dd><p>Call when producer finished sending message.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.sensors.Monitor.on_send_error">
+<code class="sig-name descname">on_send_error</code><span class="sig-paren">(</span><em class="sig-param">producer: faust.types.transports.ProducerT</em>, <em class="sig-param">exc: BaseException</em>, <em class="sig-param">state: Any</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/sensors/monitor.html#Monitor.on_send_error"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.sensors.Monitor.on_send_error" title="Permalink to this definition">¶</a></dt>
+<dd><p>Call when producer was unable to publish message.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.sensors.Monitor.count">
+<code class="sig-name descname">count</code><span class="sig-paren">(</span><em class="sig-param">metric_name: str</em>, <em class="sig-param">count: int = 1</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/sensors/monitor.html#Monitor.count"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.sensors.Monitor.count" title="Permalink to this definition">¶</a></dt>
+<dd><p>Count metric by name.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.sensors.Monitor.on_tp_commit">
+<code class="sig-name descname">on_tp_commit</code><span class="sig-paren">(</span><em class="sig-param">tp_offsets: MutableMapping[faust.types.tuples.TP, int]</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/sensors/monitor.html#Monitor.on_tp_commit"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.sensors.Monitor.on_tp_commit" title="Permalink to this definition">¶</a></dt>
+<dd><p>Call when offset in topic partition is committed.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.sensors.Monitor.track_tp_end_offset">
+<code class="sig-name descname">track_tp_end_offset</code><span class="sig-paren">(</span><em class="sig-param">tp: faust.types.tuples.TP</em>, <em class="sig-param">offset: int</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/sensors/monitor.html#Monitor.track_tp_end_offset"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.sensors.Monitor.track_tp_end_offset" title="Permalink to this definition">¶</a></dt>
+<dd><p>Track new topic partition end offset for monitoring lags.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.sensors.Monitor.on_assignment_start">
+<code class="sig-name descname">on_assignment_start</code><span class="sig-paren">(</span><em class="sig-param">assignor: faust.types.assignor.PartitionAssignorT</em><span class="sig-paren">)</span> &#x2192; Dict<a class="reference internal" href="../_modules/faust/sensors/monitor.html#Monitor.on_assignment_start"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.sensors.Monitor.on_assignment_start" title="Permalink to this definition">¶</a></dt>
+<dd><p>Partition assignor is starting to assign partitions.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Dict" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code></a>[~KT, ~VT]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.sensors.Monitor.on_assignment_error">
+<code class="sig-name descname">on_assignment_error</code><span class="sig-paren">(</span><em class="sig-param">assignor: faust.types.assignor.PartitionAssignorT</em>, <em class="sig-param">state: Dict</em>, <em class="sig-param">exc: BaseException</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/sensors/monitor.html#Monitor.on_assignment_error"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.sensors.Monitor.on_assignment_error" title="Permalink to this definition">¶</a></dt>
+<dd><p>Partition assignor did not complete assignor due to error.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.sensors.Monitor.on_assignment_completed">
+<code class="sig-name descname">on_assignment_completed</code><span class="sig-paren">(</span><em class="sig-param">assignor: faust.types.assignor.PartitionAssignorT</em>, <em class="sig-param">state: Dict</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/sensors/monitor.html#Monitor.on_assignment_completed"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.sensors.Monitor.on_assignment_completed" title="Permalink to this definition">¶</a></dt>
+<dd><p>Partition assignor completed assignment.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.sensors.Monitor.on_rebalance_start">
+<code class="sig-name descname">on_rebalance_start</code><span class="sig-paren">(</span><em class="sig-param">app: faust.types.app.AppT</em><span class="sig-paren">)</span> &#x2192; Dict<a class="reference internal" href="../_modules/faust/sensors/monitor.html#Monitor.on_rebalance_start"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.sensors.Monitor.on_rebalance_start" title="Permalink to this definition">¶</a></dt>
+<dd><p>Cluster rebalance in progress.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Dict" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code></a>[~KT, ~VT]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.sensors.Monitor.on_rebalance_return">
+<code class="sig-name descname">on_rebalance_return</code><span class="sig-paren">(</span><em class="sig-param">app: faust.types.app.AppT</em>, <em class="sig-param">state: Dict</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/sensors/monitor.html#Monitor.on_rebalance_return"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.sensors.Monitor.on_rebalance_return" title="Permalink to this definition">¶</a></dt>
+<dd><p>Consumer replied assignment is done to broker.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.sensors.Monitor.on_rebalance_end">
+<code class="sig-name descname">on_rebalance_end</code><span class="sig-paren">(</span><em class="sig-param">app: faust.types.app.AppT</em>, <em class="sig-param">state: Dict</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/sensors/monitor.html#Monitor.on_rebalance_end"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.sensors.Monitor.on_rebalance_end" title="Permalink to this definition">¶</a></dt>
+<dd><p>Cluster rebalance fully completed (including recovery).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.sensors.Monitor.on_web_request_start">
+<code class="sig-name descname">on_web_request_start</code><span class="sig-paren">(</span><em class="sig-param">app: faust.types.app.AppT</em>, <em class="sig-param">request: faust.web.base.Request</em>, <em class="sig-param">*</em>, <em class="sig-param">view: faust.web.views.View = None</em><span class="sig-paren">)</span> &#x2192; Dict<a class="reference internal" href="../_modules/faust/sensors/monitor.html#Monitor.on_web_request_start"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.sensors.Monitor.on_web_request_start" title="Permalink to this definition">¶</a></dt>
+<dd><p>Web server started working on request.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Dict" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code></a>[~KT, ~VT]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.sensors.Monitor.on_web_request_end">
+<code class="sig-name descname">on_web_request_end</code><span class="sig-paren">(</span><em class="sig-param">app: faust.types.app.AppT, request: faust.web.base.Request, response: Optional[faust.web.base.Response], state: Dict, *, view: faust.web.views.View = None</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/sensors/monitor.html#Monitor.on_web_request_end"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.sensors.Monitor.on_web_request_end" title="Permalink to this definition">¶</a></dt>
+<dd><p>Web server finished working on request.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="faust.sensors.TableState">
+<em class="property">class </em><code class="sig-prename descclassname">faust.sensors.</code><code class="sig-name descname">TableState</code><span class="sig-paren">(</span><em class="sig-param">table: faust.types.tables.CollectionT</em>, <em class="sig-param">*</em>, <em class="sig-param">keys_retrieved: int = 0</em>, <em class="sig-param">keys_updated: int = 0</em>, <em class="sig-param">keys_deleted: int = 0</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/sensors/monitor.html#TableState"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.sensors.TableState" title="Permalink to this definition">¶</a></dt>
+<dd><p>Represents the current state of a table.</p>
+<dl class="attribute">
+<dt id="faust.sensors.TableState.table">
+<code class="sig-name descname">table</code><em class="property"> = None</em><a class="headerlink" href="#faust.sensors.TableState.table" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="faust.sensors.TableState.keys_retrieved">
+<code class="sig-name descname">keys_retrieved</code><em class="property"> = 0</em><a class="headerlink" href="#faust.sensors.TableState.keys_retrieved" title="Permalink to this definition">¶</a></dt>
+<dd><p>Number of times a key has been retrieved from this table.</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.sensors.TableState.keys_updated">
+<code class="sig-name descname">keys_updated</code><em class="property"> = 0</em><a class="headerlink" href="#faust.sensors.TableState.keys_updated" title="Permalink to this definition">¶</a></dt>
+<dd><p>Number of times a key has been created/changed in this table.</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.sensors.TableState.keys_deleted">
+<code class="sig-name descname">keys_deleted</code><em class="property"> = 0</em><a class="headerlink" href="#faust.sensors.TableState.keys_deleted" title="Permalink to this definition">¶</a></dt>
+<dd><p>Number of times a key has been deleted from this table.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.sensors.TableState.asdict">
+<code class="sig-name descname">asdict</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; Mapping<a class="reference internal" href="../_modules/faust/sensors/monitor.html#TableState.asdict"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.sensors.TableState.asdict" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return table state as dictionary.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Mapping" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Mapping</span></code></a>[~KT, +VT_co]</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../playbooks/index.html">Playbooks</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../userguide/index.html">User Guide</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../history/index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">API Reference</a><ul>
+      <li>Previous: <a href="faust.models.typing.html" title="previous chapter"><code class="docutils literal notranslate"><span class="pre">faust.models.typing</span></code></a></li>
+      <li>Next: <a href="faust.sensors.base.html" title="next chapter"><code class="docutils literal notranslate"><span class="pre">faust.sensors.base</span></code></a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2020, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../_sources/reference/faust.sensors.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

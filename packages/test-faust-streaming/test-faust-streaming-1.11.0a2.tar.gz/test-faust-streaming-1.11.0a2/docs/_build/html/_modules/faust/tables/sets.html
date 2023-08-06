@@ -1,0 +1,455 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>faust.tables.sets &#8212; Faust 1.9.0 documentation</title>
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../../../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <link rel="copyright" title="Copyright" href="../../../copyright.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for faust.tables.sets</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Storing sets in tables.&quot;&quot;&quot;</span>
+<span class="kn">from</span> <span class="nn">enum</span> <span class="k">import</span> <span class="n">Enum</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">Any</span><span class="p">,</span>
+    <span class="n">Callable</span><span class="p">,</span>
+    <span class="n">ClassVar</span><span class="p">,</span>
+    <span class="n">Dict</span><span class="p">,</span>
+    <span class="n">Generic</span><span class="p">,</span>
+    <span class="n">Iterable</span><span class="p">,</span>
+    <span class="n">Iterator</span><span class="p">,</span>
+    <span class="n">List</span><span class="p">,</span>
+    <span class="n">Optional</span><span class="p">,</span>
+    <span class="n">Set</span><span class="p">,</span>
+    <span class="n">Type</span><span class="p">,</span>
+    <span class="n">cast</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="kn">from</span> <span class="nn">mode</span> <span class="k">import</span> <span class="n">Service</span>
+<span class="kn">from</span> <span class="nn">mode.utils.collections</span> <span class="k">import</span> <span class="n">ManagedUserSet</span>
+<span class="kn">from</span> <span class="nn">mode.utils.objects</span> <span class="k">import</span> <span class="n">cached_property</span>
+<span class="kn">from</span> <span class="nn">yarl</span> <span class="k">import</span> <span class="n">URL</span>
+
+<span class="kn">from</span> <span class="nn">faust.models</span> <span class="k">import</span> <span class="n">Record</span><span class="p">,</span> <span class="n">maybe_model</span>
+<span class="kn">from</span> <span class="nn">faust.types</span> <span class="k">import</span> <span class="n">AgentT</span><span class="p">,</span> <span class="n">AppT</span><span class="p">,</span> <span class="n">EventT</span><span class="p">,</span> <span class="n">StreamT</span><span class="p">,</span> <span class="n">TopicT</span>
+<span class="kn">from</span> <span class="nn">faust.types.tables</span> <span class="k">import</span> <span class="n">GlobalTableT</span><span class="p">,</span> <span class="n">KT</span><span class="p">,</span> <span class="n">VT</span>
+<span class="kn">from</span> <span class="nn">faust.types.stores</span> <span class="k">import</span> <span class="n">StoreT</span>
+
+<span class="kn">from</span> <span class="nn">.</span> <span class="k">import</span> <span class="n">wrappers</span>
+<span class="kn">from</span> <span class="nn">.objects</span> <span class="k">import</span> <span class="n">ChangeloggedObject</span><span class="p">,</span> <span class="n">ChangeloggedObjectManager</span>
+<span class="kn">from</span> <span class="nn">.table</span> <span class="k">import</span> <span class="n">Table</span>
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;SetTable&#39;</span><span class="p">,</span> <span class="s1">&#39;SetGlobalTable&#39;</span><span class="p">]</span>
+
+<span class="n">OPERATION_ADD</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mh">0x1</span>
+<span class="n">OPERATION_DISCARD</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mh">0x2</span>
+<span class="n">OPERATION_UPDATE</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mh">0xF</span>
+
+
+<span class="k">class</span> <span class="nc">SetWindowSet</span><span class="p">(</span><span class="n">wrappers</span><span class="o">.</span><span class="n">WindowSet</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A windowed set.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">add</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">element</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">event</span><span class="p">:</span> <span class="n">EventT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_apply_set_operation</span><span class="p">(</span><span class="s1">&#39;add&#39;</span><span class="p">,</span> <span class="n">element</span><span class="p">,</span> <span class="n">event</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">discard</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">element</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">event</span><span class="p">:</span> <span class="n">EventT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_apply_set_operation</span><span class="p">(</span><span class="s1">&#39;discard&#39;</span><span class="p">,</span> <span class="n">element</span><span class="p">,</span> <span class="n">event</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_apply_set_operation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                             <span class="n">op</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+                             <span class="n">element</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+                             <span class="n">event</span><span class="p">:</span> <span class="n">EventT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">table</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">Table</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">table</span><span class="p">)</span>
+        <span class="n">timestamp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">wrapper</span><span class="o">.</span><span class="n">get_timestamp</span><span class="p">(</span><span class="n">event</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">event</span><span class="p">)</span>
+        <span class="n">key</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">key</span>
+        <span class="n">get_</span> <span class="o">=</span> <span class="n">table</span><span class="o">.</span><span class="n">_get_key</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">wrapper</span><span class="o">.</span><span class="n">on_set_key</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">element</span><span class="p">)</span>
+        <span class="c1"># apply set operation to every window within range of timestamp.</span>
+        <span class="k">for</span> <span class="n">window_range</span> <span class="ow">in</span> <span class="n">table</span><span class="o">.</span><span class="n">_window_ranges</span><span class="p">(</span><span class="n">timestamp</span><span class="p">):</span>
+            <span class="n">set_wrapper</span> <span class="o">=</span> <span class="n">get_</span><span class="p">((</span><span class="n">key</span><span class="p">,</span> <span class="n">window_range</span><span class="p">))</span>
+            <span class="nb">getattr</span><span class="p">(</span><span class="n">set_wrapper</span><span class="p">,</span> <span class="n">op</span><span class="p">)(</span><span class="n">element</span><span class="p">)</span>
+
+
+<span class="k">class</span> <span class="nc">SetWindowWrapper</span><span class="p">(</span><span class="n">wrappers</span><span class="o">.</span><span class="n">WindowWrapper</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Window wrapper for sets.&quot;&quot;&quot;</span>
+
+    <span class="n">ValueType</span> <span class="o">=</span> <span class="n">SetWindowSet</span>
+
+
+<span class="k">class</span> <span class="nc">ChangeloggedSet</span><span class="p">(</span><span class="n">ChangeloggedObject</span><span class="p">,</span> <span class="n">ManagedUserSet</span><span class="p">[</span><span class="n">VT</span><span class="p">]):</span>
+    <span class="sd">&quot;&quot;&quot;A single set in a dictionary of sets.&quot;&quot;&quot;</span>
+
+    <span class="n">key</span><span class="p">:</span> <span class="n">Any</span>
+    <span class="n">data</span><span class="p">:</span> <span class="n">Set</span>
+
+    <span class="k">def</span> <span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">on_add</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">VT</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">send_changelog_event</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">key</span><span class="p">,</span> <span class="n">OPERATION_ADD</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">on_discard</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">VT</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">send_changelog_event</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">key</span><span class="p">,</span> <span class="n">OPERATION_DISCARD</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">on_change</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">added</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="n">VT</span><span class="p">],</span> <span class="n">removed</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="n">VT</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">send_changelog_event</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">key</span><span class="p">,</span> <span class="n">OPERATION_UPDATE</span><span class="p">,</span> <span class="p">[</span><span class="n">added</span><span class="p">,</span> <span class="n">removed</span><span class="p">])</span>
+
+    <span class="k">def</span> <span class="nf">sync_from_storage</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">Set</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">as_stored_value</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span>
+
+    <span class="k">def</span> <span class="nf">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="n">VT</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="nb">iter</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">apply_changelog_event</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">operation</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">operation</span> <span class="o">==</span> <span class="n">OPERATION_ADD</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">operation</span> <span class="o">==</span> <span class="n">OPERATION_DISCARD</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">discard</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">operation</span> <span class="o">==</span> <span class="n">OPERATION_UPDATE</span><span class="p">:</span>
+            <span class="n">tup</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">Iterable</span><span class="p">[</span><span class="n">List</span><span class="p">],</span> <span class="n">value</span><span class="p">)</span>
+            <span class="n">added</span><span class="p">:</span> <span class="n">List</span>
+            <span class="n">removed</span><span class="p">:</span> <span class="n">List</span>
+            <span class="n">added</span><span class="p">,</span> <span class="n">removed</span> <span class="o">=</span> <span class="n">tup</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">|=</span> <span class="nb">set</span><span class="p">(</span><span class="n">added</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">-=</span> <span class="nb">set</span><span class="p">(</span><span class="n">removed</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+                <span class="n">f</span><span class="s1">&#39;Unknown operation </span><span class="si">{operation}</span><span class="s1">: key=</span><span class="si">{self.key!r}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+
+<span class="k">class</span> <span class="nc">ChangeloggedSetManager</span><span class="p">(</span><span class="n">ChangeloggedObjectManager</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Store that maintains a dictionary of sets.&quot;&quot;&quot;</span>
+
+    <span class="n">url</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">URL</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>  <span class="c1"># fix deep going test case error.</span>
+
+    <span class="n">ValueType</span> <span class="o">=</span> <span class="n">ChangeloggedSet</span>
+
+
+<span class="k">class</span> <span class="nc">SetAction</span><span class="p">(</span><span class="n">Enum</span><span class="p">):</span>
+    <span class="n">ADD</span> <span class="o">=</span> <span class="s1">&#39;ADD&#39;</span>
+    <span class="n">DISCARD</span> <span class="o">=</span> <span class="s1">&#39;DISCARD&#39;</span>
+    <span class="n">CLEAR</span> <span class="o">=</span> <span class="s1">&#39;CLEAR&#39;</span>
+    <span class="n">INTERSECTION</span> <span class="o">=</span> <span class="s1">&#39;INTERSECTION&#39;</span>
+    <span class="n">SYMDIFF</span> <span class="o">=</span> <span class="s1">&#39;SYMDIFF&#39;</span>
+
+
+<span class="k">class</span> <span class="nc">SetManagerOperation</span><span class="p">(</span><span class="n">Record</span><span class="p">,</span>
+                          <span class="n">namespace</span><span class="o">=</span><span class="s1">&#39;@SetManagerOperation&#39;</span><span class="p">):</span>
+    <span class="n">action</span><span class="p">:</span> <span class="n">SetAction</span>
+    <span class="n">members</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Any</span><span class="p">]</span>
+
+
+<span class="k">class</span> <span class="nc">SetTableManager</span><span class="p">(</span><span class="n">Service</span><span class="p">,</span> <span class="n">Generic</span><span class="p">[</span><span class="n">KT</span><span class="p">,</span> <span class="n">VT</span><span class="p">]):</span>
+    <span class="sd">&quot;&quot;&quot;Manager used to perform operations on :class:`SetTable`.</span>
+
+<span class="sd">    Used when set table is configured with ``SetTable(&#39;name&#39;,</span>
+<span class="sd">    start_manager=True)``.</span>
+
+<span class="sd">    The workers will start an additional agent used to process</span>
+<span class="sd">    incoming set operations, and you can communicate with this</span>
+<span class="sd">    agent to modify your sets.</span>
+
+<span class="sd">    Examples:</span>
+<span class="sd">        &gt;&gt;&gt; set_table = SetTable(&#39;sets&#39;, start_manager=True)</span>
+
+<span class="sd">        &gt;&gt;&gt; await set_table.manager.add(&#39;active_orders&#39;, Order)</span>
+<span class="sd">        &gt;&gt;&gt; await set_table.manager.discard(&#39;active_orders&#39;, Order)</span>
+
+<span class="sd">    The manager methods can be used from HTTP views and other agents</span>
+<span class="sd">    to safely route set operations to the correct worker.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">app</span><span class="p">:</span> <span class="n">AppT</span>
+    <span class="n">set_table</span><span class="p">:</span> <span class="s1">&#39;SetTable[KT, VT]&#39;</span>
+    <span class="n">enabled</span><span class="p">:</span> <span class="nb">bool</span>
+
+    <span class="n">agent</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">AgentT</span><span class="p">]</span>
+    <span class="n">actions</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="n">SetAction</span><span class="p">,</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">KT</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="n">VT</span><span class="p">]],</span> <span class="kc">None</span><span class="p">]]</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">set_table</span><span class="p">:</span> <span class="s1">&#39;SetTable[KT, VT]&#39;</span><span class="p">,</span>
+                 <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">set_table</span> <span class="o">=</span> <span class="n">set_table</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">app</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">set_table</span><span class="o">.</span><span class="n">app</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">enabled</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">set_table</span><span class="o">.</span><span class="n">start_manager</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">actions</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">SetAction</span><span class="o">.</span><span class="n">ADD</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_update</span><span class="p">,</span>
+            <span class="n">SetAction</span><span class="o">.</span><span class="n">DISCARD</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_difference_update</span><span class="p">,</span>
+            <span class="n">SetAction</span><span class="o">.</span><span class="n">CLEAR</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_clear</span><span class="p">,</span>
+            <span class="n">SetAction</span><span class="o">.</span><span class="n">INTERSECTION</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_intersection_update</span><span class="p">,</span>
+            <span class="n">SetAction</span><span class="o">.</span><span class="n">SYMDIFF</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_symmetric_difference_update</span><span class="p">,</span>
+        <span class="p">}</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">enabled</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_enable</span><span class="p">()</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">add</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="n">KT</span><span class="p">,</span> <span class="n">member</span><span class="p">:</span> <span class="n">VT</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Add member to set table using key.&quot;&quot;&quot;</span>
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_send_operation</span><span class="p">(</span><span class="n">SetAction</span><span class="o">.</span><span class="n">ADD</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="p">[</span><span class="n">member</span><span class="p">])</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">discard</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="n">KT</span><span class="p">,</span> <span class="n">member</span><span class="p">:</span> <span class="n">VT</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Discard member from set table using key.&quot;&quot;&quot;</span>
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_send_operation</span><span class="p">(</span><span class="n">SetAction</span><span class="o">.</span><span class="n">DISCARD</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="p">[</span><span class="n">member</span><span class="p">])</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">clear</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="n">KT</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Clear all members from set table using key.&quot;&quot;&quot;</span>
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_send_operation</span><span class="p">(</span><span class="n">SetAction</span><span class="o">.</span><span class="n">CLEAR</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="p">[])</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">difference_update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="n">KT</span><span class="p">,</span> <span class="n">members</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">VT</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Remove members from set with key.&quot;&quot;&quot;</span>
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_send_operation</span><span class="p">(</span><span class="n">SetAction</span><span class="o">.</span><span class="n">DISCARD</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">members</span><span class="p">)</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">intersection_update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                                  <span class="n">key</span><span class="p">:</span> <span class="n">KT</span><span class="p">,</span>
+                                  <span class="n">members</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">VT</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Update the set with key to be the intersection of another set.</span>
+
+<span class="sd">        This will keep all members that are in both sets.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_send_operation</span><span class="p">(</span><span class="n">SetAction</span><span class="o">.</span><span class="n">INTERSECTION</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">members</span><span class="p">)</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">symmetric_difference_update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                                          <span class="n">key</span><span class="p">:</span> <span class="n">KT</span><span class="p">,</span>
+                                          <span class="n">members</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">VT</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Update set by key to be the symmetric difference of another set.</span>
+
+<span class="sd">        Members common to both sets will be removed.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_send_operation</span><span class="p">(</span><span class="n">SetAction</span><span class="o">.</span><span class="n">SYMDIFF</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">members</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="n">KT</span><span class="p">,</span> <span class="n">members</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">VT</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">set_table</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">members</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_difference_update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="n">KT</span><span class="p">,</span> <span class="n">members</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">VT</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">set_table</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">difference_update</span><span class="p">(</span><span class="n">members</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_clear</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="n">KT</span><span class="p">,</span> <span class="n">members</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">VT</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">set_table</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">_intersection_update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="n">KT</span><span class="p">,</span> <span class="n">members</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">VT</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">set_table</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">intersection_update</span><span class="p">(</span><span class="n">members</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_symmetric_difference_update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="n">KT</span><span class="p">,</span> <span class="n">members</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">VT</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">set_table</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">symmetric_difference_update</span><span class="p">(</span><span class="n">members</span><span class="p">)</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">_send_operation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                              <span class="n">action</span><span class="p">:</span> <span class="n">SetAction</span><span class="p">,</span>
+                              <span class="n">key</span><span class="p">:</span> <span class="n">KT</span><span class="p">,</span>
+                              <span class="n">members</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">VT</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">enabled</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                <span class="n">f</span><span class="s1">&#39;Set table </span><span class="si">{self.set_table}</span><span class="s1"> is start_manager=False&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">iter</span><span class="p">(</span><span class="n">members</span><span class="p">)</span> <span class="ow">is</span> <span class="n">members</span><span class="p">:</span>
+            <span class="n">members</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">members</span><span class="p">)</span>
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">topic</span><span class="o">.</span><span class="n">send</span><span class="p">(</span>
+            <span class="n">key</span><span class="o">=</span><span class="n">key</span><span class="p">,</span>
+            <span class="n">value</span><span class="o">=</span><span class="n">SetManagerOperation</span><span class="p">(</span><span class="n">action</span><span class="o">=</span><span class="n">action</span><span class="p">,</span> <span class="n">members</span><span class="o">=</span><span class="n">members</span><span class="p">),</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_enable</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">agent</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">agent</span><span class="p">(</span>
+            <span class="n">channel</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">topic</span><span class="p">,</span>
+            <span class="n">name</span><span class="o">=</span><span class="s1">&#39;faust.SetTable.manager&#39;</span><span class="p">,</span>
+        <span class="p">)(</span><span class="bp">self</span><span class="o">.</span><span class="n">_modify_set</span><span class="p">)</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">_modify_set</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">stream</span><span class="p">:</span> <span class="n">StreamT</span><span class="p">[</span><span class="n">SetManagerOperation</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">actions</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">actions</span>
+        <span class="n">_maybe_model</span> <span class="o">=</span> <span class="n">maybe_model</span>
+        <span class="k">async</span> <span class="k">for</span> <span class="n">set_key</span><span class="p">,</span> <span class="n">set_operation</span> <span class="ow">in</span> <span class="n">stream</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">action</span> <span class="o">=</span> <span class="n">SetAction</span><span class="p">(</span><span class="n">set_operation</span><span class="o">.</span><span class="n">action</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span>
+                    <span class="s1">&#39;Unknown set operation: </span><span class="si">%r</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">set_operation</span><span class="o">.</span><span class="n">action</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">members</span> <span class="o">=</span> <span class="p">[</span><span class="n">_maybe_model</span><span class="p">(</span><span class="n">m</span><span class="p">)</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">set_operation</span><span class="o">.</span><span class="n">members</span><span class="p">]</span>
+                <span class="n">handler</span> <span class="o">=</span> <span class="n">actions</span><span class="p">[</span><span class="n">action</span><span class="p">]</span>
+                <span class="n">handler</span><span class="p">(</span><span class="n">set_key</span><span class="p">,</span> <span class="n">members</span><span class="p">)</span>
+
+    <span class="nd">@cached_property</span>
+    <span class="k">def</span> <span class="nf">topic</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TopicT</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Return topic used by set table manager.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">topic</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">set_table</span><span class="o">.</span><span class="n">manager_topic_name</span><span class="p">,</span>
+                              <span class="n">key_type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span>
+                              <span class="n">value_type</span><span class="o">=</span><span class="n">SetManagerOperation</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="SetTable"><a class="viewcode-back" href="../../../reference/faust.tables.sets.html#faust.SetTable">[docs]</a><span class="k">class</span> <span class="nc">SetTable</span><span class="p">(</span><span class="n">Table</span><span class="p">[</span><span class="n">KT</span><span class="p">,</span> <span class="n">ChangeloggedSet</span><span class="p">[</span><span class="n">VT</span><span class="p">]]):</span>
+    <span class="sd">&quot;&quot;&quot;Table that maintains a dictionary of sets.&quot;&quot;&quot;</span>
+
+    <span class="n">Manager</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">SetTableManager</span><span class="p">]]</span> <span class="o">=</span> <span class="n">SetTableManager</span>
+    <span class="n">start_manager</span><span class="p">:</span> <span class="nb">bool</span>
+    <span class="n">manager_topic_name</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">manager_topic_suffix</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;-setmanager&#39;</span>
+
+    <span class="n">manager</span><span class="p">:</span> <span class="n">SetTableManager</span>
+
+    <span class="n">WindowWrapper</span> <span class="o">=</span> <span class="n">SetWindowWrapper</span>
+    <span class="n">_changelog_compacting</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">app</span><span class="p">:</span> <span class="n">AppT</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span>
+                 <span class="n">start_manager</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+                 <span class="n">manager_topic_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">manager_topic_suffix</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">app</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">start_manager</span> <span class="o">=</span> <span class="n">start_manager</span>
+        <span class="k">if</span> <span class="n">manager_topic_suffix</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">manager_topic_suffix</span> <span class="o">=</span> <span class="n">manager_topic_suffix</span>
+        <span class="k">if</span> <span class="n">manager_topic_name</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">manager_topic_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">manager_topic_suffix</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">manager_topic_name</span> <span class="o">=</span> <span class="n">manager_topic_name</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">manager</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">Manager</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">loop</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">loop</span><span class="p">,</span> <span class="n">beacon</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">beacon</span><span class="p">)</span>
+
+<div class="viewcode-block" id="SetTable.on_start"><a class="viewcode-back" href="../../../reference/faust.tables.sets.html#faust.SetTable.on_start">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">on_start</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Call when set table starts.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">start_manager</span><span class="p">:</span>
+            <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">add_runtime_dependency</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">manager</span><span class="p">)</span>
+        <span class="k">await</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">on_start</span><span class="p">()</span></div>
+
+    <span class="k">def</span> <span class="nf">_new_store</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">StoreT</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">ChangeloggedSetManager</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="n">KT</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ChangeloggedSet</span><span class="p">[</span><span class="n">VT</span><span class="p">]:</span>
+        <span class="c1"># FastUserDict looks up using `key in self.data`</span>
+        <span class="c1"># but we are a defaultdict.</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">key</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="SetGlobalTable"><a class="viewcode-back" href="../../../reference/faust.tables.sets.html#faust.SetGlobalTable">[docs]</a><span class="k">class</span> <span class="nc">SetGlobalTable</span><span class="p">(</span><span class="n">SetTable</span><span class="p">,</span> <span class="n">GlobalTableT</span><span class="p">):</span>
+    <span class="k">pass</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../../index.html">
+              <img class="logo" src="../../../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../../../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../playbooks/index.html">Playbooks</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../userguide/index.html">User Guide</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../reference/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../history/index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2019, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

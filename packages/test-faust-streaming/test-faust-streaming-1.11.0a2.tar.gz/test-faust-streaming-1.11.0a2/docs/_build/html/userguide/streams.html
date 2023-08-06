@@ -1,0 +1,674 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>Streams - Infinite Data Structures &#8212; Faust 1.11.0a1 documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="copyright" title="Copyright" href="../copyright.html" />
+    <link rel="next" title="Channels &amp; Topics - Data Sources" href="channels.html" />
+    <link rel="prev" title="Agents - Self-organizing Stream Processors" href="agents.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="streams-infinite-data-structures">
+<span id="guide-streams"></span><h1>Streams - Infinite Data Structures<a class="headerlink" href="#streams-infinite-data-structures" title="Permalink to this headline">¶</a></h1>
+<div class="topic">
+<p class="topic-title first"></p>
+<p><em>“Everything transitory is but an image.”</em></p>
+<p>– Goethe, <em>Faust: Part II</em></p>
+</div>
+<div class="contents local topic" id="contents">
+<ul class="simple">
+<li><p><a class="reference internal" href="#basics" id="id1">Basics</a></p></li>
+<li><p><a class="reference internal" href="#processors" id="id2">Processors</a></p></li>
+<li><p><a class="reference internal" href="#message-life-cycle" id="id3">Message Life Cycle</a></p>
+<ul>
+<li><p><a class="reference internal" href="#kafka-topics" id="id4">Kafka Topics</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#combining-streams" id="id5">Combining streams</a></p></li>
+<li><p><a class="reference internal" href="#operations" id="id6">Operations</a></p>
+<ul>
+<li><p><a class="reference internal" href="#group-by-repartition-the-stream" id="id7"><code class="docutils literal notranslate"><span class="pre">group_by()</span></code> – Repartition the stream</a></p></li>
+<li><p><a class="reference internal" href="#items-iterate-over-keys-and-values" id="id8"><code class="docutils literal notranslate"><span class="pre">items()</span></code> – Iterate over keys and values</a></p></li>
+<li><p><a class="reference internal" href="#events-access-raw-messages" id="id9"><code class="docutils literal notranslate"><span class="pre">events()</span></code> – Access raw messages</a></p></li>
+<li><p><a class="reference internal" href="#take-buffer-up-values-in-the-stream" id="id10"><code class="docutils literal notranslate"><span class="pre">take()</span></code> – Buffer up values in the stream</a></p></li>
+<li><p><a class="reference internal" href="#enumerate-count-values" id="id11"><code class="docutils literal notranslate"><span class="pre">enumerate()</span></code> – Count values</a></p></li>
+<li><p><a class="reference internal" href="#through-forward-through-another-topic" id="id12"><code class="docutils literal notranslate"><span class="pre">through()</span></code> – Forward through another topic</a></p></li>
+<li><p><a class="reference internal" href="#filter-filter-values-to-omit-from-stream" id="id13"><code class="docutils literal notranslate"><span class="pre">filter()</span></code> – Filter values to omit from stream.</a></p></li>
+<li><p><a class="reference internal" href="#echo-repeat-to-one-or-more-topics" id="id14"><code class="docutils literal notranslate"><span class="pre">echo()</span></code> – Repeat to one or more topics</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#reference" id="id15">Reference</a></p></li>
+</ul>
+</div>
+<div class="section" id="basics">
+<h2><a class="toc-backref" href="#id1">Basics</a><a class="headerlink" href="#basics" title="Permalink to this headline">¶</a></h2>
+<p>A stream is an infinite async iterable, consuming messages
+from a channel/topic:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@app.agent</span><span class="p">(</span><span class="n">my_topic</span><span class="p">)</span>
+<span class="n">async</span> <span class="k">def</span> <span class="nf">process</span><span class="p">(</span><span class="n">stream</span><span class="p">):</span>
+    <span class="n">async</span> <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">stream</span><span class="p">:</span>
+        <span class="o">...</span>
+</pre></div>
+</div>
+<p>The above <a class="reference internal" href="agents.html#guide-agents"><span class="std std-ref">agent</span></a> is how you usually define stream
+processors in Faust, but you can also create stream objects manually
+at any point with the caveat that this can trigger a Kafka rebalance
+when doing so at runtime:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">stream</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">stream</span><span class="p">(</span><span class="n">my_topic</span><span class="p">)</span>  <span class="c1"># or: my_topic.stream()</span>
+<span class="n">async</span> <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">stream</span><span class="p">:</span>
+    <span class="o">...</span>
+</pre></div>
+</div>
+<p>The stream <em>needs to be iterated over</em> to be processed, it will not
+be active until you do.</p>
+<p>When iterated over the stream gives deserialized values, but you can also
+iterate over key/value pairs (using
+<a class="reference internal" href="../reference/faust.html#faust.Stream.items" title="faust.Stream.items"><code class="xref py py-meth docutils literal notranslate"><span class="pre">items()</span></code></a>), or raw messages (using <a class="reference internal" href="../reference/faust.html#faust.Stream.events" title="faust.Stream.events"><code class="xref py py-meth docutils literal notranslate"><span class="pre">events()</span></code></a>).</p>
+<p>Keys and values can be bytes for manual deserialization, or <code class="xref py py-class docutils literal notranslate"><span class="pre">Model</span></code>
+instances, and this is decided by the topic’s <code class="docutils literal notranslate"><span class="pre">key_type</span></code> and
+<code class="docutils literal notranslate"><span class="pre">value_type</span></code> arguments.</p>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<ul class="simple">
+<li><p>The <a class="reference internal" href="channels.html#guide-channels"><span class="std std-ref">Channels &amp; Topics - Data Sources</span></a> guide – for more information about
+channels and topics.</p></li>
+<li><p>The <a class="reference internal" href="models.html#guide-models"><span class="std std-ref">Models, Serialization, and Codecs</span></a> guide – for more information about models
+and serialization.</p></li>
+</ul>
+</div>
+<p>The easiest way to process streams is to use <a class="reference internal" href="agents.html#guide-agents"><span class="std std-ref">agents</span></a>, but
+you can also create a stream manually from any topic/channel.</p>
+<p>Here we define a model for our stream, create a stream from the “withdrawals”
+topic and iterate over it:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">Withdrawal</span><span class="p">(</span><span class="n">faust</span><span class="o">.</span><span class="n">Record</span><span class="p">):</span>
+    <span class="n">account</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">amount</span><span class="p">:</span> <span class="nb">float</span>
+
+<span class="n">async</span> <span class="k">for</span> <span class="n">w</span> <span class="ow">in</span> <span class="n">app</span><span class="o">.</span><span class="n">topic</span><span class="p">(</span><span class="s1">&#39;withdrawals&#39;</span><span class="p">,</span> <span class="n">value_type</span><span class="o">=</span><span class="n">Withdrawal</span><span class="p">)</span><span class="o">.</span><span class="n">stream</span><span class="p">():</span>
+    <span class="k">print</span><span class="p">(</span><span class="n">w</span><span class="o">.</span><span class="n">amount</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Do note that the worker must be started first (or at least the app),
+for this to work, and the stream iterator needs to be started
+as an <a class="reference external" href="https://docs.python.org/dev/library/asyncio-task.html#asyncio.Task" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">asyncio.Task</span></code></a>, so a more practical example is:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">faust</span>
+
+<span class="k">class</span> <span class="nc">Withdrawal</span><span class="p">(</span><span class="n">faust</span><span class="o">.</span><span class="n">Record</span><span class="p">):</span>
+    <span class="n">account</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">amount</span><span class="p">:</span> <span class="nb">float</span>
+
+<span class="n">app</span> <span class="o">=</span> <span class="n">faust</span><span class="o">.</span><span class="n">App</span><span class="p">(</span><span class="s1">&#39;example-app&#39;</span><span class="p">)</span>
+
+<span class="n">withdrawals_topic</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">topic</span><span class="p">(</span><span class="s1">&#39;withdrawals&#39;</span><span class="p">,</span> <span class="n">value_type</span><span class="o">=</span><span class="n">Withdrawal</span><span class="p">)</span>
+
+<span class="nd">@app.task</span>
+<span class="n">async</span> <span class="k">def</span> <span class="nf">mytask</span><span class="p">():</span>
+    <span class="n">async</span> <span class="k">for</span> <span class="n">w</span> <span class="ow">in</span> <span class="n">withdrawals_topic</span><span class="o">.</span><span class="n">stream</span><span class="p">():</span>
+        <span class="k">print</span><span class="p">(</span><span class="n">w</span><span class="o">.</span><span class="n">amount</span><span class="p">)</span>
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s1">&#39;__main__&#39;</span><span class="p">:</span>
+    <span class="n">app</span><span class="o">.</span><span class="n">main</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>You may also treat the stream as a stream of bytes values:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">async</span> <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">app</span><span class="o">.</span><span class="n">topic</span><span class="p">(</span><span class="s1">&#39;messages&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">stream</span><span class="p">():</span>
+    <span class="c1"># the topic description has no value_type, so values</span>
+    <span class="c1"># are now the raw message value in bytes.</span>
+    <span class="k">print</span><span class="p">(</span><span class="nb">repr</span><span class="p">(</span><span class="n">value</span><span class="p">))</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="processors">
+<h2><a class="toc-backref" href="#id2">Processors</a><a class="headerlink" href="#processors" title="Permalink to this headline">¶</a></h2>
+<p>A stream can have an arbitrary number of processor callbacks
+that are executed as values go through the stream.</p>
+<p>These are normally used in Faust applications, but are useful
+for libraries that extend the functionality of streams.</p>
+<p>A processor takes a value as argument and returns a value:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">add_default_language</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="n">MyModel</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MyModel</span><span class="p">:</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">value</span><span class="o">.</span><span class="n">language</span><span class="p">:</span>
+        <span class="n">value</span><span class="o">.</span><span class="n">language</span> <span class="o">=</span> <span class="s1">&#39;US&#39;</span>
+    <span class="k">return</span> <span class="n">value</span>
+
+<span class="n">async</span> <span class="k">def</span> <span class="nf">add_client_info</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="n">MyModel</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MyModel</span><span class="p">:</span>
+    <span class="n">value</span><span class="o">.</span><span class="n">client</span> <span class="o">=</span> <span class="n">await</span> <span class="n">get_http_client_info</span><span class="p">(</span><span class="n">value</span><span class="o">.</span><span class="n">account_id</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">value</span>
+
+<span class="n">s</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">stream</span><span class="p">(</span><span class="n">my_topic</span><span class="p">,</span>
+               <span class="n">processors</span><span class="o">=</span><span class="p">[</span><span class="n">add_default_language</span><span class="p">,</span> <span class="n">add_client_info</span><span class="p">])</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Processors can be async callable, or normal callable.</p>
+</div>
+<p>Since the processors are stored in an ordered list, the processors above
+will execute in order and the final value going out of the stream will be the
+reduction after all processors are applied:</p>
+<div class="highlight-pycon notranslate"><div class="highlight"><pre><span></span><span class="go">async for value in s:</span>
+<span class="go">    # all processors applied here so `value`</span>
+<span class="go">    # will be equivalent to doing:</span>
+<span class="go">    #   value = add_default_language(add_client_info(value))</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="message-life-cycle">
+<h2><a class="toc-backref" href="#id3">Message Life Cycle</a><a class="headerlink" href="#message-life-cycle" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="kafka-topics">
+<h3><a class="toc-backref" href="#id4">Kafka Topics</a><a class="headerlink" href="#kafka-topics" title="Permalink to this headline">¶</a></h3>
+<p>Every Faust worker instance will start a single Kafka consumer
+responsible for fetching messages from all subscribed topics.</p>
+<p>Every message in the topic have an offset number (where the
+first message has an offset of zero), and we use a single offset
+to track the messages that consumers do not want to see again.</p>
+<p>The Kafka consumer commits the topic offsets every three
+seconds in a background task.  The default interval is defined by
+the <a class="reference internal" href="settings.html#std:setting-broker_commit_interval"><code class="xref std std-setting docutils literal notranslate"><span class="pre">broker_commit_interval</span></code></a> setting.</p>
+<p>As we only have one consumer, and multiple agents can subscribe
+to the same topic, we need a smart way to track when those events
+have processed so we can commit and advance the consumer group offset.</p>
+<p>We use reference counting for this, so when you define an agent that
+iterates over the topic as a stream:</p>
+<div class="highlight-python3 notranslate"><div class="highlight"><pre><span></span><span class="nd">@app</span><span class="o">.</span><span class="n">agent</span><span class="p">(</span><span class="n">topic</span><span class="p">)</span>
+<span class="k">async</span> <span class="k">def</span> <span class="nf">process</span><span class="p">(</span><span class="n">stream</span><span class="p">):</span>
+    <span class="k">async</span> <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">stream</span><span class="p">:</span>
+         <span class="nb">print</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The act of starting that stream iterator will add the topic to
+the Conductor service. This internal service is responsible for
+forwarding messages received by the consumer to the streams:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>[Consumer] -&gt; [Conductor] -&gt; [Topic] -&gt; [Stream]
+</pre></div>
+</div>
+<p>The <a class="reference external" href="https://docs.python.org/dev/reference/compound_stmts.html#async-for" title="(in Python v3.9)"><code class="xref std std-keyword docutils literal notranslate"><span class="pre">async</span> <span class="pre">for</span></code></a> is what triggers this, and the agent code above
+is roughly equivalent to:</p>
+<div class="highlight-python3 notranslate"><div class="highlight"><pre><span></span><span class="k">async</span> <span class="k">def</span> <span class="nf">custom_agent</span><span class="p">(</span><span class="n">app</span><span class="p">:</span> <span class="n">App</span><span class="p">,</span> <span class="n">topic</span><span class="p">:</span> <span class="n">Topic</span><span class="p">):</span>
+     <span class="n">topic_iterator</span> <span class="o">=</span> <span class="n">aiter</span><span class="p">(</span><span class="n">topic</span><span class="p">)</span>
+     <span class="n">app</span><span class="o">.</span><span class="n">topics</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">topic</span><span class="p">)</span>  <span class="c1"># app.topics is the Conductor</span>
+     <span class="n">stream</span> <span class="o">=</span> <span class="n">Stream</span><span class="p">(</span><span class="n">topic_iterator</span><span class="p">,</span> <span class="n">app</span><span class="o">=</span><span class="n">app</span><span class="p">)</span>
+     <span class="k">async</span> <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">stream</span><span class="p">:</span>
+         <span class="nb">print</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>If two agents use streams subscribed to the same topic:</p>
+<div class="highlight-python3 notranslate"><div class="highlight"><pre><span></span><span class="n">topic</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">topic</span><span class="p">(</span><span class="s1">&#39;orders&#39;</span><span class="p">)</span>
+
+ <span class="nd">@app</span><span class="o">.</span><span class="n">agent</span><span class="p">(</span><span class="n">topic</span><span class="p">)</span>
+ <span class="k">async</span> <span class="k">def</span> <span class="nf">processA</span><span class="p">(</span><span class="n">stream</span><span class="p">):</span>
+      <span class="k">async</span> <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">stream</span><span class="p">:</span>
+          <span class="nb">print</span><span class="p">(</span><span class="n">f</span><span class="s1">&#39;A: </span><span class="si">{value}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+ <span class="nd">@app</span><span class="o">.</span><span class="n">agent</span><span class="p">(</span><span class="n">topic</span><span class="p">)</span>
+  <span class="k">async</span> <span class="k">def</span> <span class="nf">processB</span><span class="p">(</span><span class="n">stream</span><span class="p">):</span>
+       <span class="k">async</span> <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">stream</span><span class="p">:</span>
+           <span class="nb">print</span><span class="p">(</span><span class="n">f</span><span class="s1">&#39;B: </span><span class="si">{value}</span><span class="s1">&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The Conductor will forward every message received on the “orders”
+topic to both of the agents, increasing the reference count whenever
+it enters an agents stream.</p>
+<p>The reference count decreases when the event is <a class="reference internal" href="../glossary.html#term-acknowledged"><span class="xref std std-term">acknowledged</span></a>,
+and when it reaches zero the consumer will consider that offset as “done” and
+can commit it.</p>
+<div class="section" id="acknowledgment">
+<h4>Acknowledgment<a class="headerlink" href="#acknowledgment" title="Permalink to this headline">¶</a></h4>
+<p>The acknowledgment signifies that the event processing is complete and
+should not happen again.</p>
+<p>An event is automatically acknowledged when:</p>
+<ul class="simple">
+<li><p>The agent stream advances to a new event (<code class="docutils literal notranslate"><span class="pre">Stream.__anext__</span></code>)</p></li>
+<li><p>An exception occurs in the agent during event processing.</p></li>
+<li><p>The application shuts down, or a rebalance is required,
+and the stream finished processing the event.</p></li>
+</ul>
+<p>What this means is that an event is acknowledged when your agent is
+finished handling it, but you can also manually control when it happens.</p>
+<p>To manually control when the event is acknowledged, and its reference count
+decreased, use <code class="docutils literal notranslate"><span class="pre">await</span> <span class="pre">event.ack()</span></code></p>
+<blockquote>
+<div><blockquote>
+<div><dl class="simple">
+<dt>async for event in stream.events():</dt><dd><p>print(event.value)
+await event.ack()</p>
+</dd>
+</dl>
+</div></blockquote>
+<p>You can also use <a class="reference external" href="https://docs.python.org/dev/reference/compound_stmts.html#async-for" title="(in Python v3.9)"><code class="xref std std-keyword docutils literal notranslate"><span class="pre">async</span> <span class="pre">for</span></code></a> on the event:</p>
+<div class="highlight-python3 notranslate"><div class="highlight"><pre><span></span><span class="k">async</span> <span class="k">for</span> <span class="n">event</span> <span class="ow">in</span> <span class="n">stream</span><span class="o">.</span><span class="n">events</span><span class="p">():</span>
+    <span class="k">async</span> <span class="k">with</span> <span class="n">event</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="n">event</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
+        <span class="c1"># event acked when exiting this block</span>
+</pre></div>
+</div>
+</div></blockquote>
+<p>Note that the conditions in automatic acknowledgment still apply
+when manually acknowledging a message.</p>
+</div>
+</div>
+</div>
+<div class="section" id="combining-streams">
+<h2><a class="toc-backref" href="#id5">Combining streams</a><a class="headerlink" href="#combining-streams" title="Permalink to this headline">¶</a></h2>
+<p>Streams can be combined, so that you receive values from multiple streams
+in the same iteration:</p>
+<div class="highlight-pycon notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">s1</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">stream</span><span class="p">(</span><span class="n">topic1</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">s2</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">stream</span><span class="p">(</span><span class="n">topic2</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">async</span> <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="p">(</span><span class="n">s1</span> <span class="o">&amp;</span> <span class="n">s2</span><span class="p">):</span>
+<span class="gp">... </span>    <span class="o">...</span>
+</pre></div>
+</div>
+<p>Mostly this is useful when you have two topics having the same value type, but
+can be used in general.</p>
+<p>If you have two streams that you want to process independently you should
+rather start individual tasks:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@app.agent</span><span class="p">(</span><span class="n">topic1</span><span class="p">)</span>
+<span class="n">async</span> <span class="k">def</span> <span class="nf">process_stream1</span><span class="p">(</span><span class="n">stream</span><span class="p">):</span>
+    <span class="n">async</span> <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">stream</span><span class="p">:</span>
+        <span class="o">...</span>
+
+
+<span class="nd">@app.agent</span><span class="p">(</span><span class="n">topic2</span><span class="p">)</span>
+<span class="n">async</span> <span class="k">def</span> <span class="nf">process_stream2</span><span class="p">(</span><span class="n">stream</span><span class="p">):</span>
+    <span class="n">async</span> <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">stream</span><span class="p">:</span>
+        <span class="o">...</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="operations">
+<h2><a class="toc-backref" href="#id6">Operations</a><a class="headerlink" href="#operations" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="group-by-repartition-the-stream">
+<h3><a class="toc-backref" href="#id7"><code class="docutils literal notranslate"><span class="pre">group_by()</span></code> – Repartition the stream</a><a class="headerlink" href="#group-by-repartition-the-stream" title="Permalink to this headline">¶</a></h3>
+<p>The <a class="reference internal" href="../reference/faust.html#faust.Stream.group_by" title="faust.Stream.group_by"><code class="xref py py-meth docutils literal notranslate"><span class="pre">Stream.group_by()</span></code></a> method repartitions the
+stream by taking a “key type” as argument:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">faust</span>
+
+<span class="k">class</span> <span class="nc">Order</span><span class="p">(</span><span class="n">faust</span><span class="o">.</span><span class="n">Record</span><span class="p">):</span>
+    <span class="n">account_id</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">product_id</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">amount</span><span class="p">:</span> <span class="nb">float</span>
+    <span class="n">price</span><span class="p">:</span> <span class="nb">float</span>
+
+<span class="n">app</span> <span class="o">=</span> <span class="n">faust</span><span class="o">.</span><span class="n">App</span><span class="p">(</span><span class="s1">&#39;group-by-example&#39;</span><span class="p">)</span>
+<span class="n">orders_topic</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">topic</span><span class="p">(</span><span class="s1">&#39;orders&#39;</span><span class="p">,</span> <span class="n">value_type</span><span class="o">=</span><span class="n">Order</span><span class="p">)</span>
+
+<span class="nd">@app.agent</span><span class="p">(</span><span class="n">orders_topic</span><span class="p">)</span>
+<span class="n">async</span> <span class="k">def</span> <span class="nf">process</span><span class="p">(</span><span class="n">orders</span><span class="p">):</span>
+    <span class="n">async</span> <span class="k">for</span> <span class="n">order</span> <span class="ow">in</span> <span class="n">orders</span><span class="o">.</span><span class="n">group_by</span><span class="p">(</span><span class="n">Order</span><span class="o">.</span><span class="n">account_id</span><span class="p">):</span>
+        <span class="o">...</span>
+</pre></div>
+</div>
+<p>In the example above the “key type” is a field descriptor, and the
+stream will be repartitioned by the account_id field found in the deserialized
+stream value.</p>
+<p>The new stream will be using a new intermediate topic where messages have
+account ids as key, and this is the stream that the agent will finally be
+iterating over.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><code class="docutils literal notranslate"><span class="pre">Stream.group_by()</span></code> returns a new stream subscribing to the intermediate
+topic of the group by operation.</p>
+</div>
+<p>Apart from field descriptors, the key type argument can also be specified as
+a callable, or an async callable, so if you’re not using models to describe
+the data in streams you can manually extract the key used for repartitioning:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">get_order_account_id</span><span class="p">(</span><span class="n">order</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">order</span><span class="p">)[</span><span class="s1">&#39;account_id&#39;</span><span class="p">]</span>
+
+<span class="nd">@app.agent</span><span class="p">(</span><span class="n">app</span><span class="o">.</span><span class="n">topic</span><span class="p">(</span><span class="s1">&#39;order&#39;</span><span class="p">))</span>
+<span class="n">async</span> <span class="k">def</span> <span class="nf">process</span><span class="p">(</span><span class="n">orders</span><span class="p">):</span>
+    <span class="n">async</span> <span class="k">for</span> <span class="n">order</span> <span class="ow">in</span> <span class="n">orders</span><span class="o">.</span><span class="n">group_by</span><span class="p">(</span><span class="n">get_order_account_id</span><span class="p">):</span>
+        <span class="o">...</span>
+</pre></div>
+</div>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<ul class="simple">
+<li><p>The <a class="reference internal" href="models.html#guide-models"><span class="std std-ref">Models, Serialization, and Codecs</span></a> guide – for more information on field
+descriptors and models.</p></li>
+<li><p>The <a class="reference internal" href="../reference/faust.html#faust.Stream.group_by" title="faust.Stream.group_by"><code class="xref py py-meth docutils literal notranslate"><span class="pre">faust.Stream.group_by()</span></code></a> method in the API reference.</p></li>
+</ul>
+</div>
+</div>
+<div class="section" id="items-iterate-over-keys-and-values">
+<h3><a class="toc-backref" href="#id8"><code class="docutils literal notranslate"><span class="pre">items()</span></code> – Iterate over keys and values</a><a class="headerlink" href="#items-iterate-over-keys-and-values" title="Permalink to this headline">¶</a></h3>
+<p>Use <a class="reference internal" href="../reference/faust.html#faust.Stream.items" title="faust.Stream.items"><code class="xref py py-meth docutils literal notranslate"><span class="pre">Stream.items()</span></code></a> to get access to both message
+key and value at the same time:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@app.agent</span><span class="p">()</span>
+<span class="n">async</span> <span class="k">def</span> <span class="nf">process</span><span class="p">(</span><span class="n">stream</span><span class="p">):</span>
+    <span class="n">async</span> <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">stream</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="o">...</span>
+</pre></div>
+</div>
+<p>Note that this changes the type of what you iterate over from <code class="docutils literal notranslate"><span class="pre">Stream</span></code> to
+<code class="docutils literal notranslate"><span class="pre">AsyncIterator</span></code>, so if you want to repartition the stream or similar,
+<code class="docutils literal notranslate"><span class="pre">.items()</span></code> need to be the last operation:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">async</span> <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">stream</span><span class="o">.</span><span class="n">through</span><span class="p">(</span><span class="s1">&#39;foo&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">group_by</span><span class="p">(</span><span class="n">M</span><span class="o">.</span><span class="n">id</span><span class="p">)</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+    <span class="o">...</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="events-access-raw-messages">
+<h3><a class="toc-backref" href="#id9"><code class="docutils literal notranslate"><span class="pre">events()</span></code> – Access raw messages</a><a class="headerlink" href="#events-access-raw-messages" title="Permalink to this headline">¶</a></h3>
+<p>Use <a class="reference internal" href="../reference/faust.html#faust.Stream.events" title="faust.Stream.events"><code class="xref py py-meth docutils literal notranslate"><span class="pre">Stream.events()</span></code></a> to iterate over raw
+<code class="docutils literal notranslate"><span class="pre">Event</span></code> values, including access to original message payload and message
+meta data:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@app.agent</span>
+<span class="n">async</span> <span class="k">def</span> <span class="nf">process</span><span class="p">(</span><span class="n">stream</span><span class="p">):</span>
+    <span class="n">async</span> <span class="k">for</span> <span class="n">event</span> <span class="ow">in</span> <span class="n">stream</span><span class="o">.</span><span class="n">events</span><span class="p">():</span>
+        <span class="n">message</span> <span class="o">=</span> <span class="n">event</span><span class="o">.</span><span class="n">message</span>
+        <span class="n">topic</span> <span class="o">=</span> <span class="n">event</span><span class="o">.</span><span class="n">message</span><span class="o">.</span><span class="n">topic</span>
+        <span class="n">partition</span> <span class="o">=</span> <span class="n">event</span><span class="o">.</span><span class="n">message</span><span class="o">.</span><span class="n">partition</span>
+        <span class="n">offset</span> <span class="o">=</span> <span class="n">event</span><span class="o">.</span><span class="n">message</span><span class="o">.</span><span class="n">offset</span>
+
+        <span class="n">key_bytes</span> <span class="o">=</span> <span class="n">event</span><span class="o">.</span><span class="n">message</span><span class="o">.</span><span class="n">key</span>
+        <span class="n">value_bytes</span> <span class="o">=</span> <span class="n">event</span><span class="o">.</span><span class="n">message</span><span class="o">.</span><span class="n">value</span>
+
+        <span class="n">key_deserialized</span> <span class="o">=</span> <span class="n">event</span><span class="o">.</span><span class="n">key</span>
+        <span class="n">value_deserialized</span> <span class="o">=</span> <span class="n">event</span><span class="o">.</span><span class="n">value</span>
+
+        <span class="n">async</span> <span class="k">with</span> <span class="n">event</span><span class="p">:</span>  <span class="c1"># use  `async with event` for manual ack</span>
+            <span class="n">process</span><span class="p">(</span><span class="n">event</span><span class="p">)</span>
+            <span class="c1"># event will be acked when this block returns.</span>
+</pre></div>
+</div>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<ul class="simple">
+<li><p>The <a class="reference internal" href="../reference/faust.html#faust.Event" title="faust.Event"><code class="xref py py-class docutils literal notranslate"><span class="pre">faust.Event</span></code></a> class in the API reference – for more
+information about events.</p></li>
+<li><p>The <a class="reference internal" href="../reference/faust.types.tuples.html#faust.types.tuples.Message" title="faust.types.tuples.Message"><code class="xref py py-class docutils literal notranslate"><span class="pre">faust.types.tuples.Message</span></code></a> class in the API reference – for more
+information about the fields available in <code class="docutils literal notranslate"><span class="pre">event.message</span></code>.</p></li>
+</ul>
+</div>
+</div>
+<div class="section" id="take-buffer-up-values-in-the-stream">
+<h3><a class="toc-backref" href="#id10"><code class="docutils literal notranslate"><span class="pre">take()</span></code> – Buffer up values in the stream</a><a class="headerlink" href="#take-buffer-up-values-in-the-stream" title="Permalink to this headline">¶</a></h3>
+<p>Use <a class="reference internal" href="../reference/faust.html#faust.Stream.take" title="faust.Stream.take"><code class="xref py py-meth docutils literal notranslate"><span class="pre">Stream.take()</span></code></a> to gather up multiple events in
+the stream before processing them, for example to take 100 values at a time:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@app.agent</span><span class="p">()</span>
+<span class="n">async</span> <span class="k">def</span> <span class="nf">process</span><span class="p">(</span><span class="n">stream</span><span class="p">):</span>
+    <span class="n">async</span> <span class="k">for</span> <span class="n">values</span> <span class="ow">in</span> <span class="n">stream</span><span class="o">.</span><span class="n">take</span><span class="p">(</span><span class="mi">100</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">values</span><span class="p">)</span> <span class="o">==</span> <span class="mi">100</span>
+        <span class="k">print</span><span class="p">(</span><span class="n">f</span><span class="s1">&#39;RECEIVED 100 VALUES: {values}&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The problem with the above code is that it will block forever if there are 99
+messages and the last hundredth message is never received.</p>
+<p>To solve this add a <code class="docutils literal notranslate"><span class="pre">within</span></code> timeout so that up to 100 values will be
+processed within 10 seconds:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@app.agent</span><span class="p">()</span>
+<span class="n">async</span> <span class="k">def</span> <span class="nf">process</span><span class="p">(</span><span class="n">stream</span><span class="p">):</span>
+    <span class="n">async</span> <span class="k">for</span> <span class="n">values</span> <span class="ow">in</span> <span class="n">stream</span><span class="o">.</span><span class="n">take</span><span class="p">(</span><span class="mi">100</span><span class="p">,</span> <span class="n">within</span><span class="o">=</span><span class="mi">10</span><span class="p">):</span>
+        <span class="k">print</span><span class="p">(</span><span class="n">f</span><span class="s1">&#39;RECEIVED {len(values)}: {values}&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The above code works better: if values are constantly being streamed it will
+process hundreds and hundreds without delay, but if there are long periods of
+time with no events received it will still process what it has gathered.</p>
+</div>
+<div class="section" id="enumerate-count-values">
+<h3><a class="toc-backref" href="#id11"><code class="docutils literal notranslate"><span class="pre">enumerate()</span></code> – Count values</a><a class="headerlink" href="#enumerate-count-values" title="Permalink to this headline">¶</a></h3>
+<p>Use <a class="reference internal" href="../reference/faust.html#faust.Stream.enumerate" title="faust.Stream.enumerate"><code class="xref py py-meth docutils literal notranslate"><span class="pre">Stream.enumerate()</span></code></a> to keep a count of the number of values
+seen so far in a stream.</p>
+<p>This operation works exactly like the Python <a class="reference external" href="https://www.sphinx-doc.org/en/stable/usage/quickstart.html#enumerate" title="(in Sphinx v1.8.0)"><code class="xref py py-func docutils literal notranslate"><span class="pre">enumerate()</span></code></a> function, but
+for an asynchronous stream:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@app.agent</span><span class="p">()</span>
+<span class="n">async</span> <span class="k">def</span> <span class="nf">process</span><span class="p">(</span><span class="n">stream</span><span class="p">):</span>
+    <span class="n">async</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">stream</span><span class="o">.</span><span class="n">enumerate</span><span class="p">():</span>
+        <span class="o">...</span>
+</pre></div>
+</div>
+<p>The count will start at zero by default, but <code class="docutils literal notranslate"><span class="pre">enumerate</span></code> also accepts an
+optional starting point argument.</p>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<ul class="simple">
+<li><p>The <code class="xref py py-func docutils literal notranslate"><span class="pre">faust.utils.aiter.aenumerate()</span></code> function – for a general version
+of <a class="reference external" href="https://www.sphinx-doc.org/en/stable/usage/quickstart.html#enumerate" title="(in Sphinx v1.8.0)"><code class="xref py py-func docutils literal notranslate"><span class="pre">enumerate()</span></code></a> that let you enumerate any async iterator, not just
+streams.</p></li>
+<li><p>The <a class="reference external" href="https://www.sphinx-doc.org/en/stable/usage/quickstart.html#enumerate" title="(in Sphinx v1.8.0)"><code class="xref py py-func docutils literal notranslate"><span class="pre">enumerate()</span></code></a> function in the Python standard library.</p></li>
+</ul>
+</div>
+</div>
+<div class="section" id="through-forward-through-another-topic">
+<h3><a class="toc-backref" href="#id12"><code class="docutils literal notranslate"><span class="pre">through()</span></code> – Forward through another topic</a><a class="headerlink" href="#through-forward-through-another-topic" title="Permalink to this headline">¶</a></h3>
+<p>Use <a class="reference internal" href="../reference/faust.html#faust.Stream.through" title="faust.Stream.through"><code class="xref py py-meth docutils literal notranslate"><span class="pre">Stream.through()</span></code></a> to forward every value
+to a new topic, and replace the stream by subscribing to the new topic:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">source_topic</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">topic</span><span class="p">(</span><span class="s1">&#39;source-topic&#39;</span><span class="p">)</span>
+<span class="n">destination_topic</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">topic</span><span class="p">(</span><span class="s1">&#39;destination-topic&#39;</span><span class="p">)</span>
+
+<span class="nd">@app.agent</span><span class="p">()</span>
+<span class="n">async</span> <span class="k">def</span> <span class="nf">process</span><span class="p">(</span><span class="n">stream</span><span class="p">):</span>
+    <span class="n">async</span> <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">stream</span><span class="o">.</span><span class="n">through</span><span class="p">(</span><span class="n">destination_topic</span><span class="p">):</span>
+        <span class="c1"># we are now iterating over stream(destination_topic)</span>
+        <span class="k">print</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>You can also specify the destination topic as a string:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># [...]</span>
+<span class="n">async</span> <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">stream</span><span class="o">.</span><span class="n">through</span><span class="p">(</span><span class="s1">&#39;foo&#39;</span><span class="p">):</span>
+    <span class="o">...</span>
+</pre></div>
+</div>
+<p>Through is especially useful if you need to convert the number of partitions
+in a source topic, by using an intermediate table.</p>
+<p>If you simply want to forward a value to another topic, you can send it
+manually, or use the echo recipe below:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@app.agent</span><span class="p">()</span>
+<span class="n">async</span> <span class="k">def</span> <span class="nf">process</span><span class="p">(</span><span class="n">stream</span><span class="p">):</span>
+    <span class="n">async</span> <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">stream</span><span class="p">:</span>
+        <span class="n">await</span> <span class="n">other_topic</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="filter-filter-values-to-omit-from-stream">
+<span id="stream-filter"></span><h3><a class="toc-backref" href="#id13"><code class="docutils literal notranslate"><span class="pre">filter()</span></code> – Filter values to omit from stream.</a><a class="headerlink" href="#filter-filter-values-to-omit-from-stream" title="Permalink to this headline">¶</a></h3>
+<div class="versionadded">
+<p><span class="versionmodified added">New in version 1.7.</span></p>
+</div>
+<p>This method is useful for filtering events before repartitioning
+a stream.</p>
+<p>Takes a single argument which must be a callable, either a normal
+function or an <cite>async def</cite> function.</p>
+<p>Example:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@app.agent</span><span class="p">()</span>
+<span class="n">async</span> <span class="k">def</span> <span class="nf">process</span><span class="p">(</span><span class="n">stream</span><span class="p">):</span>
+    <span class="n">async</span> <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">stream</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="n">v</span> <span class="o">&gt;</span> <span class="mi">1000</span><span class="p">)</span><span class="o">.</span><span class="n">group_by</span><span class="p">(</span><span class="o">...</span><span class="p">):</span>
+        <span class="o">...</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="echo-repeat-to-one-or-more-topics">
+<h3><a class="toc-backref" href="#id14"><code class="docutils literal notranslate"><span class="pre">echo()</span></code> – Repeat to one or more topics</a><a class="headerlink" href="#echo-repeat-to-one-or-more-topics" title="Permalink to this headline">¶</a></h3>
+<p>Use <code class="xref py py-meth docutils literal notranslate"><span class="pre">echo()</span></code> to repeat values received from a stream to another
+channel/topic, or many other channels/topics:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@app.agent</span><span class="p">()</span>
+<span class="n">async</span> <span class="k">def</span> <span class="nf">process</span><span class="p">(</span><span class="n">stream</span><span class="p">):</span>
+    <span class="n">async</span> <span class="k">for</span> <span class="n">event</span> <span class="ow">in</span> <span class="n">stream</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="s1">&#39;other_topic&#39;</span><span class="p">):</span>
+        <span class="o">...</span>
+</pre></div>
+</div>
+<p>The operation takes one or more topics, as string topic names or <code class="xref py py-class docutils literal notranslate"><span class="pre">app.topic</span></code>, so this also works:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">source_topic</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">topic</span><span class="p">(</span><span class="s1">&#39;sourcetopic&#39;</span><span class="p">)</span>
+<span class="n">echo_topic1</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">topic</span><span class="p">(</span><span class="s1">&#39;source-copy-1&#39;</span><span class="p">)</span>
+<span class="n">echo_topic2</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">topic</span><span class="p">(</span><span class="s1">&#39;source-copy-2&#39;</span><span class="p">)</span>
+
+<span class="nd">@app.agent</span><span class="p">(</span><span class="n">source_topic</span><span class="p">)</span>
+<span class="n">async</span> <span class="k">def</span> <span class="nf">process</span><span class="p">(</span><span class="n">stream</span><span class="p">):</span>
+    <span class="n">async</span> <span class="k">for</span> <span class="n">event</span> <span class="ow">in</span> <span class="n">stream</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="n">echo_topic1</span><span class="p">,</span> <span class="n">echo_topic2</span><span class="p">):</span>
+        <span class="o">...</span>
+</pre></div>
+</div>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<ul class="simple">
+<li><p>The <a class="reference internal" href="channels.html#guide-channels"><span class="std std-ref">Channels &amp; Topics - Data Sources</span></a> guide – for more information about channels
+and topics.</p></li>
+</ul>
+</div>
+</div>
+</div>
+<div class="section" id="reference">
+<span id="stream-operations"></span><h2><a class="toc-backref" href="#id15">Reference</a><a class="headerlink" href="#reference" title="Permalink to this headline">¶</a></h2>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Do not create <code class="docutils literal notranslate"><span class="pre">Stream</span></code> objects directly, instead use: <code class="docutils literal notranslate"><span class="pre">app.stream</span></code>
+to instantiate new streams.</p>
+</div>
+</div>
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../playbooks/index.html">Playbooks</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">User Guide</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="application.html">The App - Define your Faust project</a></li>
+<li class="toctree-l2"><a class="reference internal" href="agents.html">Agents - Self-organizing Stream Processors</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Streams - Infinite Data Structures</a></li>
+<li class="toctree-l2"><a class="reference internal" href="channels.html">Channels &amp; Topics - Data Sources</a></li>
+<li class="toctree-l2"><a class="reference internal" href="models.html">Models, Serialization, and Codecs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tables.html">Tables and Windowing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tasks.html">Tasks, Timers, Cron Jobs, Web Views, and CLI Commands</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cli.html">Command-line Interface</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sensors.html">Sensors - Monitors and Statistics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="testing.html">Testing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="livecheck.html">LiveCheck: End-to-end test for production/staging.</a></li>
+<li class="toctree-l2"><a class="reference internal" href="settings.html">Configuration Reference</a></li>
+<li class="toctree-l2"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="kafka.html">Kafka - The basics you need to know</a></li>
+<li class="toctree-l2"><a class="reference internal" href="debugging.html">Debugging</a></li>
+<li class="toctree-l2"><a class="reference internal" href="workers.html">Workers Guide</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../history/index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">User Guide</a><ul>
+      <li>Previous: <a href="agents.html" title="previous chapter">Agents - Self-organizing Stream Processors</a></li>
+      <li>Next: <a href="channels.html" title="next chapter">Channels &amp; Topics - Data Sources</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2020, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../_sources/userguide/streams.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

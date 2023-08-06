@@ -1,0 +1,330 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>faust.web.drivers.aiohttp &#8212; Faust 1.11.0a1 documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="copyright" title="Copyright" href="../copyright.html" />
+    <link rel="next" title="faust.web.exceptions" href="faust.web.exceptions.html" />
+    <link rel="prev" title="faust.web.drivers" href="faust.web.drivers.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="faust-web-drivers-aiohttp">
+<h1><code class="docutils literal notranslate"><span class="pre">faust.web.drivers.aiohttp</span></code><a class="headerlink" href="#faust-web-drivers-aiohttp" title="Permalink to this headline">¶</a></h1>
+<span class="target" id="module-faust.web.drivers.aiohttp"></span><p>Web driver using <a class="reference external" href="https://pypi.python.org/pypi/aiohttp/">aiohttp</a>.</p>
+<dl class="class">
+<dt id="faust.web.drivers.aiohttp.Web">
+<em class="property">class </em><code class="sig-prename descclassname">faust.web.drivers.aiohttp.</code><code class="sig-name descname">Web</code><span class="sig-paren">(</span><em class="sig-param">app: faust.types.app.AppT</em>, <em class="sig-param">**kwargs: Any</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/web/drivers/aiohttp.html#Web"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.web.drivers.aiohttp.Web" title="Permalink to this definition">¶</a></dt>
+<dd><p>Web server and framework implementation using <a class="reference external" href="https://pypi.python.org/pypi/aiohttp/">aiohttp</a>.</p>
+<dl class="attribute">
+<dt id="faust.web.drivers.aiohttp.Web.driver_version">
+<code class="sig-name descname">driver_version</code><em class="property"> = 'aiohttp=3.6.2'</em><a class="headerlink" href="#faust.web.drivers.aiohttp.Web.driver_version" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="faust.web.drivers.aiohttp.Web.handler_shutdown_timeout">
+<code class="sig-name descname">handler_shutdown_timeout</code><em class="property"> = 60.0</em><a class="headerlink" href="#faust.web.drivers.aiohttp.Web.handler_shutdown_timeout" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="faust.web.drivers.aiohttp.Web.cors">
+<em class="property">property </em><code class="sig-name descname">cors</code><a class="headerlink" href="#faust.web.drivers.aiohttp.Web.cors" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return CORS config object.
+:rtype: <code class="xref py py-class docutils literal notranslate"><span class="pre">CorsConfig</span></code></p>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.web.drivers.aiohttp.Web.on_start">
+<em class="property">async </em><code class="sig-name descname">on_start</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/web/drivers/aiohttp.html#Web.on_start"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.web.drivers.aiohttp.Web.on_start" title="Permalink to this definition">¶</a></dt>
+<dd><p>Call when the embedded web server starts.</p>
+<p>Only used for <cite>faust worker</cite>, not when using <a class="reference internal" href="#faust.web.drivers.aiohttp.Web.wsgi" title="faust.web.drivers.aiohttp.Web.wsgi"><code class="xref py py-meth docutils literal notranslate"><span class="pre">wsgi()</span></code></a>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.web.drivers.aiohttp.Web.wsgi">
+<em class="property">async </em><code class="sig-name descname">wsgi</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; Any<a class="reference internal" href="../_modules/faust/web/drivers/aiohttp.html#Web.wsgi"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.web.drivers.aiohttp.Web.wsgi" title="Permalink to this definition">¶</a></dt>
+<dd><p>Call WSGI handler.</p>
+<p>Used by <a class="reference external" href="https://pypi.python.org/pypi/gunicorn/">gunicorn</a> and other WSGI compatible hosts
+to access the Faust web entry point.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Any" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.web.drivers.aiohttp.Web.text">
+<code class="sig-name descname">text</code><span class="sig-paren">(</span><em class="sig-param">value: str</em>, <em class="sig-param">*</em>, <em class="sig-param">content_type: str = None</em>, <em class="sig-param">status: int = 200</em>, <em class="sig-param">reason: str = None</em>, <em class="sig-param">headers: MutableMapping = None</em><span class="sig-paren">)</span> &#x2192; faust.web.base.Response<a class="reference internal" href="../_modules/faust/web/drivers/aiohttp.html#Web.text"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.web.drivers.aiohttp.Web.text" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create text response, using “text/plain” content-type.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="faust.web.base.html#faust.web.base.Response" title="faust.web.base.Response"><code class="xref py py-class docutils literal notranslate"><span class="pre">Response</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.web.drivers.aiohttp.Web.html">
+<code class="sig-name descname">html</code><span class="sig-paren">(</span><em class="sig-param">value: str</em>, <em class="sig-param">*</em>, <em class="sig-param">content_type: str = None</em>, <em class="sig-param">status: int = 200</em>, <em class="sig-param">reason: str = None</em>, <em class="sig-param">headers: MutableMapping = None</em><span class="sig-paren">)</span> &#x2192; faust.web.base.Response<a class="reference internal" href="../_modules/faust/web/drivers/aiohttp.html#Web.html"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.web.drivers.aiohttp.Web.html" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create HTML response from string, <code class="docutils literal notranslate"><span class="pre">text/html</span></code> content-type.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="faust.web.base.html#faust.web.base.Response" title="faust.web.base.Response"><code class="xref py py-class docutils literal notranslate"><span class="pre">Response</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.web.drivers.aiohttp.Web.json">
+<code class="sig-name descname">json</code><span class="sig-paren">(</span><em class="sig-param">value: Any</em>, <em class="sig-param">*</em>, <em class="sig-param">content_type: str = None</em>, <em class="sig-param">status: int = 200</em>, <em class="sig-param">reason: str = None</em>, <em class="sig-param">headers: MutableMapping = None</em><span class="sig-paren">)</span> &#x2192; Any<a class="reference internal" href="../_modules/faust/web/drivers/aiohttp.html#Web.json"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.web.drivers.aiohttp.Web.json" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create new JSON response.</p>
+<p>Accepts any JSON-serializable value and will automatically
+serialize it for you.</p>
+<p>The content-type is set to “application/json”.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Any" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.web.drivers.aiohttp.Web.bytes">
+<code class="sig-name descname">bytes</code><span class="sig-paren">(</span><em class="sig-param">value: bytes</em>, <em class="sig-param">*</em>, <em class="sig-param">content_type: str = None</em>, <em class="sig-param">status: int = 200</em>, <em class="sig-param">reason: str = None</em>, <em class="sig-param">headers: MutableMapping = None</em><span class="sig-paren">)</span> &#x2192; faust.web.base.Response<a class="reference internal" href="../_modules/faust/web/drivers/aiohttp.html#Web.bytes"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.web.drivers.aiohttp.Web.bytes" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create new <code class="docutils literal notranslate"><span class="pre">bytes</span></code> response - for binary data.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="faust.web.base.html#faust.web.base.Response" title="faust.web.base.Response"><code class="xref py py-class docutils literal notranslate"><span class="pre">Response</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.web.drivers.aiohttp.Web.read_request_content">
+<em class="property">async </em><code class="sig-name descname">read_request_content</code><span class="sig-paren">(</span><em class="sig-param">request: faust.web.base.Request</em><span class="sig-paren">)</span> &#x2192; bytes<a class="reference internal" href="../_modules/faust/web/drivers/aiohttp.html#Web.read_request_content"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.web.drivers.aiohttp.Web.read_request_content" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return the request body as bytes.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="#faust.web.drivers.aiohttp.Web.bytes" title="faust.web.drivers.aiohttp.Web.bytes"><code class="xref py py-class docutils literal notranslate"><span class="pre">bytes</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.web.drivers.aiohttp.Web.route">
+<code class="sig-name descname">route</code><span class="sig-paren">(</span><em class="sig-param">pattern: str</em>, <em class="sig-param">handler: Callable</em>, <em class="sig-param">cors_options: Mapping[str</em>, <em class="sig-param">aiohttp_cors.resource_options.ResourceOptions] = None</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/web/drivers/aiohttp.html#Web.route"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.web.drivers.aiohttp.Web.route" title="Permalink to this definition">¶</a></dt>
+<dd><p>Add route for web view or handler.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.web.drivers.aiohttp.Web.add_static">
+<code class="sig-name descname">add_static</code><span class="sig-paren">(</span><em class="sig-param">prefix: str, path: Union[pathlib.Path, str], **kwargs: Any</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/web/drivers/aiohttp.html#Web.add_static"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.web.drivers.aiohttp.Web.add_static" title="Permalink to this definition">¶</a></dt>
+<dd><p>Add route for static assets.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.web.drivers.aiohttp.Web.bytes_to_response">
+<code class="sig-name descname">bytes_to_response</code><span class="sig-paren">(</span><em class="sig-param">s: bytes</em><span class="sig-paren">)</span> &#x2192; faust.web.base.Response<a class="reference internal" href="../_modules/faust/web/drivers/aiohttp.html#Web.bytes_to_response"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.web.drivers.aiohttp.Web.bytes_to_response" title="Permalink to this definition">¶</a></dt>
+<dd><p>Deserialize byte string back into a response object.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="faust.web.base.html#faust.web.base.Response" title="faust.web.base.Response"><code class="xref py py-class docutils literal notranslate"><span class="pre">Response</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.web.drivers.aiohttp.Web.response_to_bytes">
+<code class="sig-name descname">response_to_bytes</code><span class="sig-paren">(</span><em class="sig-param">response: faust.web.base.Response</em><span class="sig-paren">)</span> &#x2192; bytes<a class="reference internal" href="../_modules/faust/web/drivers/aiohttp.html#Web.response_to_bytes"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.web.drivers.aiohttp.Web.response_to_bytes" title="Permalink to this definition">¶</a></dt>
+<dd><p>Convert response to serializable byte string.</p>
+<p>The result is a byte string that can be deserialized
+using <a class="reference internal" href="#faust.web.drivers.aiohttp.Web.bytes_to_response" title="faust.web.drivers.aiohttp.Web.bytes_to_response"><code class="xref py py-meth docutils literal notranslate"><span class="pre">bytes_to_response()</span></code></a>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="#faust.web.drivers.aiohttp.Web.bytes" title="faust.web.drivers.aiohttp.Web.bytes"><code class="xref py py-class docutils literal notranslate"><span class="pre">bytes</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.web.drivers.aiohttp.Web.start_server">
+<em class="property">async </em><code class="sig-name descname">start_server</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/web/drivers/aiohttp.html#Web.start_server"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.web.drivers.aiohttp.Web.start_server" title="Permalink to this definition">¶</a></dt>
+<dd><p>Start the web server.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.web.drivers.aiohttp.Web.stop_server">
+<em class="property">async </em><code class="sig-name descname">stop_server</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/web/drivers/aiohttp.html#Web.stop_server"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.web.drivers.aiohttp.Web.stop_server" title="Permalink to this definition">¶</a></dt>
+<dd><p>Stop the web server.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.web.drivers.aiohttp.Web.logger">
+<code class="sig-name descname">logger</code><em class="property"> = &lt;Logger faust.web.drivers.aiohttp (WARNING)&gt;</em><a class="headerlink" href="#faust.web.drivers.aiohttp.Web.logger" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../playbooks/index.html">Playbooks</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../userguide/index.html">User Guide</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../history/index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">API Reference</a><ul>
+      <li>Previous: <a href="faust.web.drivers.html" title="previous chapter"><code class="docutils literal notranslate"><span class="pre">faust.web.drivers</span></code></a></li>
+      <li>Next: <a href="faust.web.exceptions.html" title="next chapter"><code class="docutils literal notranslate"><span class="pre">faust.web.exceptions</span></code></a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2020, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../_sources/reference/faust.web.drivers.aiohttp.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

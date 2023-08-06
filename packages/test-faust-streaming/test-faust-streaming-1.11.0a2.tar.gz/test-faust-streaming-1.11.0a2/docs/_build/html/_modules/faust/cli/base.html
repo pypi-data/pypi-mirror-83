@@ -1,0 +1,1179 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>faust.cli.base &#8212; Faust 1.11.0a1 documentation</title>
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../../../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <link rel="copyright" title="Copyright" href="../../../copyright.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for faust.cli.base</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Command-line programs using :pypi:`click`.&quot;&quot;&quot;</span>
+<span class="kn">import</span> <span class="nn">abc</span>
+<span class="kn">import</span> <span class="nn">asyncio</span>
+<span class="kn">import</span> <span class="nn">inspect</span>
+<span class="kn">import</span> <span class="nn">io</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">sys</span>
+<span class="kn">import</span> <span class="nn">typing</span>
+<span class="kn">from</span> <span class="nn">functools</span> <span class="k">import</span> <span class="n">wraps</span>
+<span class="kn">from</span> <span class="nn">pathlib</span> <span class="k">import</span> <span class="n">Path</span>
+<span class="kn">from</span> <span class="nn">textwrap</span> <span class="k">import</span> <span class="n">wrap</span>
+<span class="kn">from</span> <span class="nn">types</span> <span class="k">import</span> <span class="n">ModuleType</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">Any</span><span class="p">,</span>
+    <span class="n">Awaitable</span><span class="p">,</span>
+    <span class="n">Callable</span><span class="p">,</span>
+    <span class="n">ClassVar</span><span class="p">,</span>
+    <span class="n">Dict</span><span class="p">,</span>
+    <span class="n">IO</span><span class="p">,</span>
+    <span class="n">List</span><span class="p">,</span>
+    <span class="n">Mapping</span><span class="p">,</span>
+    <span class="n">MutableSequence</span><span class="p">,</span>
+    <span class="n">Optional</span><span class="p">,</span>
+    <span class="n">Sequence</span><span class="p">,</span>
+    <span class="n">Tuple</span><span class="p">,</span>
+    <span class="n">Type</span><span class="p">,</span>
+    <span class="n">Union</span><span class="p">,</span>
+    <span class="n">cast</span><span class="p">,</span>
+    <span class="n">no_type_check</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="kn">import</span> <span class="nn">click</span>
+<span class="kn">from</span> <span class="nn">click</span> <span class="k">import</span> <span class="n">echo</span>
+<span class="kn">from</span> <span class="nn">colorclass</span> <span class="k">import</span> <span class="n">Color</span><span class="p">,</span> <span class="n">disable_all_colors</span><span class="p">,</span> <span class="n">enable_all_colors</span>
+<span class="kn">from</span> <span class="nn">mode</span> <span class="k">import</span> <span class="n">Service</span><span class="p">,</span> <span class="n">ServiceT</span><span class="p">,</span> <span class="n">Worker</span>
+<span class="kn">from</span> <span class="nn">mode.utils</span> <span class="k">import</span> <span class="n">text</span>
+<span class="kn">from</span> <span class="nn">mode.utils.compat</span> <span class="k">import</span> <span class="n">want_bytes</span>
+<span class="kn">from</span> <span class="nn">mode.utils.imports</span> <span class="k">import</span> <span class="n">import_from_cwd</span><span class="p">,</span> <span class="n">symbol_by_name</span>
+<span class="kn">from</span> <span class="nn">mode.utils.typing</span> <span class="k">import</span> <span class="n">NoReturn</span>
+<span class="kn">from</span> <span class="nn">mode.worker</span> <span class="k">import</span> <span class="n">exiting</span>
+
+<span class="kn">from</span> <span class="nn">faust.types._env</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">CONSOLE_PORT</span><span class="p">,</span>
+    <span class="n">DATADIR</span><span class="p">,</span>
+    <span class="n">DEBUG</span><span class="p">,</span>
+    <span class="n">WORKDIR</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">faust.types</span> <span class="k">import</span> <span class="n">AppT</span><span class="p">,</span> <span class="n">CodecArg</span><span class="p">,</span> <span class="n">ModelT</span>
+<span class="kn">from</span> <span class="nn">faust.utils</span> <span class="k">import</span> <span class="n">json</span>
+<span class="kn">from</span> <span class="nn">faust.utils</span> <span class="k">import</span> <span class="n">terminal</span>
+<span class="kn">from</span> <span class="nn">faust.utils.codegen</span> <span class="k">import</span> <span class="n">reprcall</span>
+
+<span class="kn">from</span> <span class="nn">.</span> <span class="k">import</span> <span class="n">params</span>
+
+<span class="k">if</span> <span class="n">typing</span><span class="o">.</span><span class="n">TYPE_CHECKING</span><span class="p">:</span>
+    <span class="kn">from</span> <span class="nn">faust.app</span> <span class="k">import</span> <span class="n">App</span> <span class="k">as</span> <span class="n">_App</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="k">class</span> <span class="nc">_App</span><span class="p">:</span> <span class="o">...</span>  <span class="c1"># noqa</span>
+
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">import</span> <span class="nn">click_completion</span>
+<span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+    <span class="n">click_completion</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="k">else</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+    <span class="n">click_completion</span><span class="o">.</span><span class="n">init</span><span class="p">()</span>
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="s1">&#39;AppCommand&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;Command&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;argument&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;cli&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;find_app&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;option&#39;</span><span class="p">,</span>
+<span class="p">]</span>
+
+
+<div class="viewcode-block" id="argument"><a class="viewcode-back" href="../../../reference/faust.cli.base.html#faust.cli.base.argument">[docs]</a><span class="k">class</span> <span class="nc">argument</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Create command-line argument.</span>
+
+<span class="sd">    SeeAlso:</span>
+<span class="sd">        :func:`click.argument`</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="p">:</span> <span class="n">Tuple</span> <span class="o">=</span> <span class="n">args</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Dict</span> <span class="o">=</span> <span class="n">kwargs</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">argument</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">Any</span><span class="p">],</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="n">click</span><span class="o">.</span><span class="n">argument</span><span class="p">(</span>
+            <span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">kwargs</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fun</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">argument</span><span class="p">(</span><span class="n">fun</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">reprcall</span><span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="option"><a class="viewcode-back" href="../../../reference/faust.cli.base.html#faust.cli.base.option">[docs]</a><span class="k">class</span> <span class="nc">option</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Create command-line option.</span>
+
+<span class="sd">    SeeAlso:</span>
+<span class="sd">        :func:`click.option`</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Our version of click.option enables show_default=True by default.</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+                 <span class="n">show_default</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+                 <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="p">:</span> <span class="n">Tuple</span> <span class="o">=</span> <span class="n">args</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Dict</span> <span class="o">=</span> <span class="n">kwargs</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">option</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">Any</span><span class="p">],</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="n">click</span><span class="o">.</span><span class="n">option</span><span class="p">(</span>
+            <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="n">show_default</span><span class="o">=</span><span class="n">show_default</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fun</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">option</span><span class="p">(</span><span class="n">fun</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">reprcall</span><span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+
+<span class="n">OptionDecorator</span> <span class="o">=</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">Any</span><span class="p">],</span> <span class="n">Any</span><span class="p">]</span>
+<span class="n">OptionSequence</span> <span class="o">=</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">OptionDecorator</span><span class="p">]</span>
+<span class="n">OptionList</span> <span class="o">=</span> <span class="n">MutableSequence</span><span class="p">[</span><span class="n">OptionDecorator</span><span class="p">]</span>
+
+<span class="n">LOOP_CHOICES</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="s1">&#39;aio&#39;</span><span class="p">,</span> <span class="s1">&#39;eventlet&#39;</span><span class="p">,</span> <span class="s1">&#39;uvloop&#39;</span><span class="p">)</span>
+<span class="n">DEFAULT_LOOP</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;aio&#39;</span>
+<span class="n">DEFAULT_LOGLEVEL</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;WARN&#39;</span>
+<span class="n">LOGLEVELS</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="s1">&#39;CRIT&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;ERROR&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;WARN&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;INFO&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;DEBUG&#39;</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="c1"># XXX For some reason mypy gives strange errors if we import</span>
+<span class="c1"># this here: probably mypy bug.</span>
+<span class="c1">#   python -m mypy faust</span>
+<span class="c1">#   faust/cli/base.pyfaust/__init__.py:117:</span>
+<span class="c1">#     error: Module &#39;faust.agents&#39; has no attribute &#39;Agent&#39;</span>
+<span class="c1">#   faust/__init__.py:119:</span>
+<span class="c1">#     error: Module &#39;faust.channels&#39; has no attribute &#39;ChannelT&#39;</span>
+<span class="c1">#    faust/__init__.py:119:</span>
+<span class="c1">#       error: Module &#39;faust.channels&#39; has no attribute &#39;EventT&#39;</span>
+<span class="c1">#   make: *** [typecheck] Error 1</span>
+<span class="n">faust_version</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">symbol_by_name</span><span class="p">(</span><span class="s1">&#39;faust:__version__&#39;</span><span class="p">)</span>
+
+
+<span class="c1"># Worker options moved from `faust worker` to toplevel</span>
+<span class="c1"># According to @mitsuhiko the following is &quot;really simple to</span>
+<span class="c1"># implement through decorators.&quot;</span>
+<span class="c1"># [from https://github.com/pallets/click/issues/108]</span>
+<span class="k">class</span> <span class="nc">State</span><span class="p">:</span>
+    <span class="n">app</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">AppT</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">quiet</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">debug</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">workdir</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">datadir</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">json</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">no_color</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">loop</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">logfile</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">loglevel</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">blocking_timeout</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">console_port</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+
+
+<span class="k">def</span> <span class="nf">compat_option</span><span class="p">(</span>
+        <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+        <span class="n">state_key</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">callback</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">click</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="n">click</span><span class="o">.</span><span class="n">Parameter</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">expose_value</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">Any</span><span class="p">],</span> <span class="n">click</span><span class="o">.</span><span class="n">Parameter</span><span class="p">]:</span>
+
+    <span class="k">def</span> <span class="nf">_callback</span><span class="p">(</span><span class="n">ctx</span><span class="p">:</span> <span class="n">click</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span>  <span class="c1"># pragma: no cover</span>
+                  <span class="n">param</span><span class="p">:</span> <span class="n">click</span><span class="o">.</span><span class="n">Parameter</span><span class="p">,</span>
+                  <span class="n">value</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+        <span class="n">state</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">ensure_object</span><span class="p">(</span><span class="n">State</span><span class="p">)</span>
+        <span class="n">prev_value</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">state_key</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">prev_value</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">value</span> <span class="o">!=</span> <span class="n">param</span><span class="o">.</span><span class="n">default</span><span class="p">:</span>
+            <span class="nb">setattr</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">state_key</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">callback</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">param</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span> <span class="k">if</span> <span class="n">callback</span> <span class="k">else</span> <span class="n">value</span>
+
+    <span class="k">return</span> <span class="n">option</span><span class="p">(</span>
+        <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="n">callback</span><span class="o">=</span><span class="n">_callback</span><span class="p">,</span> <span class="n">expose_value</span><span class="o">=</span><span class="n">expose_value</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+
+<span class="n">now_builtin_worker_options</span><span class="p">:</span> <span class="n">OptionSequence</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="n">compat_option</span><span class="p">(</span>
+        <span class="s1">&#39;--logfile&#39;</span><span class="p">,</span> <span class="s1">&#39;-f&#39;</span><span class="p">,</span>
+        <span class="n">state_key</span><span class="o">=</span><span class="s1">&#39;logfile&#39;</span><span class="p">,</span>
+        <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="nb">type</span><span class="o">=</span><span class="n">params</span><span class="o">.</span><span class="n">WritableFilePath</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s1">&#39;Path to logfile (default is &lt;stderr&gt;).&#39;</span><span class="p">,</span>
+    <span class="p">),</span>
+    <span class="n">compat_option</span><span class="p">(</span>
+        <span class="s1">&#39;--loglevel&#39;</span><span class="p">,</span> <span class="s1">&#39;-l&#39;</span><span class="p">,</span>
+        <span class="n">state_key</span><span class="o">=</span><span class="s1">&#39;loglevel&#39;</span><span class="p">,</span>
+        <span class="n">default</span><span class="o">=</span><span class="n">DEFAULT_LOGLEVEL</span><span class="p">,</span>
+        <span class="nb">type</span><span class="o">=</span><span class="n">params</span><span class="o">.</span><span class="n">CaseInsensitiveChoice</span><span class="p">(</span><span class="n">LOGLEVELS</span><span class="p">),</span>
+        <span class="n">help</span><span class="o">=</span><span class="s1">&#39;Logging level to use.&#39;</span><span class="p">,</span>
+    <span class="p">),</span>
+    <span class="n">compat_option</span><span class="p">(</span>
+        <span class="s1">&#39;--blocking-timeout&#39;</span><span class="p">,</span>
+        <span class="n">state_key</span><span class="o">=</span><span class="s1">&#39;blocking_timeout&#39;</span><span class="p">,</span>
+        <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="nb">type</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s1">&#39;when --debug: Blocking detector timeout.&#39;</span><span class="p">,</span>
+    <span class="p">),</span>
+    <span class="n">compat_option</span><span class="p">(</span>
+        <span class="s1">&#39;--console-port&#39;</span><span class="p">,</span>
+        <span class="n">state_key</span><span class="o">=</span><span class="s1">&#39;console_port&#39;</span><span class="p">,</span>
+        <span class="n">default</span><span class="o">=</span><span class="n">CONSOLE_PORT</span><span class="p">,</span>
+        <span class="nb">type</span><span class="o">=</span><span class="n">params</span><span class="o">.</span><span class="n">TCPPort</span><span class="p">(),</span>
+        <span class="n">help</span><span class="o">=</span><span class="s1">&#39;when --debug: Port to run debugger console on.&#39;</span><span class="p">,</span>
+    <span class="p">),</span>
+<span class="p">]</span>
+
+<span class="n">core_options</span><span class="p">:</span> <span class="n">OptionSequence</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="n">click</span><span class="o">.</span><span class="n">version_option</span><span class="p">(</span><span class="n">version</span><span class="o">=</span><span class="n">f</span><span class="s1">&#39;Faust </span><span class="si">{faust_version}</span><span class="s1">&#39;</span><span class="p">),</span>
+    <span class="n">option</span><span class="p">(</span><span class="s1">&#39;--app&#39;</span><span class="p">,</span> <span class="s1">&#39;-A&#39;</span><span class="p">,</span>
+           <span class="n">help</span><span class="o">=</span><span class="s1">&#39;Path of Faust application to use, or the name of a module.&#39;</span><span class="p">),</span>
+    <span class="n">option</span><span class="p">(</span><span class="s1">&#39;--quiet/--no-quiet&#39;</span><span class="p">,</span> <span class="s1">&#39;-q&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+           <span class="n">help</span><span class="o">=</span><span class="s1">&#39;Silence output to &lt;stdout&gt;/&lt;stderr&gt;.&#39;</span><span class="p">),</span>
+    <span class="n">option</span><span class="p">(</span><span class="s1">&#39;--debug/--no-debug&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="n">DEBUG</span><span class="p">,</span>
+           <span class="n">help</span><span class="o">=</span><span class="s1">&#39;Enable debugging output, and the blocking detector.&#39;</span><span class="p">),</span>
+    <span class="n">option</span><span class="p">(</span><span class="s1">&#39;--no-color/--color&#39;</span><span class="p">,</span> <span class="s1">&#39;--no_color/--color&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+           <span class="n">help</span><span class="o">=</span><span class="s1">&#39;Enable colors in output.&#39;</span><span class="p">),</span>
+    <span class="n">option</span><span class="p">(</span><span class="s1">&#39;--workdir&#39;</span><span class="p">,</span> <span class="s1">&#39;-W&#39;</span><span class="p">,</span>
+           <span class="n">default</span><span class="o">=</span><span class="n">WORKDIR</span><span class="p">,</span>
+           <span class="nb">type</span><span class="o">=</span><span class="n">params</span><span class="o">.</span><span class="n">WritableDirectory</span><span class="p">,</span>
+           <span class="n">help</span><span class="o">=</span><span class="s1">&#39;Working directory to change to after start.&#39;</span><span class="p">),</span>
+    <span class="n">option</span><span class="p">(</span><span class="s1">&#39;--datadir&#39;</span><span class="p">,</span> <span class="s1">&#39;-D&#39;</span><span class="p">,</span>
+           <span class="n">default</span><span class="o">=</span><span class="n">DATADIR</span><span class="p">,</span>
+           <span class="nb">type</span><span class="o">=</span><span class="n">params</span><span class="o">.</span><span class="n">WritableDirectory</span><span class="p">,</span>
+           <span class="n">help</span><span class="o">=</span><span class="s1">&#39;Directory to keep application state.&#39;</span><span class="p">),</span>
+    <span class="n">option</span><span class="p">(</span><span class="s1">&#39;--json&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">is_flag</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+           <span class="n">help</span><span class="o">=</span><span class="s1">&#39;Return output in machine-readable JSON format&#39;</span><span class="p">),</span>
+    <span class="n">option</span><span class="p">(</span><span class="s1">&#39;--loop&#39;</span><span class="p">,</span> <span class="s1">&#39;-L&#39;</span><span class="p">,</span>
+           <span class="n">default</span><span class="o">=</span><span class="n">DEFAULT_LOOP</span><span class="p">,</span>
+           <span class="nb">type</span><span class="o">=</span><span class="n">click</span><span class="o">.</span><span class="n">Choice</span><span class="p">(</span><span class="n">LOOP_CHOICES</span><span class="p">),</span>
+           <span class="n">help</span><span class="o">=</span><span class="s1">&#39;Event loop implementation to use.&#39;</span><span class="p">),</span>
+<span class="p">]</span>
+
+<span class="n">builtin_options</span> <span class="o">=</span> <span class="p">(</span><span class="n">cast</span><span class="p">(</span><span class="n">List</span><span class="p">,</span> <span class="n">core_options</span><span class="p">)</span> <span class="o">+</span>
+                   <span class="n">cast</span><span class="p">(</span><span class="n">List</span><span class="p">,</span> <span class="n">now_builtin_worker_options</span><span class="p">))</span>
+
+
+<span class="k">class</span> <span class="nc">_FaustRootContextT</span><span class="p">(</span><span class="n">click</span><span class="o">.</span><span class="n">Context</span><span class="p">):</span>
+    <span class="c1"># used for typing only</span>
+    <span class="n">app</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">AppT</span><span class="p">]</span>
+    <span class="n">stdout</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">IO</span><span class="p">]</span>
+    <span class="n">stderr</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">IO</span><span class="p">]</span>
+    <span class="n">side_effects</span><span class="p">:</span> <span class="nb">bool</span>
+
+
+<div class="viewcode-block" id="find_app"><a class="viewcode-back" href="../../../reference/faust.cli.base.html#faust.cli.base.find_app">[docs]</a><span class="k">def</span> <span class="nf">find_app</span><span class="p">(</span><span class="n">app</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+             <span class="o">*</span><span class="p">,</span>
+             <span class="n">symbol_by_name</span><span class="p">:</span> <span class="n">Callable</span> <span class="o">=</span> <span class="n">symbol_by_name</span><span class="p">,</span>
+             <span class="n">imp</span><span class="p">:</span> <span class="n">Callable</span> <span class="o">=</span> <span class="n">import_from_cwd</span><span class="p">,</span>
+             <span class="n">attr_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;app&#39;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AppT</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Find app by string like ``examples.simple``.</span>
+
+<span class="sd">    Notes:</span>
+<span class="sd">        This function uses ``import_from_cwd`` to temporarily</span>
+<span class="sd">        add the current working directory to :envvar:`PYTHONPATH`,</span>
+<span class="sd">        such that when importing the app it will search the current</span>
+<span class="sd">        working directory last.</span>
+
+<span class="sd">        You can think of it as temporarily</span>
+<span class="sd">        running with the :envvar:`PYTHONPATH` set like this:</span>
+
+<span class="sd">        .. sourcecode: console</span>
+
+<span class="sd">            $ PYTHONPATH=&quot;${PYTHONPATH}:.&quot;</span>
+
+<span class="sd">        You can disable this with the ``imp`` keyword argument,</span>
+<span class="sd">        for example passing ``imp=importlib.import_module``.</span>
+
+<span class="sd">    Examples:</span>
+<span class="sd">        &gt;&gt;&gt; # If providing the name of a module, it will attempt</span>
+<span class="sd">        &gt;&gt;&gt; # to find an attribute name (.app) in that module.</span>
+<span class="sd">        &gt;&gt;&gt; # Example below is the same as importing::</span>
+<span class="sd">        &gt;&gt;&gt; #    from examples.simple import app</span>
+<span class="sd">        &gt;&gt;&gt; find_app(&#39;examples.simple&#39;)</span>
+
+<span class="sd">        &gt;&gt;&gt; # If you want an attribute other than .app you can</span>
+<span class="sd">        &gt;&gt;&gt; # use : to separate module and attribute.</span>
+<span class="sd">        &gt;&gt;&gt; # Examples below is the same as importing::</span>
+<span class="sd">        &gt;&gt;&gt; #     from examples.simple import my_app</span>
+<span class="sd">        &gt;&gt;&gt; find_app(&#39;examples.simple:my_app&#39;)</span>
+
+<span class="sd">        &gt;&gt;&gt; # You can also use period for the module/attribute separator</span>
+<span class="sd">        &gt;&gt;&gt; find_app(&#39;examples.simple.my_app&#39;)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="c1"># Try to import name&#39; as is.</span>
+        <span class="n">val</span> <span class="o">=</span> <span class="n">symbol_by_name</span><span class="p">(</span><span class="n">app</span><span class="p">,</span> <span class="n">imp</span><span class="o">=</span><span class="n">imp</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
+        <span class="c1"># last part (of &quot;pkg.x&quot;) was not an attribute,</span>
+        <span class="c1"># but a module instead: use imp to import_module.</span>
+        <span class="n">val</span> <span class="o">=</span> <span class="n">imp</span><span class="p">(</span><span class="n">app</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="n">ModuleType</span><span class="p">)</span> <span class="ow">and</span> <span class="s1">&#39;:&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">app</span><span class="p">:</span>
+        <span class="c1"># if we found a module, try to get .app attribute</span>
+        <span class="n">found</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="n">attr_name</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">found</span><span class="p">,</span> <span class="n">ModuleType</span><span class="p">):</span>
+            <span class="c1"># proj.app:x where x is a module</span>
+            <span class="k">raise</span> <span class="ne">AttributeError</span><span class="p">(</span><span class="n">f</span><span class="s1">&#39;Looks like module, not app: -A </span><span class="si">{app}</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="n">val</span> <span class="o">=</span> <span class="n">found</span>
+    <span class="k">return</span> <span class="n">prepare_app</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="n">app</span><span class="p">)</span></div>
+
+
+<span class="k">def</span> <span class="nf">prepare_app</span><span class="p">(</span><span class="n">app</span><span class="p">:</span> <span class="n">AppT</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">AppT</span><span class="p">:</span>
+    <span class="n">app</span><span class="o">.</span><span class="n">finalize</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">app</span><span class="o">.</span><span class="n">conf</span><span class="o">.</span><span class="n">_origin</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">app</span><span class="o">.</span><span class="n">conf</span><span class="o">.</span><span class="n">_origin</span> <span class="o">=</span> <span class="n">name</span>
+    <span class="n">app</span><span class="o">.</span><span class="n">worker_init</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">app</span><span class="o">.</span><span class="n">conf</span><span class="o">.</span><span class="n">autodiscover</span><span class="p">:</span>
+        <span class="n">app</span><span class="o">.</span><span class="n">discover</span><span class="p">()</span>
+    <span class="n">app</span><span class="o">.</span><span class="n">worker_init_post_autodiscover</span><span class="p">()</span>
+
+    <span class="c1"># Hack to fix cProfile support.</span>
+    <span class="k">if</span> <span class="mi">1</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+        <span class="n">main</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">modules</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;__main__&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">main</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="s1">&#39;cProfile.py&#39;</span> <span class="ow">in</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">main</span><span class="p">,</span> <span class="s1">&#39;__file__&#39;</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">):</span>
+            <span class="kn">from</span> <span class="nn">..models</span> <span class="k">import</span> <span class="n">registry</span>
+            <span class="n">registry</span><span class="o">.</span><span class="n">update</span><span class="p">({</span>
+                <span class="p">(</span><span class="n">app</span><span class="o">.</span><span class="n">conf</span><span class="o">.</span><span class="n">origin</span> <span class="ow">or</span> <span class="s1">&#39;&#39;</span><span class="p">)</span> <span class="o">+</span> <span class="n">k</span><span class="p">[</span><span class="mi">8</span><span class="p">:]:</span> <span class="n">v</span>
+                <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">registry</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+                <span class="k">if</span> <span class="n">k</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;cProfile.&#39;</span><span class="p">)</span>
+            <span class="p">})</span>
+        <span class="k">return</span> <span class="n">app</span>
+
+
+<span class="c1"># We just use this to apply many @click.option/@click.argument</span>
+<span class="c1"># decorators in the same decorator.</span>
+<span class="k">def</span> <span class="nf">_apply_options</span><span class="p">(</span><span class="n">options</span><span class="p">:</span> <span class="n">OptionSequence</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OptionDecorator</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Add list of ``click.option`` values to click command function.&quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">_inner</span><span class="p">(</span><span class="n">fun</span><span class="p">:</span> <span class="n">OptionDecorator</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OptionDecorator</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">opt</span> <span class="ow">in</span> <span class="n">options</span><span class="p">:</span>
+            <span class="n">fun</span> <span class="o">=</span> <span class="n">opt</span><span class="p">(</span><span class="n">fun</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">fun</span>
+
+    <span class="k">return</span> <span class="n">_inner</span>
+
+
+<span class="k">class</span> <span class="nc">_Group</span><span class="p">(</span><span class="n">click</span><span class="o">.</span><span class="n">Group</span><span class="p">):</span>
+
+    <span class="k">def</span> <span class="nf">get_help</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">click</span><span class="o">.</span><span class="n">Context</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_maybe_import_app</span><span class="p">()</span>
+        <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">get_help</span><span class="p">(</span><span class="n">ctx</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">get_usage</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">click</span><span class="o">.</span><span class="n">Context</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_maybe_import_app</span><span class="p">()</span>
+        <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">get_usage</span><span class="p">(</span><span class="n">ctx</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_maybe_import_app</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">argv</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">argv</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># This is here so that custom AppCommand defined in example/myapp.py</span>
+        <span class="c1"># works and is included in --help/usage, etc. when using the faust</span>
+        <span class="c1"># command like:</span>
+        <span class="c1">#   $ faust -A example.myapp --help</span>
+        <span class="c1">#</span>
+        <span class="c1"># This is not necessary when using app.main(), since that always</span>
+        <span class="c1"># imports the app module before creating the cli() object:</span>
+        <span class="c1">#   $ python example/myapp.py --help</span>
+        <span class="n">workdir</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_extract_param</span><span class="p">(</span><span class="n">argv</span><span class="p">,</span> <span class="s1">&#39;-W&#39;</span><span class="p">,</span> <span class="s1">&#39;--workdir&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">workdir</span><span class="p">:</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">chdir</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">workdir</span><span class="p">)</span><span class="o">.</span><span class="n">absolute</span><span class="p">())</span>
+        <span class="n">appstr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_extract_param</span><span class="p">(</span><span class="n">argv</span><span class="p">,</span> <span class="s1">&#39;-A&#39;</span><span class="p">,</span> <span class="s1">&#39;--app&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">appstr</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">find_app</span><span class="p">(</span><span class="n">appstr</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_extract_param</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                       <span class="n">argv</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+                       <span class="n">shortopt</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+                       <span class="n">longopt</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">arg</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">argv</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">arg</span> <span class="o">==</span> <span class="n">shortopt</span><span class="p">:</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="n">argv</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+                <span class="k">except</span> <span class="ne">IndexError</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="n">click</span><span class="o">.</span><span class="n">UsageError</span><span class="p">(</span><span class="n">f</span><span class="s1">&#39;Missing argument for </span><span class="si">{shortopt}</span><span class="s1">&#39;</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">arg</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="n">longopt</span><span class="p">):</span>
+                <span class="k">if</span> <span class="s1">&#39;=&#39;</span> <span class="ow">in</span> <span class="n">arg</span><span class="p">:</span>
+                    <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">value</span> <span class="o">=</span> <span class="n">arg</span><span class="o">.</span><span class="n">partition</span><span class="p">(</span><span class="s1">&#39;=&#39;</span><span class="p">)</span>
+                    <span class="k">return</span> <span class="n">value</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">try</span><span class="p">:</span>
+                        <span class="k">return</span> <span class="n">argv</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+                    <span class="k">except</span> <span class="ne">IndexError</span><span class="p">:</span>
+                        <span class="k">raise</span> <span class="n">click</span><span class="o">.</span><span class="n">UsageError</span><span class="p">(</span>
+                            <span class="n">f</span><span class="s1">&#39;Missing argument for </span><span class="si">{longopt}</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="nd">@no_type_check</span>  <span class="c1"># mypy bugs out on this</span>
+    <span class="k">def</span> <span class="nf">make_context</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                     <span class="n">info_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+                     <span class="n">args</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+                     <span class="n">app</span><span class="p">:</span> <span class="n">AppT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                     <span class="n">parent</span><span class="p">:</span> <span class="n">click</span><span class="o">.</span><span class="n">Context</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                     <span class="n">stdout</span><span class="p">:</span> <span class="n">IO</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                     <span class="n">stderr</span><span class="p">:</span> <span class="n">IO</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                     <span class="n">side_effects</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+                     <span class="o">**</span><span class="n">extra</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">click</span><span class="o">.</span><span class="n">Context</span><span class="p">:</span>
+        <span class="n">ctx</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">make_context</span><span class="p">(</span><span class="n">info_name</span><span class="p">,</span> <span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">extra</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_maybe_import_app</span><span class="p">()</span>
+        <span class="n">root</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">_FaustRootContextT</span><span class="p">,</span> <span class="n">ctx</span><span class="o">.</span><span class="n">find_root</span><span class="p">())</span>
+        <span class="n">root</span><span class="o">.</span><span class="n">app</span> <span class="o">=</span> <span class="n">app</span>
+        <span class="n">root</span><span class="o">.</span><span class="n">stdout</span> <span class="o">=</span> <span class="n">stdout</span>
+        <span class="n">root</span><span class="o">.</span><span class="n">stderr</span> <span class="o">=</span> <span class="n">stderr</span>
+        <span class="n">root</span><span class="o">.</span><span class="n">side_effects</span> <span class="o">=</span> <span class="n">side_effects</span>
+        <span class="k">return</span> <span class="n">ctx</span>
+
+
+<span class="c1"># This is the thing that app.main(), ``python -m faust -A ...``,</span>
+<span class="c1"># and ``faust -A ..`` calls (see also faust/__main__.py, and setup.py</span>
+<span class="c1"># in the git repository (entry points).)</span>
+
+<span class="nd">@click</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="bp">cls</span><span class="o">=</span><span class="n">_Group</span><span class="p">)</span>
+<span class="nd">@_apply_options</span><span class="p">(</span><span class="n">builtin_options</span><span class="p">)</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">pass_context</span>
+<span class="k">def</span> <span class="nf">cli</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+    <span class="sd">&quot;&quot;&quot;Welcome, see list of commands and options below.</span>
+
+<span class="sd">    Use --help for help, --version for version information.</span>
+
+<span class="sd">    https://faust.readthedocs.io</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">_prepare_cli</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_prepare_cli</span><span class="p">(</span><span class="n">ctx</span><span class="p">:</span> <span class="n">click</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span>
+                 <span class="n">app</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">AppT</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span>
+                 <span class="n">quiet</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
+                 <span class="n">debug</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
+                 <span class="n">workdir</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+                 <span class="n">datadir</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+                 <span class="n">json</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
+                 <span class="n">no_color</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
+                 <span class="n">loop</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Faust command-line interface.&quot;&quot;&quot;</span>
+    <span class="n">state</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">ensure_object</span><span class="p">(</span><span class="n">State</span><span class="p">)</span>
+    <span class="n">state</span><span class="o">.</span><span class="n">app</span> <span class="o">=</span> <span class="n">app</span>
+    <span class="n">state</span><span class="o">.</span><span class="n">quiet</span> <span class="o">=</span> <span class="n">quiet</span>
+    <span class="n">state</span><span class="o">.</span><span class="n">debug</span> <span class="o">=</span> <span class="n">debug</span>
+    <span class="n">state</span><span class="o">.</span><span class="n">workdir</span> <span class="o">=</span> <span class="n">workdir</span>
+    <span class="n">state</span><span class="o">.</span><span class="n">datadir</span> <span class="o">=</span> <span class="n">datadir</span>
+    <span class="n">state</span><span class="o">.</span><span class="n">json</span> <span class="o">=</span> <span class="n">json</span>
+    <span class="n">state</span><span class="o">.</span><span class="n">no_color</span> <span class="o">=</span> <span class="n">no_color</span>
+    <span class="n">state</span><span class="o">.</span><span class="n">loop</span> <span class="o">=</span> <span class="n">loop</span>
+
+    <span class="n">root</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">_FaustRootContextT</span><span class="p">,</span> <span class="n">ctx</span><span class="o">.</span><span class="n">find_root</span><span class="p">())</span>
+    <span class="k">if</span> <span class="n">root</span><span class="o">.</span><span class="n">side_effects</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">workdir</span><span class="p">:</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s1">&#39;F_WORKDIR&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">workdir</span>
+            <span class="c1"># XXX I&#39;m not sure this is the best place to chdir [ask]</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">chdir</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">workdir</span><span class="p">)</span><span class="o">.</span><span class="n">absolute</span><span class="p">())</span>
+        <span class="k">if</span> <span class="n">datadir</span><span class="p">:</span>
+            <span class="c1"># This is the only way we can set the datadir for App.__init__,</span>
+            <span class="c1"># so that default values will have the right path prefix.</span>
+            <span class="c1"># WARNING: Note that the faust.app module *MUST not* have</span>
+            <span class="c1"># been imported before setting the envvar.</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s1">&#39;F_DATADIR&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">datadir</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">no_color</span> <span class="ow">and</span> <span class="n">terminal</span><span class="o">.</span><span class="n">isatty</span><span class="p">(</span><span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="p">):</span>
+            <span class="n">enable_all_colors</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">disable_all_colors</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">json</span><span class="p">:</span>
+            <span class="n">disable_all_colors</span><span class="p">()</span>
+
+
+<div class="viewcode-block" id="Command"><a class="viewcode-back" href="../../../reference/faust.cli.base.html#faust.cli.base.Command">[docs]</a><span class="k">class</span> <span class="nc">Command</span><span class="p">(</span><span class="n">abc</span><span class="o">.</span><span class="n">ABC</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Base class for subcommands.&quot;&quot;&quot;</span>
+
+    <span class="n">UsageError</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="ne">Exception</span><span class="p">]</span> <span class="o">=</span> <span class="n">click</span><span class="o">.</span><span class="n">UsageError</span>
+
+    <span class="c1"># To subclass this you only need to define:</span>
+    <span class="c1">#</span>
+    <span class="c1"># run for an async command:</span>
+    <span class="c1">#</span>
+    <span class="c1">#     async def run(self, *args, **kwargs) -&gt; None:</span>
+    <span class="c1">#         ...</span>
+    <span class="c1"># or for a non-async command you override __call__:</span>
+    <span class="c1">#</span>
+    <span class="c1">#     def __call__(self, *args, **kwargs) -&gt; Any:</span>
+    <span class="c1">#         ...</span>
+
+    <span class="n">abstract</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">_click</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="n">debug</span><span class="p">:</span> <span class="nb">bool</span>
+    <span class="n">quiet</span><span class="p">:</span> <span class="nb">bool</span>
+    <span class="n">workdir</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">datadir</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">json</span><span class="p">:</span> <span class="nb">bool</span>
+    <span class="n">no_color</span><span class="p">:</span> <span class="nb">bool</span>
+    <span class="n">logfile</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">_loglevel</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
+    <span class="n">_blocking_timeout</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span>
+    <span class="n">_console_port</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span>
+
+    <span class="n">stdout</span><span class="p">:</span> <span class="n">IO</span>
+    <span class="n">stderr</span><span class="p">:</span> <span class="n">IO</span>
+
+    <span class="n">daemon</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">redirect_stdouts</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">redirect_stdouts_level</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="n">builtin_options</span><span class="p">:</span> <span class="n">OptionSequence</span> <span class="o">=</span> <span class="n">builtin_options</span>
+    <span class="n">options</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">OptionList</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="n">args</span><span class="p">:</span> <span class="n">Tuple</span>
+    <span class="n">kwargs</span><span class="p">:</span> <span class="n">Dict</span>
+    <span class="n">prog_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
+
+<div class="viewcode-block" id="Command.as_click_command"><a class="viewcode-back" href="../../../reference/faust.cli.base.html#faust.cli.base.Command.as_click_command">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">as_click_command</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+        <span class="sd">&quot;&quot;&quot;Convert command into :pypi:`click` command.&quot;&quot;&quot;</span>
+        <span class="c1"># This is what actually registers the commands into the</span>
+        <span class="c1"># :pypi:`click` command-line interface (the ``def cli`` main above).</span>
+        <span class="c1"># __init_subclass__ calls this for the side effect of being</span>
+        <span class="c1"># registered as a `faust` subcommand.</span>
+        <span class="nd">@click</span><span class="o">.</span><span class="n">pass_context</span>
+        <span class="nd">@wraps</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span>
+        <span class="k">def</span> <span class="nf">_inner</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">NoReturn</span><span class="p">:</span>
+            <span class="n">cmd</span> <span class="o">=</span> <span class="bp">cls</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+            <span class="k">with</span> <span class="n">exiting</span><span class="p">(</span><span class="n">print_exception</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">file</span><span class="o">=</span><span class="n">sys</span><span class="o">.</span><span class="n">stderr</span><span class="p">):</span>
+                <span class="n">cmd</span><span class="p">()</span>
+
+        <span class="k">return</span> <span class="n">_apply_options</span><span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="n">options</span> <span class="ow">or</span> <span class="p">[])(</span>
+            <span class="n">cli</span><span class="o">.</span><span class="n">command</span><span class="p">(</span><span class="n">help</span><span class="o">=</span><span class="bp">cls</span><span class="o">.</span><span class="vm">__doc__</span><span class="p">)(</span><span class="n">_inner</span><span class="p">))</span></div>
+
+    <span class="k">def</span> <span class="nf">__init_subclass__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">abstract</span><span class="p">:</span>
+            <span class="c1"># sets the class attribute, so next time</span>
+            <span class="c1"># Command is inherited from it will have abstract=False,</span>
+            <span class="c1"># unless you set the attribute again in that subclass::</span>
+            <span class="c1">#   class MyAbstractCommand(Command):</span>
+            <span class="c1">#       abstract: ClassVar[bool] = True</span>
+            <span class="c1">#</span>
+            <span class="c1">#   class x(MyAbstractCommand):</span>
+            <span class="c1">#       async def run(self) -&gt; None:</span>
+            <span class="c1">#           print(&#39;just here to experience this execution&#39;)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">abstract</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_click</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">as_click_command</span><span class="p">()</span>
+
+        <span class="c1"># This hack creates the Command.parse method used to parse</span>
+        <span class="c1"># command-line arguments in sys.argv and returns a dict.</span>
+        <span class="n">_apply_options</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">builtin_options</span><span class="p">)(</span><span class="bp">self</span><span class="o">.</span><span class="n">_parse</span><span class="p">)</span>
+        <span class="n">_apply_options</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">options</span> <span class="ow">or</span> <span class="p">[])(</span><span class="bp">self</span><span class="o">.</span><span class="n">_parse</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Command.parse"><a class="viewcode-back" href="../../../reference/faust.cli.base.html#faust.cli.base.Command.parse">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">parse</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">argv</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Mapping</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Parse command-line arguments in ``argv`` and return mapping.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_parse</span><span class="p">(</span><span class="n">argv</span><span class="p">,</span> <span class="n">standalone_mode</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></div>
+
+    <span class="nd">@staticmethod</span>
+    <span class="nd">@click</span><span class="o">.</span><span class="n">command</span><span class="p">()</span>
+    <span class="k">def</span> <span class="nf">_parse</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Mapping</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+        <span class="k">return</span> <span class="n">kwargs</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">click</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ctx</span> <span class="o">=</span> <span class="n">ctx</span>
+        <span class="n">root</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">_FaustRootContextT</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ctx</span><span class="o">.</span><span class="n">find_root</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">state</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">ensure_object</span><span class="p">(</span><span class="n">State</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">debug</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">debug</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">quiet</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">quiet</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">workdir</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">workdir</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">datadir</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">datadir</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">json</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">json</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">no_color</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">no_color</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logfile</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">logfile</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stdout</span> <span class="o">=</span> <span class="n">root</span><span class="o">.</span><span class="n">stdout</span> <span class="ow">or</span> <span class="n">sys</span><span class="o">.</span><span class="n">stdout</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stderr</span> <span class="o">=</span> <span class="n">root</span><span class="o">.</span><span class="n">stderr</span> <span class="ow">or</span> <span class="n">sys</span><span class="o">.</span><span class="n">stderr</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">args</span> <span class="o">=</span> <span class="n">args</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">kwargs</span> <span class="o">=</span> <span class="n">kwargs</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">prog_name</span> <span class="o">=</span> <span class="n">root</span><span class="o">.</span><span class="n">command_path</span>
+
+        <span class="c1"># compat options must be None for now, since subcommands</span>
+        <span class="c1"># also can accept them as arguments.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_loglevel</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">loglevel</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_blocking_timeout</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">blocking_timeout</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_console_port</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">console_port</span>
+
+<div class="viewcode-block" id="Command.run"><a class="viewcode-back" href="../../../reference/faust.cli.base.html#faust.cli.base.Command.run">[docs]</a>    <span class="nd">@no_type_check</span>   <span class="c1"># Subclasses can omit *args, **kwargs in signature.</span>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Override this method to define what your command does.&quot;&quot;&quot;</span>
+        <span class="c1"># NOTE: If you override __call__ below, you have a non-async command.</span>
+        <span class="c1"># This is used by .worker to call the</span>
+        <span class="c1"># Worker.execute_from_commandline() method.</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="Command.execute"><a class="viewcode-back" href="../../../reference/faust.cli.base.html#faust.cli.base.Command.execute">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">execute</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Execute command.&quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">finally</span><span class="p">:</span>
+            <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">on_stop</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="Command.on_stop"><a class="viewcode-back" href="../../../reference/faust.cli.base.html#faust.cli.base.Command.on_stop">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">on_stop</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Call after command executed.&quot;&quot;&quot;</span>
+        <span class="o">...</span></div>
+
+    <span class="k">def</span> <span class="nf">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">NoReturn</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Call command-line command.</span>
+
+<span class="sd">        This will raise :exc:`SystemExit` before returning,</span>
+<span class="sd">        and the exit code will be set accordingly.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">run_using_worker</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Command.run_using_worker"><a class="viewcode-back" href="../../../reference/faust.cli.base.html#faust.cli.base.Command.run_using_worker">[docs]</a>    <span class="k">def</span> <span class="nf">run_using_worker</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">NoReturn</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Execute command using :class:`faust.Worker`.&quot;&quot;&quot;</span>
+        <span class="n">loop</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">get_event_loop</span><span class="p">()</span>
+        <span class="n">args</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">args</span> <span class="o">+</span> <span class="n">args</span>
+        <span class="n">kwargs</span> <span class="o">=</span> <span class="p">{</span><span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">kwargs</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">}</span>
+        <span class="n">service</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">as_service</span><span class="p">(</span><span class="n">loop</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="n">worker</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">worker_for_service</span><span class="p">(</span><span class="n">service</span><span class="p">,</span> <span class="n">loop</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">on_worker_created</span><span class="p">(</span><span class="n">worker</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="n">worker</span><span class="o">.</span><span class="n">execute_from_commandline</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="Command.on_worker_created"><a class="viewcode-back" href="../../../reference/faust.cli.base.html#faust.cli.base.Command.on_worker_created">[docs]</a>    <span class="k">def</span> <span class="nf">on_worker_created</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">worker</span><span class="p">:</span> <span class="n">Worker</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Call when creating :class:`faust.Worker` to execute this command.&quot;&quot;&quot;</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="Command.as_service"><a class="viewcode-back" href="../../../reference/faust.cli.base.html#faust.cli.base.Command.as_service">[docs]</a>    <span class="k">def</span> <span class="nf">as_service</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                   <span class="n">loop</span><span class="p">:</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">AbstractEventLoop</span><span class="p">,</span>
+                   <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ServiceT</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Wrap command in a :class:`mode.Service` object.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">Service</span><span class="o">.</span><span class="n">from_awaitable</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">),</span>
+            <span class="n">name</span><span class="o">=</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+            <span class="n">loop</span><span class="o">=</span><span class="n">loop</span> <span class="ow">or</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">get_event_loop</span><span class="p">())</span></div>
+
+<div class="viewcode-block" id="Command.worker_for_service"><a class="viewcode-back" href="../../../reference/faust.cli.base.html#faust.cli.base.Command.worker_for_service">[docs]</a>    <span class="k">def</span> <span class="nf">worker_for_service</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                           <span class="n">service</span><span class="p">:</span> <span class="n">ServiceT</span><span class="p">,</span>
+                           <span class="n">loop</span><span class="p">:</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">AbstractEventLoop</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Worker</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Create :class:`faust.Worker` instance for this command.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_Worker</span><span class="p">(</span>
+            <span class="n">service</span><span class="p">,</span>
+            <span class="n">debug</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">debug</span><span class="p">,</span>
+            <span class="n">quiet</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">quiet</span><span class="p">,</span>
+            <span class="n">stdout</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">stdout</span><span class="p">,</span>
+            <span class="n">stderr</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">stderr</span><span class="p">,</span>
+            <span class="n">loglevel</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">loglevel</span><span class="p">,</span>
+            <span class="n">logfile</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">logfile</span><span class="p">,</span>
+            <span class="n">blocking_timeout</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">blocking_timeout</span><span class="p">,</span>
+            <span class="n">console_port</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">console_port</span><span class="p">,</span>
+            <span class="n">redirect_stdouts</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">redirect_stdouts</span> <span class="ow">or</span> <span class="kc">False</span><span class="p">,</span>
+            <span class="n">redirect_stdouts_level</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">redirect_stdouts_level</span><span class="p">,</span>
+            <span class="n">loop</span><span class="o">=</span><span class="n">loop</span> <span class="ow">or</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">get_event_loop</span><span class="p">(),</span>
+            <span class="n">daemon</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">daemon</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">_Worker</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Type</span><span class="p">[</span><span class="n">Worker</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="n">Worker</span>
+
+<div class="viewcode-block" id="Command.tabulate"><a class="viewcode-back" href="../../../reference/faust.cli.base.html#faust.cli.base.Command.tabulate">[docs]</a>    <span class="k">def</span> <span class="nf">tabulate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                 <span class="n">data</span><span class="p">:</span> <span class="n">terminal</span><span class="o">.</span><span class="n">TableDataT</span><span class="p">,</span>
+                 <span class="n">headers</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">wrap_last_row</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+                 <span class="n">title</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span><span class="p">,</span>
+                 <span class="n">title_color</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;blue&#39;</span><span class="p">,</span>
+                 <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Create an ANSI representation of a table of two-row tuples.</span>
+
+<span class="sd">        See Also:</span>
+<span class="sd">            Keyword arguments are forwarded to</span>
+<span class="sd">            :class:`terminaltables.SingleTable`</span>
+
+<span class="sd">        Note:</span>
+<span class="sd">            If the :option:`--json &lt;faust --json&gt;` option is enabled</span>
+<span class="sd">            this returns json instead.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">json</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tabulate_json</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">headers</span><span class="o">=</span><span class="n">headers</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">headers</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="p">[</span><span class="n">headers</span><span class="p">]</span> <span class="o">+</span> <span class="nb">list</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+        <span class="n">title</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">bold</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">color</span><span class="p">(</span><span class="n">title_color</span><span class="p">,</span> <span class="n">title</span><span class="p">))</span>
+        <span class="n">table</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">table</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="n">title</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">wrap_last_row</span><span class="p">:</span>
+            <span class="c1"># slow, but not big data</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="nb">list</span><span class="p">(</span><span class="n">item</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">+</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_table_wrap</span><span class="p">(</span><span class="n">table</span><span class="p">,</span> <span class="n">item</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])]</span>
+                <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">data</span>
+            <span class="p">]</span>
+        <span class="k">return</span> <span class="n">table</span><span class="o">.</span><span class="n">table</span></div>
+
+    <span class="k">def</span> <span class="nf">_tabulate_json</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                       <span class="n">data</span><span class="p">:</span> <span class="n">terminal</span><span class="o">.</span><span class="n">TableDataT</span><span class="p">,</span>
+                       <span class="n">headers</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">headers</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">([</span><span class="nb">dict</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">headers</span><span class="p">,</span> <span class="n">row</span><span class="p">))</span> <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">data</span><span class="p">])</span>
+        <span class="k">return</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Command.table"><a class="viewcode-back" href="../../../reference/faust.cli.base.html#faust.cli.base.Command.table">[docs]</a>    <span class="k">def</span> <span class="nf">table</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+              <span class="n">data</span><span class="p">:</span> <span class="n">terminal</span><span class="o">.</span><span class="n">TableDataT</span><span class="p">,</span>
+              <span class="n">title</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span><span class="p">,</span>
+              <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">terminal</span><span class="o">.</span><span class="n">Table</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Format table data as ANSI/ASCII table.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">terminal</span><span class="o">.</span><span class="n">table</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="n">title</span><span class="p">,</span> <span class="n">target</span><span class="o">=</span><span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Command.color"><a class="viewcode-back" href="../../../reference/faust.cli.base.html#faust.cli.base.Command.color">[docs]</a>    <span class="k">def</span> <span class="nf">color</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Return text having a certain color by name.</span>
+
+<span class="sd">        Examples::</span>
+<span class="sd">            &gt;&gt;&gt; self.color(&#39;blue&#39;, &#39;text_to_color&#39;)</span>
+<span class="sd">            &gt;&gt;&gt; self.color(&#39;hiblue&#39;, text_to_color&#39;)</span>
+
+<span class="sd">        See Also:</span>
+<span class="sd">            :pypi:`colorclass`: for a list of available colors.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">Color</span><span class="p">(</span><span class="n">f</span><span class="s1">&#39;{{</span><span class="si">{name}</span><span class="s1">}}</span><span class="si">{text}</span><span class="s1">{{/</span><span class="si">{name}</span><span class="s1">}}&#39;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Command.dark"><a class="viewcode-back" href="../../../reference/faust.cli.base.html#faust.cli.base.Command.dark">[docs]</a>    <span class="k">def</span> <span class="nf">dark</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Return cursor text.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">color</span><span class="p">(</span><span class="s1">&#39;autoblack&#39;</span><span class="p">,</span> <span class="n">text</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Command.bold"><a class="viewcode-back" href="../../../reference/faust.cli.base.html#faust.cli.base.Command.bold">[docs]</a>    <span class="k">def</span> <span class="nf">bold</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Return text in bold.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">color</span><span class="p">(</span><span class="s1">&#39;b&#39;</span><span class="p">,</span> <span class="n">text</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Command.bold_tail"><a class="viewcode-back" href="../../../reference/faust.cli.base.html#faust.cli.base.Command.bold_tail">[docs]</a>    <span class="k">def</span> <span class="nf">bold_tail</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">sep</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;.&#39;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Put bold emphasis on the last part of a ``foo.bar.baz`` string.&quot;&quot;&quot;</span>
+        <span class="n">head</span><span class="p">,</span> <span class="n">fsep</span><span class="p">,</span> <span class="n">tail</span> <span class="o">=</span> <span class="n">text</span><span class="o">.</span><span class="n">rpartition</span><span class="p">(</span><span class="n">sep</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">fsep</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="n">head</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">bold</span><span class="p">(</span><span class="n">tail</span><span class="p">)])</span></div>
+
+    <span class="k">def</span> <span class="nf">_table_wrap</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">table</span><span class="p">:</span> <span class="n">terminal</span><span class="o">.</span><span class="n">Table</span><span class="p">,</span> <span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="n">max_width</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">table</span><span class="o">.</span><span class="n">column_max_width</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span> <span class="mi">10</span><span class="p">)</span>
+        <span class="k">return</span> <span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">wrap</span><span class="p">(</span><span class="n">text</span><span class="p">,</span> <span class="n">max_width</span><span class="p">))</span>
+
+<div class="viewcode-block" id="Command.say"><a class="viewcode-back" href="../../../reference/faust.cli.base.html#faust.cli.base.Command.say">[docs]</a>    <span class="k">def</span> <span class="nf">say</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+            <span class="n">file</span><span class="p">:</span> <span class="n">IO</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">err</span><span class="p">:</span> <span class="n">IO</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Print something to stdout (or use ``file=stderr`` kwarg).</span>
+
+<span class="sd">        Note:</span>
+<span class="sd">            Does not do anything if the :option:`--quiet &lt;faust --quiet&gt;`</span>
+<span class="sd">            option is enabled.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">quiet</span><span class="p">:</span>
+            <span class="n">echo</span><span class="p">(</span><span class="n">message</span><span class="p">,</span>
+                 <span class="n">file</span><span class="o">=</span><span class="n">file</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">stdout</span><span class="p">,</span>
+                 <span class="c1"># XXX mypy thinks this should be bool(?!)</span>
+                 <span class="n">err</span><span class="o">=</span><span class="n">cast</span><span class="p">(</span><span class="nb">bool</span><span class="p">,</span> <span class="n">err</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">stderr</span><span class="p">),</span>
+                 <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Command.carp"><a class="viewcode-back" href="../../../reference/faust.cli.base.html#faust.cli.base.Command.carp">[docs]</a>    <span class="k">def</span> <span class="nf">carp</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">s</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Print something to stdout (or use ``file=stderr`` kwargs).</span>
+
+<span class="sd">        Note:</span>
+<span class="sd">            Does not do anything if the :option:`--debug &lt;faust --debug&gt;`</span>
+<span class="sd">            option is enabled.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">debug</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">say</span><span class="p">(</span><span class="n">f</span><span class="s1">&#39;#-- </span><span class="si">{s}</span><span class="s1">&#39;</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Command.dumps"><a class="viewcode-back" href="../../../reference/faust.cli.base.html#faust.cli.base.Command.dumps">[docs]</a>    <span class="k">def</span> <span class="nf">dumps</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Serialize object using JSON.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">loglevel</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Return the log level used for this command.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_loglevel</span> <span class="ow">or</span> <span class="n">DEFAULT_LOGLEVEL</span>
+
+    <span class="nd">@loglevel</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">loglevel</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">level</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_loglevel</span> <span class="o">=</span> <span class="n">level</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">blocking_timeout</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Return the blocking timeout used for this command.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_blocking_timeout</span> <span class="ow">or</span> <span class="mf">0.0</span>
+
+    <span class="nd">@blocking_timeout</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">blocking_timeout</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">timeout</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_blocking_timeout</span> <span class="o">=</span> <span class="n">timeout</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">console_port</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Return the :pypi:`aiomonitor` console port.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_console_port</span> <span class="ow">or</span> <span class="n">CONSOLE_PORT</span>
+
+    <span class="nd">@console_port</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">console_port</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">port</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_console_port</span> <span class="o">=</span> <span class="n">port</span></div>
+
+
+<div class="viewcode-block" id="AppCommand"><a class="viewcode-back" href="../../../reference/faust.cli.base.html#faust.cli.base.AppCommand">[docs]</a><span class="k">class</span> <span class="nc">AppCommand</span><span class="p">(</span><span class="n">Command</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Command that takes ``-A app`` as argument.&quot;&quot;&quot;</span>
+
+    <span class="n">abstract</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+
+    <span class="n">app</span><span class="p">:</span> <span class="n">AppT</span>
+
+    <span class="n">require_app</span> <span class="o">=</span> <span class="kc">True</span>
+
+    <span class="c1">#: The :term:`codec` used to serialize keys.</span>
+    <span class="c1">#: Taken from instance parameters or :attr:`@key_serializer`.</span>
+    <span class="n">key_serializer</span><span class="p">:</span> <span class="n">CodecArg</span>
+
+    <span class="c1">#: The :term:`codec` used to serialize values.</span>
+    <span class="c1">#: Taken from instance parameters or :attr:`@value_serializer`.</span>
+    <span class="n">value_serialier</span><span class="p">:</span> <span class="n">CodecArg</span>
+
+<div class="viewcode-block" id="AppCommand.from_handler"><a class="viewcode-back" href="../../../reference/faust.cli.base.html#faust.cli.base.AppCommand.from_handler">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">from_handler</span><span class="p">(</span>
+            <span class="bp">cls</span><span class="p">,</span>
+            <span class="o">*</span><span class="n">options</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+            <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">Callable</span><span class="p">],</span> <span class="n">Type</span><span class="p">[</span><span class="s1">&#39;AppCommand&#39;</span><span class="p">]]:</span>
+        <span class="sd">&quot;&quot;&quot;Decorate ``async def`` command to create command class.&quot;&quot;&quot;</span>
+        <span class="k">def</span> <span class="nf">_inner</span><span class="p">(</span><span class="n">fun</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">Awaitable</span><span class="p">[</span><span class="n">Any</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="n">Type</span><span class="p">[</span><span class="s1">&#39;AppCommand&#39;</span><span class="p">]:</span>
+            <span class="n">target</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="n">fun</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">inspect</span><span class="o">.</span><span class="n">signature</span><span class="p">(</span><span class="n">fun</span><span class="p">)</span><span class="o">.</span><span class="n">parameters</span><span class="p">:</span>
+                <span class="c1"># if it does not take self argument, use staticmethod</span>
+                <span class="n">target</span> <span class="o">=</span> <span class="nb">staticmethod</span><span class="p">(</span><span class="n">fun</span><span class="p">)</span>
+
+            <span class="n">fields</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="s1">&#39;run&#39;</span><span class="p">:</span> <span class="n">target</span><span class="p">,</span>
+                <span class="s1">&#39;__doc__&#39;</span><span class="p">:</span> <span class="n">fun</span><span class="o">.</span><span class="vm">__doc__</span><span class="p">,</span>
+                <span class="s1">&#39;__name__&#39;</span><span class="p">:</span> <span class="n">fun</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+                <span class="s1">&#39;__qualname__&#39;</span><span class="p">:</span> <span class="n">fun</span><span class="o">.</span><span class="vm">__qualname__</span><span class="p">,</span>
+                <span class="s1">&#39;__module__&#39;</span><span class="p">:</span> <span class="n">fun</span><span class="o">.</span><span class="vm">__module__</span><span class="p">,</span>
+                <span class="s1">&#39;__wrapped__&#39;</span><span class="p">:</span> <span class="n">fun</span><span class="p">,</span>
+                <span class="s1">&#39;options&#39;</span><span class="p">:</span> <span class="n">options</span><span class="p">,</span>
+            <span class="p">}</span>
+            <span class="k">return</span> <span class="nb">type</span><span class="p">(</span><span class="n">fun</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span> <span class="p">(</span><span class="bp">cls</span><span class="p">,),</span> <span class="p">{</span><span class="o">**</span><span class="n">fields</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">})</span>
+
+        <span class="k">return</span> <span class="n">_inner</span></div>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                 <span class="n">ctx</span><span class="p">:</span> <span class="n">click</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span>
+                 <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+                 <span class="n">key_serializer</span><span class="p">:</span> <span class="n">CodecArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">value_serializer</span><span class="p">:</span> <span class="n">CodecArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">ctx</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">app</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_finalize_app</span><span class="p">(</span>
+            <span class="nb">getattr</span><span class="p">(</span><span class="n">ctx</span><span class="o">.</span><span class="n">find_root</span><span class="p">(),</span> <span class="s1">&#39;app&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">args</span> <span class="o">=</span> <span class="n">args</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">kwargs</span> <span class="o">=</span> <span class="n">kwargs</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">key_serializer</span> <span class="o">=</span> <span class="n">key_serializer</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">conf</span><span class="o">.</span><span class="n">key_serializer</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">value_serializer</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">value_serializer</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">conf</span><span class="o">.</span><span class="n">value_serializer</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_finalize_app</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">app</span><span class="p">:</span> <span class="n">AppT</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AppT</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">app</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_finalize_concrete_app</span><span class="p">(</span><span class="n">app</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_app_from_str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">app</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_app_from_str</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">appstr</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">AppT</span><span class="p">]:</span>
+        <span class="k">if</span> <span class="n">appstr</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">find_app</span><span class="p">(</span><span class="n">appstr</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">require_app</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="bp">self</span><span class="o">.</span><span class="n">UsageError</span><span class="p">(</span>
+                    <span class="s1">&#39;Need to specify app using -A parameter&#39;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="k">def</span> <span class="nf">_finalize_concrete_app</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">app</span><span class="p">:</span> <span class="n">AppT</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AppT</span><span class="p">:</span>
+        <span class="n">app</span><span class="o">.</span><span class="n">finalize</span><span class="p">()</span>
+        <span class="c1"># XXX How to find full argv[0] with click?</span>
+        <span class="n">origin</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">conf</span><span class="o">.</span><span class="n">origin</span>
+        <span class="k">if</span> <span class="n">sys</span><span class="o">.</span><span class="n">argv</span><span class="p">:</span>
+            <span class="n">origin</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_detect_main_package</span><span class="p">(</span><span class="n">sys</span><span class="o">.</span><span class="n">argv</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">prepare_app</span><span class="p">(</span><span class="n">app</span><span class="p">,</span> <span class="n">origin</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_detect_main_package</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">argv</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+        <span class="n">prog</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">argv</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span><span class="o">.</span><span class="n">absolute</span><span class="p">()</span>
+        <span class="n">paths</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">p</span> <span class="o">=</span> <span class="n">prog</span><span class="o">.</span><span class="n">parent</span>
+        <span class="c1"># find lowermost path, that is a package</span>
+        <span class="k">while</span> <span class="n">p</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">p</span> <span class="o">/</span> <span class="s1">&#39;__init__.py&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">is_file</span><span class="p">():</span>
+                <span class="k">break</span>
+            <span class="n">paths</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
+            <span class="n">p</span> <span class="o">=</span> <span class="n">p</span><span class="o">.</span><span class="n">parent</span>
+        <span class="n">package</span> <span class="o">=</span> <span class="s1">&#39;.&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+            <span class="p">[</span><span class="n">p</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">paths</span><span class="p">]</span> <span class="o">+</span> <span class="p">[</span><span class="n">prog</span><span class="o">.</span><span class="n">with_suffix</span><span class="p">(</span><span class="s1">&#39;&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">name</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">package</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s1">&#39;.__main__&#39;</span><span class="p">):</span>
+            <span class="c1"># when `python -m pkg`: remove .__main__ from pkg.__main__</span>
+            <span class="n">package</span> <span class="o">=</span> <span class="n">package</span><span class="p">[:</span><span class="o">-</span><span class="mi">9</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">package</span>
+
+<div class="viewcode-block" id="AppCommand.on_stop"><a class="viewcode-back" href="../../../reference/faust.cli.base.html#faust.cli.base.AppCommand.on_stop">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">on_stop</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Call after command executed.&quot;&quot;&quot;</span>
+        <span class="k">await</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">on_stop</span><span class="p">()</span>
+        <span class="n">app</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">_App</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="p">)</span>
+        <span class="c1"># If command started the producer, we should also stop that</span>
+        <span class="c1">#   - this will flush any buffers before exiting.</span>
+        <span class="k">if</span> <span class="n">app</span><span class="o">.</span><span class="n">_producer</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">app</span><span class="o">.</span><span class="n">_producer</span><span class="o">.</span><span class="n">started</span><span class="p">:</span>
+            <span class="k">await</span> <span class="n">app</span><span class="o">.</span><span class="n">_producer</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>
+        <span class="c1"># If command started the app, we should stop it.</span>
+        <span class="c1">#   - could have app.client_only, or app.producer_only set.</span>
+        <span class="k">if</span> <span class="n">app</span><span class="o">.</span><span class="n">started</span><span class="p">:</span>
+            <span class="k">await</span> <span class="n">app</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">app</span><span class="o">.</span><span class="n">_http_client</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">await</span> <span class="n">app</span><span class="o">.</span><span class="n">_maybe_close_http_client</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="AppCommand.to_key"><a class="viewcode-back" href="../../../reference/faust.cli.base.html#faust.cli.base.AppCommand.to_key">[docs]</a>    <span class="k">def</span> <span class="nf">to_key</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">typ</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Convert command-line argument string to model (key).</span>
+
+<span class="sd">        Arguments:</span>
+<span class="sd">            typ: The name of the model to create.</span>
+<span class="sd">            key: The string json of the data to populate it with.</span>
+
+<span class="sd">        Notes:</span>
+<span class="sd">            Uses :attr:`key_serializer` to set the :term:`codec`</span>
+<span class="sd">            for the key (e.g. ``&quot;json&quot;``), as set by the</span>
+<span class="sd">            :option:`--key-serializer &lt;faust send --key-serializer&gt;` option.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">to_model</span><span class="p">(</span><span class="n">typ</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">key_serializer</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="AppCommand.to_value"><a class="viewcode-back" href="../../../reference/faust.cli.base.html#faust.cli.base.AppCommand.to_value">[docs]</a>    <span class="k">def</span> <span class="nf">to_value</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">typ</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">value</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Convert command-line argument string to model (value).</span>
+
+<span class="sd">        Arguments:</span>
+<span class="sd">            typ: The name of the model to create.</span>
+<span class="sd">            key: The string json of the data to populate it with.</span>
+
+<span class="sd">        Notes:</span>
+<span class="sd">            Uses :attr:`value_serializer` to set the :term:`codec`</span>
+<span class="sd">            for the value (e.g. ``&quot;json&quot;``), as set by the</span>
+<span class="sd">            :option:`--value-serializer &lt;faust send --value-serializer&gt;`</span>
+<span class="sd">            option.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">to_model</span><span class="p">(</span><span class="n">typ</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">value_serializer</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="AppCommand.to_model"><a class="viewcode-back" href="../../../reference/faust.cli.base.html#faust.cli.base.AppCommand.to_model">[docs]</a>    <span class="k">def</span> <span class="nf">to_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                 <span class="n">typ</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+                 <span class="n">value</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+                 <span class="n">serializer</span><span class="p">:</span> <span class="n">CodecArg</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Convert command-line argument to model.</span>
+
+<span class="sd">        Generic version of :meth:`to_key`/:meth:`to_value`.</span>
+
+<span class="sd">        Arguments:</span>
+<span class="sd">            typ: The name of the model to create.</span>
+<span class="sd">            key: The string json of the data to populate it with.</span>
+<span class="sd">            serializer: The argument setting it apart from to_key/to_value</span>
+<span class="sd">                enables you to specify a custom serializer not mandated</span>
+<span class="sd">                by :attr:`key_serializer`, and :attr:`value_serializer`.</span>
+
+<span class="sd">        Notes:</span>
+<span class="sd">            Uses :attr:`value_serializer` to set the :term:`codec`</span>
+<span class="sd">            for the value (e.g. ``&quot;json&quot;``), as set by the</span>
+<span class="sd">            :option:`--value-serializer &lt;faust send --value-serializer&gt;`</span>
+<span class="sd">            option.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">typ</span><span class="p">:</span>
+            <span class="n">model</span><span class="p">:</span> <span class="n">ModelT</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">import_relative_to_app</span><span class="p">(</span><span class="n">typ</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">model</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">want_bytes</span><span class="p">(</span><span class="n">value</span><span class="p">),</span> <span class="n">serializer</span><span class="o">=</span><span class="n">serializer</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">want_bytes</span><span class="p">(</span><span class="n">value</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="AppCommand.import_relative_to_app"><a class="viewcode-back" href="../../../reference/faust.cli.base.html#faust.cli.base.AppCommand.import_relative_to_app">[docs]</a>    <span class="k">def</span> <span class="nf">import_relative_to_app</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">attr</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Import string like &quot;module.Model&quot;, or &quot;Model&quot; to model class.&quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">symbol_by_name</span><span class="p">(</span><span class="n">attr</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">ImportError</span> <span class="k">as</span> <span class="n">original_exc</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">conf</span><span class="o">.</span><span class="n">origin</span><span class="p">:</span>
+                <span class="k">raise</span>
+            <span class="n">root</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">conf</span><span class="o">.</span><span class="n">origin</span><span class="o">.</span><span class="n">partition</span><span class="p">(</span><span class="s1">&#39;:&#39;</span><span class="p">)</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">symbol_by_name</span><span class="p">(</span><span class="n">f</span><span class="s1">&#39;</span><span class="si">{root}</span><span class="s1">.models.</span><span class="si">{attr}</span><span class="s1">&#39;</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="n">symbol_by_name</span><span class="p">(</span><span class="n">f</span><span class="s1">&#39;</span><span class="si">{root}</span><span class="s1">.</span><span class="si">{attr}</span><span class="s1">&#39;</span><span class="p">)</span>
+                <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="n">original_exc</span> <span class="kn">from</span> <span class="nn">original_exc</span></div>
+
+<div class="viewcode-block" id="AppCommand.to_topic"><a class="viewcode-back" href="../../../reference/faust.cli.base.html#faust.cli.base.AppCommand.to_topic">[docs]</a>    <span class="k">def</span> <span class="nf">to_topic</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">entity</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Convert topic name given on command-line to ``app.topic()``.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">entity</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="bp">self</span><span class="o">.</span><span class="n">UsageError</span><span class="p">(</span><span class="s1">&#39;Missing topic/@agent name&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">entity</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;@&#39;</span><span class="p">):</span>
+            <span class="c1"># actor prefix: e.g. `faust send @myactorname`</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">import_relative_to_app</span><span class="p">(</span><span class="n">entity</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">topic</span><span class="p">(</span><span class="n">entity</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="AppCommand.abbreviate_fqdn"><a class="viewcode-back" href="../../../reference/faust.cli.base.html#faust.cli.base.AppCommand.abbreviate_fqdn">[docs]</a>    <span class="k">def</span> <span class="nf">abbreviate_fqdn</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">prefix</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Abbreviate fully-qualified Python name, by removing origin.</span>
+
+<span class="sd">        ``app.conf.origin`` is the package where the app is defined,</span>
+<span class="sd">        so if this is ``examples.simple`` it returns the truncated::</span>
+
+<span class="sd">            &gt;&gt;&gt; app.conf.origin</span>
+<span class="sd">            &#39;examples.simple&#39;</span>
+<span class="sd">            &gt;&gt;&gt; abbr_fqdn(app.conf.origin,</span>
+<span class="sd">            ...           &#39;examples.simple.Withdrawal&#39;,</span>
+<span class="sd">            ...           prefix=&#39;[...]&#39;)</span>
+<span class="sd">            &#39;[...]Withdrawal&#39;</span>
+
+<span class="sd">        but if the package is not part of origin it provides the full path::</span>
+
+<span class="sd">            &gt;&gt;&gt; abbr_fqdn(app.conf.origin,</span>
+<span class="sd">            ...           &#39;examples.other.Foo&#39;, prefix=&#39;[...]&#39;)</span>
+<span class="sd">            &#39;examples.other.foo&#39;</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">conf</span><span class="o">.</span><span class="n">origin</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">text</span><span class="o">.</span><span class="n">abbr_fqdn</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">conf</span><span class="o">.</span><span class="n">origin</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">prefix</span><span class="o">=</span><span class="n">prefix</span><span class="p">)</span>
+        <span class="k">return</span> <span class="s1">&#39;&#39;</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">blocking_timeout</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Return the blocking timeout used for this command.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_blocking_timeout</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">conf</span><span class="o">.</span><span class="n">blocking_timeout</span>
+
+    <span class="nd">@blocking_timeout</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">blocking_timeout</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">timeout</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_blocking_timeout</span> <span class="o">=</span> <span class="n">timeout</span></div>
+
+
+<span class="k">def</span> <span class="nf">call_command</span><span class="p">(</span><span class="n">command</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+                 <span class="n">args</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">stdout</span><span class="p">:</span> <span class="n">IO</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">stderr</span><span class="p">:</span> <span class="n">IO</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">side_effects</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+                 <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">IO</span><span class="p">,</span> <span class="n">IO</span><span class="p">]:</span>
+    <span class="n">exitcode</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">if</span> <span class="n">stdout</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">stdout</span> <span class="o">=</span> <span class="n">io</span><span class="o">.</span><span class="n">StringIO</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">stderr</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">stderr</span> <span class="o">=</span> <span class="n">io</span><span class="o">.</span><span class="n">StringIO</span><span class="p">()</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">cli</span><span class="p">(</span><span class="n">args</span><span class="o">=</span><span class="p">[</span><span class="n">command</span><span class="p">]</span> <span class="o">+</span> <span class="p">(</span><span class="n">args</span> <span class="ow">or</span> <span class="p">[]),</span>
+            <span class="n">side_effects</span><span class="o">=</span><span class="n">side_effects</span><span class="p">,</span>
+            <span class="n">stdout</span><span class="o">=</span><span class="n">stdout</span><span class="p">,</span>
+            <span class="n">stderr</span><span class="o">=</span><span class="n">stderr</span><span class="p">,</span>
+            <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">SystemExit</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+        <span class="n">exitcode</span> <span class="o">=</span> <span class="n">exc</span><span class="o">.</span><span class="n">code</span>
+    <span class="k">return</span> <span class="n">exitcode</span><span class="p">,</span> <span class="n">stdout</span><span class="p">,</span> <span class="n">stderr</span>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../../index.html">
+              <img class="logo" src="../../../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../../../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../playbooks/index.html">Playbooks</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../userguide/index.html">User Guide</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../reference/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../history/index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2020, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

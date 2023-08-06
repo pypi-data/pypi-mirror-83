@@ -1,0 +1,621 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>faust.stores.rocksdb &#8212; Faust 1.11.0a1 documentation</title>
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../../../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <link rel="copyright" title="Copyright" href="../../../copyright.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for faust.stores.rocksdb</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;RocksDB storage.&quot;&quot;&quot;</span>
+<span class="kn">import</span> <span class="nn">asyncio</span>
+<span class="kn">import</span> <span class="nn">gc</span>
+<span class="kn">import</span> <span class="nn">math</span>
+<span class="kn">import</span> <span class="nn">shutil</span>
+<span class="kn">import</span> <span class="nn">typing</span>
+
+<span class="kn">from</span> <span class="nn">collections</span> <span class="k">import</span> <span class="n">defaultdict</span>
+<span class="kn">from</span> <span class="nn">contextlib</span> <span class="k">import</span> <span class="n">suppress</span>
+<span class="kn">from</span> <span class="nn">pathlib</span> <span class="k">import</span> <span class="n">Path</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">Any</span><span class="p">,</span>
+    <span class="n">Callable</span><span class="p">,</span>
+    <span class="n">DefaultDict</span><span class="p">,</span>
+    <span class="n">Dict</span><span class="p">,</span>
+    <span class="n">Iterable</span><span class="p">,</span>
+    <span class="n">Iterator</span><span class="p">,</span>
+    <span class="n">Mapping</span><span class="p">,</span>
+    <span class="n">MutableMapping</span><span class="p">,</span>
+    <span class="n">NamedTuple</span><span class="p">,</span>
+    <span class="n">Optional</span><span class="p">,</span>
+    <span class="n">Set</span><span class="p">,</span>
+    <span class="n">Tuple</span><span class="p">,</span>
+    <span class="n">Union</span><span class="p">,</span>
+    <span class="n">cast</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="kn">from</span> <span class="nn">mode.utils.collections</span> <span class="k">import</span> <span class="n">LRUCache</span>
+<span class="kn">from</span> <span class="nn">yarl</span> <span class="k">import</span> <span class="n">URL</span>
+
+<span class="kn">from</span> <span class="nn">faust.exceptions</span> <span class="k">import</span> <span class="n">ImproperlyConfigured</span>
+<span class="kn">from</span> <span class="nn">faust.streams</span> <span class="k">import</span> <span class="n">current_event</span>
+<span class="kn">from</span> <span class="nn">faust.types</span> <span class="k">import</span> <span class="n">AppT</span><span class="p">,</span> <span class="n">CollectionT</span><span class="p">,</span> <span class="n">EventT</span><span class="p">,</span> <span class="n">TP</span>
+<span class="kn">from</span> <span class="nn">faust.utils</span> <span class="k">import</span> <span class="n">platforms</span>
+
+<span class="kn">from</span> <span class="nn">.</span> <span class="k">import</span> <span class="n">base</span>
+
+<span class="n">_max_open_files</span> <span class="o">=</span> <span class="n">platforms</span><span class="o">.</span><span class="n">max_open_files</span><span class="p">()</span>
+<span class="k">if</span> <span class="n">_max_open_files</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+    <span class="n">_max_open_files</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">_max_open_files</span> <span class="o">*</span> <span class="mf">0.90</span><span class="p">)</span>
+<span class="n">DEFAULT_MAX_OPEN_FILES</span> <span class="o">=</span> <span class="n">_max_open_files</span>
+<span class="n">DEFAULT_WRITE_BUFFER_SIZE</span> <span class="o">=</span> <span class="mi">67108864</span>
+<span class="n">DEFAULT_MAX_WRITE_BUFFER_NUMBER</span> <span class="o">=</span> <span class="mi">3</span>
+<span class="n">DEFAULT_TARGET_FILE_SIZE_BASE</span> <span class="o">=</span> <span class="mi">67108864</span>
+<span class="n">DEFAULT_BLOCK_CACHE_SIZE</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="mi">1024</span> <span class="o">**</span> <span class="mi">3</span>
+<span class="n">DEFAULT_BLOCK_CACHE_COMPRESSED_SIZE</span> <span class="o">=</span> <span class="mi">500</span> <span class="o">*</span> <span class="mi">1024</span> <span class="o">**</span> <span class="mi">2</span>
+<span class="n">DEFAULT_BLOOM_FILTER_SIZE</span> <span class="o">=</span> <span class="mi">3</span>
+
+<span class="k">try</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+    <span class="kn">import</span> <span class="nn">rocksdb</span>
+<span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+    <span class="n">rocksdb</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># noqa</span>
+
+<span class="k">if</span> <span class="n">typing</span><span class="o">.</span><span class="n">TYPE_CHECKING</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+    <span class="kn">from</span> <span class="nn">rocksdb</span> <span class="k">import</span> <span class="n">DB</span><span class="p">,</span> <span class="n">Options</span>
+<span class="k">else</span><span class="p">:</span>
+<div class="viewcode-block" id="DB"><a class="viewcode-back" href="../../../reference/faust.stores.rocksdb.html#faust.stores.rocksdb.DB">[docs]</a>    <span class="k">class</span> <span class="nc">DB</span><span class="p">:</span>  <span class="c1"># noqa</span>
+        <span class="sd">&quot;&quot;&quot;Dummy DB.&quot;&quot;&quot;</span></div>
+
+<div class="viewcode-block" id="Options"><a class="viewcode-back" href="../../../reference/faust.stores.rocksdb.html#faust.stores.rocksdb.Options">[docs]</a>    <span class="k">class</span> <span class="nc">Options</span><span class="p">:</span>  <span class="c1"># noqa</span>
+        <span class="sd">&quot;&quot;&quot;Dummy Options.&quot;&quot;&quot;</span></div>
+
+
+<div class="viewcode-block" id="PartitionDB"><a class="viewcode-back" href="../../../reference/faust.stores.rocksdb.html#faust.stores.rocksdb.PartitionDB">[docs]</a><span class="k">class</span> <span class="nc">PartitionDB</span><span class="p">(</span><span class="n">NamedTuple</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Tuple of ``(partition, rocksdb.DB)``.&quot;&quot;&quot;</span>
+
+    <span class="n">partition</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">db</span><span class="p">:</span> <span class="n">DB</span></div>
+
+
+<span class="k">class</span> <span class="nc">_DBValueTuple</span><span class="p">(</span><span class="n">NamedTuple</span><span class="p">):</span>
+    <span class="n">db</span><span class="p">:</span> <span class="n">DB</span>
+    <span class="n">value</span><span class="p">:</span> <span class="nb">bytes</span>
+
+
+<div class="viewcode-block" id="RocksDBOptions"><a class="viewcode-back" href="../../../reference/faust.stores.rocksdb.html#faust.stores.rocksdb.RocksDBOptions">[docs]</a><span class="k">class</span> <span class="nc">RocksDBOptions</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Options required to open a RocksDB database.&quot;&quot;&quot;</span>
+
+    <span class="n">max_open_files</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="n">DEFAULT_MAX_OPEN_FILES</span>
+    <span class="n">write_buffer_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">DEFAULT_WRITE_BUFFER_SIZE</span>
+    <span class="n">max_write_buffer_number</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">DEFAULT_MAX_WRITE_BUFFER_NUMBER</span>
+    <span class="n">target_file_size_base</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">DEFAULT_TARGET_FILE_SIZE_BASE</span>
+    <span class="n">block_cache_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">DEFAULT_BLOCK_CACHE_SIZE</span>
+    <span class="n">block_cache_compressed_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">DEFAULT_BLOCK_CACHE_COMPRESSED_SIZE</span>
+    <span class="n">bloom_filter_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">DEFAULT_BLOOM_FILTER_SIZE</span>
+    <span class="n">extra_options</span><span class="p">:</span> <span class="n">Mapping</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                 <span class="n">max_open_files</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">write_buffer_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">max_write_buffer_number</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">target_file_size_base</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">block_cache_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">block_cache_compressed_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">bloom_filter_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">max_open_files</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">max_open_files</span> <span class="o">=</span> <span class="n">max_open_files</span>
+        <span class="k">if</span> <span class="n">write_buffer_size</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">write_buffer_size</span> <span class="o">=</span> <span class="n">write_buffer_size</span>
+        <span class="k">if</span> <span class="n">max_write_buffer_number</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">max_write_buffer_number</span> <span class="o">=</span> <span class="n">max_write_buffer_number</span>
+        <span class="k">if</span> <span class="n">target_file_size_base</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">target_file_size_base</span> <span class="o">=</span> <span class="n">target_file_size_base</span>
+        <span class="k">if</span> <span class="n">block_cache_size</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">block_cache_size</span> <span class="o">=</span> <span class="n">block_cache_size</span>
+        <span class="k">if</span> <span class="n">block_cache_compressed_size</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">block_cache_compressed_size</span> <span class="o">=</span> <span class="n">block_cache_compressed_size</span>
+        <span class="k">if</span> <span class="n">bloom_filter_size</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">bloom_filter_size</span> <span class="o">=</span> <span class="n">bloom_filter_size</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">extra_options</span> <span class="o">=</span> <span class="n">kwargs</span>
+
+<div class="viewcode-block" id="RocksDBOptions.open"><a class="viewcode-back" href="../../../reference/faust.stores.rocksdb.html#faust.stores.rocksdb.RocksDBOptions.open">[docs]</a>    <span class="k">def</span> <span class="nf">open</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">read_only</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DB</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Open RocksDB database using this configuration.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">rocksdb</span><span class="o">.</span><span class="n">DB</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">path</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">as_options</span><span class="p">(),</span> <span class="n">read_only</span><span class="o">=</span><span class="n">read_only</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="RocksDBOptions.as_options"><a class="viewcode-back" href="../../../reference/faust.stores.rocksdb.html#faust.stores.rocksdb.RocksDBOptions.as_options">[docs]</a>    <span class="k">def</span> <span class="nf">as_options</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Options</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Return :class:`rocksdb.Options` object using this configuration.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">rocksdb</span><span class="o">.</span><span class="n">Options</span><span class="p">(</span>
+            <span class="n">create_if_missing</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">max_open_files</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">max_open_files</span><span class="p">,</span>
+            <span class="n">write_buffer_size</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">write_buffer_size</span><span class="p">,</span>
+            <span class="n">max_write_buffer_number</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">max_write_buffer_number</span><span class="p">,</span>
+            <span class="n">target_file_size_base</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">target_file_size_base</span><span class="p">,</span>
+            <span class="n">table_factory</span><span class="o">=</span><span class="n">rocksdb</span><span class="o">.</span><span class="n">BlockBasedTableFactory</span><span class="p">(</span>
+                <span class="n">filter_policy</span><span class="o">=</span><span class="n">rocksdb</span><span class="o">.</span><span class="n">BloomFilterPolicy</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">bloom_filter_size</span><span class="p">),</span>
+                <span class="n">block_cache</span><span class="o">=</span><span class="n">rocksdb</span><span class="o">.</span><span class="n">LRUCache</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">block_cache_size</span><span class="p">),</span>
+                <span class="n">block_cache_compressed</span><span class="o">=</span><span class="n">rocksdb</span><span class="o">.</span><span class="n">LRUCache</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">block_cache_compressed_size</span><span class="p">),</span>
+            <span class="p">),</span>
+            <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">extra_options</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="Store"><a class="viewcode-back" href="../../../reference/faust.stores.rocksdb.html#faust.stores.rocksdb.Store">[docs]</a><span class="k">class</span> <span class="nc">Store</span><span class="p">(</span><span class="n">base</span><span class="o">.</span><span class="n">SerializedStore</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;RocksDB table storage.&quot;&quot;&quot;</span>
+
+    <span class="n">offset_key</span> <span class="o">=</span> <span class="sa">b</span><span class="s1">&#39;__faust</span><span class="se">\0</span><span class="s1">offset__&#39;</span>
+
+    <span class="c1">#: Decides the size of the K=&gt;TopicPartition index (10_000).</span>
+    <span class="n">key_index_size</span><span class="p">:</span> <span class="nb">int</span>
+
+    <span class="c1">#: Used to configure the RocksDB settings for table stores.</span>
+    <span class="n">rocksdb_options</span><span class="p">:</span> <span class="n">RocksDBOptions</span>
+
+    <span class="n">_dbs</span><span class="p">:</span> <span class="n">MutableMapping</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">DB</span><span class="p">]</span>
+    <span class="n">_key_index</span><span class="p">:</span> <span class="n">LRUCache</span><span class="p">[</span><span class="nb">bytes</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                 <span class="n">url</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">URL</span><span class="p">],</span>
+                 <span class="n">app</span><span class="p">:</span> <span class="n">AppT</span><span class="p">,</span>
+                 <span class="n">table</span><span class="p">:</span> <span class="n">CollectionT</span><span class="p">,</span>
+                 <span class="o">*</span><span class="p">,</span>
+                 <span class="n">key_index_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">options</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">rocksdb</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">error</span> <span class="o">=</span> <span class="n">ImproperlyConfigured</span><span class="p">(</span>
+                <span class="s1">&#39;RocksDB bindings not installed? pip install python-rocksdb&#39;</span><span class="p">)</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="kn">import</span> <span class="nn">rocksdb</span> <span class="k">as</span> <span class="nn">_rocksdb</span>  <span class="c1"># noqa: F401</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+                <span class="k">raise</span> <span class="n">error</span> <span class="kn">from</span> <span class="nn">exc</span>
+            <span class="k">else</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+                <span class="k">raise</span> <span class="n">error</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">app</span><span class="p">,</span> <span class="n">table</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">url</span><span class="o">.</span><span class="n">path</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">url</span> <span class="o">/=</span> <span class="bp">self</span><span class="o">.</span><span class="n">table_name</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">options</span> <span class="o">=</span> <span class="n">options</span> <span class="ow">or</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">rocksdb_options</span> <span class="o">=</span> <span class="n">RocksDBOptions</span><span class="p">(</span><span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">key_index_size</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">key_index_size</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">conf</span><span class="o">.</span><span class="n">table_key_index_size</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">key_index_size</span> <span class="o">=</span> <span class="n">key_index_size</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_dbs</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_key_index</span> <span class="o">=</span> <span class="n">LRUCache</span><span class="p">(</span><span class="n">limit</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">key_index_size</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Store.persisted_offset"><a class="viewcode-back" href="../../../reference/faust.stores.rocksdb.html#faust.stores.rocksdb.Store.persisted_offset">[docs]</a>    <span class="k">def</span> <span class="nf">persisted_offset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tp</span><span class="p">:</span> <span class="n">TP</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;Return the last persisted offset.</span>
+
+<span class="sd">        See :meth:`set_persisted_offset`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">offset</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db_for_partition</span><span class="p">(</span><span class="n">tp</span><span class="o">.</span><span class="n">partition</span><span class="p">)</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">offset_key</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">offset</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">offset</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">None</span></div>
+
+<div class="viewcode-block" id="Store.set_persisted_offset"><a class="viewcode-back" href="../../../reference/faust.stores.rocksdb.html#faust.stores.rocksdb.Store.set_persisted_offset">[docs]</a>    <span class="k">def</span> <span class="nf">set_persisted_offset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tp</span><span class="p">:</span> <span class="n">TP</span><span class="p">,</span> <span class="n">offset</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Set the last persisted offset for this table.</span>
+
+<span class="sd">        This will remember the last offset that we wrote to RocksDB,</span>
+<span class="sd">        so that on rebalance/recovery we can seek past this point</span>
+<span class="sd">        to only read the events that occurred recently while</span>
+<span class="sd">        we were not an active replica.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_db_for_partition</span><span class="p">(</span><span class="n">tp</span><span class="o">.</span><span class="n">partition</span><span class="p">)</span><span class="o">.</span><span class="n">put</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">offset_key</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">offset</span><span class="p">)</span><span class="o">.</span><span class="n">encode</span><span class="p">())</span></div>
+
+<div class="viewcode-block" id="Store.need_active_standby_for"><a class="viewcode-back" href="../../../reference/faust.stores.rocksdb.html#faust.stores.rocksdb.Store.need_active_standby_for">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">need_active_standby_for</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tp</span><span class="p">:</span> <span class="n">TP</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Decide if an active standby is needed for this topic partition.</span>
+
+<span class="sd">        Since other workers may be running on the same local machine,</span>
+<span class="sd">        we can decide to not actively read standby messages, since</span>
+<span class="sd">        that database file is already being populated.</span>
+
+<span class="sd">        Currently it is recommended that you use</span>
+<span class="sd">        separate data directories for multiple worker son the same machine.</span>
+
+<span class="sd">        For example if you have a 4 CPU core machine, you can run</span>
+<span class="sd">        four worker instances on that machine, but using separate</span>
+<span class="sd">        data directories:</span>
+
+<span class="sd">        .. sourcecode:: console</span>
+
+<span class="sd">            $ myproj --datadir=/var/faust/w1 worker -l info --web-port=6066</span>
+<span class="sd">            $ myproj --datadir=/var/faust/w2 worker -l info --web-port=6067</span>
+<span class="sd">            $ myproj --datadir=/var/faust/w3 worker -l info --web-port=6068</span>
+<span class="sd">            $ myproj --datadir=/var/faust/w4 worker -l info --web-port=6069</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_db_for_partition</span><span class="p">(</span><span class="n">tp</span><span class="o">.</span><span class="n">partition</span><span class="p">)</span>
+        <span class="k">except</span> <span class="n">rocksdb</span><span class="o">.</span><span class="n">errors</span><span class="o">.</span><span class="n">RocksIOError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+            <span class="k">if</span> <span class="s1">&#39;lock&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="nb">repr</span><span class="p">(</span><span class="n">exc</span><span class="p">):</span>
+                <span class="k">raise</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">True</span></div>
+
+<div class="viewcode-block" id="Store.apply_changelog_batch"><a class="viewcode-back" href="../../../reference/faust.stores.rocksdb.html#faust.stores.rocksdb.Store.apply_changelog_batch">[docs]</a>    <span class="k">def</span> <span class="nf">apply_changelog_batch</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                              <span class="n">batch</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">EventT</span><span class="p">],</span>
+                              <span class="n">to_key</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">Any</span><span class="p">],</span> <span class="n">Any</span><span class="p">],</span>
+                              <span class="n">to_value</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">Any</span><span class="p">],</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Write batch of changelog events to local RocksDB storage.</span>
+
+<span class="sd">        Arguments:</span>
+<span class="sd">            batch: Iterable of changelog events (:class:`faust.Event`)</span>
+<span class="sd">            to_key: A callable you can use to deserialize the key</span>
+<span class="sd">                of a changelog event.</span>
+<span class="sd">            to_value: A callable you can use to deserialize the value</span>
+<span class="sd">                of a changelog event.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">batches</span><span class="p">:</span> <span class="n">DefaultDict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">rocksdb</span><span class="o">.</span><span class="n">WriteBatch</span><span class="p">]</span>
+        <span class="n">batches</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="n">rocksdb</span><span class="o">.</span><span class="n">WriteBatch</span><span class="p">)</span>
+        <span class="n">tp_offsets</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="n">TP</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">event</span> <span class="ow">in</span> <span class="n">batch</span><span class="p">:</span>
+            <span class="n">tp</span><span class="p">,</span> <span class="n">offset</span> <span class="o">=</span> <span class="n">event</span><span class="o">.</span><span class="n">message</span><span class="o">.</span><span class="n">tp</span><span class="p">,</span> <span class="n">event</span><span class="o">.</span><span class="n">message</span><span class="o">.</span><span class="n">offset</span>
+            <span class="n">tp_offsets</span><span class="p">[</span><span class="n">tp</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">offset</span> <span class="k">if</span> <span class="n">tp</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">tp_offsets</span>
+                <span class="k">else</span> <span class="nb">max</span><span class="p">(</span><span class="n">offset</span><span class="p">,</span> <span class="n">tp_offsets</span><span class="p">[</span><span class="n">tp</span><span class="p">])</span>
+            <span class="p">)</span>
+            <span class="n">msg</span> <span class="o">=</span> <span class="n">event</span><span class="o">.</span><span class="n">message</span>
+            <span class="k">if</span> <span class="n">msg</span><span class="o">.</span><span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">batches</span><span class="p">[</span><span class="n">msg</span><span class="o">.</span><span class="n">partition</span><span class="p">]</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">msg</span><span class="o">.</span><span class="n">key</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">batches</span><span class="p">[</span><span class="n">msg</span><span class="o">.</span><span class="n">partition</span><span class="p">]</span><span class="o">.</span><span class="n">put</span><span class="p">(</span><span class="n">msg</span><span class="o">.</span><span class="n">key</span><span class="p">,</span> <span class="n">msg</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">partition</span><span class="p">,</span> <span class="n">batch</span> <span class="ow">in</span> <span class="n">batches</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_db_for_partition</span><span class="p">(</span><span class="n">partition</span><span class="p">)</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">batch</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">tp</span><span class="p">,</span> <span class="n">offset</span> <span class="ow">in</span> <span class="n">tp_offsets</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">set_persisted_offset</span><span class="p">(</span><span class="n">tp</span><span class="p">,</span> <span class="n">offset</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_set</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bytes</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">event</span> <span class="o">=</span> <span class="n">current_event</span><span class="p">()</span>
+        <span class="k">assert</span> <span class="n">event</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="n">partition</span> <span class="o">=</span> <span class="n">event</span><span class="o">.</span><span class="n">message</span><span class="o">.</span><span class="n">partition</span>
+        <span class="n">db</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db_for_partition</span><span class="p">(</span><span class="n">partition</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_key_index</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">partition</span>
+        <span class="n">db</span><span class="o">.</span><span class="n">put</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_db_for_partition</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">partition</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DB</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dbs</span><span class="p">[</span><span class="n">partition</span><span class="p">]</span>
+        <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+            <span class="n">db</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dbs</span><span class="p">[</span><span class="n">partition</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_open_for_partition</span><span class="p">(</span><span class="n">partition</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">db</span>
+
+    <span class="k">def</span> <span class="nf">_open_for_partition</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">partition</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DB</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">rocksdb_options</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">partition_path</span><span class="p">(</span><span class="n">partition</span><span class="p">))</span>
+
+    <span class="k">def</span> <span class="nf">_get</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bytes</span><span class="p">]:</span>
+        <span class="n">dbvalue</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_bucket_for_key</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">dbvalue</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="n">db</span><span class="p">,</span> <span class="n">value</span> <span class="o">=</span> <span class="n">dbvalue</span>
+
+        <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">db</span><span class="o">.</span><span class="n">key_may_exist</span><span class="p">(</span><span class="n">key</span><span class="p">)[</span><span class="mi">0</span><span class="p">]:</span>
+                <span class="k">return</span> <span class="n">db</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">value</span>
+
+    <span class="k">def</span> <span class="nf">_get_bucket_for_key</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">_DBValueTuple</span><span class="p">]:</span>
+        <span class="n">dbs</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">PartitionDB</span><span class="p">]</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">partition</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_key_index</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+            <span class="n">dbs</span> <span class="o">=</span> <span class="p">[</span><span class="n">PartitionDB</span><span class="p">(</span><span class="n">partition</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dbs</span><span class="p">[</span><span class="n">partition</span><span class="p">])]</span>
+        <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+            <span class="n">dbs</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">Iterable</span><span class="p">[</span><span class="n">PartitionDB</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dbs</span><span class="o">.</span><span class="n">items</span><span class="p">())</span>
+
+        <span class="k">for</span> <span class="n">partition</span><span class="p">,</span> <span class="n">db</span> <span class="ow">in</span> <span class="n">dbs</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">db</span><span class="o">.</span><span class="n">key_may_exist</span><span class="p">(</span><span class="n">key</span><span class="p">)[</span><span class="mi">0</span><span class="p">]:</span>
+                <span class="n">value</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_key_index</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">partition</span>
+                    <span class="k">return</span> <span class="n">_DBValueTuple</span><span class="p">(</span><span class="n">db</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="k">def</span> <span class="nf">_del</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">db</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dbs_for_key</span><span class="p">(</span><span class="n">key</span><span class="p">):</span>
+            <span class="n">db</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Store.on_rebalance"><a class="viewcode-back" href="../../../reference/faust.stores.rocksdb.html#faust.stores.rocksdb.Store.on_rebalance">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">on_rebalance</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                           <span class="n">table</span><span class="p">:</span> <span class="n">CollectionT</span><span class="p">,</span>
+                           <span class="n">assigned</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="n">TP</span><span class="p">],</span>
+                           <span class="n">revoked</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="n">TP</span><span class="p">],</span>
+                           <span class="n">newly_assigned</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="n">TP</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Rebalance occurred.</span>
+
+<span class="sd">        Arguments:</span>
+<span class="sd">            table: The table that we store data for.</span>
+<span class="sd">            assigned: Set of all assigned topic partitions.</span>
+<span class="sd">            revoked: Set of newly revoked topic partitions.</span>
+<span class="sd">            newly_assigned: Set of newly assigned topic partitions,</span>
+<span class="sd">                for which we were not assigned the last time.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">revoke_partitions</span><span class="p">(</span><span class="n">table</span><span class="p">,</span> <span class="n">revoked</span><span class="p">)</span>
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">assign_partitions</span><span class="p">(</span><span class="n">table</span><span class="p">,</span> <span class="n">newly_assigned</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Store.revoke_partitions"><a class="viewcode-back" href="../../../reference/faust.stores.rocksdb.html#faust.stores.rocksdb.Store.revoke_partitions">[docs]</a>    <span class="k">def</span> <span class="nf">revoke_partitions</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">table</span><span class="p">:</span> <span class="n">CollectionT</span><span class="p">,</span> <span class="n">tps</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="n">TP</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;De-assign partitions used on this worker instance.</span>
+
+<span class="sd">        Arguments:</span>
+<span class="sd">            table: The table that we store data for.</span>
+<span class="sd">            tps: Set of topic partitions that we should no longer</span>
+<span class="sd">                be serving data for.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">dbs_closed</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">tp</span> <span class="ow">in</span> <span class="n">tps</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">tp</span><span class="o">.</span><span class="n">topic</span> <span class="ow">in</span> <span class="n">table</span><span class="o">.</span><span class="n">changelog_topic</span><span class="o">.</span><span class="n">topics</span><span class="p">:</span>
+                <span class="n">db</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dbs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">tp</span><span class="o">.</span><span class="n">partition</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">db</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="k">del</span><span class="p">(</span><span class="n">db</span><span class="p">)</span>
+                    <span class="n">dbs_closed</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="k">if</span> <span class="n">dbs_closed</span><span class="p">:</span>
+            <span class="n">gc</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>  <span class="c1"># XXX RocksDB has no .close() method :X</span></div>
+
+<div class="viewcode-block" id="Store.assign_partitions"><a class="viewcode-back" href="../../../reference/faust.stores.rocksdb.html#faust.stores.rocksdb.Store.assign_partitions">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">assign_partitions</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                                <span class="n">table</span><span class="p">:</span> <span class="n">CollectionT</span><span class="p">,</span>
+                                <span class="n">tps</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="n">TP</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Assign partitions to this worker instance.</span>
+
+<span class="sd">        Arguments:</span>
+<span class="sd">            table: The table that we store data for.</span>
+<span class="sd">            tps: Set of topic partitions we have been assigned.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">standby_tps</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">assignor</span><span class="o">.</span><span class="n">assigned_standbys</span><span class="p">()</span>
+        <span class="n">my_topics</span> <span class="o">=</span> <span class="n">table</span><span class="o">.</span><span class="n">changelog_topic</span><span class="o">.</span><span class="n">topics</span>
+
+        <span class="k">for</span> <span class="n">tp</span> <span class="ow">in</span> <span class="n">tps</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">tp</span><span class="o">.</span><span class="n">topic</span> <span class="ow">in</span> <span class="n">my_topics</span> <span class="ow">and</span> <span class="n">tp</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">standby_tps</span><span class="p">:</span>
+                <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_try_open_db_for_partition</span><span class="p">(</span><span class="n">tp</span><span class="o">.</span><span class="n">partition</span><span class="p">)</span>
+                <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span></div>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">_try_open_db_for_partition</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">partition</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+                                         <span class="n">max_retries</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5</span><span class="p">,</span>
+                                         <span class="n">retry_delay</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DB</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">max_retries</span><span class="p">):</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="c1"># side effect: opens db and adds to self._dbs.</span>
+                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db_for_partition</span><span class="p">(</span><span class="n">partition</span><span class="p">)</span>
+            <span class="k">except</span> <span class="n">rocksdb</span><span class="o">.</span><span class="n">errors</span><span class="o">.</span><span class="n">RocksIOError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="n">max_retries</span> <span class="o">-</span> <span class="mi">1</span> <span class="ow">or</span> <span class="s1">&#39;lock&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="nb">repr</span><span class="p">(</span><span class="n">exc</span><span class="p">):</span>
+                    <span class="k">raise</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                    <span class="s1">&#39;DB for partition </span><span class="si">%r</span><span class="s1"> is locked! Retry in 1s...&#39;</span><span class="p">,</span> <span class="n">partition</span><span class="p">)</span>
+                <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="n">retry_delay</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+            <span class="o">...</span>
+
+    <span class="k">def</span> <span class="nf">_contains</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">db</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dbs_for_key</span><span class="p">(</span><span class="n">key</span><span class="p">):</span>
+            <span class="c1"># bloom filter: false positives possible, but not false negatives</span>
+            <span class="k">if</span> <span class="n">db</span><span class="o">.</span><span class="n">key_may_exist</span><span class="p">(</span><span class="n">key</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">and</span> <span class="n">db</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">return</span> <span class="kc">True</span>
+        <span class="k">return</span> <span class="kc">False</span>
+
+    <span class="k">def</span> <span class="nf">_dbs_for_key</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">DB</span><span class="p">]:</span>
+        <span class="c1"># Returns cached db if key is in index, otherwise all dbs</span>
+        <span class="c1"># for linear search.</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_dbs</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_key_index</span><span class="p">[</span><span class="n">key</span><span class="p">]]]</span>
+        <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dbs</span><span class="o">.</span><span class="n">values</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">_dbs_for_actives</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="n">DB</span><span class="p">]:</span>
+        <span class="n">actives</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">assignor</span><span class="o">.</span><span class="n">assigned_actives</span><span class="p">()</span>
+        <span class="n">topic</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">table</span><span class="o">.</span><span class="n">_changelog_topic_name</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">partition</span><span class="p">,</span> <span class="n">db</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dbs</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">tp</span> <span class="o">=</span> <span class="n">TP</span><span class="p">(</span><span class="n">topic</span><span class="o">=</span><span class="n">topic</span><span class="p">,</span> <span class="n">partition</span><span class="o">=</span><span class="n">partition</span><span class="p">)</span>
+            <span class="c1"># for global tables, keys from all</span>
+            <span class="c1"># partitions are available.</span>
+            <span class="k">if</span> <span class="n">tp</span> <span class="ow">in</span> <span class="n">actives</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">table</span><span class="o">.</span><span class="n">is_global</span><span class="p">:</span>
+                <span class="k">yield</span> <span class="n">db</span>
+
+    <span class="k">def</span> <span class="nf">_size</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">sum</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_size1</span><span class="p">(</span><span class="n">db</span><span class="p">)</span> <span class="k">for</span> <span class="n">db</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dbs_for_actives</span><span class="p">())</span>
+
+    <span class="k">def</span> <span class="nf">_visible_keys</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">db</span><span class="p">:</span> <span class="n">DB</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="nb">bytes</span><span class="p">]:</span>
+        <span class="n">it</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">iterkeys</span><span class="p">()</span>  <span class="c1"># noqa: B301</span>
+        <span class="n">it</span><span class="o">.</span><span class="n">seek_to_first</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">it</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">key</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">offset_key</span><span class="p">:</span>
+                <span class="k">yield</span> <span class="n">key</span>
+
+    <span class="k">def</span> <span class="nf">_visible_items</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">db</span><span class="p">:</span> <span class="n">DB</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">bytes</span><span class="p">,</span> <span class="nb">bytes</span><span class="p">]]:</span>
+        <span class="n">it</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">iteritems</span><span class="p">()</span>  <span class="c1"># noqa: B301</span>
+        <span class="n">it</span><span class="o">.</span><span class="n">seek_to_first</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">it</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">key</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">offset_key</span><span class="p">:</span>
+                <span class="k">yield</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span>
+
+    <span class="k">def</span> <span class="nf">_visible_values</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">db</span><span class="p">:</span> <span class="n">DB</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="nb">bytes</span><span class="p">]:</span>
+        <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_visible_items</span><span class="p">(</span><span class="n">db</span><span class="p">):</span>
+            <span class="k">yield</span> <span class="n">value</span>
+
+    <span class="k">def</span> <span class="nf">_size1</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">db</span><span class="p">:</span> <span class="n">DB</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">sum</span><span class="p">(</span><span class="mi">1</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_visible_keys</span><span class="p">(</span><span class="n">db</span><span class="p">))</span>
+
+    <span class="k">def</span> <span class="nf">_iterkeys</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="nb">bytes</span><span class="p">]:</span>
+        <span class="k">for</span> <span class="n">db</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dbs_for_actives</span><span class="p">():</span>
+            <span class="k">yield from</span> <span class="bp">self</span><span class="o">.</span><span class="n">_visible_keys</span><span class="p">(</span><span class="n">db</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_itervalues</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="nb">bytes</span><span class="p">]:</span>
+        <span class="k">for</span> <span class="n">db</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dbs_for_actives</span><span class="p">():</span>
+            <span class="k">yield from</span> <span class="bp">self</span><span class="o">.</span><span class="n">_visible_values</span><span class="p">(</span><span class="n">db</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_iteritems</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">bytes</span><span class="p">,</span> <span class="nb">bytes</span><span class="p">]]:</span>
+        <span class="k">for</span> <span class="n">db</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dbs_for_actives</span><span class="p">():</span>
+            <span class="k">yield from</span> <span class="bp">self</span><span class="o">.</span><span class="n">_visible_items</span><span class="p">(</span><span class="n">db</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_clear</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s1">&#39;TODO&#39;</span><span class="p">)</span>  <span class="c1"># XXX cannot reset tables</span>
+
+<div class="viewcode-block" id="Store.reset_state"><a class="viewcode-back" href="../../../reference/faust.stores.rocksdb.html#faust.stores.rocksdb.Store.reset_state">[docs]</a>    <span class="k">def</span> <span class="nf">reset_state</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Remove all data stored in this table.</span>
+
+<span class="sd">        Notes:</span>
+<span class="sd">            Only local data will be removed, table changelog partitions</span>
+<span class="sd">            in Kafka will not be affected.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_dbs</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_key_index</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+        <span class="k">with</span> <span class="n">suppress</span><span class="p">(</span><span class="ne">FileNotFoundError</span><span class="p">):</span>
+            <span class="n">shutil</span><span class="o">.</span><span class="n">rmtree</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">absolute</span><span class="p">())</span></div>
+
+<div class="viewcode-block" id="Store.partition_path"><a class="viewcode-back" href="../../../reference/faust.stores.rocksdb.html#faust.stores.rocksdb.Store.partition_path">[docs]</a>    <span class="k">def</span> <span class="nf">partition_path</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">partition</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Return :class:`pathlib.Path` to db file of specific partition.&quot;&quot;&quot;</span>
+        <span class="n">p</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">path</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">basename</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_path_with_suffix</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">with_name</span><span class="p">(</span><span class="n">f</span><span class="s1">&#39;</span><span class="si">{p.name}</span><span class="s1">-</span><span class="si">{partition}</span><span class="s1">&#39;</span><span class="p">))</span></div>
+
+    <span class="k">def</span> <span class="nf">_path_with_suffix</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">suffix</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;.db&#39;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
+        <span class="c1"># Path.with_suffix should not be used as this will</span>
+        <span class="c1"># not work if the table name has dots in it (Issue #184).</span>
+        <span class="k">return</span> <span class="n">path</span><span class="o">.</span><span class="n">with_name</span><span class="p">(</span><span class="n">f</span><span class="s1">&#39;</span><span class="si">{path.name}{suffix}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">path</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Path to directory where tables are stored.</span>
+
+<span class="sd">        See Also:</span>
+<span class="sd">            :setting:`tabledir` (default value for this path).</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            :class:`pathlib.Path`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">conf</span><span class="o">.</span><span class="n">tabledir</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">basename</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Return the name of this table, used as filename prefix.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">Path</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">url</span><span class="o">.</span><span class="n">path</span><span class="p">)</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../../index.html">
+              <img class="logo" src="../../../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../../../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../playbooks/index.html">Playbooks</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../userguide/index.html">User Guide</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../reference/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../history/index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2020, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

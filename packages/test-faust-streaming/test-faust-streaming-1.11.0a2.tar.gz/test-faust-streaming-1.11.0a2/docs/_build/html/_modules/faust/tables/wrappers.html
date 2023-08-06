@@ -1,0 +1,682 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>faust.tables.wrappers &#8212; Faust 1.11.0a1 documentation</title>
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../../../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <link rel="copyright" title="Copyright" href="../../../copyright.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for faust.tables.wrappers</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Wrappers for windowed tables.&quot;&quot;&quot;</span>
+<span class="kn">import</span> <span class="nn">operator</span>
+<span class="kn">import</span> <span class="nn">typing</span>
+
+<span class="kn">from</span> <span class="nn">datetime</span> <span class="k">import</span> <span class="n">datetime</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">Any</span><span class="p">,</span>
+    <span class="n">Callable</span><span class="p">,</span>
+    <span class="n">ClassVar</span><span class="p">,</span>
+    <span class="n">ItemsView</span><span class="p">,</span>
+    <span class="n">Iterator</span><span class="p">,</span>
+    <span class="n">KeysView</span><span class="p">,</span>
+    <span class="n">Optional</span><span class="p">,</span>
+    <span class="n">Tuple</span><span class="p">,</span>
+    <span class="n">Type</span><span class="p">,</span>
+    <span class="n">ValuesView</span><span class="p">,</span>
+    <span class="n">cast</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="kn">from</span> <span class="nn">mode</span> <span class="k">import</span> <span class="n">Seconds</span>
+<span class="kn">from</span> <span class="nn">mode.utils.typing</span> <span class="k">import</span> <span class="n">NoReturn</span>
+
+<span class="kn">from</span> <span class="nn">faust.exceptions</span> <span class="k">import</span> <span class="n">ImproperlyConfigured</span>
+<span class="kn">from</span> <span class="nn">faust.streams</span> <span class="k">import</span> <span class="n">current_event</span>
+<span class="kn">from</span> <span class="nn">faust.types</span> <span class="k">import</span> <span class="n">EventT</span><span class="p">,</span> <span class="n">FieldDescriptorT</span>
+<span class="kn">from</span> <span class="nn">faust.types.tables</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">KT</span><span class="p">,</span>
+    <span class="n">RecoverCallback</span><span class="p">,</span>
+    <span class="n">RelativeArg</span><span class="p">,</span>
+    <span class="n">RelativeHandler</span><span class="p">,</span>
+    <span class="n">TableT</span><span class="p">,</span>
+    <span class="n">VT</span><span class="p">,</span>
+    <span class="n">WindowSetT</span><span class="p">,</span>
+    <span class="n">WindowWrapperT</span><span class="p">,</span>
+    <span class="n">WindowedItemsViewT</span><span class="p">,</span>
+    <span class="n">WindowedValuesViewT</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">faust.utils.terminal.tables</span> <span class="k">import</span> <span class="n">dict_as_ansitable</span>
+
+<span class="k">if</span> <span class="n">typing</span><span class="o">.</span><span class="n">TYPE_CHECKING</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+    <span class="kn">from</span> <span class="nn">.table</span> <span class="k">import</span> <span class="n">Table</span> <span class="k">as</span> <span class="n">_Table</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="k">class</span> <span class="nc">_Table</span><span class="p">:</span> <span class="o">...</span>     <span class="c1"># noqa</span>
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="s1">&#39;WindowSet&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;WindowWrapper&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;WindowedItemsView&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;WindowedKeysView&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;WindowedValuesView&#39;</span><span class="p">,</span>
+<span class="p">]</span>
+
+
+<div class="viewcode-block" id="WindowedKeysView"><a class="viewcode-back" href="../../../reference/faust.tables.wrappers.html#faust.WindowedKeysView">[docs]</a><span class="k">class</span> <span class="nc">WindowedKeysView</span><span class="p">(</span><span class="n">KeysView</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;The object returned by ``windowed_table.keys()``.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                 <span class="n">mapping</span><span class="p">:</span> <span class="n">WindowWrapperT</span><span class="p">,</span>
+                 <span class="n">event</span><span class="p">:</span> <span class="n">EventT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_mapping</span> <span class="o">=</span> <span class="n">mapping</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">event</span> <span class="o">=</span> <span class="n">event</span>
+
+    <span class="k">def</span> <span class="nf">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Iterate over keys.</span>
+
+<span class="sd">        The window is chosen based on the tables time-relativity setting.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">wrapper</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">WindowWrapper</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mapping</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">wrapper</span><span class="o">.</span><span class="n">_items</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">event</span><span class="p">):</span>
+            <span class="k">yield</span> <span class="n">key</span>
+
+    <span class="k">def</span> <span class="nf">__len__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_mapping</span><span class="p">)</span>
+
+<div class="viewcode-block" id="WindowedKeysView.now"><a class="viewcode-back" href="../../../reference/faust.tables.wrappers.html#faust.WindowedKeysView.now">[docs]</a>    <span class="k">def</span> <span class="nf">now</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;Return all keys present in window closest to system time.&quot;&quot;&quot;</span>
+        <span class="n">wrapper</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">WindowWrapper</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mapping</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">wrapper</span><span class="o">.</span><span class="n">_items_now</span><span class="p">():</span>
+            <span class="k">yield</span> <span class="n">key</span></div>
+
+<div class="viewcode-block" id="WindowedKeysView.current"><a class="viewcode-back" href="../../../reference/faust.tables.wrappers.html#faust.WindowedKeysView.current">[docs]</a>    <span class="k">def</span> <span class="nf">current</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">event</span><span class="p">:</span> <span class="n">EventT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;Return all keys present in window closest to stream time.&quot;&quot;&quot;</span>
+        <span class="n">wrapper</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">WindowWrapper</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mapping</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">wrapper</span><span class="o">.</span><span class="n">_items_current</span><span class="p">(</span><span class="n">event</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">event</span><span class="p">):</span>
+            <span class="k">yield</span> <span class="n">key</span></div>
+
+<div class="viewcode-block" id="WindowedKeysView.delta"><a class="viewcode-back" href="../../../reference/faust.tables.wrappers.html#faust.WindowedKeysView.delta">[docs]</a>    <span class="k">def</span> <span class="nf">delta</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">d</span><span class="p">:</span> <span class="n">Seconds</span><span class="p">,</span> <span class="n">event</span><span class="p">:</span> <span class="n">EventT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;Return all keys present in window ±n seconds ago.&quot;&quot;&quot;</span>
+        <span class="n">wrapper</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">WindowWrapper</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mapping</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">wrapper</span><span class="o">.</span><span class="n">_items_delta</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="n">event</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">event</span><span class="p">):</span>
+            <span class="k">yield</span> <span class="n">key</span></div></div>
+
+
+<div class="viewcode-block" id="WindowedItemsView"><a class="viewcode-back" href="../../../reference/faust.tables.wrappers.html#faust.WindowedItemsView">[docs]</a><span class="k">class</span> <span class="nc">WindowedItemsView</span><span class="p">(</span><span class="n">WindowedItemsViewT</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;The object returned by ``windowed_table.items()``.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                 <span class="n">mapping</span><span class="p">:</span> <span class="n">WindowWrapperT</span><span class="p">,</span>
+                 <span class="n">event</span><span class="p">:</span> <span class="n">EventT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_mapping</span> <span class="o">=</span> <span class="n">mapping</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">event</span> <span class="o">=</span> <span class="n">event</span>
+
+    <span class="k">def</span> <span class="nf">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
+        <span class="sd">&quot;&quot;&quot;Iterate over items.</span>
+
+<span class="sd">        The window is chosen based on the tables time-relativity setting.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">wrapper</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">WindowWrapper</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mapping</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">wrapper</span><span class="o">.</span><span class="n">_items</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">event</span><span class="p">)</span>
+
+<div class="viewcode-block" id="WindowedItemsView.now"><a class="viewcode-back" href="../../../reference/faust.tables.wrappers.html#faust.WindowedItemsView.now">[docs]</a>    <span class="k">def</span> <span class="nf">now</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
+        <span class="sd">&quot;&quot;&quot;Return all items present in window closest to system time.&quot;&quot;&quot;</span>
+        <span class="n">wrapper</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">WindowWrapper</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mapping</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">wrapper</span><span class="o">.</span><span class="n">_items_now</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="WindowedItemsView.current"><a class="viewcode-back" href="../../../reference/faust.tables.wrappers.html#faust.WindowedItemsView.current">[docs]</a>    <span class="k">def</span> <span class="nf">current</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">event</span><span class="p">:</span> <span class="n">EventT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
+        <span class="sd">&quot;&quot;&quot;Return all items present in window closest to stream time.&quot;&quot;&quot;</span>
+        <span class="n">wrapper</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">WindowWrapper</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mapping</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">wrapper</span><span class="o">.</span><span class="n">_items_current</span><span class="p">(</span><span class="n">event</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">event</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="WindowedItemsView.delta"><a class="viewcode-back" href="../../../reference/faust.tables.wrappers.html#faust.WindowedItemsView.delta">[docs]</a>    <span class="k">def</span> <span class="nf">delta</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+              <span class="n">d</span><span class="p">:</span> <span class="n">Seconds</span><span class="p">,</span>
+              <span class="n">event</span><span class="p">:</span> <span class="n">EventT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
+        <span class="sd">&quot;&quot;&quot;Return all items present in window ±n seconds ago.&quot;&quot;&quot;</span>
+        <span class="n">wrapper</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">WindowWrapper</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mapping</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">wrapper</span><span class="o">.</span><span class="n">_items_delta</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="n">event</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">event</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="WindowedValuesView"><a class="viewcode-back" href="../../../reference/faust.tables.wrappers.html#faust.WindowedValuesView">[docs]</a><span class="k">class</span> <span class="nc">WindowedValuesView</span><span class="p">(</span><span class="n">WindowedValuesViewT</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;The object returned by ``windowed_table.values()``.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                 <span class="n">mapping</span><span class="p">:</span> <span class="n">WindowWrapperT</span><span class="p">,</span>
+                 <span class="n">event</span><span class="p">:</span> <span class="n">EventT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_mapping</span> <span class="o">=</span> <span class="n">mapping</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">event</span> <span class="o">=</span> <span class="n">event</span>
+
+    <span class="k">def</span> <span class="nf">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;Iterate over values.</span>
+
+<span class="sd">        The window is chosen based on the tables time-relativity setting.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">wrapper</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">WindowWrapper</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mapping</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">wrapper</span><span class="o">.</span><span class="n">_items</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">event</span><span class="p">):</span>
+            <span class="k">yield</span> <span class="n">value</span>
+
+<div class="viewcode-block" id="WindowedValuesView.now"><a class="viewcode-back" href="../../../reference/faust.tables.wrappers.html#faust.WindowedValuesView.now">[docs]</a>    <span class="k">def</span> <span class="nf">now</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;Return all values present in window closest to system time.&quot;&quot;&quot;</span>
+        <span class="n">wrapper</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">WindowWrapper</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mapping</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">wrapper</span><span class="o">.</span><span class="n">_items_now</span><span class="p">():</span>
+            <span class="k">yield</span> <span class="n">value</span></div>
+
+<div class="viewcode-block" id="WindowedValuesView.current"><a class="viewcode-back" href="../../../reference/faust.tables.wrappers.html#faust.WindowedValuesView.current">[docs]</a>    <span class="k">def</span> <span class="nf">current</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">event</span><span class="p">:</span> <span class="n">EventT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;Return all values present in window closest to stream time.&quot;&quot;&quot;</span>
+        <span class="n">wrapper</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">WindowWrapper</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mapping</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">wrapper</span><span class="o">.</span><span class="n">_items_current</span><span class="p">(</span><span class="n">event</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">event</span><span class="p">):</span>
+            <span class="k">yield</span> <span class="n">value</span></div>
+
+<div class="viewcode-block" id="WindowedValuesView.delta"><a class="viewcode-back" href="../../../reference/faust.tables.wrappers.html#faust.WindowedValuesView.delta">[docs]</a>    <span class="k">def</span> <span class="nf">delta</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">d</span><span class="p">:</span> <span class="n">Seconds</span><span class="p">,</span> <span class="n">event</span><span class="p">:</span> <span class="n">EventT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;Return all values present in window ±n seconds ago.&quot;&quot;&quot;</span>
+        <span class="n">wrapper</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">WindowWrapper</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mapping</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">wrapper</span><span class="o">.</span><span class="n">_items_delta</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="n">event</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">event</span><span class="p">):</span>
+            <span class="k">yield</span> <span class="n">value</span></div></div>
+
+
+<div class="viewcode-block" id="WindowSet"><a class="viewcode-back" href="../../../reference/faust.tables.wrappers.html#faust.WindowSet">[docs]</a><span class="k">class</span> <span class="nc">WindowSet</span><span class="p">(</span><span class="n">WindowSetT</span><span class="p">[</span><span class="n">KT</span><span class="p">,</span> <span class="n">VT</span><span class="p">]):</span>
+    <span class="sd">&quot;&quot;&quot;Represents the windows available for table key.</span>
+
+<span class="sd">    ``Table[k]`` returns WindowSet since ``k`` can exist in multiple</span>
+<span class="sd">    windows, and to retrieve an actual item we need a timestamp.</span>
+
+<span class="sd">    The timestamp of the current event (if this is executing in a stream</span>
+<span class="sd">    processor), can be used by accessing ``.current()``::</span>
+
+<span class="sd">        Table[k].current()</span>
+
+<span class="sd">    similarly the most recent value can be accessed using ``.now()``::</span>
+
+<span class="sd">        Table[k].now()</span>
+
+<span class="sd">    from delta of the time of the current event::</span>
+
+<span class="sd">        Table[k].delta(timedelta(hours=3))</span>
+
+<span class="sd">    or delta from time of other event::</span>
+
+<span class="sd">        Table[k].delta(timedelta(hours=3), other_event)</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                 <span class="n">key</span><span class="p">:</span> <span class="n">KT</span><span class="p">,</span>
+                 <span class="n">table</span><span class="p">:</span> <span class="n">TableT</span><span class="p">,</span>
+                 <span class="n">wrapper</span><span class="p">:</span> <span class="n">WindowWrapperT</span><span class="p">,</span>
+                 <span class="n">event</span><span class="p">:</span> <span class="n">EventT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">key</span> <span class="o">=</span> <span class="n">key</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">table</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">_Table</span><span class="p">,</span> <span class="n">table</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">wrapper</span> <span class="o">=</span> <span class="n">wrapper</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">event</span> <span class="o">=</span> <span class="n">event</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">table</span>  <span class="c1"># provides underlying mapping in FastUserDict</span>
+
+<div class="viewcode-block" id="WindowSet.apply"><a class="viewcode-back" href="../../../reference/faust.tables.wrappers.html#faust.WindowSet.apply">[docs]</a>    <span class="k">def</span> <span class="nf">apply</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+              <span class="n">op</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">VT</span><span class="p">,</span> <span class="n">VT</span><span class="p">],</span> <span class="n">VT</span><span class="p">],</span>
+              <span class="n">value</span><span class="p">:</span> <span class="n">VT</span><span class="p">,</span>
+              <span class="n">event</span><span class="p">:</span> <span class="n">EventT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">WindowSetT</span><span class="p">[</span><span class="n">KT</span><span class="p">,</span> <span class="n">VT</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;Apply operation to all affected windows.&quot;&quot;&quot;</span>
+        <span class="n">table</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">_Table</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">table</span><span class="p">)</span>
+        <span class="n">wrapper</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">WindowWrapper</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">wrapper</span><span class="p">)</span>
+        <span class="n">timestamp</span> <span class="o">=</span> <span class="n">wrapper</span><span class="o">.</span><span class="n">get_timestamp</span><span class="p">(</span><span class="n">event</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">event</span><span class="p">)</span>
+        <span class="n">wrapper</span><span class="o">.</span><span class="n">on_set_key</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+        <span class="n">table</span><span class="o">.</span><span class="n">_apply_window_op</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">timestamp</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+<div class="viewcode-block" id="WindowSet.value"><a class="viewcode-back" href="../../../reference/faust.tables.wrappers.html#faust.WindowSet.value">[docs]</a>    <span class="k">def</span> <span class="nf">value</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">event</span><span class="p">:</span> <span class="n">EventT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">VT</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Return current value.</span>
+
+<span class="sd">        The selected window depends on the current time-relativity</span>
+<span class="sd">        setting used (:meth:`relative_to_now`, :meth:`relative_to_stream`,</span>
+<span class="sd">        :meth:`relative_to_field`, etc.)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="n">_Table</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">table</span><span class="p">)</span><span class="o">.</span><span class="n">_windowed_timestamp</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">key</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">wrapper</span><span class="o">.</span><span class="n">get_timestamp</span><span class="p">(</span><span class="n">event</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">event</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="WindowSet.now"><a class="viewcode-back" href="../../../reference/faust.tables.wrappers.html#faust.WindowSet.now">[docs]</a>    <span class="k">def</span> <span class="nf">now</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">VT</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Return current value, using the current system time.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="n">_Table</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">table</span><span class="p">)</span><span class="o">.</span><span class="n">_windowed_now</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">key</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="WindowSet.current"><a class="viewcode-back" href="../../../reference/faust.tables.wrappers.html#faust.WindowSet.current">[docs]</a>    <span class="k">def</span> <span class="nf">current</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">event</span><span class="p">:</span> <span class="n">EventT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">VT</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Return current value, using stream time-relativity.&quot;&quot;&quot;</span>
+        <span class="n">t</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">_Table</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">table</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">t</span><span class="o">.</span><span class="n">_windowed_timestamp</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">key</span><span class="p">,</span> <span class="n">t</span><span class="o">.</span><span class="n">_relative_event</span><span class="p">(</span><span class="n">event</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">event</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="WindowSet.delta"><a class="viewcode-back" href="../../../reference/faust.tables.wrappers.html#faust.WindowSet.delta">[docs]</a>    <span class="k">def</span> <span class="nf">delta</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">d</span><span class="p">:</span> <span class="n">Seconds</span><span class="p">,</span> <span class="n">event</span><span class="p">:</span> <span class="n">EventT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">VT</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Return value as it was ±n seconds ago.&quot;&quot;&quot;</span>
+        <span class="n">table</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">_Table</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">table</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">table</span><span class="o">.</span><span class="n">_windowed_delta</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">key</span><span class="p">,</span> <span class="n">d</span><span class="p">,</span> <span class="n">event</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">event</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">__unauthorized_dict_operation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">operation</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">NoReturn</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+            <span class="n">f</span><span class="s1">&#39;Accessing </span><span class="si">{operation}</span><span class="s1"> on a WindowSet is not implemented. &#39;</span>
+            <span class="s1">&#39;Try using the underlying table directly&#39;</span><span class="p">)</span>
+
+<div class="viewcode-block" id="WindowSet.keys"><a class="viewcode-back" href="../../../reference/faust.tables.wrappers.html#faust.WindowSet.keys">[docs]</a>    <span class="k">def</span> <span class="nf">keys</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">NoReturn</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__unauthorized_dict_operation</span><span class="p">(</span><span class="s1">&#39;keys&#39;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="WindowSet.items"><a class="viewcode-back" href="../../../reference/faust.tables.wrappers.html#faust.WindowSet.items">[docs]</a>    <span class="k">def</span> <span class="nf">items</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">NoReturn</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__unauthorized_dict_operation</span><span class="p">(</span><span class="s1">&#39;items&#39;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="WindowSet.values"><a class="viewcode-back" href="../../../reference/faust.tables.wrappers.html#faust.WindowSet.values">[docs]</a>    <span class="k">def</span> <span class="nf">values</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">NoReturn</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__unauthorized_dict_operation</span><span class="p">(</span><span class="s1">&#39;values&#39;</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">w</span><span class="p">:</span> <span class="n">KT</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">VT</span><span class="p">:</span>  <span class="c1"># noqa</span>
+        <span class="c1"># wrapper[key][event] returns WindowSet with event already set.</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">EventT</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="n">VT</span><span class="p">,</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)(</span><span class="bp">self</span><span class="o">.</span><span class="n">key</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">table</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">wrapper</span><span class="p">,</span> <span class="n">w</span><span class="p">))</span>
+        <span class="c1"># wrapper[key][window_range] returns value for that range.</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">table</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">key</span><span class="p">,</span> <span class="n">w</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="nf">__setitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>  <span class="c1"># noqa</span>
+                    <span class="n">w</span><span class="p">:</span> <span class="n">KT</span><span class="p">,</span>
+                    <span class="n">value</span><span class="p">:</span> <span class="n">VT</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">EventT</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+                <span class="s1">&#39;Cannot set WindowSet key, when key is an event&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">table</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">key</span><span class="p">,</span> <span class="n">w</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">wrapper</span><span class="o">.</span><span class="n">on_set_key</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__delitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">w</span><span class="p">:</span> <span class="n">KT</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">EventT</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+                <span class="s1">&#39;Cannot delete WindowSet key, when key is an event&#39;</span><span class="p">)</span>
+        <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">table</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">key</span><span class="p">,</span> <span class="n">w</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">wrapper</span><span class="o">.</span><span class="n">on_del_key</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">key</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__iadd__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="n">VT</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">WindowSetT</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">operator</span><span class="o">.</span><span class="n">add</span><span class="p">,</span> <span class="n">other</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__isub__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="n">VT</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">WindowSetT</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">operator</span><span class="o">.</span><span class="n">sub</span><span class="p">,</span> <span class="n">other</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__imul__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="n">VT</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">WindowSetT</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">operator</span><span class="o">.</span><span class="n">mul</span><span class="p">,</span> <span class="n">other</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__itruediv__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="n">VT</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">WindowSetT</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">operator</span><span class="o">.</span><span class="n">truediv</span><span class="p">,</span> <span class="n">other</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__ifloordiv__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="n">VT</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">WindowSetT</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">operator</span><span class="o">.</span><span class="n">floordiv</span><span class="p">,</span> <span class="n">other</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__imod__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="n">VT</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">WindowSetT</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">operator</span><span class="o">.</span><span class="n">mod</span><span class="p">,</span> <span class="n">other</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__ipow__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="n">VT</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">WindowSetT</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">operator</span><span class="o">.</span><span class="n">pow</span><span class="p">,</span> <span class="n">other</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__ilshift__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="n">VT</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">WindowSetT</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">operator</span><span class="o">.</span><span class="n">lshift</span><span class="p">,</span> <span class="n">other</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__irshift__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="n">VT</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">WindowSetT</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">operator</span><span class="o">.</span><span class="n">rshift</span><span class="p">,</span> <span class="n">other</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__iand__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="n">VT</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">WindowSetT</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">operator</span><span class="o">.</span><span class="n">and_</span><span class="p">,</span> <span class="n">other</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__ixor__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="n">VT</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">WindowSetT</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">operator</span><span class="o">.</span><span class="n">xor</span><span class="p">,</span> <span class="n">other</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__ior__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="n">VT</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">WindowSetT</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">operator</span><span class="o">.</span><span class="n">or_</span><span class="p">,</span> <span class="n">other</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">f</span><span class="s1">&#39;&lt;{type(self).__name__}: table=</span><span class="si">{self.table}</span><span class="s1">&gt;&#39;</span></div>
+
+
+<div class="viewcode-block" id="WindowWrapper"><a class="viewcode-back" href="../../../reference/faust.tables.wrappers.html#faust.WindowWrapper">[docs]</a><span class="k">class</span> <span class="nc">WindowWrapper</span><span class="p">(</span><span class="n">WindowWrapperT</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Windowed table wrapper.</span>
+
+<span class="sd">    A windowed table does not return concrete values when keys are</span>
+<span class="sd">    accessed, instead :class:`WindowSet` is returned so that</span>
+<span class="sd">    the values can be further reduced to the wanted time period.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">ValueType</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">WindowSetT</span><span class="p">]]</span> <span class="o">=</span> <span class="n">WindowSet</span>
+
+    <span class="n">key_index</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">key_index_table</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">TableT</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">table</span><span class="p">:</span> <span class="n">TableT</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span>
+                 <span class="n">relative_to</span><span class="p">:</span> <span class="n">RelativeArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">key_index</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+                 <span class="n">key_index_table</span><span class="p">:</span> <span class="n">TableT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">table</span> <span class="o">=</span> <span class="n">table</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">key_index</span> <span class="o">=</span> <span class="n">key_index</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">key_index_table</span> <span class="o">=</span> <span class="n">key_index_table</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">key_index</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">key_index_table</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">key_index_table</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">table</span><span class="o">.</span><span class="n">clone</span><span class="p">(</span>
+                <span class="n">name</span><span class="o">=</span><span class="n">f</span><span class="s1">&#39;</span><span class="si">{self.table.name}</span><span class="s1">-key_index&#39;</span><span class="p">,</span>
+                <span class="n">value_type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span>
+                <span class="n">key_type</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">table</span><span class="o">.</span><span class="n">key_type</span><span class="p">,</span>
+                <span class="n">window</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_get_relative_timestamp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_relative_handler</span><span class="p">(</span><span class="n">relative_to</span><span class="p">)</span>
+
+<div class="viewcode-block" id="WindowWrapper.clone"><a class="viewcode-back" href="../../../reference/faust.tables.wrappers.html#faust.WindowWrapper.clone">[docs]</a>    <span class="k">def</span> <span class="nf">clone</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">relative_to</span><span class="p">:</span> <span class="n">RelativeArg</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">WindowWrapperT</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Clone this table using a new time-relativity configuration.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)(</span>
+            <span class="n">table</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">table</span><span class="p">,</span>
+            <span class="n">relative_to</span><span class="o">=</span><span class="n">relative_to</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_relative_timestamp</span><span class="p">,</span>
+            <span class="n">key_index</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">key_index</span><span class="p">,</span>
+            <span class="n">key_index_table</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">key_index_table</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">name</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Return the name of this table.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">table</span><span class="o">.</span><span class="n">name</span>
+
+<div class="viewcode-block" id="WindowWrapper.relative_to"><a class="viewcode-back" href="../../../reference/faust.tables.wrappers.html#faust.WindowWrapper.relative_to">[docs]</a>    <span class="k">def</span> <span class="nf">relative_to</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ts</span><span class="p">:</span> <span class="n">RelativeArg</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">WindowWrapperT</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Configure the time-relativity of this windowed table.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">clone</span><span class="p">(</span><span class="n">relative_to</span><span class="o">=</span><span class="n">ts</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="WindowWrapper.relative_to_now"><a class="viewcode-back" href="../../../reference/faust.tables.wrappers.html#faust.WindowWrapper.relative_to_now">[docs]</a>    <span class="k">def</span> <span class="nf">relative_to_now</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">WindowWrapperT</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Configure table to be time-relative to the system clock.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">clone</span><span class="p">(</span><span class="n">relative_to</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">table</span><span class="o">.</span><span class="n">_relative_now</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="WindowWrapper.relative_to_field"><a class="viewcode-back" href="../../../reference/faust.tables.wrappers.html#faust.WindowWrapper.relative_to_field">[docs]</a>    <span class="k">def</span> <span class="nf">relative_to_field</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">field</span><span class="p">:</span> <span class="n">FieldDescriptorT</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">WindowWrapperT</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Configure table to be time-relative to a field in the stream.</span>
+
+<span class="sd">        This means the window will use the timestamp</span>
+<span class="sd">        from the event currently being processed in the stream.</span>
+
+<span class="sd">        Further it will not use the timestamp of the Kafka message,</span>
+<span class="sd">        but a field in the value of the event.</span>
+
+<span class="sd">        For example a model field:</span>
+
+<span class="sd">        .. sourcecode:: python</span>
+
+<span class="sd">            class Account(faust.Record):</span>
+<span class="sd">                created: float</span>
+
+<span class="sd">            table = app.Table(&#39;foo&#39;).hopping(</span>
+<span class="sd">                ...,</span>
+<span class="sd">            ).relative_to_field(Account.created)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">clone</span><span class="p">(</span><span class="n">relative_to</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">table</span><span class="o">.</span><span class="n">_relative_field</span><span class="p">(</span><span class="n">field</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="WindowWrapper.relative_to_stream"><a class="viewcode-back" href="../../../reference/faust.tables.wrappers.html#faust.WindowWrapper.relative_to_stream">[docs]</a>    <span class="k">def</span> <span class="nf">relative_to_stream</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">WindowWrapperT</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Configure table to be time-relative to the stream.</span>
+
+<span class="sd">        This means the window will use the timestamp</span>
+<span class="sd">        from the event currently being processed in the stream.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">clone</span><span class="p">(</span><span class="n">relative_to</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">table</span><span class="o">.</span><span class="n">_relative_event</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="WindowWrapper.get_timestamp"><a class="viewcode-back" href="../../../reference/faust.tables.wrappers.html#faust.WindowWrapper.get_timestamp">[docs]</a>    <span class="k">def</span> <span class="nf">get_timestamp</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">event</span><span class="p">:</span> <span class="n">EventT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Get timestamp from event.&quot;&quot;&quot;</span>
+        <span class="n">event</span> <span class="o">=</span> <span class="n">event</span> <span class="ow">or</span> <span class="n">current_event</span><span class="p">()</span>
+        <span class="n">get_relative_timestamp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_relative_timestamp</span>
+        <span class="k">if</span> <span class="n">get_relative_timestamp</span><span class="p">:</span>
+            <span class="n">timestamp</span> <span class="o">=</span> <span class="n">get_relative_timestamp</span><span class="p">(</span><span class="n">event</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">timestamp</span><span class="p">,</span> <span class="n">datetime</span><span class="p">):</span>
+                <span class="k">return</span> <span class="n">timestamp</span><span class="o">.</span><span class="n">timestamp</span><span class="p">()</span>
+            <span class="k">return</span> <span class="n">timestamp</span>
+        <span class="k">if</span> <span class="n">event</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s1">&#39;Operation outside of stream iteration&#39;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">event</span><span class="o">.</span><span class="n">message</span><span class="o">.</span><span class="n">timestamp</span></div>
+
+<div class="viewcode-block" id="WindowWrapper.on_recover"><a class="viewcode-back" href="../../../reference/faust.tables.wrappers.html#faust.WindowWrapper.on_recover">[docs]</a>    <span class="k">def</span> <span class="nf">on_recover</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fun</span><span class="p">:</span> <span class="n">RecoverCallback</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RecoverCallback</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Call after table recovery.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">table</span><span class="o">.</span><span class="n">on_recover</span><span class="p">(</span><span class="n">fun</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">__contains__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">table</span><span class="o">.</span><span class="n">_windowed_contains</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_timestamp</span><span class="p">())</span>
+
+    <span class="k">def</span> <span class="nf">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">WindowSetT</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">ValueType</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">table</span><span class="p">,</span> <span class="bp">self</span><span class="p">,</span> <span class="n">current_event</span><span class="p">())</span>
+
+    <span class="k">def</span> <span class="nf">__setitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">WindowSetT</span><span class="p">):</span>
+            <span class="n">table</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">_Table</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">table</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">on_set_key</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+            <span class="n">table</span><span class="o">.</span><span class="n">_set_windowed</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_timestamp</span><span class="p">())</span>
+
+<div class="viewcode-block" id="WindowWrapper.on_set_key"><a class="viewcode-back" href="../../../reference/faust.tables.wrappers.html#faust.WindowWrapper.on_set_key">[docs]</a>    <span class="k">def</span> <span class="nf">on_set_key</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Call when the value for a key in this table is set.&quot;&quot;&quot;</span>
+        <span class="n">key_index_table</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">key_index_table</span>
+        <span class="k">if</span> <span class="n">key_index_table</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">key_index_table</span><span class="p">:</span>
+                <span class="n">key_index_table</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span></div>
+
+<div class="viewcode-block" id="WindowWrapper.on_del_key"><a class="viewcode-back" href="../../../reference/faust.tables.wrappers.html#faust.WindowWrapper.on_del_key">[docs]</a>    <span class="k">def</span> <span class="nf">on_del_key</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Call when a key is deleted from this table.&quot;&quot;&quot;</span>
+        <span class="n">key_index_table</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">key_index_table</span>
+        <span class="k">if</span> <span class="n">key_index_table</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">key_index_table</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">__delitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">on_del_key</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+        <span class="n">cast</span><span class="p">(</span><span class="n">_Table</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">table</span><span class="p">)</span><span class="o">.</span><span class="n">_del_windowed</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_timestamp</span><span class="p">())</span>
+
+    <span class="k">def</span> <span class="nf">__len__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">key_index_table</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">key_index_table</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+            <span class="s1">&#39;Windowed table must use_index=True to support len()&#39;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_relative_handler</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span> <span class="n">relative_to</span><span class="p">:</span> <span class="n">RelativeArg</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">RelativeHandler</span><span class="p">]:</span>
+        <span class="k">if</span> <span class="n">relative_to</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">relative_to</span><span class="p">,</span> <span class="n">datetime</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">table</span><span class="o">.</span><span class="n">_relative_timestamp</span><span class="p">(</span><span class="n">relative_to</span><span class="o">.</span><span class="n">timestamp</span><span class="p">())</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">relative_to</span><span class="p">,</span> <span class="nb">float</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">table</span><span class="o">.</span><span class="n">_relative_timestamp</span><span class="p">(</span><span class="n">relative_to</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">relative_to</span><span class="p">,</span> <span class="n">FieldDescriptorT</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">table</span><span class="o">.</span><span class="n">_relative_field</span><span class="p">(</span><span class="n">relative_to</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">callable</span><span class="p">(</span><span class="n">relative_to</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">relative_to</span>
+        <span class="k">raise</span> <span class="n">ImproperlyConfigured</span><span class="p">(</span>
+            <span class="n">f</span><span class="s1">&#39;Relative cannot be type {type(relative_to)}&#39;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_keys</span><span class="p">()</span>
+
+<div class="viewcode-block" id="WindowWrapper.keys"><a class="viewcode-back" href="../../../reference/faust.tables.wrappers.html#faust.WindowWrapper.keys">[docs]</a>    <span class="k">def</span> <span class="nf">keys</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">KeysView</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Return table keys view: iterate over keys found in this table.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">WindowedKeysView</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_keys</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">:</span>
+        <span class="n">key_index_table</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">key_index_table</span>
+        <span class="k">if</span> <span class="n">key_index_table</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">key_index_table</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                <span class="k">yield</span> <span class="n">key</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+                <span class="s1">&#39;Windowed table must set use_index=True to &#39;</span>
+                <span class="s1">&#39;support .keys/.items/.values&#39;</span><span class="p">)</span>
+
+<div class="viewcode-block" id="WindowWrapper.values"><a class="viewcode-back" href="../../../reference/faust.tables.wrappers.html#faust.WindowWrapper.values">[docs]</a>    <span class="k">def</span> <span class="nf">values</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">event</span><span class="p">:</span> <span class="n">EventT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ValuesView</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Return table values view: iterate over values in this table.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">WindowedValuesView</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">event</span> <span class="ow">or</span> <span class="n">current_event</span><span class="p">())</span></div>
+
+<div class="viewcode-block" id="WindowWrapper.items"><a class="viewcode-back" href="../../../reference/faust.tables.wrappers.html#faust.WindowWrapper.items">[docs]</a>    <span class="k">def</span> <span class="nf">items</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">event</span><span class="p">:</span> <span class="n">EventT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ItemsView</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Return table items view: iterate over ``(key, value)`` pairs.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">WindowedItemsView</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">event</span> <span class="ow">or</span> <span class="n">current_event</span><span class="p">())</span></div>
+
+    <span class="k">def</span> <span class="nf">_items</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">event</span><span class="p">:</span> <span class="n">EventT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
+        <span class="n">table</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">_Table</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">table</span><span class="p">)</span>
+        <span class="n">timestamp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_timestamp</span><span class="p">(</span><span class="n">event</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_keys</span><span class="p">():</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">yield</span> <span class="n">key</span><span class="p">,</span> <span class="n">table</span><span class="o">.</span><span class="n">_windowed_timestamp</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">timestamp</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+                <span class="k">pass</span>
+
+    <span class="k">def</span> <span class="nf">_items_now</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
+        <span class="n">table</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">_Table</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">table</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_keys</span><span class="p">():</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">yield</span> <span class="n">key</span><span class="p">,</span> <span class="n">table</span><span class="o">.</span><span class="n">_windowed_now</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+                <span class="k">pass</span>
+
+    <span class="k">def</span> <span class="nf">_items_current</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span> <span class="n">event</span><span class="p">:</span> <span class="n">EventT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
+        <span class="n">table</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">_Table</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">table</span><span class="p">)</span>
+        <span class="n">timestamp</span> <span class="o">=</span> <span class="n">table</span><span class="o">.</span><span class="n">_relative_event</span><span class="p">(</span><span class="n">event</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_keys</span><span class="p">():</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">yield</span> <span class="n">key</span><span class="p">,</span> <span class="n">table</span><span class="o">.</span><span class="n">_windowed_timestamp</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">timestamp</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+                <span class="k">pass</span>
+
+    <span class="k">def</span> <span class="nf">_items_delta</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">d</span><span class="p">:</span> <span class="n">Seconds</span><span class="p">,</span>
+                     <span class="n">event</span><span class="p">:</span> <span class="n">EventT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
+        <span class="n">table</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">_Table</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">table</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_keys</span><span class="p">():</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">yield</span> <span class="n">key</span><span class="p">,</span> <span class="n">table</span><span class="o">.</span><span class="n">_windowed_delta</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">d</span><span class="p">,</span> <span class="n">event</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+                <span class="k">pass</span>
+
+<div class="viewcode-block" id="WindowWrapper.as_ansitable"><a class="viewcode-back" href="../../../reference/faust.tables.wrappers.html#faust.WindowWrapper.as_ansitable">[docs]</a>    <span class="k">def</span> <span class="nf">as_ansitable</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">title</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;</span><span class="si">{table.name}</span><span class="s1">&#39;</span><span class="p">,</span>
+                     <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Draw table as a terminal ANSI table.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">dict_as_ansitable</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">title</span><span class="o">=</span><span class="n">title</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">table</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">table</span><span class="p">),</span>
+            <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">get_relative_timestamp</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">RelativeHandler</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;Return the current handler for extracting event timestamp.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_relative_timestamp</span>
+
+    <span class="nd">@get_relative_timestamp</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">get_relative_timestamp</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">relative_to</span><span class="p">:</span> <span class="n">RelativeArg</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_get_relative_timestamp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_relative_handler</span><span class="p">(</span><span class="n">relative_to</span><span class="p">)</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../../index.html">
+              <img class="logo" src="../../../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../../../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../playbooks/index.html">Playbooks</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../userguide/index.html">User Guide</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../reference/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../history/index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2020, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

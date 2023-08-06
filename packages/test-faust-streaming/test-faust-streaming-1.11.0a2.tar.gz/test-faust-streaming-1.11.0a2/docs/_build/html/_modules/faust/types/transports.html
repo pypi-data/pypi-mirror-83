@@ -1,0 +1,657 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>faust.types.transports &#8212; Faust 1.11.0a1 documentation</title>
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../../../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <link rel="copyright" title="Copyright" href="../../../copyright.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for faust.types.transports</h1><div class="highlight"><pre>
+<span></span><span class="c1"># App.transport creates Kafka consumer and producer.</span>
+<span class="kn">import</span> <span class="nn">abc</span>
+<span class="kn">import</span> <span class="nn">asyncio</span>
+<span class="kn">import</span> <span class="nn">ssl</span>
+<span class="kn">import</span> <span class="nn">typing</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">AbstractSet</span><span class="p">,</span>
+    <span class="n">Any</span><span class="p">,</span>
+    <span class="n">AsyncIterator</span><span class="p">,</span>
+    <span class="n">Awaitable</span><span class="p">,</span>
+    <span class="n">Callable</span><span class="p">,</span>
+    <span class="n">ClassVar</span><span class="p">,</span>
+    <span class="n">Iterable</span><span class="p">,</span>
+    <span class="n">Iterator</span><span class="p">,</span>
+    <span class="n">List</span><span class="p">,</span>
+    <span class="n">Mapping</span><span class="p">,</span>
+    <span class="n">MutableSet</span><span class="p">,</span>
+    <span class="n">Optional</span><span class="p">,</span>
+    <span class="n">Sequence</span><span class="p">,</span>
+    <span class="n">Set</span><span class="p">,</span>
+    <span class="n">Tuple</span><span class="p">,</span>
+    <span class="n">Type</span><span class="p">,</span>
+    <span class="n">Union</span><span class="p">,</span>
+    <span class="n">no_type_check</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="kn">from</span> <span class="nn">mode</span> <span class="k">import</span> <span class="n">Seconds</span><span class="p">,</span> <span class="n">ServiceT</span>
+<span class="kn">from</span> <span class="nn">yarl</span> <span class="k">import</span> <span class="n">URL</span>
+
+<span class="kn">from</span> <span class="nn">.core</span> <span class="k">import</span> <span class="n">HeadersArg</span>
+<span class="kn">from</span> <span class="nn">.topics</span> <span class="k">import</span> <span class="n">TopicT</span>
+<span class="kn">from</span> <span class="nn">.tuples</span> <span class="k">import</span> <span class="n">FutureMessage</span><span class="p">,</span> <span class="n">Message</span><span class="p">,</span> <span class="n">RecordMetadata</span><span class="p">,</span> <span class="n">TP</span>
+
+<span class="k">if</span> <span class="n">typing</span><span class="o">.</span><span class="n">TYPE_CHECKING</span><span class="p">:</span>
+    <span class="kn">from</span> <span class="nn">.app</span> <span class="k">import</span> <span class="n">AppT</span> <span class="k">as</span> <span class="n">_AppT</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="k">class</span> <span class="nc">_AppT</span><span class="p">:</span> <span class="o">...</span>  <span class="c1"># noqa</span>
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="s1">&#39;ConsumerCallback&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;TPorTopicSet&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;PartitionsRevokedCallback&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;PartitionsAssignedCallback&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;PartitionerT&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;ConsumerT&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;ProducerT&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;ConductorT&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;TransactionManagerT&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;TransportT&#39;</span><span class="p">,</span>
+<span class="p">]</span>
+
+<span class="c1">#: Callback called by :class:`faust.transport.base.Consumer` whenever</span>
+<span class="c1">#: a message is received.</span>
+<span class="n">ConsumerCallback</span> <span class="o">=</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">Message</span><span class="p">],</span> <span class="n">Awaitable</span><span class="p">]</span>
+
+<span class="c1">#: Argument to Consumer.commit to specify topics/tps to commit.</span>
+<span class="n">TPorTopic</span> <span class="o">=</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">TP</span><span class="p">]</span>
+<span class="n">TPorTopicSet</span> <span class="o">=</span> <span class="n">AbstractSet</span><span class="p">[</span><span class="n">TPorTopic</span><span class="p">]</span>
+
+<span class="c1">#: Callback (:keyword:`async def`) called when consumer partitions are revoked.</span>
+<span class="n">PartitionsRevokedCallback</span> <span class="o">=</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">Set</span><span class="p">[</span><span class="n">TP</span><span class="p">]],</span> <span class="n">Awaitable</span><span class="p">[</span><span class="kc">None</span><span class="p">]]</span>
+
+<span class="c1">#: Callback (:keyword:`async def`) called when consumer</span>
+<span class="c1">#: partitions are assigned.</span>
+<span class="n">PartitionsAssignedCallback</span> <span class="o">=</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">Set</span><span class="p">[</span><span class="n">TP</span><span class="p">]],</span> <span class="n">Awaitable</span><span class="p">[</span><span class="kc">None</span><span class="p">]]</span>
+
+<span class="n">PartitionerT</span> <span class="o">=</span> <span class="n">Callable</span><span class="p">[</span>
+    <span class="p">[</span><span class="n">Optional</span><span class="p">[</span><span class="nb">bytes</span><span class="p">],</span>   <span class="c1"># key to hash (or None)</span>
+     <span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>     <span class="c1"># all partitions</span>
+     <span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">]],</span>    <span class="c1"># available partitions</span>
+    <span class="nb">int</span><span class="p">,</span>
+<span class="p">]</span>
+
+
+<span class="k">class</span> <span class="nc">ProducerBufferT</span><span class="p">(</span><span class="n">ServiceT</span><span class="p">):</span>
+
+    <span class="n">max_messages</span><span class="p">:</span> <span class="nb">int</span>
+
+    <span class="n">pending</span><span class="p">:</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">Queue</span>
+
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">put</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fut</span><span class="p">:</span> <span class="n">FutureMessage</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span>
+
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">flush</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span>
+
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">flush_atmost</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="o">...</span>
+
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">wait_until_ebb</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span>
+
+    <span class="nd">@property</span>
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">size</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="o">...</span>
+
+
+<div class="viewcode-block" id="ProducerT"><a class="viewcode-back" href="../../../reference/faust.types.transports.html#faust.types.transports.ProducerT">[docs]</a><span class="k">class</span> <span class="nc">ProducerT</span><span class="p">(</span><span class="n">ServiceT</span><span class="p">):</span>
+
+    <span class="c1">#: The transport that created this Producer.</span>
+    <span class="n">transport</span><span class="p">:</span> <span class="s1">&#39;TransportT&#39;</span>
+
+    <span class="n">buffer</span><span class="p">:</span> <span class="n">ProducerBufferT</span>
+
+    <span class="n">client_id</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">linger_ms</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">max_batch_size</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">acks</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">max_request_size</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">compression_type</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
+    <span class="n">ssl_context</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">ssl</span><span class="o">.</span><span class="n">SSLContext</span><span class="p">]</span>
+    <span class="n">partitioner</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">PartitionerT</span><span class="p">]</span>
+    <span class="n">request_timeout</span><span class="p">:</span> <span class="nb">float</span>
+
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">transport</span><span class="p">:</span> <span class="s1">&#39;TransportT&#39;</span><span class="p">,</span>
+                 <span class="n">loop</span><span class="p">:</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">AbstractEventLoop</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span>
+
+<div class="viewcode-block" id="ProducerT.send"><a class="viewcode-back" href="../../../reference/faust.types.transports.html#faust.types.transports.ProducerT.send">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">send</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">topic</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bytes</span><span class="p">],</span>
+                   <span class="n">value</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bytes</span><span class="p">],</span>
+                   <span class="n">partition</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
+                   <span class="n">timestamp</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span>
+                   <span class="n">headers</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">HeadersArg</span><span class="p">],</span>
+                   <span class="o">*</span><span class="p">,</span>
+                   <span class="n">transactional_id</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Awaitable</span><span class="p">[</span><span class="n">RecordMetadata</span><span class="p">]:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="ProducerT.send_soon"><a class="viewcode-back" href="../../../reference/faust.types.transports.html#faust.types.transports.ProducerT.send_soon">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">send_soon</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fut</span><span class="p">:</span> <span class="n">FutureMessage</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="ProducerT.send_and_wait"><a class="viewcode-back" href="../../../reference/faust.types.transports.html#faust.types.transports.ProducerT.send_and_wait">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">send_and_wait</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">topic</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bytes</span><span class="p">],</span>
+                            <span class="n">value</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bytes</span><span class="p">],</span>
+                            <span class="n">partition</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
+                            <span class="n">timestamp</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span>
+                            <span class="n">headers</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">HeadersArg</span><span class="p">],</span>
+                            <span class="o">*</span><span class="p">,</span>
+                            <span class="n">transactional_id</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RecordMetadata</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="ProducerT.create_topic"><a class="viewcode-back" href="../../../reference/faust.types.transports.html#faust.types.transports.ProducerT.create_topic">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">create_topic</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                           <span class="n">topic</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+                           <span class="n">partitions</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+                           <span class="n">replication</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+                           <span class="o">*</span><span class="p">,</span>
+                           <span class="n">config</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                           <span class="n">timeout</span><span class="p">:</span> <span class="n">Seconds</span> <span class="o">=</span> <span class="mf">1000.0</span><span class="p">,</span>
+                           <span class="n">retention</span><span class="p">:</span> <span class="n">Seconds</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                           <span class="n">compacting</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                           <span class="n">deleting</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                           <span class="n">ensure_created</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="ProducerT.key_partition"><a class="viewcode-back" href="../../../reference/faust.types.transports.html#faust.types.transports.ProducerT.key_partition">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">key_partition</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">topic</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TP</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="ProducerT.flush"><a class="viewcode-back" href="../../../reference/faust.types.transports.html#faust.types.transports.ProducerT.flush">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">flush</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="ProducerT.begin_transaction"><a class="viewcode-back" href="../../../reference/faust.types.transports.html#faust.types.transports.ProducerT.begin_transaction">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">begin_transaction</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">transactional_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="ProducerT.commit_transaction"><a class="viewcode-back" href="../../../reference/faust.types.transports.html#faust.types.transports.ProducerT.commit_transaction">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">commit_transaction</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">transactional_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="ProducerT.abort_transaction"><a class="viewcode-back" href="../../../reference/faust.types.transports.html#faust.types.transports.ProducerT.abort_transaction">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">abort_transaction</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">transactional_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="ProducerT.stop_transaction"><a class="viewcode-back" href="../../../reference/faust.types.transports.html#faust.types.transports.ProducerT.stop_transaction">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">stop_transaction</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">transactional_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="ProducerT.maybe_begin_transaction"><a class="viewcode-back" href="../../../reference/faust.types.transports.html#faust.types.transports.ProducerT.maybe_begin_transaction">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">maybe_begin_transaction</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">transactional_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="ProducerT.commit_transactions"><a class="viewcode-back" href="../../../reference/faust.types.transports.html#faust.types.transports.ProducerT.commit_transactions">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">commit_transactions</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">tid_to_offset_map</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">[</span><span class="n">TP</span><span class="p">,</span> <span class="nb">int</span><span class="p">]],</span>
+            <span class="n">group_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+            <span class="n">start_new_transaction</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="ProducerT.supports_headers"><a class="viewcode-back" href="../../../reference/faust.types.transports.html#faust.types.transports.ProducerT.supports_headers">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">supports_headers</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="o">...</span></div></div>
+
+
+<div class="viewcode-block" id="TransactionManagerT"><a class="viewcode-back" href="../../../reference/faust.types.transports.html#faust.types.transports.TransactionManagerT">[docs]</a><span class="k">class</span> <span class="nc">TransactionManagerT</span><span class="p">(</span><span class="n">ProducerT</span><span class="p">):</span>
+    <span class="n">consumer</span><span class="p">:</span> <span class="s1">&#39;ConsumerT&#39;</span>
+    <span class="n">producer</span><span class="p">:</span> <span class="s1">&#39;ProducerT&#39;</span>
+
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                 <span class="n">transport</span><span class="p">:</span> <span class="s1">&#39;TransportT&#39;</span><span class="p">,</span>
+                 <span class="n">loop</span><span class="p">:</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">AbstractEventLoop</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="o">*</span><span class="p">,</span>
+                 <span class="n">consumer</span><span class="p">:</span> <span class="s1">&#39;ConsumerT&#39;</span><span class="p">,</span>
+                 <span class="n">producer</span><span class="p">:</span> <span class="s1">&#39;ProducerT&#39;</span><span class="p">,</span>
+                 <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span>
+
+<div class="viewcode-block" id="TransactionManagerT.on_partitions_revoked"><a class="viewcode-back" href="../../../reference/faust.types.transports.html#faust.types.transports.TransactionManagerT.on_partitions_revoked">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">on_partitions_revoked</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">revoked</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="n">TP</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="TransactionManagerT.on_rebalance"><a class="viewcode-back" href="../../../reference/faust.types.transports.html#faust.types.transports.TransactionManagerT.on_rebalance">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">on_rebalance</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                           <span class="n">assigned</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="n">TP</span><span class="p">],</span>
+                           <span class="n">revoked</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="n">TP</span><span class="p">],</span>
+                           <span class="n">newly_assigned</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="n">TP</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="TransactionManagerT.commit"><a class="viewcode-back" href="../../../reference/faust.types.transports.html#faust.types.transports.TransactionManagerT.commit">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">commit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">offsets</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="n">TP</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span>
+                     <span class="n">start_new_transaction</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="TransactionManagerT.begin_transaction"><a class="viewcode-back" href="../../../reference/faust.types.transports.html#faust.types.transports.TransactionManagerT.begin_transaction">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">begin_transaction</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">transactional_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="TransactionManagerT.commit_transaction"><a class="viewcode-back" href="../../../reference/faust.types.transports.html#faust.types.transports.TransactionManagerT.commit_transaction">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">commit_transaction</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">transactional_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="TransactionManagerT.abort_transaction"><a class="viewcode-back" href="../../../reference/faust.types.transports.html#faust.types.transports.TransactionManagerT.abort_transaction">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">abort_transaction</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">transactional_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="TransactionManagerT.stop_transaction"><a class="viewcode-back" href="../../../reference/faust.types.transports.html#faust.types.transports.TransactionManagerT.stop_transaction">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">stop_transaction</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">transactional_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="TransactionManagerT.maybe_begin_transaction"><a class="viewcode-back" href="../../../reference/faust.types.transports.html#faust.types.transports.TransactionManagerT.maybe_begin_transaction">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">maybe_begin_transaction</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">transactional_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="TransactionManagerT.commit_transactions"><a class="viewcode-back" href="../../../reference/faust.types.transports.html#faust.types.transports.TransactionManagerT.commit_transactions">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">commit_transactions</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">tid_to_offset_map</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">[</span><span class="n">TP</span><span class="p">,</span> <span class="nb">int</span><span class="p">]],</span>
+            <span class="n">group_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+            <span class="n">start_new_transaction</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div></div>
+
+
+<span class="k">class</span> <span class="nc">SchedulingStrategyT</span><span class="p">:</span>
+
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span>
+
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">iterate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">records</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="n">TP</span><span class="p">,</span> <span class="n">List</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">TP</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
+        <span class="o">...</span>
+
+
+<div class="viewcode-block" id="ConsumerT"><a class="viewcode-back" href="../../../reference/faust.types.transports.html#faust.types.transports.ConsumerT">[docs]</a><span class="k">class</span> <span class="nc">ConsumerT</span><span class="p">(</span><span class="n">ServiceT</span><span class="p">):</span>
+
+    <span class="c1">#: The transport that created this Consumer.</span>
+    <span class="n">transport</span><span class="p">:</span> <span class="s1">&#39;TransportT&#39;</span>
+
+    <span class="n">transactions</span><span class="p">:</span> <span class="n">TransactionManagerT</span>
+
+    <span class="c1">#: How often we commit topic offsets.</span>
+    <span class="c1">#: See :setting:`broker_commit_interval`.</span>
+    <span class="n">commit_interval</span><span class="p">:</span> <span class="nb">float</span>
+
+    <span class="c1">#: Set of topic names that are considered &quot;randomly assigned&quot;.</span>
+    <span class="c1">#: This means we don&#39;t crash if it&#39;s not part of our assignment.</span>
+    <span class="c1">#: Used by e.g. the leader assignor service.</span>
+    <span class="n">randomly_assigned_topics</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
+
+    <span class="n">in_transaction</span><span class="p">:</span> <span class="nb">bool</span>
+
+    <span class="n">scheduler</span><span class="p">:</span> <span class="n">SchedulingStrategyT</span>
+
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                 <span class="n">transport</span><span class="p">:</span> <span class="s1">&#39;TransportT&#39;</span><span class="p">,</span>
+                 <span class="n">callback</span><span class="p">:</span> <span class="n">ConsumerCallback</span><span class="p">,</span>
+                 <span class="n">on_partitions_revoked</span><span class="p">:</span> <span class="n">PartitionsRevokedCallback</span><span class="p">,</span>
+                 <span class="n">on_partitions_assigned</span><span class="p">:</span> <span class="n">PartitionsAssignedCallback</span><span class="p">,</span>
+                 <span class="o">*</span><span class="p">,</span>
+                 <span class="n">commit_interval</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">loop</span><span class="p">:</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">AbstractEventLoop</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_on_partitions_revoked</span><span class="p">:</span> <span class="n">PartitionsRevokedCallback</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_on_partitions_assigned</span><span class="p">:</span> <span class="n">PartitionsAssignedCallback</span>
+
+<div class="viewcode-block" id="ConsumerT.create_topic"><a class="viewcode-back" href="../../../reference/faust.types.transports.html#faust.types.transports.ConsumerT.create_topic">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">create_topic</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                           <span class="n">topic</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+                           <span class="n">partitions</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+                           <span class="n">replication</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+                           <span class="o">*</span><span class="p">,</span>
+                           <span class="n">config</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                           <span class="n">timeout</span><span class="p">:</span> <span class="n">Seconds</span> <span class="o">=</span> <span class="mf">1000.0</span><span class="p">,</span>
+                           <span class="n">retention</span><span class="p">:</span> <span class="n">Seconds</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                           <span class="n">compacting</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                           <span class="n">deleting</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                           <span class="n">ensure_created</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="ConsumerT.subscribe"><a class="viewcode-back" href="../../../reference/faust.types.transports.html#faust.types.transports.ConsumerT.subscribe">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">subscribe</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">topics</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="ConsumerT.getmany"><a class="viewcode-back" href="../../../reference/faust.types.transports.html#faust.types.transports.ConsumerT.getmany">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="nd">@no_type_check</span>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">getmany</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                      <span class="n">timeout</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AsyncIterator</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">TP</span><span class="p">,</span> <span class="n">Message</span><span class="p">]]:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="ConsumerT.track_message"><a class="viewcode-back" href="../../../reference/faust.types.transports.html#faust.types.transports.ConsumerT.track_message">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">track_message</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="p">:</span> <span class="n">Message</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="ConsumerT.perform_seek"><a class="viewcode-back" href="../../../reference/faust.types.transports.html#faust.types.transports.ConsumerT.perform_seek">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">perform_seek</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="ConsumerT.ack"><a class="viewcode-back" href="../../../reference/faust.types.transports.html#faust.types.transports.ConsumerT.ack">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">ack</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="p">:</span> <span class="n">Message</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="ConsumerT.wait_empty"><a class="viewcode-back" href="../../../reference/faust.types.transports.html#faust.types.transports.ConsumerT.wait_empty">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">wait_empty</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="ConsumerT.assignment"><a class="viewcode-back" href="../../../reference/faust.types.transports.html#faust.types.transports.ConsumerT.assignment">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">assignment</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Set</span><span class="p">[</span><span class="n">TP</span><span class="p">]:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="ConsumerT.highwater"><a class="viewcode-back" href="../../../reference/faust.types.transports.html#faust.types.transports.ConsumerT.highwater">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">highwater</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tp</span><span class="p">:</span> <span class="n">TP</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="ConsumerT.stop_flow"><a class="viewcode-back" href="../../../reference/faust.types.transports.html#faust.types.transports.ConsumerT.stop_flow">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">stop_flow</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="ConsumerT.resume_flow"><a class="viewcode-back" href="../../../reference/faust.types.transports.html#faust.types.transports.ConsumerT.resume_flow">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">resume_flow</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="ConsumerT.pause_partitions"><a class="viewcode-back" href="../../../reference/faust.types.transports.html#faust.types.transports.ConsumerT.pause_partitions">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">pause_partitions</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tps</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">TP</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="ConsumerT.resume_partitions"><a class="viewcode-back" href="../../../reference/faust.types.transports.html#faust.types.transports.ConsumerT.resume_partitions">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">resume_partitions</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tps</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">TP</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="ConsumerT.position"><a class="viewcode-back" href="../../../reference/faust.types.transports.html#faust.types.transports.ConsumerT.position">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">position</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tp</span><span class="p">:</span> <span class="n">TP</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="ConsumerT.seek"><a class="viewcode-back" href="../../../reference/faust.types.transports.html#faust.types.transports.ConsumerT.seek">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">seek</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">partition</span><span class="p">:</span> <span class="n">TP</span><span class="p">,</span> <span class="n">offset</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="ConsumerT.seek_wait"><a class="viewcode-back" href="../../../reference/faust.types.transports.html#faust.types.transports.ConsumerT.seek_wait">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">seek_wait</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">partitions</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="n">TP</span><span class="p">,</span> <span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="ConsumerT.commit"><a class="viewcode-back" href="../../../reference/faust.types.transports.html#faust.types.transports.ConsumerT.commit">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">commit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                     <span class="n">topics</span><span class="p">:</span> <span class="n">TPorTopicSet</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                     <span class="n">start_new_transaction</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="ConsumerT.on_task_error"><a class="viewcode-back" href="../../../reference/faust.types.transports.html#faust.types.transports.ConsumerT.on_task_error">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">on_task_error</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">exc</span><span class="p">:</span> <span class="ne">BaseException</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="ConsumerT.earliest_offsets"><a class="viewcode-back" href="../../../reference/faust.types.transports.html#faust.types.transports.ConsumerT.earliest_offsets">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">earliest_offsets</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">partitions</span><span class="p">:</span> <span class="n">TP</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Mapping</span><span class="p">[</span><span class="n">TP</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="ConsumerT.highwaters"><a class="viewcode-back" href="../../../reference/faust.types.transports.html#faust.types.transports.ConsumerT.highwaters">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">highwaters</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">partitions</span><span class="p">:</span> <span class="n">TP</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Mapping</span><span class="p">[</span><span class="n">TP</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="ConsumerT.topic_partitions"><a class="viewcode-back" href="../../../reference/faust.types.transports.html#faust.types.transports.ConsumerT.topic_partitions">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">topic_partitions</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">topic</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="ConsumerT.key_partition"><a class="viewcode-back" href="../../../reference/faust.types.transports.html#faust.types.transports.ConsumerT.key_partition">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">key_partition</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                      <span class="n">topic</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+                      <span class="n">key</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bytes</span><span class="p">],</span>
+                      <span class="n">partition</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="ConsumerT.close"><a class="viewcode-back" href="../../../reference/faust.types.transports.html#faust.types.transports.ConsumerT.close">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">close</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="ConsumerT.verify_recovery_event_path"><a class="viewcode-back" href="../../../reference/faust.types.transports.html#faust.types.transports.ConsumerT.verify_recovery_event_path">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">verify_recovery_event_path</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">now</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">tp</span><span class="p">:</span> <span class="n">TP</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+    <span class="nd">@property</span>
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">unacked</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Set</span><span class="p">[</span><span class="n">Message</span><span class="p">]:</span>
+        <span class="o">...</span></div>
+
+
+<div class="viewcode-block" id="ConductorT"><a class="viewcode-back" href="../../../reference/faust.types.transports.html#faust.types.transports.ConductorT">[docs]</a><span class="k">class</span> <span class="nc">ConductorT</span><span class="p">(</span><span class="n">ServiceT</span><span class="p">,</span> <span class="n">MutableSet</span><span class="p">[</span><span class="n">TopicT</span><span class="p">]):</span>
+
+    <span class="c1"># The topic conductor delegates messages from the Consumer</span>
+    <span class="c1"># to the various Topic instances subscribed to a topic.</span>
+
+    <span class="n">app</span><span class="p">:</span> <span class="n">_AppT</span>
+
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">app</span><span class="p">:</span> <span class="n">_AppT</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">on_message</span><span class="p">:</span> <span class="n">ConsumerCallback</span>
+
+<div class="viewcode-block" id="ConductorT.on_client_only_start"><a class="viewcode-back" href="../../../reference/faust.types.transports.html#faust.types.transports.ConductorT.on_client_only_start">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">on_client_only_start</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="ConductorT.acks_enabled_for"><a class="viewcode-back" href="../../../reference/faust.types.transports.html#faust.types.transports.ConductorT.acks_enabled_for">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">acks_enabled_for</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">topic</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="ConductorT.commit"><a class="viewcode-back" href="../../../reference/faust.types.transports.html#faust.types.transports.ConductorT.commit">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">commit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">topics</span><span class="p">:</span> <span class="n">TPorTopicSet</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="ConductorT.wait_for_subscriptions"><a class="viewcode-back" href="../../../reference/faust.types.transports.html#faust.types.transports.ConductorT.wait_for_subscriptions">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">wait_for_subscriptions</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="ConductorT.maybe_wait_for_subscriptions"><a class="viewcode-back" href="../../../reference/faust.types.transports.html#faust.types.transports.ConductorT.maybe_wait_for_subscriptions">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">maybe_wait_for_subscriptions</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="ConductorT.on_partitions_assigned"><a class="viewcode-back" href="../../../reference/faust.types.transports.html#faust.types.transports.ConductorT.on_partitions_assigned">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">on_partitions_assigned</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">assigned</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="n">TP</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+    <span class="nd">@property</span>
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">acking_topics</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Set</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+        <span class="o">...</span></div>
+
+
+<div class="viewcode-block" id="TransportT"><a class="viewcode-back" href="../../../reference/faust.types.transports.html#faust.types.transports.TransportT">[docs]</a><span class="k">class</span> <span class="nc">TransportT</span><span class="p">(</span><span class="n">abc</span><span class="o">.</span><span class="n">ABC</span><span class="p">):</span>
+
+    <span class="c1">#: The Consumer class used for this type of transport.</span>
+    <span class="n">Consumer</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">ConsumerT</span><span class="p">]]</span>
+
+    <span class="c1">#: The Producer class used for this type of transport.</span>
+    <span class="n">Producer</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">ProducerT</span><span class="p">]]</span>
+
+    <span class="c1">#: The TransactionManager class used for managing multiple transactions.</span>
+    <span class="n">TransactionManager</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">TransactionManagerT</span><span class="p">]]</span>
+
+    <span class="c1">#: The Conductor class used to delegate messages from Consumer to streams.</span>
+    <span class="n">Conductor</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">ConductorT</span><span class="p">]]</span>
+
+    <span class="c1">#: The Fetcher service used for this type of transport.</span>
+    <span class="n">Fetcher</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">ServiceT</span><span class="p">]]</span>
+
+    <span class="c1">#: The :class:`faust.App` that created this transport.</span>
+    <span class="n">app</span><span class="p">:</span> <span class="n">_AppT</span>
+
+    <span class="c1">#: The URL to use for this transport (e.g. kafka://localhost).</span>
+    <span class="n">url</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">URL</span><span class="p">]</span>
+
+    <span class="c1">#: String identifying the underlying driver used for this transport.</span>
+    <span class="c1">#: E.g. for :pypi:`aiokafka` this could be ``aiokafka 0.4.1``.</span>
+    <span class="n">driver_version</span><span class="p">:</span> <span class="nb">str</span>
+
+    <span class="n">loop</span><span class="p">:</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">AbstractEventLoop</span>
+
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                 <span class="n">url</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">URL</span><span class="p">],</span>
+                 <span class="n">app</span><span class="p">:</span> <span class="n">_AppT</span><span class="p">,</span>
+                 <span class="n">loop</span><span class="p">:</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">AbstractEventLoop</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span>
+
+<div class="viewcode-block" id="TransportT.create_consumer"><a class="viewcode-back" href="../../../reference/faust.types.transports.html#faust.types.transports.TransportT.create_consumer">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">create_consumer</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">callback</span><span class="p">:</span> <span class="n">ConsumerCallback</span><span class="p">,</span>
+                        <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ConsumerT</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="TransportT.create_producer"><a class="viewcode-back" href="../../../reference/faust.types.transports.html#faust.types.transports.TransportT.create_producer">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">create_producer</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ProducerT</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="TransportT.create_transaction_manager"><a class="viewcode-back" href="../../../reference/faust.types.transports.html#faust.types.transports.TransportT.create_transaction_manager">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">create_transaction_manager</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                                   <span class="n">consumer</span><span class="p">:</span> <span class="n">ConsumerT</span><span class="p">,</span>
+                                   <span class="n">producer</span><span class="p">:</span> <span class="n">ProducerT</span><span class="p">,</span>
+                                   <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TransactionManagerT</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="TransportT.create_conductor"><a class="viewcode-back" href="../../../reference/faust.types.transports.html#faust.types.transports.TransportT.create_conductor">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">create_conductor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ConductorT</span><span class="p">:</span>
+        <span class="o">...</span></div></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../../index.html">
+              <img class="logo" src="../../../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../../../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../playbooks/index.html">Playbooks</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../userguide/index.html">User Guide</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../reference/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../history/index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2020, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

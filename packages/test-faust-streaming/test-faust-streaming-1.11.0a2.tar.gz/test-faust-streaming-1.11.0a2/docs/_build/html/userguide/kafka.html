@@ -1,0 +1,261 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>Kafka - The basics you need to know &#8212; Faust 1.11.0a1 documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="copyright" title="Copyright" href="../copyright.html" />
+    <link rel="next" title="Debugging" href="debugging.html" />
+    <link rel="prev" title="Installation" href="installation.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="kafka-the-basics-you-need-to-know">
+<h1>Kafka - The basics you need to know<a class="headerlink" href="#kafka-the-basics-you-need-to-know" title="Permalink to this headline">¶</a></h1>
+<div class="contents local topic" id="contents">
+<ul class="simple">
+<li><p><a class="reference internal" href="#what-you-must-know-about-apache-kafka-to-use-faust" id="id1">What you must know about Apache Kafka to use Faust</a></p></li>
+</ul>
+</div>
+<p><cite>Kafka</cite> is a distributed streaming platform which uses logs as the unit of
+storage for messages passed within the system. It is horizontally scalable,
+fault-tolerant, fast, and runs in production in thousands of companies.
+Likely your business is already using it in some form.</p>
+<div class="section" id="what-you-must-know-about-apache-kafka-to-use-faust">
+<h2><a class="toc-backref" href="#id1">What you must know about Apache Kafka to use Faust</a><a class="headerlink" href="#what-you-must-know-about-apache-kafka-to-use-faust" title="Permalink to this headline">¶</a></h2>
+<p><strong>Topics</strong></p>
+<blockquote>
+<div><p>A topic is a stream name to which records are published.
+Topics in Kafka are always multi-subscriber; that is, a topic can have zero,
+one, or many consumers that subscribe to the data written to it. Topics are
+also the base abstraction of where data lives within Kafka. Each topic is
+backed by logs which are <em>partitioned</em> and distributed.</p>
+<p>Faust uses the abstraction of a topic to both consume data from a stream as
+well as publish data to more streams represented by Kafka topics.
+A Faust application needs to be consuming from at least one topic and may
+create many intermediate topics as a by-product of your streaming
+application. Every topic that is not created by Faust internally can be
+thought of as a source (for your application to process) or sink
+(for other systems to pick up).</p>
+</div></blockquote>
+<p><strong>Partitions</strong></p>
+<blockquote>
+<div><p>Partitions are the fundamental unit within Kafka where data lives. Every
+topic is split into one or more partitions. These partitions are
+represented internally as logs and messages always make their
+way to one partition (log). Each partition is replicated and has one leader
+at any point in time.</p>
+<p>Faust uses the notion of a partition to maintain order amongst messages and
+as a way to split the processing of data to increase throughput. A Faust
+application uses the notion of a “key” to make sure that messages that
+should appear together and be processed on the same box do end up on the
+same box.</p>
+</div></blockquote>
+<p><strong>Fault Tolerance</strong></p>
+<blockquote>
+<div><p>Every partition is replicated with the total copies represented by the
+In Sync Replicas (ISR). Every ISR is a candidate to take over as the new
+leader should the current leader fail. The maximum number of faulty Kafka
+brokers that can be tolerated is the number of ISR - 1. I.e., if every
+partition has three replicas, all fault tolerance guarantees hold as long
+as at least one replica is functional</p>
+<p>Faust has the same guarantees that Kafka offers with regards to fault
+tolerance of the data.</p>
+</div></blockquote>
+<p><strong>Distribution of load/work</strong></p>
+<blockquote>
+<div><p>For every partition, all reads and writes are routed to the leader of that
+partition. For a specific topic, the load is as distributed as the number
+of partitions. <em>Note:</em> Since the partition is the lowest degree of parallel
+processing of messages, the number of partitions control how much many
+parallel instances of the consumers can operate on messages.</p>
+<p>Faust uses parallel consumers and therefore is also limited by the number
+of partitions to dictate how many concurrent Faust application instances can
+run to distribute work. Extra Faust application instances beyond the source
+topic partition count will be idle and not improve message processing rates.</p>
+</div></blockquote>
+<dl>
+<dt><strong>Offsets</strong></dt><dd><p>For every &lt;topic, partition&gt; combination Kafka keeps track of the offset
+of messages in the log to know where new messages should be appended. On a
+consumer level, offsets are maintained at the &lt;group, topic, partition&gt;
+level for consumers to know where to continue consuming for a given
+“group”. The group acts as a namespace for consumers to register when
+multiple consumers want to share the load on a single topic.</p>
+<p>Kafka maintains processing guarantees of at least once by committing offsets
+after message consumption. Once an offset has been committed at the consumer
+level, the message at that offset for the &lt;group, topic, partition&gt; will not
+be reread.</p>
+<p>Faust uses the notion of a group to maintain a namespace within an app.
+Faust commits offsets after when a message is processed through all of its
+operations. Faust allows a configurable <em>commit interval</em> which makes sure
+that all messages that have been processed completely since the last
+interval will be committed.</p>
+</dd>
+</dl>
+<p><strong>Log Compaction</strong></p>
+<blockquote>
+<div><p>Log compaction is a methodology Kafka uses to make sure that as data for a key
+changes it will not affect the size of the log such that every state change
+is maintained for all time. Only the most recent value is guaranteed to be
+available. Periodic compaction removes all values for a key except the last
+one.</p>
+<p>Tables in Faust use log compaction to ensure table state can
+be recovered without a large space overhead.</p>
+</div></blockquote>
+<p>This summary and information about Kafka is adapted from original documentation
+on Kafka available at <a class="reference external" href="https://kafka.apache.org/">https://kafka.apache.org/</a></p>
+</div>
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../playbooks/index.html">Playbooks</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">User Guide</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="application.html">The App - Define your Faust project</a></li>
+<li class="toctree-l2"><a class="reference internal" href="agents.html">Agents - Self-organizing Stream Processors</a></li>
+<li class="toctree-l2"><a class="reference internal" href="streams.html">Streams - Infinite Data Structures</a></li>
+<li class="toctree-l2"><a class="reference internal" href="channels.html">Channels &amp; Topics - Data Sources</a></li>
+<li class="toctree-l2"><a class="reference internal" href="models.html">Models, Serialization, and Codecs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tables.html">Tables and Windowing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tasks.html">Tasks, Timers, Cron Jobs, Web Views, and CLI Commands</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cli.html">Command-line Interface</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sensors.html">Sensors - Monitors and Statistics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="testing.html">Testing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="livecheck.html">LiveCheck: End-to-end test for production/staging.</a></li>
+<li class="toctree-l2"><a class="reference internal" href="settings.html">Configuration Reference</a></li>
+<li class="toctree-l2"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Kafka - The basics you need to know</a></li>
+<li class="toctree-l2"><a class="reference internal" href="debugging.html">Debugging</a></li>
+<li class="toctree-l2"><a class="reference internal" href="workers.html">Workers Guide</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../history/index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">User Guide</a><ul>
+      <li>Previous: <a href="installation.html" title="previous chapter">Installation</a></li>
+      <li>Next: <a href="debugging.html" title="next chapter">Debugging</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2020, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../_sources/userguide/kafka.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

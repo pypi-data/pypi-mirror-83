@@ -1,0 +1,409 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>faust.events &#8212; Faust 1.11.0a1 documentation</title>
+    <link rel="stylesheet" href="../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="copyright" title="Copyright" href="../../copyright.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for faust.events</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Events received in streams.&quot;&quot;&quot;</span>
+<span class="kn">import</span> <span class="nn">typing</span>
+
+<span class="kn">from</span> <span class="nn">types</span> <span class="k">import</span> <span class="n">TracebackType</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="k">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Awaitable</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Type</span><span class="p">,</span> <span class="n">Union</span><span class="p">,</span> <span class="n">cast</span>
+
+<span class="kn">from</span> <span class="nn">faust.types</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">AppT</span><span class="p">,</span>
+    <span class="n">ChannelT</span><span class="p">,</span>
+    <span class="n">CodecArg</span><span class="p">,</span>
+    <span class="n">EventT</span><span class="p">,</span>
+    <span class="n">HeadersArg</span><span class="p">,</span>
+    <span class="n">K</span><span class="p">,</span>
+    <span class="n">Message</span><span class="p">,</span>
+    <span class="n">MessageSentCallback</span><span class="p">,</span>
+    <span class="n">RecordMetadata</span><span class="p">,</span>
+    <span class="n">SchemaT</span><span class="p">,</span>
+    <span class="n">V</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="k">if</span> <span class="n">typing</span><span class="o">.</span><span class="n">TYPE_CHECKING</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+    <span class="kn">from</span> <span class="nn">.app.base</span> <span class="k">import</span> <span class="n">App</span> <span class="k">as</span> <span class="n">_App</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="k">class</span> <span class="nc">_App</span><span class="p">:</span> <span class="o">...</span>  <span class="c1"># noqa</span>
+
+<span class="n">USE_EXISTING_KEY</span> <span class="o">=</span> <span class="nb">object</span><span class="p">()</span>
+<span class="n">USE_EXISTING_VALUE</span> <span class="o">=</span> <span class="nb">object</span><span class="p">()</span>
+<span class="n">USE_EXISTING_HEADERS</span> <span class="o">=</span> <span class="nb">object</span><span class="p">()</span>
+
+
+<div class="viewcode-block" id="Event"><a class="viewcode-back" href="../../reference/faust.events.html#faust.Event">[docs]</a><span class="k">class</span> <span class="nc">Event</span><span class="p">(</span><span class="n">EventT</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;An event received on a channel.</span>
+
+<span class="sd">    Notes:</span>
+<span class="sd">        - Events have a key and a value::</span>
+
+<span class="sd">            event.key, event.value</span>
+
+<span class="sd">        - They also have a reference to the original message</span>
+<span class="sd">          (if available), such as a Kafka record:</span>
+
+<span class="sd">            event.message.offset</span>
+
+<span class="sd">        - Iterating over channels/topics yields Event:</span>
+
+<span class="sd">            async for event in channel:</span>
+<span class="sd">                ...</span>
+
+<span class="sd">        - Iterating over a stream (that in turn iterate over channel) yields</span>
+<span class="sd">          Event.value::</span>
+
+<span class="sd">            async for value in channel.stream()  # value is event.value</span>
+<span class="sd">                ...</span>
+
+<span class="sd">        - If you only have a Stream object, you can also access underlying</span>
+<span class="sd">          events by using ``Stream.events``.</span>
+
+<span class="sd">            For example:</span>
+
+<span class="sd">            .. sourcecode:: python</span>
+
+<span class="sd">                async for event in channel.stream.events():</span>
+<span class="sd">                    ...</span>
+
+<span class="sd">          Also commonly used for finding the &quot;current event&quot; related to</span>
+<span class="sd">          a value in the stream:</span>
+
+<span class="sd">          .. sourcecode:: python</span>
+
+<span class="sd">              stream = channel.stream()</span>
+<span class="sd">              async for event in stream.events():</span>
+<span class="sd">                  event = stream.current_event</span>
+<span class="sd">                  message = event.message</span>
+<span class="sd">                  topic = event.message.topic</span>
+
+<span class="sd">          You can retrieve the current event in a stream to:</span>
+
+<span class="sd">              - Get access to the serialized key+value.</span>
+<span class="sd">              - Get access to message properties like, what topic+partition</span>
+<span class="sd">                the value was received on, or its offset.</span>
+
+<span class="sd">          If you want access to both key and value, you should use</span>
+<span class="sd">          ``stream.items()`` instead.</span>
+
+<span class="sd">            .. sourcecode:: python</span>
+
+<span class="sd">                async for key, value in stream.items():</span>
+<span class="sd">                    ...</span>
+
+<span class="sd">            ``stream.current_event`` can also be accessed but you must take</span>
+<span class="sd">            extreme care you are using the correct stream object. Methods</span>
+<span class="sd">            such as ``.group_by(key)`` and ``.through(topic)`` returns cloned</span>
+<span class="sd">            stream objects, so in the example:</span>
+
+<span class="sd">            The best way to access the current_event in an agent is</span>
+<span class="sd">            to use the :class:`~contextvars.ContextVar`:</span>
+
+<span class="sd">            .. sourcecode:: python</span>
+
+<span class="sd">                from faust import current_event</span>
+
+<span class="sd">                @app.agent(topic)</span>
+<span class="sd">                async def process(stream):</span>
+<span class="sd">                    async for value in stream:</span>
+<span class="sd">                        event = current_event()</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                 <span class="n">app</span><span class="p">:</span> <span class="n">AppT</span><span class="p">,</span>
+                 <span class="n">key</span><span class="p">:</span> <span class="n">K</span><span class="p">,</span>
+                 <span class="n">value</span><span class="p">:</span> <span class="n">V</span><span class="p">,</span>
+                 <span class="n">headers</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">HeadersArg</span><span class="p">],</span>
+                 <span class="n">message</span><span class="p">:</span> <span class="n">Message</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="p">:</span> <span class="n">AppT</span> <span class="o">=</span> <span class="n">app</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">key</span><span class="p">:</span> <span class="n">K</span> <span class="o">=</span> <span class="n">key</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">value</span><span class="p">:</span> <span class="n">V</span> <span class="o">=</span> <span class="n">value</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">message</span><span class="p">:</span> <span class="n">Message</span> <span class="o">=</span> <span class="n">message</span>
+        <span class="k">if</span> <span class="n">headers</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">headers</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">headers</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">headers</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">headers</span> <span class="o">=</span> <span class="n">headers</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">headers</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">acked</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+
+<div class="viewcode-block" id="Event.send"><a class="viewcode-back" href="../../reference/faust.events.html#faust.Event.send">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">send</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                   <span class="n">channel</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">ChannelT</span><span class="p">],</span>
+                   <span class="n">key</span><span class="p">:</span> <span class="n">K</span> <span class="o">=</span> <span class="n">USE_EXISTING_KEY</span><span class="p">,</span>
+                   <span class="n">value</span><span class="p">:</span> <span class="n">V</span> <span class="o">=</span> <span class="n">USE_EXISTING_VALUE</span><span class="p">,</span>
+                   <span class="n">partition</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                   <span class="n">timestamp</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                   <span class="n">headers</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="n">USE_EXISTING_HEADERS</span><span class="p">,</span>
+                   <span class="n">schema</span><span class="p">:</span> <span class="n">SchemaT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                   <span class="n">key_serializer</span><span class="p">:</span> <span class="n">CodecArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                   <span class="n">value_serializer</span><span class="p">:</span> <span class="n">CodecArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                   <span class="n">callback</span><span class="p">:</span> <span class="n">MessageSentCallback</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                   <span class="n">force</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Awaitable</span><span class="p">[</span><span class="n">RecordMetadata</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;Send object to channel.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">key</span> <span class="ow">is</span> <span class="n">USE_EXISTING_KEY</span><span class="p">:</span>
+            <span class="n">key</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">key</span>
+        <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="n">USE_EXISTING_VALUE</span><span class="p">:</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">value</span>
+        <span class="k">if</span> <span class="n">headers</span> <span class="ow">is</span> <span class="n">USE_EXISTING_HEADERS</span><span class="p">:</span>
+            <span class="n">headers</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">headers</span>
+        <span class="k">return</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_send</span><span class="p">(</span>
+            <span class="n">channel</span><span class="p">,</span>
+            <span class="n">key</span><span class="p">,</span>
+            <span class="n">value</span><span class="p">,</span>
+            <span class="n">partition</span><span class="p">,</span>
+            <span class="n">timestamp</span><span class="p">,</span>
+            <span class="n">headers</span><span class="p">,</span>
+            <span class="n">schema</span><span class="p">,</span>
+            <span class="n">key_serializer</span><span class="p">,</span>
+            <span class="n">value_serializer</span><span class="p">,</span>
+            <span class="n">callback</span><span class="p">,</span>
+            <span class="n">force</span><span class="o">=</span><span class="n">force</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="Event.forward"><a class="viewcode-back" href="../../reference/faust.events.html#faust.Event.forward">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                      <span class="n">channel</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">ChannelT</span><span class="p">],</span>
+                      <span class="n">key</span><span class="p">:</span> <span class="n">K</span> <span class="o">=</span> <span class="n">USE_EXISTING_KEY</span><span class="p">,</span>
+                      <span class="n">value</span><span class="p">:</span> <span class="n">V</span> <span class="o">=</span> <span class="n">USE_EXISTING_VALUE</span><span class="p">,</span>
+                      <span class="n">partition</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                      <span class="n">timestamp</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                      <span class="n">headers</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="n">USE_EXISTING_HEADERS</span><span class="p">,</span>
+                      <span class="n">schema</span><span class="p">:</span> <span class="n">SchemaT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                      <span class="n">key_serializer</span><span class="p">:</span> <span class="n">CodecArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                      <span class="n">value_serializer</span><span class="p">:</span> <span class="n">CodecArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                      <span class="n">callback</span><span class="p">:</span> <span class="n">MessageSentCallback</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                      <span class="n">force</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Awaitable</span><span class="p">[</span><span class="n">RecordMetadata</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;Forward original message (will not be reserialized).&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">key</span> <span class="ow">is</span> <span class="n">USE_EXISTING_KEY</span><span class="p">:</span>
+            <span class="n">key</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">message</span><span class="o">.</span><span class="n">key</span>
+        <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="n">USE_EXISTING_VALUE</span><span class="p">:</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">message</span><span class="o">.</span><span class="n">value</span>
+        <span class="k">if</span> <span class="n">headers</span> <span class="ow">is</span> <span class="n">USE_EXISTING_HEADERS</span><span class="p">:</span>
+            <span class="n">headers</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">message</span><span class="o">.</span><span class="n">headers</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">headers</span><span class="p">:</span>
+                <span class="n">headers</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_send</span><span class="p">(</span>
+            <span class="n">channel</span><span class="p">,</span>
+            <span class="n">key</span><span class="p">,</span>
+            <span class="n">value</span><span class="p">,</span>
+            <span class="n">partition</span><span class="p">,</span>
+            <span class="n">timestamp</span><span class="p">,</span>
+            <span class="n">headers</span><span class="p">,</span>
+            <span class="n">schema</span><span class="p">,</span>
+            <span class="n">key_serializer</span><span class="p">,</span>
+            <span class="n">value_serializer</span><span class="p">,</span>
+            <span class="n">callback</span><span class="p">,</span>
+            <span class="n">force</span><span class="o">=</span><span class="n">force</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">_send</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                    <span class="n">channel</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">ChannelT</span><span class="p">],</span>
+                    <span class="n">key</span><span class="p">:</span> <span class="n">K</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                    <span class="n">value</span><span class="p">:</span> <span class="n">V</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                    <span class="n">partition</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                    <span class="n">timestamp</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                    <span class="n">headers</span><span class="p">:</span> <span class="n">HeadersArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                    <span class="n">schema</span><span class="p">:</span> <span class="n">SchemaT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                    <span class="n">key_serializer</span><span class="p">:</span> <span class="n">CodecArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                    <span class="n">value_serializer</span><span class="p">:</span> <span class="n">CodecArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                    <span class="n">callback</span><span class="p">:</span> <span class="n">MessageSentCallback</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                    <span class="n">force</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Awaitable</span><span class="p">[</span><span class="n">RecordMetadata</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="k">await</span> <span class="n">cast</span><span class="p">(</span><span class="n">_App</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="p">)</span><span class="o">.</span><span class="n">_attachments</span><span class="o">.</span><span class="n">maybe_put</span><span class="p">(</span>
+            <span class="n">channel</span><span class="p">,</span>
+            <span class="n">key</span><span class="p">,</span>
+            <span class="n">value</span><span class="p">,</span>
+            <span class="n">partition</span><span class="p">,</span>
+            <span class="n">timestamp</span><span class="p">,</span>
+            <span class="n">headers</span><span class="p">,</span>
+            <span class="n">schema</span><span class="p">,</span>
+            <span class="n">key_serializer</span><span class="p">,</span>
+            <span class="n">value_serializer</span><span class="p">,</span>
+            <span class="n">callback</span><span class="p">,</span>
+            <span class="n">force</span><span class="o">=</span><span class="n">force</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_attach</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                <span class="n">channel</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">ChannelT</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span>
+                <span class="n">key</span><span class="p">:</span> <span class="n">K</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                <span class="n">value</span><span class="p">:</span> <span class="n">V</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                <span class="n">partition</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                <span class="n">timestamp</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                <span class="n">headers</span><span class="p">:</span> <span class="n">HeadersArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                <span class="n">schema</span><span class="p">:</span> <span class="n">SchemaT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                <span class="n">key_serializer</span><span class="p">:</span> <span class="n">CodecArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                <span class="n">value_serializer</span><span class="p">:</span> <span class="n">CodecArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                <span class="n">callback</span><span class="p">:</span> <span class="n">MessageSentCallback</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Awaitable</span><span class="p">[</span><span class="n">RecordMetadata</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="n">_App</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="p">)</span><span class="o">.</span><span class="n">_attachments</span><span class="o">.</span><span class="n">put</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">message</span><span class="p">,</span>
+            <span class="n">channel</span><span class="p">,</span>
+            <span class="n">key</span><span class="p">,</span>
+            <span class="n">value</span><span class="p">,</span>
+            <span class="n">partition</span><span class="o">=</span><span class="n">partition</span><span class="p">,</span>
+            <span class="n">timestamp</span><span class="o">=</span><span class="n">timestamp</span><span class="p">,</span>
+            <span class="n">headers</span><span class="o">=</span><span class="n">headers</span><span class="p">,</span>
+            <span class="n">schema</span><span class="o">=</span><span class="n">schema</span><span class="p">,</span>
+            <span class="n">key_serializer</span><span class="o">=</span><span class="n">key_serializer</span><span class="p">,</span>
+            <span class="n">value_serializer</span><span class="o">=</span><span class="n">value_serializer</span><span class="p">,</span>
+            <span class="n">callback</span><span class="o">=</span><span class="n">callback</span><span class="p">,</span>
+        <span class="p">)</span>
+
+<div class="viewcode-block" id="Event.ack"><a class="viewcode-back" href="../../reference/faust.events.html#faust.Event.ack">[docs]</a>    <span class="k">def</span> <span class="nf">ack</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Acknowledge event as being processed by stream.</span>
+
+<span class="sd">        When the last stream processor acks the message, the</span>
+<span class="sd">        offset in the source topic will be marked as safe-to-commit,</span>
+<span class="sd">        and the worker will commit and advance the committed offset.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">message</span><span class="o">.</span><span class="n">ack</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">consumer</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">f</span><span class="s1">&#39;&lt;{type(self).__name__}: k=</span><span class="si">{self.key!r}</span><span class="s1"> v=</span><span class="si">{self.value!r}</span><span class="s1">&gt;&#39;</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">__aenter__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">EventT</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">__aexit__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                        <span class="n">_exc_type</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="ne">BaseException</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                        <span class="n">_exc_val</span><span class="p">:</span> <span class="ne">BaseException</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                        <span class="n">_exc_tb</span><span class="p">:</span> <span class="n">TracebackType</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ack</span><span class="p">()</span>
+        <span class="k">return</span> <span class="kc">None</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../index.html">
+              <img class="logo" src="../../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../playbooks/index.html">Playbooks</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../userguide/index.html">User Guide</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../reference/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../history/index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2020, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

@@ -1,0 +1,244 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>Cheat Sheet &#8212; Faust 1.11.0a1 documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="copyright" title="Copyright" href="../copyright.html" />
+    <link rel="next" title="User Guide" href="../userguide/index.html" />
+    <link rel="prev" title="Overview: Faust vs. Celery" href="vscelery.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="cheat-sheet">
+<h1>Cheat Sheet<a class="headerlink" href="#cheat-sheet" title="Permalink to this headline">¶</a></h1>
+<div class="topic">
+<p class="topic-title first">Process events in a Kafka topic</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">orders_topic</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">topic</span><span class="p">(</span><span class="s1">&#39;orders&#39;</span><span class="p">,</span> <span class="n">value_serializer</span><span class="o">=</span><span class="s1">&#39;json&#39;</span><span class="p">)</span>
+
+<span class="nd">@app.agent</span><span class="p">(</span><span class="n">orders_topic</span><span class="p">)</span>
+<span class="n">async</span> <span class="k">def</span> <span class="nf">process_order</span><span class="p">(</span><span class="n">orders</span><span class="p">):</span>
+    <span class="n">async</span> <span class="k">for</span> <span class="n">order</span> <span class="ow">in</span> <span class="n">orders</span><span class="p">:</span>
+        <span class="k">print</span><span class="p">(</span><span class="n">order</span><span class="p">[</span><span class="s1">&#39;product_id&#39;</span><span class="p">])</span>
+</pre></div>
+</div>
+</div>
+<div class="topic">
+<p class="topic-title first">Describe stream data using models</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">datetime</span>
+<span class="kn">import</span> <span class="nn">faust</span>
+
+<span class="k">class</span> <span class="nc">Order</span><span class="p">(</span><span class="n">faust</span><span class="o">.</span><span class="n">Record</span><span class="p">,</span> <span class="n">serializer</span><span class="o">=</span><span class="s1">&#39;json&#39;</span><span class="p">,</span> <span class="n">isodates</span><span class="o">=</span><span class="bp">True</span><span class="p">):</span>
+    <span class="nb">id</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">user_id</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">product_id</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">amount</span><span class="p">:</span> <span class="nb">float</span>
+    <span class="n">price</span><span class="p">:</span> <span class="nb">float</span>
+    <span class="n">date_created</span><span class="p">:</span> <span class="n">datetime</span> <span class="o">=</span> <span class="bp">None</span>
+    <span class="n">date_updated</span><span class="p">:</span> <span class="n">datetime</span> <span class="o">=</span> <span class="bp">None</span>
+
+<span class="n">orders_topic</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">topic</span><span class="p">(</span><span class="s1">&#39;orders&#39;</span><span class="p">,</span> <span class="n">value_type</span><span class="o">=</span><span class="n">Order</span><span class="p">)</span>
+
+<span class="nd">@app.agent</span><span class="p">(</span><span class="n">orders_topic</span><span class="p">)</span>
+<span class="n">async</span> <span class="k">def</span> <span class="nf">process_order</span><span class="p">(</span><span class="n">orders</span><span class="p">):</span>
+    <span class="n">async</span> <span class="k">for</span> <span class="n">order</span> <span class="ow">in</span> <span class="n">orders</span><span class="p">:</span>
+        <span class="k">print</span><span class="p">(</span><span class="n">order</span><span class="o">.</span><span class="n">product_id</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="topic">
+<p class="topic-title first">Use async. I/O to perform other actions while processing the stream</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># [...]</span>
+<span class="nd">@app.agent</span><span class="p">(</span><span class="n">orders_topic</span><span class="p">)</span>
+<span class="n">async</span> <span class="k">def</span> <span class="nf">process_order</span><span class="p">(</span><span class="n">orders</span><span class="p">):</span>
+    <span class="n">session</span> <span class="o">=</span> <span class="n">aiohttp</span><span class="o">.</span><span class="n">ClientSession</span><span class="p">()</span>
+    <span class="n">async</span> <span class="k">for</span> <span class="n">order</span> <span class="ow">in</span> <span class="n">orders</span><span class="p">:</span>
+        <span class="n">async</span> <span class="k">with</span> <span class="n">session</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">f</span><span class="s1">&#39;http://e.com/api/{order.id}/&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">resp</span><span class="p">:</span>
+            <span class="n">product_info</span> <span class="o">=</span> <span class="n">await</span> <span class="n">resp</span><span class="o">.</span><span class="n">text</span><span class="p">()</span>
+            <span class="n">await</span> <span class="n">session</span><span class="o">.</span><span class="n">post</span><span class="p">(</span>
+                <span class="n">f</span><span class="s1">&#39;http://cache/{order.id}/&#39;</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">product_info</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="topic">
+<p class="topic-title first">Buffer up many events at a time</p>
+<p>Here we get up to 100 events within a 30 second window:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># [...]</span>
+<span class="n">async</span> <span class="k">for</span> <span class="n">orders_batch</span> <span class="ow">in</span> <span class="n">orders</span><span class="o">.</span><span class="n">take</span><span class="p">(</span><span class="mi">100</span><span class="p">,</span> <span class="n">within</span><span class="o">=</span><span class="mf">30.0</span><span class="p">):</span>
+    <span class="k">print</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">orders</span><span class="p">))</span>
+</pre></div>
+</div>
+</div>
+<div class="topic">
+<p class="topic-title first">Aggregate information into a table</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">orders_by_country</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">Table</span><span class="p">(</span><span class="s1">&#39;orders_by_country&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+
+<span class="nd">@app.agent</span><span class="p">(</span><span class="n">orders_topic</span><span class="p">)</span>
+<span class="n">async</span> <span class="k">def</span> <span class="nf">process_order</span><span class="p">(</span><span class="n">orders</span><span class="p">):</span>
+    <span class="n">async</span> <span class="k">for</span> <span class="n">order</span> <span class="ow">in</span> <span class="n">orders</span><span class="o">.</span><span class="n">group_by</span><span class="p">(</span><span class="n">order</span><span class="o">.</span><span class="n">country_origin</span><span class="p">):</span>
+        <span class="n">country</span> <span class="o">=</span> <span class="n">order</span><span class="o">.</span><span class="n">country_origin</span>
+        <span class="n">orders_by_country</span><span class="p">[</span><span class="n">country</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="k">print</span><span class="p">(</span><span class="n">f</span><span class="s1">&#39;Orders for country {country}: {orders_by_country[country]}&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="topic">
+<p class="topic-title first">Aggregate information using a window</p>
+<p>Count number of orders by country, within the last two days:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">orders_by_country</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">Table</span><span class="p">(</span>
+    <span class="s1">&#39;orders_by_country&#39;</span><span class="p">,</span>
+    <span class="n">default</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span>
+<span class="p">)</span><span class="o">.</span><span class="n">hopping</span><span class="p">(</span><span class="n">timedelta</span><span class="p">(</span><span class="n">days</span><span class="o">=</span><span class="mi">2</span><span class="p">))</span>
+
+<span class="n">async</span> <span class="k">for</span> <span class="n">order</span> <span class="ow">in</span> <span class="n">orders_topic</span><span class="o">.</span><span class="n">stream</span><span class="p">():</span>
+    <span class="n">orders_by_country</span><span class="p">[</span><span class="n">order</span><span class="o">.</span><span class="n">country_origin</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+    <span class="c1"># values in this table are not concrete! access .current</span>
+    <span class="c1"># for the value related to the time of the current event</span>
+    <span class="k">print</span><span class="p">(</span><span class="n">orders_by_country</span><span class="p">[</span><span class="n">order</span><span class="o">.</span><span class="n">country_origin</span><span class="p">]</span><span class="o">.</span><span class="n">current</span><span class="p">())</span>
+</pre></div>
+</div>
+</div>
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Playbooks</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="quickstart.html">Quick Start</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pageviews.html">Tutorial: Count page views</a></li>
+<li class="toctree-l2"><a class="reference internal" href="leaderelection.html">Tutorial: Leader Election</a></li>
+<li class="toctree-l2"><a class="reference internal" href="vskafka.html">Overview: Faust vs Kafka Streams</a></li>
+<li class="toctree-l2"><a class="reference internal" href="vscelery.html">Overview: Faust vs. Celery</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Cheat Sheet</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../userguide/index.html">User Guide</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../history/index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">Playbooks</a><ul>
+      <li>Previous: <a href="vscelery.html" title="previous chapter">Overview: Faust vs. Celery</a></li>
+      <li>Next: <a href="../userguide/index.html" title="next chapter">User Guide</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2020, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../_sources/playbooks/cheatsheet.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

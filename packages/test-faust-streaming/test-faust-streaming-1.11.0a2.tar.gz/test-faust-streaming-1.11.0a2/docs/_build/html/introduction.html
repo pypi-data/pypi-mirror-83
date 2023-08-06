@@ -1,0 +1,556 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>Introducing Faust &#8212; Faust 1.11.0a1 documentation</title>
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="_static/language_data.js"></script>
+    <link rel="shortcut icon" href="_static/favicon.ico"/>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="copyright" title="Copyright" href="copyright.html" />
+    <link rel="next" title="Playbooks" href="playbooks/index.html" />
+    <link rel="prev" title="Copyright" href="copyright.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="introducing-faust">
+<span id="introduction"></span><h1>Introducing Faust<a class="headerlink" href="#introducing-faust" title="Permalink to this headline">¶</a></h1>
+<dl class="field-list simple">
+<dt class="field-odd">Version</dt>
+<dd class="field-odd"><p>1.10.3</p>
+</dd>
+<dt class="field-even">Web</dt>
+<dd class="field-even"><p><a class="reference external" href="http://faust.readthedocs.io/">http://faust.readthedocs.io/</a></p>
+</dd>
+<dt class="field-odd">Download</dt>
+<dd class="field-odd"><p><a class="reference external" href="http://pypi.org/project/faust">http://pypi.org/project/faust</a></p>
+</dd>
+<dt class="field-even">Source</dt>
+<dd class="field-even"><p><a class="reference external" href="http://github.com/robinhood/faust">http://github.com/robinhood/faust</a></p>
+</dd>
+<dt class="field-odd">Keywords</dt>
+<dd class="field-odd"><p>distributed, stream, async, processing, data, queue, state management</p>
+</dd>
+</dl>
+<p><strong>Table of Contents</strong></p>
+<div class="contents local topic" id="contents">
+<ul class="simple">
+<li><p><a class="reference internal" href="#what-can-it-do" id="id4">What can it do?</a></p></li>
+<li><p><a class="reference internal" href="#how-do-i-use-it" id="id5">How do I use it?</a></p></li>
+<li><p><a class="reference internal" href="#what-do-i-need" id="id6">What do I need?</a></p></li>
+<li><p><a class="reference internal" href="#extensions" id="id7">Extensions</a></p></li>
+<li><p><a class="reference internal" href="#design-considerations" id="id8">Design considerations</a></p></li>
+<li><p><a class="reference internal" href="#getting-help" id="id9">Getting Help</a></p></li>
+<li><p><a class="reference internal" href="#resources" id="id10">Resources</a></p></li>
+<li><p><a class="reference internal" href="#license" id="id11">License</a></p></li>
+</ul>
+</div>
+<div class="section" id="what-can-it-do">
+<h2><a class="toc-backref" href="#id4">What can it do?</a><a class="headerlink" href="#what-can-it-do" title="Permalink to this headline">¶</a></h2>
+<dl>
+<dt><strong>Agents</strong></dt><dd><p>Process infinite streams in a straightforward manner using
+asynchronous generators. The concept of “agents” comes from
+the actor model, and means the stream processor can execute
+concurrently on many CPU cores, and on hundreds of machines
+at the same time.</p>
+<p>Use regular Python syntax to process streams and reuse your favorite
+libraries:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@app.agent</span><span class="p">()</span>
+<span class="n">async</span> <span class="k">def</span> <span class="nf">process</span><span class="p">(</span><span class="n">stream</span><span class="p">):</span>
+    <span class="n">async</span> <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">stream</span><span class="p">:</span>
+        <span class="n">process</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd>
+<dt><strong>Tables</strong></dt><dd><p>Tables are sharded dictionaries that enable stream processors
+to be stateful with persistent and durable data.</p>
+<p>Streams are partitioned to keep relevant data close, and can be easily
+repartitioned to achieve the topology you need.</p>
+<p>In this example we repartition an order stream by account id, to count
+orders in a distributed table:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">faust</span>
+
+<span class="c1"># this model describes how message values are serialized</span>
+<span class="c1"># in the Kafka &quot;orders&quot; topic.</span>
+<span class="k">class</span> <span class="nc">Order</span><span class="p">(</span><span class="n">faust</span><span class="o">.</span><span class="n">Record</span><span class="p">,</span> <span class="n">serializer</span><span class="o">=</span><span class="s1">&#39;json&#39;</span><span class="p">):</span>
+    <span class="n">account_id</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">product_id</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">amount</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">price</span><span class="p">:</span> <span class="nb">float</span>
+
+<span class="n">app</span> <span class="o">=</span> <span class="n">faust</span><span class="o">.</span><span class="n">App</span><span class="p">(</span><span class="s1">&#39;hello-app&#39;</span><span class="p">,</span> <span class="n">broker</span><span class="o">=</span><span class="s1">&#39;kafka://localhost&#39;</span><span class="p">)</span>
+<span class="n">orders_kafka_topic</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">topic</span><span class="p">(</span><span class="s1">&#39;orders&#39;</span><span class="p">,</span> <span class="n">value_type</span><span class="o">=</span><span class="n">Order</span><span class="p">)</span>
+
+<span class="c1"># our table is sharded amongst worker instances, and replicated</span>
+<span class="c1"># with standby copies to take over if one of the nodes fail.</span>
+<span class="n">order_count_by_account</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">Table</span><span class="p">(</span><span class="s1">&#39;order_count&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+
+<span class="nd">@app.agent</span><span class="p">(</span><span class="n">orders_kafka_topic</span><span class="p">)</span>
+<span class="n">async</span> <span class="k">def</span> <span class="nf">process</span><span class="p">(</span><span class="n">orders</span><span class="p">:</span> <span class="n">faust</span><span class="o">.</span><span class="n">Stream</span><span class="p">[</span><span class="n">Order</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="bp">None</span><span class="p">:</span>
+    <span class="n">async</span> <span class="k">for</span> <span class="n">order</span> <span class="ow">in</span> <span class="n">orders</span><span class="o">.</span><span class="n">group_by</span><span class="p">(</span><span class="n">Order</span><span class="o">.</span><span class="n">account_id</span><span class="p">):</span>
+        <span class="n">order_count_by_account</span><span class="p">[</span><span class="n">order</span><span class="o">.</span><span class="n">account_id</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+</pre></div>
+</div>
+<p>If we start multiple instances of this Faust application on many machines,
+any order with the same account id will be received by the same
+stream processing agent, so the count updates correctly in the table.</p>
+<p>Sharding/partitioning is an essential part of stateful stream
+processing applications, so take this into account when designing your
+system, but note that streams can also be processed in round-robin order
+so you can use Faust for event processing and as a task queue also.</p>
+</dd>
+<dt><strong>Asynchronous with</strong> <a class="reference external" href="https://docs.python.org/dev/library/asyncio.html#module-asyncio" title="(in Python v3.9)"><code class="xref py py-mod docutils literal notranslate"><span class="pre">asyncio</span></code></a></dt><dd><p>Faust takes full advantage of <a class="reference external" href="https://docs.python.org/dev/library/asyncio.html#module-asyncio" title="(in Python v3.9)"><code class="xref py py-mod docutils literal notranslate"><span class="pre">asyncio</span></code></a> and the new <a class="reference external" href="https://docs.python.org/dev/reference/compound_stmts.html#async-def" title="(in Python v3.9)"><code class="xref std std-keyword docutils literal notranslate"><span class="pre">async</span></code></a>/<a class="reference external" href="https://docs.python.org/dev/reference/expressions.html#await" title="(in Python v3.9)"><code class="xref std std-keyword docutils literal notranslate"><span class="pre">await</span></code></a> keywords in Python 3.6+ to run multiple stream
+processors in the same process, along with web servers and other network
+services.</p>
+<p>Thanks to Faust and <a class="reference external" href="https://docs.python.org/dev/library/asyncio.html#module-asyncio" title="(in Python v3.9)"><code class="xref py py-mod docutils literal notranslate"><span class="pre">asyncio</span></code></a> you can now embed your stream processing
+topology into your existing <a class="reference external" href="https://docs.python.org/dev/library/asyncio.html#module-asyncio" title="(in Python v3.9)"><code class="xref py py-mod docutils literal notranslate"><span class="pre">asyncio</span></code></a>/
+<a class="reference external" href="https://pypi.python.org/pypi/eventlet/">eventlet</a>/<a class="reference external" href="https://pypi.python.org/pypi/Twisted/">Twisted</a>/<a class="reference external" href="https://pypi.python.org/pypi/Tornado/">Tornado</a> applications.</p>
+</dd>
+<dt><strong>Faust is…</strong></dt><dd><dl>
+<dt><strong>Simple</strong></dt><dd><p>Faust is extremely easy to use. To get started using other stream processing
+solutions you have complicated hello-world projects, and
+infrastructure requirements.  Faust only requires Kafka,
+the rest is just Python, so If you know Python you can already use Faust to do
+stream processing, and it can integrate with just about anything.</p>
+<p>Here’s one of the easier applications you can make:</p>
+<div class="highlight-python3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">faust</span>
+
+<span class="k">class</span> <span class="nc">Greeting</span><span class="p">(</span><span class="n">faust</span><span class="o">.</span><span class="n">Record</span><span class="p">):</span>
+    <span class="n">from_name</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">to_name</span><span class="p">:</span> <span class="nb">str</span>
+
+<span class="n">app</span> <span class="o">=</span> <span class="n">faust</span><span class="o">.</span><span class="n">App</span><span class="p">(</span><span class="s1">&#39;hello-app&#39;</span><span class="p">,</span> <span class="n">broker</span><span class="o">=</span><span class="s1">&#39;kafka://localhost&#39;</span><span class="p">)</span>
+<span class="n">topic</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">topic</span><span class="p">(</span><span class="s1">&#39;hello-topic&#39;</span><span class="p">,</span> <span class="n">value_type</span><span class="o">=</span><span class="n">Greeting</span><span class="p">)</span>
+
+<span class="nd">@app</span><span class="o">.</span><span class="n">agent</span><span class="p">(</span><span class="n">topic</span><span class="p">)</span>
+<span class="k">async</span> <span class="k">def</span> <span class="nf">hello</span><span class="p">(</span><span class="n">greetings</span><span class="p">):</span>
+    <span class="k">async</span> <span class="k">for</span> <span class="n">greeting</span> <span class="ow">in</span> <span class="n">greetings</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="n">f</span><span class="s1">&#39;Hello from </span><span class="si">{greeting.from_name}</span><span class="s1"> to </span><span class="si">{greeting.to_name}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+<span class="nd">@app</span><span class="o">.</span><span class="n">timer</span><span class="p">(</span><span class="n">interval</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
+<span class="k">async</span> <span class="k">def</span> <span class="nf">example_sender</span><span class="p">(</span><span class="n">app</span><span class="p">):</span>
+    <span class="k">await</span> <span class="n">hello</span><span class="o">.</span><span class="n">send</span><span class="p">(</span>
+        <span class="n">value</span><span class="o">=</span><span class="n">Greeting</span><span class="p">(</span><span class="n">from_name</span><span class="o">=</span><span class="s1">&#39;Faust&#39;</span><span class="p">,</span> <span class="n">to_name</span><span class="o">=</span><span class="s1">&#39;you&#39;</span><span class="p">),</span>
+    <span class="p">)</span>
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s1">&#39;__main__&#39;</span><span class="p">:</span>
+    <span class="n">app</span><span class="o">.</span><span class="n">main</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>You’re probably a bit intimidated by the <cite>async</cite> and <cite>await</cite> keywords,
+but you don’t have to know how <a class="reference external" href="https://docs.python.org/dev/library/asyncio.html#module-asyncio" title="(in Python v3.9)"><code class="xref py py-mod docutils literal notranslate"><span class="pre">asyncio</span></code></a> works to use
+Faust: just mimic the examples, and you’ll be fine.</p>
+<p>The example application starts two tasks: one is processing a stream,
+the other is a background thread sending events to that stream.
+In a real-life application, your system will publish
+events to Kafka topics that your processors can consume from,
+and the background thread is only needed to feed data into our
+example.</p>
+</dd>
+<dt><strong>Highly Available</strong></dt><dd><p>Faust is highly available and can survive network problems and server
+crashes.  In the case of node failure, it can automatically recover,
+and tables have standby nodes that will take over.</p>
+</dd>
+<dt><strong>Distributed</strong></dt><dd><p>Start more instances of your application as needed.</p>
+</dd>
+<dt><strong>Fast</strong></dt><dd><p>A single-core Faust worker instance can already process tens of thousands
+of events every second, and we are reasonably confident that throughput will
+increase once we can support a more optimized Kafka client.</p>
+</dd>
+<dt><strong>Flexible</strong></dt><dd><p>Faust is just Python, and a stream is an infinite asynchronous iterator.
+If you know how to use Python, you already know how to use Faust,
+and it works with your favorite Python libraries like Django, Flask,
+SQLAlchemy, NTLK, NumPy, SciPy, TensorFlow, etc.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+<hr class="docutils" />
+<div class="topic">
+<p class="topic-title first">Faust is used for…</p>
+<table class="hlist"><tr><td><ul class="simple">
+<li><p><strong>Event Processing</strong></p></li>
+<li><p><strong>Distributed Joins &amp; Aggregations</strong></p></li>
+<li><p><strong>Machine Learning</strong></p></li>
+<li><p><strong>Asynchronous Tasks</strong></p></li>
+<li><p><strong>Distributed Computing</strong></p></li>
+</ul>
+</td><td><ul class="simple">
+<li><p><strong>Data Denormalization</strong></p></li>
+<li><p><strong>Intrusion Detection</strong></p></li>
+<li><p><strong>Realtime Web &amp; Web Sockets.</strong></p></li>
+<li><p><strong>and much more…</strong></p></li>
+</ul>
+</td></tr></table>
+</div>
+</div>
+<div class="section" id="how-do-i-use-it">
+<h2><a class="toc-backref" href="#id5">How do I use it?</a><a class="headerlink" href="#how-do-i-use-it" title="Permalink to this headline">¶</a></h2>
+<div class="topic">
+<p class="topic-title first">Step 1: Add events to your system</p>
+<ul class="simple">
+<li><p>Was an account created? Publish to Kafka.</p></li>
+<li><p>Did a user change their password? Publish to Kafka.</p></li>
+<li><p>Did someone make an order, create a comment, tag something, …?
+Publish it all to Kafka!</p></li>
+</ul>
+</div>
+<div class="topic">
+<p class="topic-title first">Step 2: Use Faust to process those events</p>
+<p>Some ideas based on the events mentioned above:</p>
+<ul class="simple">
+<li><p>Send email when an order is dispatched.</p></li>
+<li><p>Find orders created with no corresponding dispatch event for
+more than three consecutive days.</p></li>
+<li><p>Find accounts that changed their password from a suspicious IP address.</p></li>
+<li><p>Starting to get the idea?</p></li>
+</ul>
+</div>
+</div>
+<div class="section" id="what-do-i-need">
+<h2><a class="toc-backref" href="#id6">What do I need?</a><a class="headerlink" href="#what-do-i-need" title="Permalink to this headline">¶</a></h2>
+<div class="sidebar">
+<p class="sidebar-title">Version Requirements</p>
+<p class="sidebar-subtitle">Faust version 1.0 runs on</p>
+<p><strong>Core</strong></p>
+<ul class="simple">
+<li><p>Python 3.6 or later.</p></li>
+<li><p>Kafka 0.10.1 or later.</p></li>
+</ul>
+<p><strong>Extensions</strong></p>
+<ul class="simple">
+<li><p>RocksDB 5.0 or later, <a class="reference external" href="https://pypi.python.org/pypi/python-rocksdb/">python-rocksdb</a></p></li>
+</ul>
+</div>
+<p>Faust requires Python 3.6 or later, and a running Kafka broker.</p>
+<p>There’s no plan to support earlier Python versions.
+Please get in touch if this is something you want to work on.</p>
+</div>
+<div class="section" id="extensions">
+<h2><a class="toc-backref" href="#id7">Extensions</a><a class="headerlink" href="#extensions" title="Permalink to this headline">¶</a></h2>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 18%" />
+<col style="width: 17%" />
+<col style="width: 65%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><strong>Name</strong></p></td>
+<td><p><strong>Version</strong></p></td>
+<td><p><strong>Bundle</strong></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">rocksdb</span></code></p></td>
+<td><p>5.0</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">faust[rocksdb]</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">redis</span></code></p></td>
+<td><p>aredis 1.1</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">faust[redis]</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">datadog</span></code></p></td>
+<td><p>0.20.0</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">faust[datadog]</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">statsd</span></code></p></td>
+<td><p>3.2.1</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">faust[statsd]</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">uvloop</span></code></p></td>
+<td><p>0.8.1</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">faust[uvloop]</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">eventlet</span></code></p></td>
+<td><p>1.16.0</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">faust[eventlet]</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">yaml</span></code></p></td>
+<td><p>5.1.0</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">faust[yaml]</span></code></p></td>
+</tr>
+</tbody>
+</table>
+<div class="section" id="optimizations">
+<h3>Optimizations<a class="headerlink" href="#optimizations" title="Permalink to this headline">¶</a></h3>
+<p>These can be all installed using <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">faust[fast]</span></code>:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 22%" />
+<col style="width: 16%" />
+<col style="width: 62%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><strong>Name</strong></p></td>
+<td><p><strong>Version</strong></p></td>
+<td><p><strong>Bundle</strong></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">aiodns</span></code></p></td>
+<td><p>1.1.0</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">faust[aiodns]</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">cchardet</span></code></p></td>
+<td><p>1.1.0</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">faust[cchardet]</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ciso8601</span></code></p></td>
+<td><p>2.1.0</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">faust[ciso8601]</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">cython</span></code></p></td>
+<td><p>0.9.26</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">faust[cython]</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">orjson</span></code></p></td>
+<td><p>2.0.0</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">faust[orjson]</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">setproctitle</span></code></p></td>
+<td><p>1.1.0</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">faust[setproctitle]</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="debugging-extras">
+<h3>Debugging extras<a class="headerlink" href="#debugging-extras" title="Permalink to this headline">¶</a></h3>
+<p>These can be all installed using <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">faust[debug]</span></code>:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 22%" />
+<col style="width: 16%" />
+<col style="width: 62%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><strong>Name</strong></p></td>
+<td><p><strong>Version</strong></p></td>
+<td><p><strong>Bundle</strong></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">aiomonitor</span></code></p></td>
+<td><p>0.3</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">faust[aiomonitor]</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">setproctitle</span></code></p></td>
+<td><p>1.1.0</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">faust[setproctitle]</span></code></p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>See bundles in the <a class="reference internal" href="userguide/installation.html#installation"><span class="std std-ref">Installation</span></a> instructions section of
+this document for a list of supported <a class="reference external" href="https://pypi.python.org/pypi/setuptools/">setuptools</a> extensions.</p>
+</div>
+<div class="admonition-to-specify-multiple-extensions-at-the-same-time admonition">
+<p class="admonition-title">To specify multiple extensions at the same time</p>
+<p>separate extensions with the comma:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> pip install faust<span class="o">[</span>uvloop,fast,rocksdb,datadog,redis<span class="o">]</span>
+</pre></div>
+</div>
+</div>
+<div class="admonition-rocksdb-on-macos-sierra admonition">
+<p class="admonition-title">RocksDB On MacOS Sierra</p>
+<p>To install <a class="reference external" href="https://pypi.python.org/pypi/python-rocksdb/">python-rocksdb</a> on MacOS Sierra you need to
+specify some additional compiler flags:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> <span class="nv">CFLAGS</span><span class="o">=</span><span class="s1">&#39;-std=c++11 -stdlib=libc++ -mmacosx-version-min=10.10&#39;</span> <span class="se">\</span>
+    pip install -U --no-cache python-rocksdb
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="design-considerations">
+<h2><a class="toc-backref" href="#id8">Design considerations</a><a class="headerlink" href="#design-considerations" title="Permalink to this headline">¶</a></h2>
+<dl>
+<dt>Modern Python</dt><dd><p>Faust uses current Python 3 features such as
+<a class="reference external" href="https://docs.python.org/dev/reference/compound_stmts.html#async-def" title="(in Python v3.9)"><code class="xref std std-keyword docutils literal notranslate"><span class="pre">async</span></code></a>/<a class="reference external" href="https://docs.python.org/dev/reference/expressions.html#await" title="(in Python v3.9)"><code class="xref std std-keyword docutils literal notranslate"><span class="pre">await</span></code></a> and type annotations. It’s statically
+typed and verified by the <a class="reference external" href="http://mypy-lang.org">mypy</a> type checker. You can take advantage of
+type annotations when writing Faust applications, but
+this is not mandatory.</p>
+</dd>
+<dt>Library</dt><dd><p>Faust is designed to be used as a library, and embeds into
+any existing Python program, while also including helpers that
+make it easy to deploy applications without boilerplate.</p>
+</dd>
+<dt>Supervised</dt><dd><p>The Faust worker is built up by many different services that start
+and stop in a certain order.  These services can be managed by
+supervisors, but if encountering an irrecoverable error such
+as not recovering from a lost Kafka connections, Faust is designed
+to crash.</p>
+<p>For this reason Faust is designed to run inside a process supervisor
+tool such as <a class="reference external" href="http://supervisord.org">supervisord</a>, <a class="reference external" href="http://circus.readthedocs.io/">Circus</a>, or one provided by your
+Operating System.</p>
+</dd>
+<dt>Extensible</dt><dd><p>Faust abstracts away storages, serializers, and even message transports,
+to make it easy for developers to extend Faust with new capabilities,
+and integrate into your existing systems.</p>
+</dd>
+<dt>Lean</dt><dd><p>The source code is short and readable and serves as a good starting point
+for anyone who wants to learn how Kafka stream processing systems work.</p>
+</dd>
+</dl>
+</div>
+<div class="section" id="getting-help">
+<span id="id1"></span><h2><a class="toc-backref" href="#id9">Getting Help</a><a class="headerlink" href="#getting-help" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="slack">
+<span id="slack-channel"></span><h3>Slack<a class="headerlink" href="#slack" title="Permalink to this headline">¶</a></h3>
+<p>For discussions about the usage, development, and future of Faust,
+please join the <a href="#id12"><span class="problematic" id="id13">`fauststream`_</span></a> Slack.</p>
+<ul class="simple">
+<li><p><a class="reference external" href="https://fauststream.slack.com">https://fauststream.slack.com</a></p></li>
+<li><p>Sign-up: <a class="reference external" href="https://join.slack.com/t/fauststream/shared_invite/enQtNDEzMTIyMTUyNzU2LTIyMjNjY2M2YzA2OWFhMDlmMzVkODk3YTBlYThlYmZiNTUwZDJlYWZiZTdkN2Q4ZGU4NWM4YWMyNTM5MGQ5OTg">https://join.slack.com/t/fauststream/shared_invite/enQtNDEzMTIyMTUyNzU2LTIyMjNjY2M2YzA2OWFhMDlmMzVkODk3YTBlYThlYmZiNTUwZDJlYWZiZTdkN2Q4ZGU4NWM4YWMyNTM5MGQ5OTg</a></p></li>
+</ul>
+</div>
+</div>
+<div class="section" id="resources">
+<h2><a class="toc-backref" href="#id10">Resources</a><a class="headerlink" href="#resources" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="bug-tracker">
+<span id="id2"></span><h3>Bug tracker<a class="headerlink" href="#bug-tracker" title="Permalink to this headline">¶</a></h3>
+<p>If you have any suggestions, bug reports, or annoyances please report them
+to our issue tracker at <a class="reference external" href="https://github.com/robinhood/faust/issues/">https://github.com/robinhood/faust/issues/</a></p>
+</div>
+</div>
+<div class="section" id="license">
+<span id="id3"></span><h2><a class="toc-backref" href="#id11">License</a><a class="headerlink" href="#license" title="Permalink to this headline">¶</a></h2>
+<p>This software is licensed under the <cite>New BSD License</cite>. See the <code class="file docutils literal notranslate"><span class="pre">LICENSE</span></code>
+file in the top distribution directory for the full license text.</p>
+</div>
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="index.html">
+              <img class="logo" src="_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="copyright.html">Copyright</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Introducing Faust</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#what-can-it-do">What can it do?</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#how-do-i-use-it">How do I use it?</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#what-do-i-need">What do I need?</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#extensions">Extensions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#design-considerations">Design considerations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#getting-help">Getting Help</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#resources">Resources</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#license">License</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="playbooks/index.html">Playbooks</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="userguide/index.html">User Guide</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="reference/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="history/index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="copyright.html" title="previous chapter">Copyright</a></li>
+      <li>Next: <a href="playbooks/index.html" title="next chapter">Playbooks</a></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2020, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="_sources/introduction.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

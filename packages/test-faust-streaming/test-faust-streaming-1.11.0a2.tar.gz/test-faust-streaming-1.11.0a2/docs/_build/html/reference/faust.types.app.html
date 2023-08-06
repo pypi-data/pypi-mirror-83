@@ -1,0 +1,708 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>faust.types.app &#8212; Faust 1.11.0a1 documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="copyright" title="Copyright" href="../copyright.html" />
+    <link rel="next" title="faust.types.assignor" href="faust.types.assignor.html" />
+    <link rel="prev" title="faust.types.agents" href="faust.types.agents.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="faust-types-app">
+<h1><code class="docutils literal notranslate"><span class="pre">faust.types.app</span></code><a class="headerlink" href="#faust-types-app" title="Permalink to this headline">¶</a></h1>
+<span class="target" id="module-faust.types.app"></span><dl class="class">
+<dt id="faust.types.app.AppT">
+<em class="property">class </em><code class="sig-prename descclassname">faust.types.app.</code><code class="sig-name descname">AppT</code><span class="sig-paren">(</span><em class="sig-param">id: str</em>, <em class="sig-param">*</em>, <em class="sig-param">monitor: faust.types.app._Monitor</em>, <em class="sig-param">config_source: Any = None</em>, <em class="sig-param">**options: Any</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/types/app.html#AppT"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.app.AppT" title="Permalink to this definition">¶</a></dt>
+<dd><p>Abstract type for the Faust application.</p>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><code class="xref py py-class docutils literal notranslate"><span class="pre">faust.App</span></code>.</p>
+</div>
+<dl class="attribute">
+<dt id="faust.types.app.AppT.finalized">
+<code class="sig-name descname">finalized</code><em class="property"> = False</em><a class="headerlink" href="#faust.types.app.AppT.finalized" title="Permalink to this definition">¶</a></dt>
+<dd><p>Set to true when the app is finalized (can read configuration).</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.types.app.AppT.configured">
+<code class="sig-name descname">configured</code><em class="property"> = False</em><a class="headerlink" href="#faust.types.app.AppT.configured" title="Permalink to this definition">¶</a></dt>
+<dd><p>Set to true when the app has read configuration.</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.types.app.AppT.rebalancing">
+<code class="sig-name descname">rebalancing</code><em class="property"> = False</em><a class="headerlink" href="#faust.types.app.AppT.rebalancing" title="Permalink to this definition">¶</a></dt>
+<dd><p>Set to true if the worker is currently rebalancing.</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.types.app.AppT.rebalancing_count">
+<code class="sig-name descname">rebalancing_count</code><em class="property"> = 0</em><a class="headerlink" href="#faust.types.app.AppT.rebalancing_count" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="faust.types.app.AppT.unassigned">
+<code class="sig-name descname">unassigned</code><em class="property"> = False</em><a class="headerlink" href="#faust.types.app.AppT.unassigned" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="faust.types.app.AppT.in_worker">
+<code class="sig-name descname">in_worker</code><em class="property"> = False</em><a class="headerlink" href="#faust.types.app.AppT.in_worker" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="faust.types.app.AppT.on_configured">
+<code class="sig-name descname">on_configured</code><span class="sig-paren">(</span><em class="sig-param">*args: Any</em>, <em class="sig-param">**kwargs: Any</em><span class="sig-paren">)</span> &#x2192; None<em class="property"> = &lt;SyncSignal: AppT.on_configured&gt;</em><a class="headerlink" href="#faust.types.app.AppT.on_configured" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="faust.types.app.AppT.on_before_configured">
+<code class="sig-name descname">on_before_configured</code><span class="sig-paren">(</span><em class="sig-param">*args: Any</em>, <em class="sig-param">**kwargs: Any</em><span class="sig-paren">)</span> &#x2192; None<em class="property"> = &lt;SyncSignal: AppT.on_before_configured&gt;</em><a class="headerlink" href="#faust.types.app.AppT.on_before_configured" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="faust.types.app.AppT.on_after_configured">
+<code class="sig-name descname">on_after_configured</code><span class="sig-paren">(</span><em class="sig-param">*args: Any</em>, <em class="sig-param">**kwargs: Any</em><span class="sig-paren">)</span> &#x2192; None<em class="property"> = &lt;SyncSignal: AppT.on_after_configured&gt;</em><a class="headerlink" href="#faust.types.app.AppT.on_after_configured" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="faust.types.app.AppT.on_partitions_assigned">
+<code class="sig-name descname">on_partitions_assigned</code><span class="sig-paren">(</span><em class="sig-param">*args: Any</em>, <em class="sig-param">**kwargs: Any</em><span class="sig-paren">)</span> &#x2192; None<em class="property"> = &lt;Signal: AppT.on_partitions_assigned&gt;</em><a class="headerlink" href="#faust.types.app.AppT.on_partitions_assigned" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="faust.types.app.AppT.on_partitions_revoked">
+<code class="sig-name descname">on_partitions_revoked</code><span class="sig-paren">(</span><em class="sig-param">*args: Any</em>, <em class="sig-param">**kwargs: Any</em><span class="sig-paren">)</span> &#x2192; None<em class="property"> = &lt;Signal: AppT.on_partitions_revoked&gt;</em><a class="headerlink" href="#faust.types.app.AppT.on_partitions_revoked" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="faust.types.app.AppT.on_rebalance_complete">
+<code class="sig-name descname">on_rebalance_complete</code><span class="sig-paren">(</span><em class="sig-param">*args: Any</em>, <em class="sig-param">**kwargs: Any</em><span class="sig-paren">)</span> &#x2192; None<em class="property"> = &lt;Signal: AppT.on_rebalance_complete&gt;</em><a class="headerlink" href="#faust.types.app.AppT.on_rebalance_complete" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="faust.types.app.AppT.on_before_shutdown">
+<code class="sig-name descname">on_before_shutdown</code><span class="sig-paren">(</span><em class="sig-param">*args: Any</em>, <em class="sig-param">**kwargs: Any</em><span class="sig-paren">)</span> &#x2192; None<em class="property"> = &lt;Signal: AppT.on_before_shutdown&gt;</em><a class="headerlink" href="#faust.types.app.AppT.on_before_shutdown" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="faust.types.app.AppT.on_worker_init">
+<code class="sig-name descname">on_worker_init</code><span class="sig-paren">(</span><em class="sig-param">*args: Any</em>, <em class="sig-param">**kwargs: Any</em><span class="sig-paren">)</span> &#x2192; None<em class="property"> = &lt;SyncSignal: AppT.on_worker_init&gt;</em><a class="headerlink" href="#faust.types.app.AppT.on_worker_init" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="faust.types.app.AppT.on_produce_message">
+<code class="sig-name descname">on_produce_message</code><span class="sig-paren">(</span><em class="sig-param">*args: Any</em>, <em class="sig-param">**kwargs: Any</em><span class="sig-paren">)</span> &#x2192; None<em class="property"> = &lt;SyncSignal: AppT.on_produce_message&gt;</em><a class="headerlink" href="#faust.types.app.AppT.on_produce_message" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="faust.types.app.AppT.tracer">
+<code class="sig-name descname">tracer</code><em class="property"> = None</em><a class="headerlink" href="#faust.types.app.AppT.tracer" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="faust.types.app.AppT.config_from_object">
+<em class="property">abstract </em><code class="sig-name descname">config_from_object</code><span class="sig-paren">(</span><em class="sig-param">obj: Any</em>, <em class="sig-param">*</em>, <em class="sig-param">silent: bool = False</em>, <em class="sig-param">force: bool = False</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/types/app.html#AppT.config_from_object"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.app.AppT.config_from_object" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.app.AppT.finalize">
+<em class="property">abstract </em><code class="sig-name descname">finalize</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/types/app.html#AppT.finalize"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.app.AppT.finalize" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.app.AppT.main">
+<em class="property">abstract </em><code class="sig-name descname">main</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; NoReturn<a class="reference internal" href="../_modules/faust/types/app.html#AppT.main"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.app.AppT.main" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">_NoReturn</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.app.AppT.worker_init">
+<em class="property">abstract </em><code class="sig-name descname">worker_init</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/types/app.html#AppT.worker_init"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.app.AppT.worker_init" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.app.AppT.worker_init_post_autodiscover">
+<em class="property">abstract </em><code class="sig-name descname">worker_init_post_autodiscover</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/types/app.html#AppT.worker_init_post_autodiscover"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.app.AppT.worker_init_post_autodiscover" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.app.AppT.discover">
+<em class="property">abstract </em><code class="sig-name descname">discover</code><span class="sig-paren">(</span><em class="sig-param">*extra_modules: str</em>, <em class="sig-param">categories: Iterable[str] = ('a'</em>, <em class="sig-param">'b'</em>, <em class="sig-param">'c')</em>, <em class="sig-param">ignore: Iterable[Any] = ('foo'</em>, <em class="sig-param">'bar')</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/types/app.html#AppT.discover"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.app.AppT.discover" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.app.AppT.topic">
+<em class="property">abstract </em><code class="sig-name descname">topic</code><span class="sig-paren">(</span><em class="sig-param">*topics: str</em>, <em class="sig-param">pattern: Union[str</em>, <em class="sig-param">Pattern[~AnyStr]] = None</em>, <em class="sig-param">schema: faust.types.app._SchemaT = None</em>, <em class="sig-param">key_type: faust.types.app._ModelArg = None</em>, <em class="sig-param">value_type: faust.types.app._ModelArg = None</em>, <em class="sig-param">key_serializer: Union[faust.types.codecs.CodecT</em>, <em class="sig-param">str</em>, <em class="sig-param">None] = None</em>, <em class="sig-param">value_serializer: Union[faust.types.codecs.CodecT</em>, <em class="sig-param">str</em>, <em class="sig-param">None] = None</em>, <em class="sig-param">partitions: int = None</em>, <em class="sig-param">retention: Union[datetime.timedelta</em>, <em class="sig-param">float</em>, <em class="sig-param">str] = None</em>, <em class="sig-param">compacting: bool = None</em>, <em class="sig-param">deleting: bool = None</em>, <em class="sig-param">replicas: int = None</em>, <em class="sig-param">acks: bool = True</em>, <em class="sig-param">internal: bool = False</em>, <em class="sig-param">config: Mapping[str</em>, <em class="sig-param">Any] = None</em>, <em class="sig-param">maxsize: int = None</em>, <em class="sig-param">allow_empty: bool = False</em>, <em class="sig-param">has_prefix: bool = False</em>, <em class="sig-param">loop: asyncio.events.AbstractEventLoop = None</em><span class="sig-paren">)</span> &#x2192; faust.types.topics.TopicT<a class="reference internal" href="../_modules/faust/types/app.html#AppT.topic"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.app.AppT.topic" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="faust.types.topics.html#faust.types.topics.TopicT" title="faust.types.topics.TopicT"><code class="xref py py-class docutils literal notranslate"><span class="pre">TopicT</span></code></a>[]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.app.AppT.channel">
+<em class="property">abstract </em><code class="sig-name descname">channel</code><span class="sig-paren">(</span><em class="sig-param">*</em>, <em class="sig-param">schema: faust.types.app._SchemaT = None</em>, <em class="sig-param">key_type: faust.types.app._ModelArg = None</em>, <em class="sig-param">value_type: faust.types.app._ModelArg = None</em>, <em class="sig-param">maxsize: int = None</em>, <em class="sig-param">loop: asyncio.events.AbstractEventLoop = None</em><span class="sig-paren">)</span> &#x2192; faust.types.channels.ChannelT<a class="reference internal" href="../_modules/faust/types/app.html#AppT.channel"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.app.AppT.channel" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="faust.types.channels.html#faust.types.channels.ChannelT" title="faust.types.channels.ChannelT"><code class="xref py py-class docutils literal notranslate"><span class="pre">ChannelT</span></code></a>[~_T]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.app.AppT.agent">
+<em class="property">abstract </em><code class="sig-name descname">agent</code><span class="sig-paren">(</span><em class="sig-param">channel: Union[str</em>, <em class="sig-param">faust.types.channels.ChannelT[_T]] = None</em>, <em class="sig-param">*</em>, <em class="sig-param">name: str = None</em>, <em class="sig-param">concurrency: int = 1</em>, <em class="sig-param">supervisor_strategy: Type[mode.types.supervisors.SupervisorStrategyT] = None</em>, <em class="sig-param">sink: Iterable[Union[AgentT</em>, <em class="sig-param">faust.types.channels.ChannelT</em>, <em class="sig-param">Callable[Any</em>, <em class="sig-param">Optional[Awaitable]]]] = None</em>, <em class="sig-param">isolated_partitions: bool = False</em>, <em class="sig-param">use_reply_headers: bool = True</em>, <em class="sig-param">**kwargs: Any</em><span class="sig-paren">)</span> &#x2192; Callable[Callable[_T], faust.types.agents.AgentT[_T]]<a class="reference internal" href="../_modules/faust/types/app.html#AppT.agent"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.app.AppT.agent" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Callable" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Callable</span></code></a>[[<a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Callable" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Callable</span></code></a>[[], ~_T]], <a class="reference internal" href="faust.types.agents.html#faust.types.agents.AgentT" title="faust.types.agents.AgentT"><code class="xref py py-class docutils literal notranslate"><span class="pre">AgentT</span></code></a>[~_T]]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.app.AppT.task">
+<em class="property">abstract </em><code class="sig-name descname">task</code><span class="sig-paren">(</span><em class="sig-param">fun: Union[Callable[AppT, Awaitable], Callable[Awaitable]], *, on_leader: bool = False, traced: bool = True</em><span class="sig-paren">)</span> &#x2192; Callable<a class="reference internal" href="../_modules/faust/types/app.html#AppT.task"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.app.AppT.task" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="faust.types.app.AppT.timer">
+<em class="property">abstract </em><code class="sig-name descname">timer</code><span class="sig-paren">(</span><em class="sig-param">interval: Union[datetime.timedelta, float, str], on_leader: bool = False, traced: bool = True, name: str = None, max_drift_correction: float = 0.1</em><span class="sig-paren">)</span> &#x2192; Callable<a class="reference internal" href="../_modules/faust/types/app.html#AppT.timer"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.app.AppT.timer" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Callable" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Callable</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.app.AppT.crontab">
+<em class="property">abstract </em><code class="sig-name descname">crontab</code><span class="sig-paren">(</span><em class="sig-param">cron_format: str</em>, <em class="sig-param">*</em>, <em class="sig-param">timezone: datetime.tzinfo = None</em>, <em class="sig-param">on_leader: bool = False</em>, <em class="sig-param">traced: bool = True</em><span class="sig-paren">)</span> &#x2192; Callable<a class="reference internal" href="../_modules/faust/types/app.html#AppT.crontab"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.app.AppT.crontab" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Callable" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Callable</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.app.AppT.service">
+<em class="property">abstract </em><code class="sig-name descname">service</code><span class="sig-paren">(</span><em class="sig-param">cls: Type[mode.types.services.ServiceT]</em><span class="sig-paren">)</span> &#x2192; Type[mode.types.services.ServiceT]<a class="reference internal" href="../_modules/faust/types/app.html#AppT.service"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.app.AppT.service" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Type" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Type</span></code></a>[<a class="reference external" href="https://mode.readthedocs.io/en/latest/reference/mode.types.services.html#mode.types.services.ServiceT" title="(in Mode v4.3)"><code class="xref py py-class docutils literal notranslate"><span class="pre">ServiceT</span></code></a>[]]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.app.AppT.stream">
+<em class="property">abstract </em><code class="sig-name descname">stream</code><span class="sig-paren">(</span><em class="sig-param">channel: AsyncIterable</em>, <em class="sig-param">beacon: mode.utils.types.trees.NodeT = None</em>, <em class="sig-param">**kwargs: Any</em><span class="sig-paren">)</span> &#x2192; faust.types.streams.StreamT<a class="reference internal" href="../_modules/faust/types/app.html#AppT.stream"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.app.AppT.stream" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="faust.types.streams.html#faust.types.streams.StreamT" title="faust.types.streams.StreamT"><code class="xref py py-class docutils literal notranslate"><span class="pre">StreamT</span></code></a>[+T_co]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.app.AppT.Table">
+<em class="property">abstract </em><code class="sig-name descname">Table</code><span class="sig-paren">(</span><em class="sig-param">name: str</em>, <em class="sig-param">*</em>, <em class="sig-param">default: Callable[Any] = None</em>, <em class="sig-param">window: faust.types.windows.WindowT = None</em>, <em class="sig-param">partitions: int = None</em>, <em class="sig-param">help: str = None</em>, <em class="sig-param">**kwargs: Any</em><span class="sig-paren">)</span> &#x2192; faust.types.tables.TableT<a class="reference internal" href="../_modules/faust/types/app.html#AppT.Table"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.app.AppT.Table" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="faust.types.tables.html#faust.types.tables.TableT" title="faust.types.tables.TableT"><code class="xref py py-class docutils literal notranslate"><span class="pre">TableT</span></code></a>[~KT, ~VT]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.app.AppT.GlobalTable">
+<em class="property">abstract </em><code class="sig-name descname">GlobalTable</code><span class="sig-paren">(</span><em class="sig-param">name: str</em>, <em class="sig-param">*</em>, <em class="sig-param">default: Callable[Any] = None</em>, <em class="sig-param">window: faust.types.windows.WindowT = None</em>, <em class="sig-param">partitions: int = None</em>, <em class="sig-param">help: str = None</em>, <em class="sig-param">**kwargs: Any</em><span class="sig-paren">)</span> &#x2192; faust.types.tables.TableT<a class="reference internal" href="../_modules/faust/types/app.html#AppT.GlobalTable"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.app.AppT.GlobalTable" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="faust.types.tables.html#faust.types.tables.TableT" title="faust.types.tables.TableT"><code class="xref py py-class docutils literal notranslate"><span class="pre">TableT</span></code></a>[~KT, ~VT]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.app.AppT.SetTable">
+<em class="property">abstract </em><code class="sig-name descname">SetTable</code><span class="sig-paren">(</span><em class="sig-param">name: str</em>, <em class="sig-param">*</em>, <em class="sig-param">window: faust.types.windows.WindowT = None</em>, <em class="sig-param">partitions: int = None</em>, <em class="sig-param">start_manager: bool = False</em>, <em class="sig-param">help: str = None</em>, <em class="sig-param">**kwargs: Any</em><span class="sig-paren">)</span> &#x2192; faust.types.tables.TableT<a class="reference internal" href="../_modules/faust/types/app.html#AppT.SetTable"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.app.AppT.SetTable" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="faust.types.tables.html#faust.types.tables.TableT" title="faust.types.tables.TableT"><code class="xref py py-class docutils literal notranslate"><span class="pre">TableT</span></code></a>[~KT, ~VT]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.app.AppT.SetGlobalTable">
+<em class="property">abstract </em><code class="sig-name descname">SetGlobalTable</code><span class="sig-paren">(</span><em class="sig-param">name: str</em>, <em class="sig-param">*</em>, <em class="sig-param">window: faust.types.windows.WindowT = None</em>, <em class="sig-param">partitions: int = None</em>, <em class="sig-param">start_manager: bool = False</em>, <em class="sig-param">help: str = None</em>, <em class="sig-param">**kwargs: Any</em><span class="sig-paren">)</span> &#x2192; faust.types.tables.TableT<a class="reference internal" href="../_modules/faust/types/app.html#AppT.SetGlobalTable"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.app.AppT.SetGlobalTable" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="faust.types.tables.html#faust.types.tables.TableT" title="faust.types.tables.TableT"><code class="xref py py-class docutils literal notranslate"><span class="pre">TableT</span></code></a>[~KT, ~VT]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.app.AppT.page">
+<em class="property">abstract </em><code class="sig-name descname">page</code><span class="sig-paren">(</span><em class="sig-param">path: str</em>, <em class="sig-param">*</em>, <em class="sig-param">base: Type[faust.types.web.View] = &lt;class 'faust.types.web.View'&gt;</em>, <em class="sig-param">cors_options: Mapping[str</em>, <em class="sig-param">faust.types.web.ResourceOptions] = None</em>, <em class="sig-param">name: str = None</em><span class="sig-paren">)</span> &#x2192; Callable[Union[Type[faust.types.web.View], Callable[[faust.types.web.View, faust.types.web.Request], Union[Coroutine[[Any, Any], faust.types.web.Response], Awaitable[faust.types.web.Response]]], Callable[[faust.types.web.View, faust.types.web.Request, Any, Any], Union[Coroutine[[Any, Any], faust.types.web.Response], Awaitable[faust.types.web.Response]]]], Type[faust.types.web.View]]<a class="reference internal" href="../_modules/faust/types/app.html#AppT.page"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.app.AppT.page" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Callable" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Callable</span></code></a>[[<a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Union" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Type" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Type</span></code></a>[<a class="reference internal" href="faust.types.web.html#faust.types.web.View" title="faust.types.web.View"><code class="xref py py-class docutils literal notranslate"><span class="pre">View</span></code></a>], <a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Callable" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Callable</span></code></a>[[<a class="reference internal" href="faust.types.web.html#faust.types.web.View" title="faust.types.web.View"><code class="xref py py-class docutils literal notranslate"><span class="pre">View</span></code></a>, <a class="reference internal" href="faust.types.web.html#faust.types.web.Request" title="faust.types.web.Request"><code class="xref py py-class docutils literal notranslate"><span class="pre">Request</span></code></a>], <a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Union" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Coroutine" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Coroutine</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Any" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code></a>, <a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Any" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code></a>, <a class="reference internal" href="faust.types.web.html#faust.types.web.Response" title="faust.types.web.Response"><code class="xref py py-class docutils literal notranslate"><span class="pre">Response</span></code></a>], <a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Awaitable" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Awaitable</span></code></a>[<a class="reference internal" href="faust.types.web.html#faust.types.web.Response" title="faust.types.web.Response"><code class="xref py py-class docutils literal notranslate"><span class="pre">Response</span></code></a>]]], <a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Callable" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Callable</span></code></a>[[<a class="reference internal" href="faust.types.web.html#faust.types.web.View" title="faust.types.web.View"><code class="xref py py-class docutils literal notranslate"><span class="pre">View</span></code></a>, <a class="reference internal" href="faust.types.web.html#faust.types.web.Request" title="faust.types.web.Request"><code class="xref py py-class docutils literal notranslate"><span class="pre">Request</span></code></a>, <a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Any" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code></a>, <a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Any" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code></a>], <a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Union" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Coroutine" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Coroutine</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Any" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code></a>, <a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Any" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code></a>, <a class="reference internal" href="faust.types.web.html#faust.types.web.Response" title="faust.types.web.Response"><code class="xref py py-class docutils literal notranslate"><span class="pre">Response</span></code></a>], <a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Awaitable" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Awaitable</span></code></a>[<a class="reference internal" href="faust.types.web.html#faust.types.web.Response" title="faust.types.web.Response"><code class="xref py py-class docutils literal notranslate"><span class="pre">Response</span></code></a>]]]]], <a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Type" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Type</span></code></a>[<a class="reference internal" href="faust.types.web.html#faust.types.web.View" title="faust.types.web.View"><code class="xref py py-class docutils literal notranslate"><span class="pre">View</span></code></a>]]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.app.AppT.table_route">
+<em class="property">abstract </em><code class="sig-name descname">table_route</code><span class="sig-paren">(</span><em class="sig-param">table: faust.types.tables.CollectionT</em>, <em class="sig-param">shard_param: str = None</em>, <em class="sig-param">*</em>, <em class="sig-param">query_param: str = None</em>, <em class="sig-param">match_info: str = None</em>, <em class="sig-param">exact_key: str = None</em><span class="sig-paren">)</span> &#x2192; Callable[Union[Callable[[faust.types.web.View, faust.types.web.Request], Union[Coroutine[[Any, Any], faust.types.web.Response], Awaitable[faust.types.web.Response]]], Callable[[faust.types.web.View, faust.types.web.Request, Any, Any], Union[Coroutine[[Any, Any], faust.types.web.Response], Awaitable[faust.types.web.Response]]]], Union[Callable[[faust.types.web.View, faust.types.web.Request], Union[Coroutine[[Any, Any], faust.types.web.Response], Awaitable[faust.types.web.Response]]], Callable[[faust.types.web.View, faust.types.web.Request, Any, Any], Union[Coroutine[[Any, Any], faust.types.web.Response], Awaitable[faust.types.web.Response]]]]]<a class="reference internal" href="../_modules/faust/types/app.html#AppT.table_route"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.app.AppT.table_route" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Callable" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Callable</span></code></a>[[<a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Union" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Callable" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Callable</span></code></a>[[<a class="reference internal" href="faust.types.web.html#faust.types.web.View" title="faust.types.web.View"><code class="xref py py-class docutils literal notranslate"><span class="pre">View</span></code></a>, <a class="reference internal" href="faust.types.web.html#faust.types.web.Request" title="faust.types.web.Request"><code class="xref py py-class docutils literal notranslate"><span class="pre">Request</span></code></a>], <a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Union" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Coroutine" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Coroutine</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Any" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code></a>, <a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Any" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code></a>, <a class="reference internal" href="faust.types.web.html#faust.types.web.Response" title="faust.types.web.Response"><code class="xref py py-class docutils literal notranslate"><span class="pre">Response</span></code></a>], <a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Awaitable" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Awaitable</span></code></a>[<a class="reference internal" href="faust.types.web.html#faust.types.web.Response" title="faust.types.web.Response"><code class="xref py py-class docutils literal notranslate"><span class="pre">Response</span></code></a>]]], <a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Callable" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Callable</span></code></a>[[<a class="reference internal" href="faust.types.web.html#faust.types.web.View" title="faust.types.web.View"><code class="xref py py-class docutils literal notranslate"><span class="pre">View</span></code></a>, <a class="reference internal" href="faust.types.web.html#faust.types.web.Request" title="faust.types.web.Request"><code class="xref py py-class docutils literal notranslate"><span class="pre">Request</span></code></a>, <a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Any" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code></a>, <a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Any" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code></a>], <a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Union" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Coroutine" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Coroutine</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Any" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code></a>, <a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Any" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code></a>, <a class="reference internal" href="faust.types.web.html#faust.types.web.Response" title="faust.types.web.Response"><code class="xref py py-class docutils literal notranslate"><span class="pre">Response</span></code></a>], <a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Awaitable" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Awaitable</span></code></a>[<a class="reference internal" href="faust.types.web.html#faust.types.web.Response" title="faust.types.web.Response"><code class="xref py py-class docutils literal notranslate"><span class="pre">Response</span></code></a>]]]]], <a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Union" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Callable" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Callable</span></code></a>[[<a class="reference internal" href="faust.types.web.html#faust.types.web.View" title="faust.types.web.View"><code class="xref py py-class docutils literal notranslate"><span class="pre">View</span></code></a>, <a class="reference internal" href="faust.types.web.html#faust.types.web.Request" title="faust.types.web.Request"><code class="xref py py-class docutils literal notranslate"><span class="pre">Request</span></code></a>], <a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Union" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Coroutine" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Coroutine</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Any" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code></a>, <a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Any" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code></a>, <a class="reference internal" href="faust.types.web.html#faust.types.web.Response" title="faust.types.web.Response"><code class="xref py py-class docutils literal notranslate"><span class="pre">Response</span></code></a>], <a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Awaitable" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Awaitable</span></code></a>[<a class="reference internal" href="faust.types.web.html#faust.types.web.Response" title="faust.types.web.Response"><code class="xref py py-class docutils literal notranslate"><span class="pre">Response</span></code></a>]]], <a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Callable" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Callable</span></code></a>[[<a class="reference internal" href="faust.types.web.html#faust.types.web.View" title="faust.types.web.View"><code class="xref py py-class docutils literal notranslate"><span class="pre">View</span></code></a>, <a class="reference internal" href="faust.types.web.html#faust.types.web.Request" title="faust.types.web.Request"><code class="xref py py-class docutils literal notranslate"><span class="pre">Request</span></code></a>, <a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Any" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code></a>, <a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Any" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code></a>], <a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Union" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Coroutine" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Coroutine</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Any" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code></a>, <a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Any" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code></a>, <a class="reference internal" href="faust.types.web.html#faust.types.web.Response" title="faust.types.web.Response"><code class="xref py py-class docutils literal notranslate"><span class="pre">Response</span></code></a>], <a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Awaitable" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Awaitable</span></code></a>[<a class="reference internal" href="faust.types.web.html#faust.types.web.Response" title="faust.types.web.Response"><code class="xref py py-class docutils literal notranslate"><span class="pre">Response</span></code></a>]]]]]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.app.AppT.command">
+<em class="property">abstract </em><code class="sig-name descname">command</code><span class="sig-paren">(</span><em class="sig-param">*options: Any</em>, <em class="sig-param">base: Type[faust.types.app._AppCommand] = None</em>, <em class="sig-param">**kwargs: Any</em><span class="sig-paren">)</span> &#x2192; Callable[Callable, Type[faust.types.app._AppCommand]]<a class="reference internal" href="../_modules/faust/types/app.html#AppT.command"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.app.AppT.command" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Callable" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Callable</span></code></a>[[<a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Callable" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Callable</span></code></a>], <a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Type" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Type</span></code></a>[<code class="xref py py-class docutils literal notranslate"><span class="pre">_AppCommand</span></code>]]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.app.AppT.create_event">
+<em class="property">abstract </em><code class="sig-name descname">create_event</code><span class="sig-paren">(</span><em class="sig-param">key: Union[bytes, faust.types.core._ModelT, Any, None], value: Union[bytes, faust.types.core._ModelT, Any], headers: Union[List[Tuple[str, bytes]], Mapping[str, bytes], None], message: faust.types.tuples.Message</em><span class="sig-paren">)</span> &#x2192; faust.types.app._EventT<a class="reference internal" href="../_modules/faust/types/app.html#AppT.create_event"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.app.AppT.create_event" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">_EventT</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.app.AppT.start_client">
+<em class="property">abstract async </em><code class="sig-name descname">start_client</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/types/app.html#AppT.start_client"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.app.AppT.start_client" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.app.AppT.maybe_start_client">
+<em class="property">abstract async </em><code class="sig-name descname">maybe_start_client</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/types/app.html#AppT.maybe_start_client"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.app.AppT.maybe_start_client" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.app.AppT.trace">
+<em class="property">abstract </em><code class="sig-name descname">trace</code><span class="sig-paren">(</span><em class="sig-param">name: str</em>, <em class="sig-param">trace_enabled: bool = True</em>, <em class="sig-param">**extra_context: Any</em><span class="sig-paren">)</span> &#x2192; ContextManager<a class="reference internal" href="../_modules/faust/types/app.html#AppT.trace"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.app.AppT.trace" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.ContextManager" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">ContextManager</span></code></a>[+T_co]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.app.AppT.send">
+<em class="property">abstract async </em><code class="sig-name descname">send</code><span class="sig-paren">(</span><em class="sig-param">channel: Union[faust.types.channels.ChannelT, str], key: Union[bytes, faust.types.core._ModelT, Any, None] = None, value: Union[bytes, faust.types.core._ModelT, Any] = None, partition: int = None, timestamp: float = None, headers: Union[List[Tuple[str, bytes]], Mapping[str, bytes], None] = None, schema: faust.types.app._SchemaT = None, key_serializer: Union[faust.types.codecs.CodecT, str, None] = None, value_serializer: Union[faust.types.codecs.CodecT, str, None] = None, callback: Callable[faust.types.tuples.FutureMessage, Union[None, Awaitable[None]]] = None</em><span class="sig-paren">)</span> &#x2192; Awaitable[faust.types.tuples.RecordMetadata]<a class="reference internal" href="../_modules/faust/types/app.html#AppT.send"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.app.AppT.send" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Awaitable" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Awaitable</span></code></a>[<a class="reference internal" href="faust.types.tuples.html#faust.types.tuples.RecordMetadata" title="faust.types.tuples.RecordMetadata"><code class="xref py py-class docutils literal notranslate"><span class="pre">RecordMetadata</span></code></a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.app.AppT.LiveCheck">
+<em class="property">abstract </em><code class="sig-name descname">LiveCheck</code><span class="sig-paren">(</span><em class="sig-param">**kwargs: Any</em><span class="sig-paren">)</span> &#x2192; faust.types.app._LiveCheck<a class="reference internal" href="../_modules/faust/types/app.html#AppT.LiveCheck"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.app.AppT.LiveCheck" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">_LiveCheck</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.types.app.AppT.maybe_start_producer">
+<code class="sig-name descname">maybe_start_producer</code><a class="reference internal" href="../_modules/faust/types/app.html#AppT.maybe_start_producer"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.app.AppT.maybe_start_producer" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="faust.types.transports.html#faust.types.transports.ProducerT" title="faust.types.transports.ProducerT"><code class="xref py py-class docutils literal notranslate"><span class="pre">ProducerT</span></code></a>[]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.app.AppT.is_leader">
+<em class="property">abstract </em><code class="sig-name descname">is_leader</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; bool<a class="reference internal" href="../_modules/faust/types/app.html#AppT.is_leader"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.app.AppT.is_leader" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/functions.html#bool" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.app.AppT.FlowControlQueue">
+<em class="property">abstract </em><code class="sig-name descname">FlowControlQueue</code><span class="sig-paren">(</span><em class="sig-param">maxsize: int = None</em>, <em class="sig-param">*</em>, <em class="sig-param">clear_on_resume: bool = False</em>, <em class="sig-param">loop: asyncio.events.AbstractEventLoop = None</em><span class="sig-paren">)</span> &#x2192; mode.utils.queues.ThrowableQueue<a class="reference internal" href="../_modules/faust/types/app.html#AppT.FlowControlQueue"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.app.AppT.FlowControlQueue" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://mode.readthedocs.io/en/latest/reference/mode.utils.queues.html#mode.utils.queues.ThrowableQueue" title="(in Mode v4.3)"><code class="xref py py-class docutils literal notranslate"><span class="pre">ThrowableQueue</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.app.AppT.Worker">
+<em class="property">abstract </em><code class="sig-name descname">Worker</code><span class="sig-paren">(</span><em class="sig-param">**kwargs: Any</em><span class="sig-paren">)</span> &#x2192; faust.types.app._Worker<a class="reference internal" href="../_modules/faust/types/app.html#AppT.Worker"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.app.AppT.Worker" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">_Worker</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.app.AppT.on_webserver_init">
+<em class="property">abstract </em><code class="sig-name descname">on_webserver_init</code><span class="sig-paren">(</span><em class="sig-param">web: faust.types.web.Web</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/types/app.html#AppT.on_webserver_init"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.app.AppT.on_webserver_init" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.app.AppT.on_rebalance_start">
+<em class="property">abstract </em><code class="sig-name descname">on_rebalance_start</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/types/app.html#AppT.on_rebalance_start"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.app.AppT.on_rebalance_start" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.app.AppT.on_rebalance_return">
+<em class="property">abstract </em><code class="sig-name descname">on_rebalance_return</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/types/app.html#AppT.on_rebalance_return"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.app.AppT.on_rebalance_return" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.app.AppT.on_rebalance_end">
+<em class="property">abstract </em><code class="sig-name descname">on_rebalance_end</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/types/app.html#AppT.on_rebalance_end"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.app.AppT.on_rebalance_end" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.app.AppT.conf">
+<em class="property">property </em><code class="sig-name descname">conf</code><a class="headerlink" href="#faust.types.app.AppT.conf" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">_Settings</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.app.AppT.transport">
+<em class="property">abstract property </em><code class="sig-name descname">transport</code><a class="headerlink" href="#faust.types.app.AppT.transport" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="faust.types.transports.html#faust.types.transports.TransportT" title="faust.types.transports.TransportT"><code class="xref py py-class docutils literal notranslate"><span class="pre">TransportT</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.app.AppT.producer_transport">
+<em class="property">abstract property </em><code class="sig-name descname">producer_transport</code><a class="headerlink" href="#faust.types.app.AppT.producer_transport" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="faust.types.transports.html#faust.types.transports.TransportT" title="faust.types.transports.TransportT"><code class="xref py py-class docutils literal notranslate"><span class="pre">TransportT</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.app.AppT.cache">
+<em class="property">abstract property </em><code class="sig-name descname">cache</code><a class="headerlink" href="#faust.types.app.AppT.cache" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="faust.types.web.html#faust.types.web.CacheBackendT" title="faust.types.web.CacheBackendT"><code class="xref py py-class docutils literal notranslate"><span class="pre">CacheBackendT</span></code></a>[]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.app.AppT.producer">
+<em class="property">abstract property </em><code class="sig-name descname">producer</code><a class="headerlink" href="#faust.types.app.AppT.producer" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="faust.types.transports.html#faust.types.transports.ProducerT" title="faust.types.transports.ProducerT"><code class="xref py py-class docutils literal notranslate"><span class="pre">ProducerT</span></code></a>[]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.app.AppT.consumer">
+<em class="property">abstract property </em><code class="sig-name descname">consumer</code><a class="headerlink" href="#faust.types.app.AppT.consumer" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="faust.types.transports.html#faust.types.transports.ConsumerT" title="faust.types.transports.ConsumerT"><code class="xref py py-class docutils literal notranslate"><span class="pre">ConsumerT</span></code></a>[]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.types.app.AppT.tables">
+<code class="sig-name descname">tables</code><a class="reference internal" href="../_modules/faust/types/app.html#AppT.tables"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.app.AppT.tables" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="faust.types.app.AppT.topics">
+<code class="sig-name descname">topics</code><a class="reference internal" href="../_modules/faust/types/app.html#AppT.topics"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.app.AppT.topics" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="faust.types.app.AppT.monitor">
+<em class="property">abstract property </em><code class="sig-name descname">monitor</code><a class="headerlink" href="#faust.types.app.AppT.monitor" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">_Monitor</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.types.app.AppT.flow_control">
+<code class="sig-name descname">flow_control</code><a class="reference internal" href="../_modules/faust/types/app.html#AppT.flow_control"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.app.AppT.flow_control" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="faust.types.app.AppT.http_client">
+<em class="property">abstract property </em><code class="sig-name descname">http_client</code><a class="headerlink" href="#faust.types.app.AppT.http_client" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">ClientSession</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.types.app.AppT.assignor">
+<code class="sig-name descname">assignor</code><a class="reference internal" href="../_modules/faust/types/app.html#AppT.assignor"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.app.AppT.assignor" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="faust.types.app.AppT.router">
+<code class="sig-name descname">router</code><a class="reference internal" href="../_modules/faust/types/app.html#AppT.router"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.app.AppT.router" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="faust.types.app.AppT.serializers">
+<code class="sig-name descname">serializers</code><a class="reference internal" href="../_modules/faust/types/app.html#AppT.serializers"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.app.AppT.serializers" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="faust.types.app.AppT.web">
+<code class="sig-name descname">web</code><a class="reference internal" href="../_modules/faust/types/app.html#AppT.web"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.app.AppT.web" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="faust.types.app.AppT.in_transaction">
+<code class="sig-name descname">in_transaction</code><a class="reference internal" href="../_modules/faust/types/app.html#AppT.in_transaction"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.app.AppT.in_transaction" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../playbooks/index.html">Playbooks</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../userguide/index.html">User Guide</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../history/index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">API Reference</a><ul>
+      <li>Previous: <a href="faust.types.agents.html" title="previous chapter"><code class="docutils literal notranslate"><span class="pre">faust.types.agents</span></code></a></li>
+      <li>Next: <a href="faust.types.assignor.html" title="next chapter"><code class="docutils literal notranslate"><span class="pre">faust.types.assignor</span></code></a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2020, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../_sources/reference/faust.types.app.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

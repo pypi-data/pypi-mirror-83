@@ -1,0 +1,509 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>faust.serializers.codecs &#8212; Faust 1.11.0a1 documentation</title>
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../../../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <link rel="copyright" title="Copyright" href="../../../copyright.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for faust.serializers.codecs</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Serialization utilities.</span>
+
+<span class="sd">Supported codecs</span>
+<span class="sd">================</span>
+
+<span class="sd">* **raw**     - No encoding/serialization (bytes only).</span>
+<span class="sd">* **json**    - json with UTF-8 encoding.</span>
+<span class="sd">* **yaml**    - YAML (safe version)</span>
+<span class="sd">* **pickle**  - pickle with base64 encoding (not urlsafe).</span>
+<span class="sd">* **binary**  - base64 encoding (not urlsafe).</span>
+
+<span class="sd">Serialization by name</span>
+<span class="sd">=====================</span>
+
+<span class="sd">The :func:`dumps` function takes a codec name and the object to encode,</span>
+<span class="sd">then returns bytes:</span>
+
+<span class="sd">.. sourcecode:: pycon</span>
+
+<span class="sd">    &gt;&gt;&gt; s = dumps(&#39;json&#39;, obj)</span>
+
+<span class="sd">For the reverse direction, the :func:`loads` function takes a codec</span>
+<span class="sd">name and bytes to decode:</span>
+
+<span class="sd">.. sourcecode:: pycon</span>
+
+<span class="sd">    &gt;&gt;&gt; obj = loads(&#39;json&#39;, s)</span>
+
+<span class="sd">You can also combine encoders in the name, like in this case</span>
+<span class="sd">where json is combined with gzip compression:</span>
+
+<span class="sd">.. sourcecode:: pycon</span>
+
+<span class="sd">    &gt;&gt;&gt; obj = loads(&#39;json|gzip&#39;, s)</span>
+
+<span class="sd">Codec registry</span>
+<span class="sd">==============</span>
+
+<span class="sd">Codecs are configured by name and this module maintains</span>
+<span class="sd">a mapping from name to :class:`Codec` instance: the :attr:`codecs`</span>
+<span class="sd">attribute.</span>
+
+<span class="sd">You can add a new codec to this mapping by:</span>
+
+<span class="sd">.. sourcecode:: pycon</span>
+
+<span class="sd">    &gt;&gt;&gt; from faust.serializers import codecs</span>
+<span class="sd">    &gt;&gt;&gt; codecs.register(custom, custom_serializer())</span>
+
+<span class="sd">A codec subclass requires two methods to be implemented: ``_loads()``</span>
+<span class="sd">and ``_dumps()``:</span>
+
+<span class="sd">.. sourcecode:: python</span>
+
+<span class="sd">    import msgpack</span>
+
+<span class="sd">    from faust.serializers import codecs</span>
+
+<span class="sd">    class raw_msgpack(codecs.Codec):</span>
+
+<span class="sd">        def _dumps(self, obj: Any) -&gt; bytes:</span>
+<span class="sd">            return msgpack.dumps(obj)</span>
+
+<span class="sd">        def _loads(self, s: bytes) -&gt; Any:</span>
+<span class="sd">            return msgpack.loads(s)</span>
+
+<span class="sd">Our codec now encodes/decodes to raw msgpack format, but we</span>
+<span class="sd">may also need to transfer this payload over a transport easily confused</span>
+<span class="sd">by binary data, such as JSON where everything is Unicode.</span>
+
+<span class="sd">You can chain codecs together, so to add a binary text encoding like Base64,</span>
+<span class="sd">to your codec, we use the ``|`` operator to form a combined codec:</span>
+
+<span class="sd">.. sourcecode:: python</span>
+
+<span class="sd">    def msgpack() -&gt; codecs.Codec:</span>
+<span class="sd">        return raw_msgpack() | codecs.binary()</span>
+
+<span class="sd">    codecs.register(&#39;msgpack&#39;, msgpack())</span>
+
+<span class="sd">At this point we monkey-patched Faust to support</span>
+<span class="sd">our codec, and we can use it to define records like this:</span>
+
+<span class="sd">.. sourcecode:: pycon</span>
+
+<span class="sd">    &gt;&gt;&gt; from faust.serializers import Record</span>
+<span class="sd">    &gt;&gt;&gt; class Point(Record, serializer=&#39;msgpack&#39;):</span>
+<span class="sd">    ...     x: int</span>
+<span class="sd">    ...     y: int</span>
+
+<span class="sd">The problem with monkey-patching is that we must make sure the patching</span>
+<span class="sd">happens before we use the feature.</span>
+
+<span class="sd">Faust also supports registering *codec extensions*</span>
+<span class="sd">using setuptools entry points, so instead we can create an installable msgpack</span>
+<span class="sd">extension.</span>
+
+<span class="sd">To do so we need to define a package with the following directory layout:</span>
+
+<span class="sd">.. sourcecode:: text</span>
+
+<span class="sd">    faust-msgpack/</span>
+<span class="sd">        setup.py</span>
+<span class="sd">        faust_msgpack.py</span>
+
+<span class="sd">The first file, :file:`faust-msgpack/setup.py`, defines metadata about our</span>
+<span class="sd">package and should look like the following example:</span>
+
+<span class="sd">.. sourcecode:: python</span>
+
+<span class="sd">    from setuptools import setup, find_packages</span>
+
+<span class="sd">    setup(</span>
+<span class="sd">        name=&#39;faust-msgpack&#39;,</span>
+<span class="sd">        version=&#39;1.0.0&#39;,</span>
+<span class="sd">        description=&#39;Faust msgpack serialization support&#39;,</span>
+<span class="sd">        author=&#39;Ola A. Normann&#39;,</span>
+<span class="sd">        author_email=&#39;ola@normann.no&#39;,</span>
+<span class="sd">        url=&#39;http://github.com/example/faust-msgpack&#39;,</span>
+<span class="sd">        platforms=[&#39;any&#39;],</span>
+<span class="sd">        license=&#39;BSD&#39;,</span>
+<span class="sd">        packages=find_packages(exclude=[&#39;ez_setup&#39;, &#39;tests&#39;, &#39;tests.*&#39;]),</span>
+<span class="sd">        zip_safe=False,</span>
+<span class="sd">        install_requires=[&#39;msgpack-python&#39;],</span>
+<span class="sd">        tests_require=[],</span>
+<span class="sd">        entry_points={</span>
+<span class="sd">            &#39;faust.codecs&#39;: [</span>
+<span class="sd">                &#39;msgpack = faust_msgpack:msgpack&#39;,</span>
+<span class="sd">            ],</span>
+<span class="sd">        },</span>
+<span class="sd">    )</span>
+
+<span class="sd">The most important part being the ``entry_points`` key which tells</span>
+<span class="sd">Faust how to load our plugin. We have set the name of our</span>
+<span class="sd">codec to ``msgpack`` and the path to the codec class</span>
+<span class="sd">to be ``faust_msgpack:msgpack``. This will be imported by Faust</span>
+<span class="sd">as ``from faust_msgpack import msgpack``, so we need to define</span>
+<span class="sd">that part next in our :file:`faust-msgpack/faust_msgpack.py` module:</span>
+
+<span class="sd">.. sourcecode:: python</span>
+
+<span class="sd">    from faust.serializers import codecs</span>
+
+<span class="sd">    class raw_msgpack(codecs.Codec):</span>
+
+<span class="sd">        def _dumps(self, obj: Any) -&gt; bytes:</span>
+<span class="sd">            return msgpack.dumps(s)</span>
+
+
+<span class="sd">    def msgpack() -&gt; codecs.Codec:</span>
+<span class="sd">        return raw_msgpack() | codecs.binary()</span>
+
+<span class="sd">That&#39;s it! To install and use our new extension we do:</span>
+
+<span class="sd">.. sourcecode:: console</span>
+
+<span class="sd">    $ python setup.py install</span>
+
+<span class="sd">At this point may want to publish this on PyPI to share</span>
+<span class="sd">the extension with other Faust users.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">import</span> <span class="nn">pickle</span> <span class="k">as</span> <span class="nn">_pickle</span>
+
+<span class="kn">from</span> <span class="nn">base64</span> <span class="k">import</span> <span class="n">b64decode</span><span class="p">,</span> <span class="n">b64encode</span>
+<span class="kn">from</span> <span class="nn">types</span> <span class="k">import</span> <span class="n">ModuleType</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="k">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">MutableMapping</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">cast</span>
+
+<span class="kn">from</span> <span class="nn">mode.utils.compat</span> <span class="k">import</span> <span class="n">want_bytes</span><span class="p">,</span> <span class="n">want_str</span>
+<span class="kn">from</span> <span class="nn">mode.utils.imports</span> <span class="k">import</span> <span class="n">load_extension_classes</span>
+
+<span class="kn">from</span> <span class="nn">faust.exceptions</span> <span class="k">import</span> <span class="n">ImproperlyConfigured</span>
+<span class="kn">from</span> <span class="nn">faust.types.codecs</span> <span class="k">import</span> <span class="n">CodecArg</span><span class="p">,</span> <span class="n">CodecT</span>
+<span class="kn">from</span> <span class="nn">faust.utils</span> <span class="k">import</span> <span class="n">json</span> <span class="k">as</span> <span class="n">_json</span>
+
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">import</span> <span class="nn">yaml</span> <span class="k">as</span> <span class="nn">_yaml</span>
+<span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+    <span class="n">_yaml</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">ModuleType</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>  <span class="c1"># noqa</span>
+
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="s1">&#39;Codec&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;CodecArg&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;register&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;get_codec&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;dumps&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;loads&#39;</span><span class="p">,</span>
+<span class="p">]</span>
+
+
+<div class="viewcode-block" id="Codec"><a class="viewcode-back" href="../../../reference/faust.serializers.codecs.html#faust.Codec">[docs]</a><span class="k">class</span> <span class="nc">Codec</span><span class="p">(</span><span class="n">CodecT</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Base class for codecs.&quot;&quot;&quot;</span>
+
+    <span class="c1">#: next steps in the recursive codec chain.</span>
+    <span class="c1">#: ``x = pickle | binary`` returns codec with</span>
+    <span class="c1">#: children set to ``(pickle, binary)``.</span>
+    <span class="n">children</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">CodecT</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
+
+    <span class="c1">#: cached version of children including this codec as the first node.</span>
+    <span class="c1">#: could use chain below, but seems premature so just copying the list.</span>
+    <span class="n">nodes</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">CodecT</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
+
+    <span class="c1">#: subclasses can support keyword arguments,</span>
+    <span class="c1">#: the base implementation of :meth:`clone` uses this to</span>
+    <span class="c1">#: preserve keyword arguments in copies.</span>
+    <span class="n">kwargs</span><span class="p">:</span> <span class="n">Dict</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">children</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">CodecT</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">children</span> <span class="o">=</span> <span class="n">children</span> <span class="ow">or</span> <span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">nodes</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="p">,)</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">children</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">kwargs</span> <span class="o">=</span> <span class="n">kwargs</span>
+
+    <span class="k">def</span> <span class="nf">_loads</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">s</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+        <span class="c1"># subclasses must implement this method.</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">_dumps</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">s</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bytes</span><span class="p">:</span>
+        <span class="c1"># subclasses must implement this method.</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
+
+<div class="viewcode-block" id="Codec.dumps"><a class="viewcode-back" href="../../../reference/faust.serializers.codecs.html#faust.Codec.dumps">[docs]</a>    <span class="k">def</span> <span class="nf">dumps</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bytes</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Encode object ``obj``.&quot;&quot;&quot;</span>
+        <span class="c1"># send _dumps to this instance, and all children.</span>
+        <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">nodes</span><span class="p">:</span>
+            <span class="n">obj</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">Codec</span><span class="p">,</span> <span class="n">node</span><span class="p">)</span><span class="o">.</span><span class="n">_dumps</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">obj</span></div>
+
+<div class="viewcode-block" id="Codec.loads"><a class="viewcode-back" href="../../../reference/faust.serializers.codecs.html#faust.Codec.loads">[docs]</a>    <span class="k">def</span> <span class="nf">loads</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">s</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Decode object from string.&quot;&quot;&quot;</span>
+        <span class="c1"># send _loads to this instance, and all children in reverse order</span>
+        <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="nb">reversed</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">nodes</span><span class="p">):</span>
+            <span class="n">s</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">Codec</span><span class="p">,</span> <span class="n">node</span><span class="p">)</span><span class="o">.</span><span class="n">_loads</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">s</span></div>
+
+<div class="viewcode-block" id="Codec.clone"><a class="viewcode-back" href="../../../reference/faust.serializers.codecs.html#faust.Codec.clone">[docs]</a>    <span class="k">def</span> <span class="nf">clone</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">children</span><span class="p">:</span> <span class="n">CodecT</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CodecT</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Create a clone of this codec, with optional children added.&quot;&quot;&quot;</span>
+        <span class="n">new_children</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">children</span> <span class="o">+</span> <span class="n">children</span>
+        <span class="k">return</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)(</span><span class="n">children</span><span class="o">=</span><span class="n">new_children</span><span class="p">,</span> <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">__or__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+        <span class="c1"># codecs can be chained together, e.g. binary() | json()</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">CodecT</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">clone</span><span class="p">(</span><span class="n">other</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">NotImplemented</span>
+
+    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s1">&#39; | &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">{0}</span><span class="s1">(</span><span class="si">{1}</span><span class="s1">)&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+            <span class="nb">type</span><span class="p">(</span><span class="n">n</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span> <span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+                <span class="nb">map</span><span class="p">(</span><span class="nb">repr</span><span class="p">,</span>
+                    <span class="n">cast</span><span class="p">(</span><span class="n">Codec</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span><span class="o">.</span><span class="n">kwargs</span><span class="o">.</span><span class="n">values</span><span class="p">())))</span> <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">nodes</span><span class="p">)</span></div>
+
+
+<span class="k">class</span> <span class="nc">json</span><span class="p">(</span><span class="n">Codec</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;:mod:`json` serializer.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">_loads</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">s</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">_json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">want_str</span><span class="p">(</span><span class="n">s</span><span class="p">))</span>
+
+    <span class="k">def</span> <span class="nf">_dumps</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">s</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bytes</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">want_bytes</span><span class="p">(</span><span class="n">_json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">s</span><span class="p">))</span>
+
+
+<span class="k">class</span> <span class="nc">yaml</span><span class="p">(</span><span class="n">Codec</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;:pypi:`PyYAML` serializer.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">_loads</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">s</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">_yaml</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">ImproperlyConfigured</span><span class="p">(</span><span class="s1">&#39;Missing yaml: pip install PyYAML&#39;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">_yaml</span><span class="o">.</span><span class="n">safe_load</span><span class="p">(</span><span class="n">want_str</span><span class="p">(</span><span class="n">s</span><span class="p">))</span>
+
+    <span class="k">def</span> <span class="nf">_dumps</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">s</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bytes</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">_yaml</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">ImproperlyConfigured</span><span class="p">(</span><span class="s1">&#39;Missing yaml: pip install PyYAML&#39;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">want_bytes</span><span class="p">(</span><span class="n">_yaml</span><span class="o">.</span><span class="n">safe_dump</span><span class="p">(</span><span class="n">s</span><span class="p">))</span>
+
+
+<span class="k">class</span> <span class="nc">raw_pickle</span><span class="p">(</span><span class="n">Codec</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;:mod:`pickle` serializer with no encoding.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">_loads</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">s</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">_pickle</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_dumps</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bytes</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">_pickle</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">pickle</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Codec</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;:mod:`pickle` serializer with base64 encoding.&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">raw_pickle</span><span class="p">()</span> <span class="o">|</span> <span class="n">binary</span><span class="p">()</span>
+
+
+<span class="k">class</span> <span class="nc">binary</span><span class="p">(</span><span class="n">Codec</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Codec for binary content (uses Base64 encoding).&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">_loads</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">s</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">b64decode</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_dumps</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">s</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bytes</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">b64encode</span><span class="p">(</span><span class="n">want_bytes</span><span class="p">(</span><span class="n">s</span><span class="p">))</span>
+
+
+<span class="k">class</span> <span class="nc">raw</span><span class="p">(</span><span class="n">Codec</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Codec that does nothing at all.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">_loads</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">s</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bytes</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">want_bytes</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_dumps</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">s</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bytes</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">want_bytes</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+
+
+<span class="c1">#: Codec registry, mapping of name to :class:`Codec` instance.</span>
+<span class="n">codecs</span><span class="p">:</span> <span class="n">MutableMapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">CodecT</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">&#39;json&#39;</span><span class="p">:</span> <span class="n">json</span><span class="p">(),</span>
+    <span class="s1">&#39;pickle&#39;</span><span class="p">:</span> <span class="n">pickle</span><span class="p">(),</span>
+    <span class="s1">&#39;binary&#39;</span><span class="p">:</span> <span class="n">binary</span><span class="p">(),</span>
+    <span class="s1">&#39;raw&#39;</span><span class="p">:</span> <span class="n">raw</span><span class="p">(),</span>
+    <span class="s1">&#39;yaml&#39;</span><span class="p">:</span> <span class="n">yaml</span><span class="p">(),</span>
+<span class="p">}</span>
+
+<span class="c1">#: Cached extension classes.</span>
+<span class="c1">#: We have to defer extension loading to runtime as the</span>
+<span class="c1">#: extensions will import from this module causing a circular import.</span>
+<span class="n">_extensions_finalized</span><span class="p">:</span> <span class="n">MutableMapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+
+
+<div class="viewcode-block" id="register"><a class="viewcode-back" href="../../../reference/faust.serializers.codecs.html#faust.register">[docs]</a><span class="k">def</span> <span class="nf">register</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">codec</span><span class="p">:</span> <span class="n">CodecT</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Register new codec in the codec registry.&quot;&quot;&quot;</span>
+    <span class="n">codecs</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">codec</span></div>
+
+
+<span class="k">def</span> <span class="nf">_maybe_load_extension_classes</span><span class="p">(</span>
+        <span class="n">namespace</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;faust.codecs&#39;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">namespace</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">_extensions_finalized</span><span class="p">:</span>
+        <span class="n">_extensions_finalized</span><span class="p">[</span><span class="n">namespace</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="n">codecs</span><span class="o">.</span><span class="n">update</span><span class="p">({</span>
+            <span class="n">name</span><span class="p">:</span> <span class="bp">cls</span><span class="p">()</span>
+            <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="bp">cls</span> <span class="ow">in</span> <span class="n">load_extension_classes</span><span class="p">(</span><span class="n">namespace</span><span class="p">)</span>
+        <span class="p">})</span>
+
+
+<div class="viewcode-block" id="get_codec"><a class="viewcode-back" href="../../../reference/faust.serializers.codecs.html#faust.get_codec">[docs]</a><span class="k">def</span> <span class="nf">get_codec</span><span class="p">(</span><span class="n">name_or_codec</span><span class="p">:</span> <span class="n">CodecArg</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CodecT</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Get codec by name.&quot;&quot;&quot;</span>
+    <span class="n">_maybe_load_extension_classes</span><span class="p">()</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">name_or_codec</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="k">if</span> <span class="s1">&#39;|&#39;</span> <span class="ow">in</span> <span class="n">name_or_codec</span><span class="p">:</span>
+            <span class="n">nodes</span> <span class="o">=</span> <span class="n">name_or_codec</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;|&#39;</span><span class="p">)</span>
+            <span class="n">codec</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">nodes</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">codec</span><span class="p">:</span>
+                    <span class="n">codec</span> <span class="o">|=</span> <span class="n">codecs</span><span class="p">[</span><span class="n">node</span><span class="p">]</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">codec</span> <span class="o">=</span> <span class="n">codecs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">node</span><span class="p">)</span>
+
+            <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="n">Codec</span><span class="p">,</span> <span class="n">codec</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">codecs</span><span class="p">[</span><span class="n">name_or_codec</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="n">Codec</span><span class="p">,</span> <span class="n">name_or_codec</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="dumps"><a class="viewcode-back" href="../../../reference/faust.serializers.codecs.html#faust.dumps">[docs]</a><span class="k">def</span> <span class="nf">dumps</span><span class="p">(</span><span class="n">codec</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">CodecArg</span><span class="p">],</span> <span class="n">obj</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bytes</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Encode object into bytes.&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">get_codec</span><span class="p">(</span><span class="n">codec</span><span class="p">)</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span> <span class="k">if</span> <span class="n">codec</span> <span class="k">else</span> <span class="n">obj</span></div>
+
+
+<div class="viewcode-block" id="loads"><a class="viewcode-back" href="../../../reference/faust.serializers.codecs.html#faust.loads">[docs]</a><span class="k">def</span> <span class="nf">loads</span><span class="p">(</span><span class="n">codec</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">CodecArg</span><span class="p">],</span> <span class="n">s</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Decode object from bytes.&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">get_codec</span><span class="p">(</span><span class="n">codec</span><span class="p">)</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">s</span><span class="p">)</span> <span class="k">if</span> <span class="n">codec</span> <span class="k">else</span> <span class="n">s</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../../index.html">
+              <img class="logo" src="../../../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../../../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../playbooks/index.html">Playbooks</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../userguide/index.html">User Guide</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../reference/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../history/index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2020, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

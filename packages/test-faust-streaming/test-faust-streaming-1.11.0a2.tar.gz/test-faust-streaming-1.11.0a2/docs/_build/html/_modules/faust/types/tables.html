@@ -1,0 +1,638 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>faust.types.tables &#8212; Faust 1.11.0a1 documentation</title>
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../../../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <link rel="copyright" title="Copyright" href="../../../copyright.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for faust.types.tables</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">abc</span>
+<span class="kn">import</span> <span class="nn">typing</span>
+<span class="kn">from</span> <span class="nn">datetime</span> <span class="k">import</span> <span class="n">datetime</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">Any</span><span class="p">,</span>
+    <span class="n">Awaitable</span><span class="p">,</span>
+    <span class="n">Callable</span><span class="p">,</span>
+    <span class="n">ItemsView</span><span class="p">,</span>
+    <span class="n">Iterable</span><span class="p">,</span>
+    <span class="n">Iterator</span><span class="p">,</span>
+    <span class="n">KeysView</span><span class="p">,</span>
+    <span class="n">Mapping</span><span class="p">,</span>
+    <span class="n">MutableMapping</span><span class="p">,</span>
+    <span class="n">Optional</span><span class="p">,</span>
+    <span class="n">Set</span><span class="p">,</span>
+    <span class="n">Tuple</span><span class="p">,</span>
+    <span class="n">TypeVar</span><span class="p">,</span>
+    <span class="n">Union</span><span class="p">,</span>
+    <span class="n">ValuesView</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="kn">from</span> <span class="nn">mode</span> <span class="k">import</span> <span class="n">Seconds</span><span class="p">,</span> <span class="n">ServiceT</span>
+<span class="kn">from</span> <span class="nn">mode.utils.collections</span> <span class="k">import</span> <span class="n">FastUserDict</span><span class="p">,</span> <span class="n">ManagedUserDict</span>
+<span class="kn">from</span> <span class="nn">yarl</span> <span class="k">import</span> <span class="n">URL</span>
+
+<span class="kn">from</span> <span class="nn">.codecs</span> <span class="k">import</span> <span class="n">CodecArg</span>
+<span class="kn">from</span> <span class="nn">.events</span> <span class="k">import</span> <span class="n">EventT</span>
+<span class="kn">from</span> <span class="nn">.stores</span> <span class="k">import</span> <span class="n">StoreT</span>
+<span class="kn">from</span> <span class="nn">.streams</span> <span class="k">import</span> <span class="n">JoinableT</span>
+<span class="kn">from</span> <span class="nn">.topics</span> <span class="k">import</span> <span class="n">TopicT</span>
+<span class="kn">from</span> <span class="nn">.tuples</span> <span class="k">import</span> <span class="n">FutureMessage</span><span class="p">,</span> <span class="n">TP</span>
+<span class="kn">from</span> <span class="nn">.windows</span> <span class="k">import</span> <span class="n">WindowT</span>
+
+<span class="k">if</span> <span class="n">typing</span><span class="o">.</span><span class="n">TYPE_CHECKING</span><span class="p">:</span>
+    <span class="kn">from</span> <span class="nn">.app</span> <span class="k">import</span> <span class="n">AppT</span> <span class="k">as</span> <span class="n">_AppT</span>
+    <span class="kn">from</span> <span class="nn">.models</span> <span class="k">import</span> <span class="n">FieldDescriptorT</span> <span class="k">as</span> <span class="n">_FieldDescriptorT</span>
+    <span class="kn">from</span> <span class="nn">.models</span> <span class="k">import</span> <span class="n">ModelArg</span> <span class="k">as</span> <span class="n">_ModelArg</span>
+    <span class="kn">from</span> <span class="nn">.serializers</span> <span class="k">import</span> <span class="n">SchemaT</span> <span class="k">as</span> <span class="n">_SchemaT</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="k">class</span> <span class="nc">_AppT</span><span class="p">:</span> <span class="o">...</span>  <span class="c1"># noqa</span>
+    <span class="k">class</span> <span class="nc">_FieldDescriptorT</span><span class="p">:</span> <span class="o">...</span>  <span class="c1"># noqa</span>
+    <span class="k">class</span> <span class="nc">_ModelArg</span><span class="p">:</span> <span class="o">...</span>  <span class="c1"># noqa</span>
+    <span class="k">class</span> <span class="nc">_SchemaT</span><span class="p">:</span> <span class="o">...</span>   <span class="c1"># noqa</span>
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="s1">&#39;RecoverCallback&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;RelativeArg&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;CollectionT&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;TableT&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;GlobalTableT&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;TableManagerT&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;WindowCloseCallback&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;WindowSetT&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;WindowedItemsViewT&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;WindowedValuesViewT&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;WindowWrapperT&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;ChangelogEventCallback&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;CollectionTps&#39;</span><span class="p">,</span>
+<span class="p">]</span>
+
+<span class="n">RelativeHandler</span> <span class="o">=</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">Optional</span><span class="p">[</span><span class="n">EventT</span><span class="p">]],</span> <span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">datetime</span><span class="p">]]</span>
+<span class="n">RecoverCallback</span> <span class="o">=</span> <span class="n">Callable</span><span class="p">[[],</span> <span class="n">Awaitable</span><span class="p">[</span><span class="kc">None</span><span class="p">]]</span>
+<span class="n">ChangelogEventCallback</span> <span class="o">=</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">EventT</span><span class="p">],</span> <span class="n">Awaitable</span><span class="p">[</span><span class="kc">None</span><span class="p">]]</span>
+<span class="n">WindowCloseCallback</span> <span class="o">=</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">Any</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">Union</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="n">Awaitable</span><span class="p">[</span><span class="kc">None</span><span class="p">]]]</span>
+<span class="n">RelativeArg</span> <span class="o">=</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span>
+    <span class="n">_FieldDescriptorT</span><span class="p">,</span>
+    <span class="n">RelativeHandler</span><span class="p">,</span>
+    <span class="n">datetime</span><span class="p">,</span>
+    <span class="nb">float</span><span class="p">,</span>
+<span class="p">]]</span>
+<span class="n">CollectionTps</span> <span class="o">=</span> <span class="n">MutableMapping</span><span class="p">[</span><span class="s1">&#39;CollectionT&#39;</span><span class="p">,</span> <span class="n">Set</span><span class="p">[</span><span class="n">TP</span><span class="p">]]</span>
+
+<span class="n">KT</span> <span class="o">=</span> <span class="n">TypeVar</span><span class="p">(</span><span class="s1">&#39;KT&#39;</span><span class="p">)</span>
+<span class="n">VT</span> <span class="o">=</span> <span class="n">TypeVar</span><span class="p">(</span><span class="s1">&#39;VT&#39;</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="CollectionT"><a class="viewcode-back" href="../../../reference/faust.types.tables.html#faust.types.tables.CollectionT">[docs]</a><span class="k">class</span> <span class="nc">CollectionT</span><span class="p">(</span><span class="n">ServiceT</span><span class="p">,</span> <span class="n">JoinableT</span><span class="p">):</span>
+    <span class="n">app</span><span class="p">:</span> <span class="n">_AppT</span>
+    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">default</span><span class="p">:</span> <span class="n">Any</span>  <span class="c1"># noqa: E704</span>
+    <span class="n">schema</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">_SchemaT</span><span class="p">]</span>
+    <span class="n">key_type</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">_ModelArg</span><span class="p">]</span>
+    <span class="n">value_type</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">_ModelArg</span><span class="p">]</span>
+    <span class="n">partitions</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span>
+    <span class="n">window</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">WindowT</span><span class="p">]</span>
+    <span class="n">help</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">recovery_buffer_size</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">standby_buffer_size</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">options</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span>
+    <span class="n">last_closed_window</span><span class="p">:</span> <span class="nb">float</span>
+    <span class="n">use_partitioner</span><span class="p">:</span> <span class="nb">bool</span>
+
+    <span class="n">is_global</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                 <span class="n">app</span><span class="p">:</span> <span class="n">_AppT</span><span class="p">,</span>
+                 <span class="o">*</span><span class="p">,</span>
+                 <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">default</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[],</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">store</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">URL</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">schema</span><span class="p">:</span> <span class="n">_SchemaT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">key_type</span><span class="p">:</span> <span class="n">_ModelArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">value_type</span><span class="p">:</span> <span class="n">_ModelArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">partitions</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">window</span><span class="p">:</span> <span class="n">WindowT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">changelog_topic</span><span class="p">:</span> <span class="n">TopicT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">help</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">on_recover</span><span class="p">:</span> <span class="n">RecoverCallback</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">on_changelog_event</span><span class="p">:</span> <span class="n">ChangelogEventCallback</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">recovery_buffer_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1000</span><span class="p">,</span>
+                 <span class="n">standby_buffer_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">extra_topic_configs</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">options</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">use_partitioner</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+                 <span class="n">on_window_close</span><span class="p">:</span> <span class="n">WindowCloseCallback</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span>
+
+<div class="viewcode-block" id="CollectionT.clone"><a class="viewcode-back" href="../../../reference/faust.types.tables.html#faust.types.tables.CollectionT.clone">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">clone</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+    <span class="nd">@property</span>
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">changelog_topic</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TopicT</span><span class="p">:</span>
+        <span class="o">...</span>
+
+    <span class="nd">@changelog_topic</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">changelog_topic</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">topic</span><span class="p">:</span> <span class="n">TopicT</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span>
+
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">_changelog_topic_name</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="o">...</span>
+
+<div class="viewcode-block" id="CollectionT.apply_changelog_batch"><a class="viewcode-back" href="../../../reference/faust.types.tables.html#faust.types.tables.CollectionT.apply_changelog_batch">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">apply_changelog_batch</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">batch</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">EventT</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="CollectionT.persisted_offset"><a class="viewcode-back" href="../../../reference/faust.types.tables.html#faust.types.tables.CollectionT.persisted_offset">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">persisted_offset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tp</span><span class="p">:</span> <span class="n">TP</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="CollectionT.need_active_standby_for"><a class="viewcode-back" href="../../../reference/faust.types.tables.html#faust.types.tables.CollectionT.need_active_standby_for">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">need_active_standby_for</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tp</span><span class="p">:</span> <span class="n">TP</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="CollectionT.reset_state"><a class="viewcode-back" href="../../../reference/faust.types.tables.html#faust.types.tables.CollectionT.reset_state">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">reset_state</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="CollectionT.send_changelog"><a class="viewcode-back" href="../../../reference/faust.types.tables.html#faust.types.tables.CollectionT.send_changelog">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">send_changelog</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                       <span class="n">partition</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
+                       <span class="n">key</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+                       <span class="n">value</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+                       <span class="n">key_serializer</span><span class="p">:</span> <span class="n">CodecArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                       <span class="n">value_serializer</span><span class="p">:</span> <span class="n">CodecArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">FutureMessage</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="CollectionT.partition_for_key"><a class="viewcode-back" href="../../../reference/faust.types.tables.html#faust.types.tables.CollectionT.partition_for_key">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">partition_for_key</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="CollectionT.on_window_close"><a class="viewcode-back" href="../../../reference/faust.types.tables.html#faust.types.tables.CollectionT.on_window_close">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">on_window_close</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="CollectionT.on_rebalance"><a class="viewcode-back" href="../../../reference/faust.types.tables.html#faust.types.tables.CollectionT.on_rebalance">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">on_rebalance</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                           <span class="n">assigned</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="n">TP</span><span class="p">],</span>
+                           <span class="n">revoked</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="n">TP</span><span class="p">],</span>
+                           <span class="n">newly_assigned</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="n">TP</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="CollectionT.on_changelog_event"><a class="viewcode-back" href="../../../reference/faust.types.tables.html#faust.types.tables.CollectionT.on_changelog_event">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">on_changelog_event</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">event</span><span class="p">:</span> <span class="n">EventT</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="CollectionT.on_recover"><a class="viewcode-back" href="../../../reference/faust.types.tables.html#faust.types.tables.CollectionT.on_recover">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">on_recover</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fun</span><span class="p">:</span> <span class="n">RecoverCallback</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RecoverCallback</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="CollectionT.on_recovery_completed"><a class="viewcode-back" href="../../../reference/faust.types.tables.html#faust.types.tables.CollectionT.on_recovery_completed">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">on_recovery_completed</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                                    <span class="n">active_tps</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="n">TP</span><span class="p">],</span>
+                                    <span class="n">standby_tps</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="n">TP</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="CollectionT.call_recover_callbacks"><a class="viewcode-back" href="../../../reference/faust.types.tables.html#faust.types.tables.CollectionT.call_recover_callbacks">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">call_recover_callbacks</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="CollectionT.using_window"><a class="viewcode-back" href="../../../reference/faust.types.tables.html#faust.types.tables.CollectionT.using_window">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">using_window</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">window</span><span class="p">:</span> <span class="n">WindowT</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span>
+                     <span class="n">key_index</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s1">&#39;WindowWrapperT&#39;</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="CollectionT.hopping"><a class="viewcode-back" href="../../../reference/faust.types.tables.html#faust.types.tables.CollectionT.hopping">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">hopping</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">size</span><span class="p">:</span> <span class="n">Seconds</span><span class="p">,</span> <span class="n">step</span><span class="p">:</span> <span class="n">Seconds</span><span class="p">,</span>
+                <span class="n">expires</span><span class="p">:</span> <span class="n">Seconds</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                <span class="n">key_index</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s1">&#39;WindowWrapperT&#39;</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="CollectionT.tumbling"><a class="viewcode-back" href="../../../reference/faust.types.tables.html#faust.types.tables.CollectionT.tumbling">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">tumbling</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">size</span><span class="p">:</span> <span class="n">Seconds</span><span class="p">,</span>
+                 <span class="n">expires</span><span class="p">:</span> <span class="n">Seconds</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">key_index</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s1">&#39;WindowWrapperT&#39;</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="CollectionT.as_ansitable"><a class="viewcode-back" href="../../../reference/faust.types.tables.html#faust.types.tables.CollectionT.as_ansitable">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">as_ansitable</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">_relative_now</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">event</span><span class="p">:</span> <span class="n">EventT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="o">...</span>
+
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">_relative_event</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">event</span><span class="p">:</span> <span class="n">EventT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="o">...</span>
+
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">_relative_field</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">field</span><span class="p">:</span> <span class="n">_FieldDescriptorT</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RelativeHandler</span><span class="p">:</span>
+        <span class="o">...</span>
+
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">_relative_timestamp</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">timestamp</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RelativeHandler</span><span class="p">:</span>
+        <span class="o">...</span>
+
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">_windowed_contains</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">timestamp</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+
+<div class="viewcode-block" id="TableT"><a class="viewcode-back" href="../../../reference/faust.types.tables.html#faust.types.tables.TableT">[docs]</a><span class="k">class</span> <span class="nc">TableT</span><span class="p">(</span><span class="n">CollectionT</span><span class="p">,</span> <span class="n">ManagedUserDict</span><span class="p">[</span><span class="n">KT</span><span class="p">,</span> <span class="n">VT</span><span class="p">]):</span>
+    <span class="o">...</span></div>
+
+
+<div class="viewcode-block" id="GlobalTableT"><a class="viewcode-back" href="../../../reference/faust.types.tables.html#faust.types.tables.GlobalTableT">[docs]</a><span class="k">class</span> <span class="nc">GlobalTableT</span><span class="p">(</span><span class="n">TableT</span><span class="p">):</span>
+    <span class="o">...</span></div>
+
+
+<div class="viewcode-block" id="TableManagerT"><a class="viewcode-back" href="../../../reference/faust.types.tables.html#faust.types.tables.TableManagerT">[docs]</a><span class="k">class</span> <span class="nc">TableManagerT</span><span class="p">(</span><span class="n">ServiceT</span><span class="p">,</span> <span class="n">FastUserDict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">CollectionT</span><span class="p">]):</span>
+    <span class="n">app</span><span class="p">:</span> <span class="n">_AppT</span>
+
+    <span class="n">actives_ready</span><span class="p">:</span> <span class="nb">bool</span>
+    <span class="n">standbys_ready</span><span class="p">:</span> <span class="nb">bool</span>
+
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">app</span><span class="p">:</span> <span class="n">_AppT</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span>
+
+<div class="viewcode-block" id="TableManagerT.add"><a class="viewcode-back" href="../../../reference/faust.types.tables.html#faust.types.tables.TableManagerT.add">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">add</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">table</span><span class="p">:</span> <span class="n">CollectionT</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CollectionT</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="TableManagerT.persist_offset_on_commit"><a class="viewcode-back" href="../../../reference/faust.types.tables.html#faust.types.tables.TableManagerT.persist_offset_on_commit">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">persist_offset_on_commit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                                 <span class="n">store</span><span class="p">:</span> <span class="n">StoreT</span><span class="p">,</span>
+                                 <span class="n">tp</span><span class="p">:</span> <span class="n">TP</span><span class="p">,</span>
+                                 <span class="n">offset</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="TableManagerT.on_commit"><a class="viewcode-back" href="../../../reference/faust.types.tables.html#faust.types.tables.TableManagerT.on_commit">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">on_commit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">offsets</span><span class="p">:</span> <span class="n">MutableMapping</span><span class="p">[</span><span class="n">TP</span><span class="p">,</span> <span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="TableManagerT.on_rebalance"><a class="viewcode-back" href="../../../reference/faust.types.tables.html#faust.types.tables.TableManagerT.on_rebalance">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">on_rebalance</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                           <span class="n">assigned</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="n">TP</span><span class="p">],</span>
+                           <span class="n">revoked</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="n">TP</span><span class="p">],</span>
+                           <span class="n">newly_assigned</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="n">TP</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="TableManagerT.on_partitions_revoked"><a class="viewcode-back" href="../../../reference/faust.types.tables.html#faust.types.tables.TableManagerT.on_partitions_revoked">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">on_partitions_revoked</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">revoked</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="n">TP</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="TableManagerT.on_rebalance_start"><a class="viewcode-back" href="../../../reference/faust.types.tables.html#faust.types.tables.TableManagerT.on_rebalance_start">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">on_rebalance_start</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="TableManagerT.wait_until_tables_registered"><a class="viewcode-back" href="../../../reference/faust.types.tables.html#faust.types.tables.TableManagerT.wait_until_tables_registered">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">wait_until_tables_registered</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="TableManagerT.wait_until_recovery_completed"><a class="viewcode-back" href="../../../reference/faust.types.tables.html#faust.types.tables.TableManagerT.wait_until_recovery_completed">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">wait_until_recovery_completed</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+    <span class="nd">@property</span>
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">changelog_topics</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Set</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+        <span class="o">...</span></div>
+
+
+<div class="viewcode-block" id="WindowSetT"><a class="viewcode-back" href="../../../reference/faust.types.tables.html#faust.types.tables.WindowSetT">[docs]</a><span class="k">class</span> <span class="nc">WindowSetT</span><span class="p">(</span><span class="n">FastUserDict</span><span class="p">[</span><span class="n">KT</span><span class="p">,</span> <span class="n">VT</span><span class="p">]):</span>
+    <span class="n">key</span><span class="p">:</span> <span class="n">Any</span>
+    <span class="n">table</span><span class="p">:</span> <span class="n">TableT</span>
+    <span class="n">event</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">EventT</span><span class="p">]</span>
+
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                 <span class="n">key</span><span class="p">:</span> <span class="n">KT</span><span class="p">,</span>
+                 <span class="n">table</span><span class="p">:</span> <span class="n">TableT</span><span class="p">,</span>
+                 <span class="n">wrapper</span><span class="p">:</span> <span class="s1">&#39;WindowWrapperT&#39;</span><span class="p">,</span>
+                 <span class="n">event</span><span class="p">:</span> <span class="n">EventT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span>
+
+<div class="viewcode-block" id="WindowSetT.apply"><a class="viewcode-back" href="../../../reference/faust.types.tables.html#faust.types.tables.WindowSetT.apply">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">apply</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+              <span class="n">op</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">VT</span><span class="p">,</span> <span class="n">VT</span><span class="p">],</span> <span class="n">VT</span><span class="p">],</span>
+              <span class="n">value</span><span class="p">:</span> <span class="n">VT</span><span class="p">,</span>
+              <span class="n">event</span><span class="p">:</span> <span class="n">EventT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s1">&#39;WindowSetT&#39;</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="WindowSetT.value"><a class="viewcode-back" href="../../../reference/faust.types.tables.html#faust.types.tables.WindowSetT.value">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">value</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">event</span><span class="p">:</span> <span class="n">EventT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">VT</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="WindowSetT.current"><a class="viewcode-back" href="../../../reference/faust.types.tables.html#faust.types.tables.WindowSetT.current">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">current</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">event</span><span class="p">:</span> <span class="n">EventT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">VT</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="WindowSetT.now"><a class="viewcode-back" href="../../../reference/faust.types.tables.html#faust.types.tables.WindowSetT.now">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">now</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">VT</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="WindowSetT.delta"><a class="viewcode-back" href="../../../reference/faust.types.tables.html#faust.types.tables.WindowSetT.delta">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">delta</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">d</span><span class="p">:</span> <span class="n">Seconds</span><span class="p">,</span> <span class="n">event</span><span class="p">:</span> <span class="n">EventT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">VT</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">__iadd__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="n">VT</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s1">&#39;WindowSetT&#39;</span><span class="p">:</span>
+        <span class="o">...</span>
+
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">__isub__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="n">VT</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s1">&#39;WindowSetT&#39;</span><span class="p">:</span>
+        <span class="o">...</span>
+
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">__imul__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="n">VT</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s1">&#39;WindowSetT&#39;</span><span class="p">:</span>
+        <span class="o">...</span>
+
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">__itruediv__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="n">VT</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s1">&#39;WindowSetT&#39;</span><span class="p">:</span>
+        <span class="o">...</span>
+
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">__ifloordiv__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="n">VT</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s1">&#39;WindowSetT&#39;</span><span class="p">:</span>
+        <span class="o">...</span>
+
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">__imod__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="n">VT</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s1">&#39;WindowSetT&#39;</span><span class="p">:</span>
+        <span class="o">...</span>
+
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">__ipow__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="n">VT</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s1">&#39;WindowSetT&#39;</span><span class="p">:</span>
+        <span class="o">...</span>
+
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">__ilshift__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="n">VT</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s1">&#39;WindowSetT&#39;</span><span class="p">:</span>
+        <span class="o">...</span>
+
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">__irshift__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="n">VT</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s1">&#39;WindowSetT&#39;</span><span class="p">:</span>
+        <span class="o">...</span>
+
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">__iand__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="n">VT</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s1">&#39;WindowSetT&#39;</span><span class="p">:</span>
+        <span class="o">...</span>
+
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">__ixor__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="n">VT</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s1">&#39;WindowSetT&#39;</span><span class="p">:</span>
+        <span class="o">...</span>
+
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">__ior__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="n">VT</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s1">&#39;WindowSetT&#39;</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+
+<div class="viewcode-block" id="WindowedItemsViewT"><a class="viewcode-back" href="../../../reference/faust.types.tables.html#faust.types.tables.WindowedItemsViewT">[docs]</a><span class="k">class</span> <span class="nc">WindowedItemsViewT</span><span class="p">(</span><span class="n">ItemsView</span><span class="p">):</span>
+
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                 <span class="n">mapping</span><span class="p">:</span> <span class="s1">&#39;WindowWrapperT&#39;</span><span class="p">,</span>
+                 <span class="n">event</span><span class="p">:</span> <span class="n">EventT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span>
+
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
+        <span class="o">...</span>
+
+<div class="viewcode-block" id="WindowedItemsViewT.now"><a class="viewcode-back" href="../../../reference/faust.types.tables.html#faust.types.tables.WindowedItemsViewT.now">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">now</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="WindowedItemsViewT.current"><a class="viewcode-back" href="../../../reference/faust.types.tables.html#faust.types.tables.WindowedItemsViewT.current">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">current</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">event</span><span class="p">:</span> <span class="n">EventT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="WindowedItemsViewT.delta"><a class="viewcode-back" href="../../../reference/faust.types.tables.html#faust.types.tables.WindowedItemsViewT.delta">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">delta</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+              <span class="n">d</span><span class="p">:</span> <span class="n">Seconds</span><span class="p">,</span>
+              <span class="n">event</span><span class="p">:</span> <span class="n">EventT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
+        <span class="o">...</span></div></div>
+
+
+<div class="viewcode-block" id="WindowedValuesViewT"><a class="viewcode-back" href="../../../reference/faust.types.tables.html#faust.types.tables.WindowedValuesViewT">[docs]</a><span class="k">class</span> <span class="nc">WindowedValuesViewT</span><span class="p">(</span><span class="n">ValuesView</span><span class="p">):</span>
+
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                 <span class="n">mapping</span><span class="p">:</span> <span class="s1">&#39;WindowWrapperT&#39;</span><span class="p">,</span>
+                 <span class="n">event</span><span class="p">:</span> <span class="n">EventT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span>
+
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
+        <span class="o">...</span>
+
+<div class="viewcode-block" id="WindowedValuesViewT.now"><a class="viewcode-back" href="../../../reference/faust.types.tables.html#faust.types.tables.WindowedValuesViewT.now">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">now</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="WindowedValuesViewT.current"><a class="viewcode-back" href="../../../reference/faust.types.tables.html#faust.types.tables.WindowedValuesViewT.current">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">current</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">event</span><span class="p">:</span> <span class="n">EventT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="WindowedValuesViewT.delta"><a class="viewcode-back" href="../../../reference/faust.types.tables.html#faust.types.tables.WindowedValuesViewT.delta">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">delta</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">d</span><span class="p">:</span> <span class="n">Seconds</span><span class="p">,</span> <span class="n">event</span><span class="p">:</span> <span class="n">EventT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
+        <span class="o">...</span></div></div>
+
+
+<div class="viewcode-block" id="WindowWrapperT"><a class="viewcode-back" href="../../../reference/faust.types.tables.html#faust.types.tables.WindowWrapperT">[docs]</a><span class="k">class</span> <span class="nc">WindowWrapperT</span><span class="p">(</span><span class="n">MutableMapping</span><span class="p">):</span>
+    <span class="n">table</span><span class="p">:</span> <span class="n">TableT</span>
+
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">table</span><span class="p">:</span> <span class="n">TableT</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span>
+                 <span class="n">relative_to</span><span class="p">:</span> <span class="n">RelativeArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">key_index</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+                 <span class="n">key_index_table</span><span class="p">:</span> <span class="n">TableT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span>
+
+    <span class="nd">@property</span>
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">name</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="o">...</span>
+
+<div class="viewcode-block" id="WindowWrapperT.clone"><a class="viewcode-back" href="../../../reference/faust.types.tables.html#faust.types.tables.WindowWrapperT.clone">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">clone</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">relative_to</span><span class="p">:</span> <span class="n">RelativeArg</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s1">&#39;WindowWrapperT&#39;</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="WindowWrapperT.relative_to_now"><a class="viewcode-back" href="../../../reference/faust.types.tables.html#faust.types.tables.WindowWrapperT.relative_to_now">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">relative_to_now</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s1">&#39;WindowWrapperT&#39;</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="WindowWrapperT.relative_to_field"><a class="viewcode-back" href="../../../reference/faust.types.tables.html#faust.types.tables.WindowWrapperT.relative_to_field">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">relative_to_field</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">field</span><span class="p">:</span> <span class="n">_FieldDescriptorT</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s1">&#39;WindowWrapperT&#39;</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="WindowWrapperT.relative_to_stream"><a class="viewcode-back" href="../../../reference/faust.types.tables.html#faust.types.tables.WindowWrapperT.relative_to_stream">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">relative_to_stream</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s1">&#39;WindowWrapperT&#39;</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="WindowWrapperT.get_timestamp"><a class="viewcode-back" href="../../../reference/faust.types.tables.html#faust.types.tables.WindowWrapperT.get_timestamp">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">get_timestamp</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">event</span><span class="p">:</span> <span class="n">EventT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">WindowSetT</span><span class="p">:</span>
+        <span class="o">...</span>
+
+<div class="viewcode-block" id="WindowWrapperT.keys"><a class="viewcode-back" href="../../../reference/faust.types.tables.html#faust.types.tables.WindowWrapperT.keys">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">keys</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">KeysView</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="WindowWrapperT.on_set_key"><a class="viewcode-back" href="../../../reference/faust.types.tables.html#faust.types.tables.WindowWrapperT.on_set_key">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">on_set_key</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="WindowWrapperT.on_del_key"><a class="viewcode-back" href="../../../reference/faust.types.tables.html#faust.types.tables.WindowWrapperT.on_del_key">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">on_del_key</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="WindowWrapperT.as_ansitable"><a class="viewcode-back" href="../../../reference/faust.types.tables.html#faust.types.tables.WindowWrapperT.as_ansitable">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">as_ansitable</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">get_relative_timestamp</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">RelativeHandler</span><span class="p">]:</span>
+        <span class="o">...</span>
+
+    <span class="nd">@get_relative_timestamp</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">get_relative_timestamp</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">relative_to</span><span class="p">:</span> <span class="n">RelativeArg</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../../index.html">
+              <img class="logo" src="../../../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../../../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../playbooks/index.html">Playbooks</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../userguide/index.html">User Guide</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../reference/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../history/index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2020, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

@@ -1,0 +1,237 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>Partition Assignor &#8212; Faust 1.11.0a1 documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="copyright" title="Copyright" href="../copyright.html" />
+    <link rel="next" title="History" href="../history/index.html" />
+    <link rel="prev" title="Contributors Guide to the Code" href="overview.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="partition-assignor">
+<span id="id1"></span><h1>Partition Assignor<a class="headerlink" href="#partition-assignor" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="kafka-streams">
+<h2>Kafka Streams<a class="headerlink" href="#kafka-streams" title="Permalink to this headline">¶</a></h2>
+<p>Kafka Streams distributes work across multiple processes by using the
+consumer group protocol introduced in Kafka 0.9.0. Kafka elects one of the
+consumers in the consumer group to use its partition assignment strategy to
+assign partitions to the consumers in the group. The leader gets access to
+every client’s subscriptions and assigns partitions accordingly.</p>
+<p>Kafka Streams uses a sticky partition assignment strategy to minimize movement
+in the case of rebalancing. Further, it is also redundant in its partition
+assignment in the sense that it assigns some standby tasks to maintain state
+store replicas.</p>
+<p>The <a class="reference external" href="https://github.com/apache/kafka/blob/trunk/streams/src/main/java/org/apache/kafka/streams/processor/internals/StreamPartitionAssignor.java">StreamPartitionAssignor</a>
+used by Kafka Streams works as follows:</p>
+<ol class="arabic">
+<li><p>Check all repartition source topics and use internal topic manager to make
+sure they have been created with the right number of partitions.</p></li>
+<li><p>Using customized partition grouper (<a class="reference external" href="https://github.com/apache/kafka/blob/4b3ea062be515bc173f6c788c4c1e14f77935aef/streams/src/main/java/org/apache/kafka/streams/processor/DefaultPartitionGrouper.java">DefaultPartitionGrouper</a>)
+to generate tasks along with their assigned partitions; also make sure that
+the task’s corresponding changelog topics have been created with the right
+number of partitions.</p></li>
+<li><p>Using <a class="reference external" href="https://github.com/apache/kafka/blob/4b3ea062be515bc173f6c788c4c1e14f77935aef/streams/src/main/java/org/apache/kafka/streams/processor/internals/assignment/StickyTaskAssignor.java">StickyTaskAssignor</a>
+to assign tasks to consumer clients.</p>
+<ul class="simple">
+<li><p>Assign a task to a client which was running it previously.
+If there is no such client, assign a task to a client which has its valid
+local state.</p></li>
+<li><p>A client may have more than one stream threads. The assignor tries to
+assign tasks to a client proportionally to the number of threads.</p></li>
+<li><p>Try not to assign the same set of tasks to two different clients</p></li>
+</ul>
+<p>The assignment is done in one-pass. The result may not satisfy above all.</p>
+</li>
+<li><p>Within each client, tasks are assigned to consumer clients in round-robin
+manner.</p></li>
+</ol>
+</div>
+<div class="section" id="faust">
+<h2>Faust<a class="headerlink" href="#faust" title="Permalink to this headline">¶</a></h2>
+<p>Faust differs from Kafka Streams in some fundamental ways one of which is
+that a task in Faust differs from a task in Kafka Streams. Further, Faust
+doesn’t have the concept of a pre-defined topology and subscribes to streams as
+and when required in the application.</p>
+<p>As a result, the <code class="docutils literal notranslate"><span class="pre">PartitionAssignor</span></code> in Faust can get rid of steps one and
+two mentioned above and rely on the primitives repartitioning streams and
+creating changelog topics to create topics with the correct number of
+partitions based on the source topics.</p>
+<p>We can largely simplify step three above since there is no concept of task as in
+Kafka Streams, i.e. we do not introspect the application topology to define a
+task that would be assigned to the clients. We simply need to make sure that
+the correct partitions are assigned to the clients and the client streams and
+processors should handle dealing with the co-partitioning while processing
+the streams and forwarding data between the different processors.</p>
+<div class="section" id="partitiongrouper">
+<h3><code class="docutils literal notranslate"><span class="pre">PartitionGrouper</span></code><a class="headerlink" href="#partitiongrouper" title="Permalink to this headline">¶</a></h3>
+<p>This can be simplified immensely by grouping the same partition numbers onto
+the same clients for all topics with the same number of partitions. This way
+we can guarantee that co-partitioning for all topics requiring
+co-partitioning (ex: in the case of joins and aggregates) as long as the
+topics have the correct number of partitions (which we are making the
+processors implicitly guarantee).</p>
+</div>
+<div class="section" id="stickyassignor">
+<h3><code class="docutils literal notranslate"><span class="pre">StickyAssignor</span></code><a class="headerlink" href="#stickyassignor" title="Permalink to this headline">¶</a></h3>
+<p>With our simple <cite>PartitionGrouper</cite> we can use a <code class="docutils literal notranslate"><span class="pre">StickyPartitionAssignor</span></code> to
+assign partitions to the clients. However we need to explicitly handle
+standby assignments here. We use the <code class="docutils literal notranslate"><span class="pre">StickyPartitionAssignor</span></code> design
+approved in <a class="reference external" href="https://cwiki.apache.org/confluence/display/KAFKA/KIP-54+-+Sticky+Partition+Assignment+Strategy">KIP-54</a> as the basis for our sticky assignor.</p>
+</div>
+</div>
+<div class="section" id="concerns">
+<h2>Concerns<a class="headerlink" href="#concerns" title="Permalink to this headline">¶</a></h2>
+<p>With the above design we need to be careful around the following concerns:</p>
+<ul class="simple">
+<li><p>We need to assign a partition (where changelog) is involved to a client
+which contains a standby replica for the given topic/partition whenever
+possible. This can result in unbalanced assignment. We can fix this by evenly
+and randomly distributing standbys such that over the long term each
+rebalance will cause the partitions being re-assigned be evenly balanced
+across all clients.</p></li>
+<li><p>Network Partitions and other distributed systems failure cases - We delegate
+this to the Kafka protocol. The Kafka Consumer Protocol handles a lot of the
+failure conditions involved with the Consumer group leader election such as
+leader failures, node failures, etc. Network Partitions in Kafka are not
+handled here as those would result in bigger issues than consumer partition
+assignment issues.</p></li>
+</ul>
+</div>
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../playbooks/index.html">Playbooks</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../userguide/index.html">User Guide</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Developer Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../history/index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">Developer Guide</a><ul>
+      <li>Previous: <a href="overview.html" title="previous chapter">Contributors Guide to the Code</a></li>
+      <li>Next: <a href="../history/index.html" title="next chapter">History</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2020, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../_sources/developerguide/partition_assignor.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

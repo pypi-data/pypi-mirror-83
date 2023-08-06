@@ -1,0 +1,617 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>faust.models.base &#8212; Faust 1.11.0a1 documentation</title>
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../../../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <link rel="copyright" title="Copyright" href="../../../copyright.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for faust.models.base</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Model descriptions.</span>
+
+<span class="sd">The model describes the components of a data structure, kind of like a struct</span>
+<span class="sd">in C, but there&#39;s no limitation of what type of data structure the model is,</span>
+<span class="sd">or what it&#39;s used for.</span>
+
+<span class="sd">A record (faust.models.record) is a model type that serialize into</span>
+<span class="sd">dictionaries, so the model describe the fields, and their types:</span>
+
+<span class="sd">.. sourcecode:: pycon</span>
+
+<span class="sd">    &gt;&gt;&gt; class Point(Record):</span>
+<span class="sd">    ...    x: int</span>
+<span class="sd">    ...    y: int</span>
+
+<span class="sd">    &gt;&gt;&gt; p = Point(10, 3)</span>
+<span class="sd">    &gt;&gt;&gt; assert p.x == 10</span>
+<span class="sd">    &gt;&gt;&gt; assert p.y == 3</span>
+<span class="sd">    &gt;&gt;&gt; p</span>
+<span class="sd">    &lt;Point: x=10, y=3&gt;</span>
+<span class="sd">    &gt;&gt;&gt; payload = p.dumps(serializer=&#39;json&#39;)</span>
+<span class="sd">    &#39;{&quot;x&quot;: 10, &quot;y&quot;: 3, &quot;__faust&quot;: {&quot;ns&quot;: &quot;__main__.Point&quot;}}&#39;</span>
+<span class="sd">    &gt;&gt;&gt; p2 = Record.loads(payload)</span>
+<span class="sd">    &gt;&gt;&gt; p2</span>
+<span class="sd">    &lt;Point: x=10, y=3&gt;</span>
+
+<span class="sd">Models are mainly used for describing the data in messages: both keys and</span>
+<span class="sd">values can be described as models.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">import</span> <span class="nn">abc</span>
+<span class="kn">import</span> <span class="nn">warnings</span>
+
+<span class="kn">from</span> <span class="nn">datetime</span> <span class="k">import</span> <span class="n">datetime</span>
+<span class="kn">from</span> <span class="nn">functools</span> <span class="k">import</span> <span class="n">partial</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">Any</span><span class="p">,</span>
+    <span class="n">Callable</span><span class="p">,</span>
+    <span class="n">ClassVar</span><span class="p">,</span>
+    <span class="n">Iterable</span><span class="p">,</span>
+    <span class="n">List</span><span class="p">,</span>
+    <span class="n">MutableMapping</span><span class="p">,</span>
+    <span class="n">Optional</span><span class="p">,</span>
+    <span class="n">Tuple</span><span class="p">,</span>
+    <span class="n">Type</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="kn">from</span> <span class="nn">mode.utils.objects</span> <span class="k">import</span> <span class="n">canoname</span>
+
+<span class="kn">from</span> <span class="nn">faust.exceptions</span> <span class="k">import</span> <span class="n">ValidationError</span>
+<span class="kn">from</span> <span class="nn">faust.serializers.codecs</span> <span class="k">import</span> <span class="n">CodecArg</span><span class="p">,</span> <span class="n">dumps</span><span class="p">,</span> <span class="n">loads</span>
+<span class="kn">from</span> <span class="nn">faust.types.models</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">CoercionMapping</span><span class="p">,</span>
+    <span class="n">FieldDescriptorT</span><span class="p">,</span>
+    <span class="n">FieldMap</span><span class="p">,</span>
+    <span class="n">ModelOptions</span><span class="p">,</span>
+    <span class="n">ModelT</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;Model&#39;</span><span class="p">,</span> <span class="s1">&#39;maybe_model&#39;</span><span class="p">,</span> <span class="s1">&#39;registry&#39;</span><span class="p">]</span>
+
+<span class="c1"># NOTES:</span>
+<span class="c1"># - Records are described in the same notation as named tuples in Python 3.6.</span>
+<span class="c1">#   To accomplish this ``__init_subclass__`` defined in :pep:`487` is used.</span>
+<span class="c1">#</span>
+<span class="c1">#   When accessed on the Record class, the attributes are actually field</span>
+<span class="c1">#   descriptors that return information about the field:</span>
+<span class="c1">#       &gt;&gt;&gt; Point.x</span>
+<span class="c1">#       &lt;FieldDescriptor: Point.x: int&gt;</span>
+<span class="c1">#</span>
+<span class="c1">#   This field descriptor holds information about the name of the field, the</span>
+<span class="c1">#   value type of the field, and also what Record subclass it belongs to.</span>
+<span class="c1">#</span>
+<span class="c1"># - Sometimes field descriptions are passed around as arguments to functions.</span>
+<span class="c1">#</span>
+<span class="c1"># - A stream of deposits may be joined with a stream of orders if</span>
+<span class="c1">#   both have an ``account`` field.  Field descriptors are used to</span>
+<span class="c1">#   specify the field.</span>
+<span class="c1">#</span>
+<span class="c1"># - order_instance.account is data</span>
+<span class="c1">#   (it holds the string account for this particular order).</span>
+<span class="c1">#</span>
+<span class="c1"># - order_instance.__class__.account is the field descriptor for the field,</span>
+<span class="c1">#   it&#39;s not data but metadata that enables introspection, and it can be</span>
+<span class="c1">#   passed around to describe a field we want to extract or similar.</span>
+<span class="c1">#</span>
+<span class="c1"># - FieldDescriptors are Python descriptors: In Python object</span>
+<span class="c1">#   attributes can override what happens when they are get/set/deleted:</span>
+<span class="c1">#</span>
+<span class="c1">#       class MyDescriptor:</span>
+<span class="c1">#</span>
+<span class="c1">#           def __get__(self, instance, cls):</span>
+<span class="c1">#               if instance is None:</span>
+<span class="c1">#                   print(&#39;ACCESS ON CLASS ATTRIBUTE&#39;)</span>
+<span class="c1">#                   return self</span>
+<span class="c1">#               print(&#39;ACCESS ON INSTANCE&#39;)</span>
+<span class="c1">#               return 42</span>
+<span class="c1">#</span>
+<span class="c1">#       class Example:</span>
+<span class="c1">#           foo = MyDescriptor()</span>
+<span class="c1">#</span>
+<span class="c1">#   The above descriptor overrides __get__, which is called when the attribute</span>
+<span class="c1">#   is accessed (a descriptor may also override __set__ and __del__).</span>
+<span class="c1">#</span>
+<span class="c1">#</span>
+<span class="c1">#   You can see the difference in what happens when you access the attribute</span>
+<span class="c1">#   on the class, vs. the instance:</span>
+
+<span class="c1">#       &gt;&gt;&gt; Example.foo</span>
+<span class="c1">#       ACCESS ON CLASS ATTRIBUTE</span>
+<span class="c1">#       &lt;__main__.MyDescriptor at 0x1049caac8&gt;</span>
+<span class="c1">#</span>
+<span class="c1">#       &gt;&gt;&gt; x = Example()</span>
+<span class="c1">#       &gt;&gt;&gt; x.foo</span>
+<span class="c1">#       ACCESS ON INSTANCE</span>
+<span class="c1">#       42</span>
+
+<span class="n">E_ABSTRACT_INSTANCE</span> <span class="o">=</span> <span class="s1">&#39;&#39;&#39;</span>
+<span class="s1">Cannot instantiate abstract model.</span>
+
+<span class="s1">If this model is used as the field of another model,</span>
+<span class="s1">and you meant to define a polymorphic relationship: make sure</span>
+<span class="s1">your abstract model class has the `polymorphic_fields` option enabled:</span>
+
+<span class="s1">    class </span><span class="si">{name}</span><span class="s1">(faust.Record, abstract=True, polymorphic_fields=True):</span>
+<span class="s1">        ...</span>
+<span class="s1">&#39;&#39;&#39;</span>
+
+<span class="c1">#: Global map of namespace -&gt; Model, used to find model classes by name.</span>
+<span class="c1">#: Every single model defined is added here automatically when a model</span>
+<span class="c1">#: class is defined.</span>
+<span class="n">registry</span><span class="p">:</span> <span class="n">MutableMapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Type</span><span class="p">[</span><span class="n">ModelT</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{}</span>
+
+
+<div class="viewcode-block" id="maybe_model"><a class="viewcode-back" href="../../../reference/faust.models.base.html#faust.models.base.maybe_model">[docs]</a><span class="k">def</span> <span class="nf">maybe_model</span><span class="p">(</span><span class="n">arg</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Convert argument to model if possible.&quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="n">registry</span><span class="p">[</span><span class="n">arg</span><span class="p">[</span><span class="s1">&#39;__faust&#39;</span><span class="p">][</span><span class="s1">&#39;ns&#39;</span><span class="p">]]</span>
+    <span class="k">except</span> <span class="p">(</span><span class="ne">KeyError</span><span class="p">,</span> <span class="ne">TypeError</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">arg</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">model</span><span class="o">.</span><span class="n">from_data</span><span class="p">(</span><span class="n">arg</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Model"><a class="viewcode-back" href="../../../reference/faust.models.base.html#faust.models.base.Model">[docs]</a><span class="k">class</span> <span class="nc">Model</span><span class="p">(</span><span class="n">ModelT</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Meta description model for serialization.&quot;&quot;&quot;</span>
+
+    <span class="c1">#: Set to True if this is an abstract base class.</span>
+    <span class="n">__is_abstract__</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+
+    <span class="n">__validation_errors__</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="n">_pending_finalizers</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Callable</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="c1">#: Serialized data may contain a &quot;blessed key&quot; that mandates</span>
+    <span class="c1">#: how the data should be deserialized.  This probably only</span>
+    <span class="c1">#: applies to records, but we need to support it at Model level.</span>
+    <span class="c1">#: The blessed key has a dictionary value with a ``ns`` key:</span>
+    <span class="c1">#:   data = {.., &#39;__faust&#39;: {&#39;ns&#39;: &#39;examples.simple.Withdrawal&#39;}}</span>
+    <span class="c1">#: When ``Model._maybe_reconstruct` sees this key it will look</span>
+    <span class="c1">#: up that namespace in the :data:`registry`, and if it exists</span>
+    <span class="c1">#: select it as the target model to use for serialization.</span>
+    <span class="c1">#:</span>
+    <span class="c1">#: Is this similar to how unsafe deserialization in pickle/yaml/etc.</span>
+    <span class="c1">#: works?  No! pickle/pyyaml allow for arbitrary types to be</span>
+    <span class="c1">#: deserialized (and worse in pickle&#39;s case), whereas the blessed</span>
+    <span class="c1">#: key can only deserialize to a hardcoded list of types that are</span>
+    <span class="c1">#: already under the remote control of messages anyway.</span>
+    <span class="c1">#: For example it&#39;s not possible to perform remote code execution</span>
+    <span class="c1">#: by providing a blessed key namespace of &quot;os.system&quot;, simply</span>
+    <span class="c1">#: because os.system is not in the registry of allowed types.</span>
+    <span class="n">_blessed_key</span> <span class="o">=</span> <span class="s1">&#39;__faust&#39;</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_maybe_namespace</span><span class="p">(</span>
+            <span class="bp">cls</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+            <span class="o">*</span><span class="p">,</span>
+            <span class="n">preferred_type</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">ModelT</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">fast_types</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Type</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="nb">bytes</span><span class="p">,</span> <span class="nb">str</span><span class="p">),</span>
+            <span class="nb">isinstance</span><span class="p">:</span> <span class="n">Callable</span> <span class="o">=</span> <span class="nb">isinstance</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">ModelT</span><span class="p">]]:</span>
+        <span class="c1"># The serialized data may contain a ``__faust`` blessed key</span>
+        <span class="c1"># holding the name of the model it should be deserialized as.</span>
+        <span class="c1"># So even if value_type=MyModel, the data may mandata that it</span>
+        <span class="c1"># should be deserialized using &quot;foo.bar.baz&quot; instead.</span>
+
+        <span class="c1"># This is how we deal with Kafka&#39;s lack of message headers,</span>
+        <span class="c1"># as needed by the RPC mechanism, without wrapping all data.</span>
+        <span class="k">if</span> <span class="n">data</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">fast_types</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">ns</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="bp">cls</span><span class="o">.</span><span class="n">_blessed_key</span><span class="p">][</span><span class="s1">&#39;ns&#39;</span><span class="p">]</span>
+        <span class="k">except</span> <span class="p">(</span><span class="ne">KeyError</span><span class="p">,</span> <span class="ne">TypeError</span><span class="p">):</span>
+            <span class="k">pass</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># we only allow blessed keys when type=None, or type=Model</span>
+            <span class="n">type_is_abstract</span> <span class="o">=</span> <span class="p">(</span><span class="n">preferred_type</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span>
+                                <span class="n">preferred_type</span> <span class="ow">is</span> <span class="n">ModelT</span> <span class="ow">or</span>
+                                <span class="n">preferred_type</span> <span class="ow">is</span> <span class="n">Model</span><span class="p">)</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">model</span> <span class="o">=</span> <span class="n">registry</span><span class="p">[</span><span class="n">ns</span><span class="p">]</span>
+            <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">type_is_abstract</span><span class="p">:</span>
+                    <span class="k">raise</span>
+                <span class="k">return</span> <span class="kc">None</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">if</span> <span class="p">(</span><span class="n">type_is_abstract</span> <span class="ow">or</span>
+                        <span class="n">model</span><span class="o">.</span><span class="n">_options</span><span class="o">.</span><span class="n">allow_blessed_key</span> <span class="ow">or</span>
+                        <span class="n">model</span><span class="o">.</span><span class="n">_options</span><span class="o">.</span><span class="n">polymorphic_fields</span><span class="p">):</span>
+                    <span class="k">return</span> <span class="n">model</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_maybe_reconstruct</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_maybe_namespace</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">model</span><span class="o">.</span><span class="n">from_data</span><span class="p">(</span><span class="n">data</span><span class="p">)</span> <span class="k">if</span> <span class="n">model</span> <span class="k">else</span> <span class="n">data</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_from_data_field</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="s1">&#39;Model&#39;</span><span class="p">]:</span>
+        <span class="k">if</span> <span class="n">data</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">cls</span><span class="o">.</span><span class="n">__is_abstract__</span><span class="p">:</span>
+                <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_maybe_reconstruct</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+            <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">from_data</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">preferred_type</span><span class="o">=</span><span class="bp">cls</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="Model.loads"><a class="viewcode-back" href="../../../reference/faust.models.base.html#faust.models.base.Model.loads">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">loads</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">s</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span>
+              <span class="n">default_serializer</span><span class="p">:</span> <span class="n">CodecArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>  <span class="c1"># XXX use serializer</span>
+              <span class="n">serializer</span><span class="p">:</span> <span class="n">CodecArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ModelT</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Deserialize model object from bytes.</span>
+
+<span class="sd">        Keyword Arguments:</span>
+<span class="sd">            serializer (CodecArg): Default serializer to use</span>
+<span class="sd">                if no custom serializer was set for this model subclass.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">default_serializer</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="ne">DeprecationWarning</span><span class="p">(</span>
+                <span class="s1">&#39;default_serializer deprecated, use: serializer&#39;</span><span class="p">))</span>
+        <span class="n">ser</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_options</span><span class="o">.</span><span class="n">serializer</span> <span class="ow">or</span> <span class="n">serializer</span> <span class="ow">or</span> <span class="n">default_serializer</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">loads</span><span class="p">(</span><span class="n">ser</span><span class="p">,</span> <span class="n">s</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">from_data</span><span class="p">(</span><span class="n">data</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">__init_subclass__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                          <span class="n">serializer</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                          <span class="n">namespace</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                          <span class="n">include_metadata</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                          <span class="n">isodates</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                          <span class="n">abstract</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+                          <span class="n">allow_blessed_key</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                          <span class="n">decimals</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                          <span class="n">coerce</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                          <span class="n">coercions</span><span class="p">:</span> <span class="n">CoercionMapping</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                          <span class="n">polymorphic_fields</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                          <span class="n">validation</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                          <span class="n">date_parser</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">Any</span><span class="p">],</span> <span class="n">datetime</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                          <span class="n">lazy_creation</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+                          <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># Python 3.6 added the new __init_subclass__ function that</span>
+        <span class="c1"># makes it possible to initialize subclasses without using</span>
+        <span class="c1"># metaclasses (:pep:`487`).</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">__init_subclass__</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+        <span class="c1"># mypy does not recognize `__init_subclass__` as a classmethod</span>
+        <span class="c1"># and thinks we&#39;re mutating a ClassVar when setting:</span>
+        <span class="c1">#   cls.__is_abstract__ = False</span>
+        <span class="c1"># To fix this we simply delegate to a _init_subclass classmethod.</span>
+        <span class="n">finalizer</span> <span class="o">=</span> <span class="n">partial</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_init_subclass</span><span class="p">,</span>
+            <span class="n">serializer</span><span class="p">,</span>
+            <span class="n">namespace</span><span class="p">,</span>
+            <span class="n">include_metadata</span><span class="p">,</span>
+            <span class="n">isodates</span><span class="p">,</span>
+            <span class="n">abstract</span><span class="p">,</span>
+            <span class="n">allow_blessed_key</span><span class="p">,</span>
+            <span class="n">decimals</span><span class="p">,</span>
+            <span class="n">coerce</span><span class="p">,</span>
+            <span class="n">coercions</span><span class="p">,</span>
+            <span class="n">polymorphic_fields</span><span class="p">,</span>
+            <span class="n">validation</span><span class="p">,</span>
+            <span class="n">date_parser</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">lazy_creation</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_pending_finalizers</span> <span class="o">=</span> <span class="p">[</span><span class="n">finalizer</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_pending_finalizers</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="n">finalizer</span><span class="p">()</span>
+
+<div class="viewcode-block" id="Model.make_final"><a class="viewcode-back" href="../../../reference/faust.models.base.html#faust.models.base.Model.make_final">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">make_final</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">pending</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_pending_finalizers</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_pending_finalizers</span><span class="p">,</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">pending</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">finalizer</span> <span class="ow">in</span> <span class="n">pending</span><span class="p">:</span>
+                <span class="n">finalizer</span><span class="p">()</span></div>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_init_subclass</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span>
+                       <span class="n">serializer</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                       <span class="n">namespace</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                       <span class="n">include_metadata</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                       <span class="n">isodates</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                       <span class="n">abstract</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+                       <span class="n">allow_blessed_key</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                       <span class="n">decimals</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                       <span class="n">coerce</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                       <span class="n">coercions</span><span class="p">:</span> <span class="n">CoercionMapping</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                       <span class="n">polymorphic_fields</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                       <span class="n">validation</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                       <span class="n">date_parser</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">Any</span><span class="p">],</span> <span class="n">datetime</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># Can set serializer/namespace/etc. using:</span>
+        <span class="c1">#    class X(Record, serializer=&#39;json&#39;, namespace=&#39;com.vandelay.X&#39;):</span>
+        <span class="c1">#        ...</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">custom_options</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">Options</span>
+        <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
+            <span class="n">custom_options</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="nb">delattr</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="s1">&#39;Options&#39;</span><span class="p">)</span>
+        <span class="n">options</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="s1">&#39;_options&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">options</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">options</span> <span class="o">=</span> <span class="n">ModelOptions</span><span class="p">()</span>
+            <span class="n">options</span><span class="o">.</span><span class="n">coercions</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="n">options</span><span class="o">.</span><span class="n">defaults</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">options</span> <span class="o">=</span> <span class="n">options</span><span class="o">.</span><span class="n">clone_defaults</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">custom_options</span><span class="p">:</span>
+            <span class="n">options</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">custom_options</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">coerce</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">options</span><span class="o">.</span><span class="n">coerce</span> <span class="o">=</span> <span class="n">coerce</span>
+        <span class="k">if</span> <span class="n">coercions</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">options</span><span class="o">.</span><span class="n">coercions</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">coercions</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">serializer</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">options</span><span class="o">.</span><span class="n">serializer</span> <span class="o">=</span> <span class="n">serializer</span>
+        <span class="k">if</span> <span class="n">include_metadata</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">options</span><span class="o">.</span><span class="n">include_metadata</span> <span class="o">=</span> <span class="n">include_metadata</span>
+        <span class="k">if</span> <span class="n">isodates</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">options</span><span class="o">.</span><span class="n">isodates</span> <span class="o">=</span> <span class="n">isodates</span>
+        <span class="k">if</span> <span class="n">decimals</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">options</span><span class="o">.</span><span class="n">decimals</span> <span class="o">=</span> <span class="n">decimals</span>
+        <span class="k">if</span> <span class="n">allow_blessed_key</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">options</span><span class="o">.</span><span class="n">allow_blessed_key</span> <span class="o">=</span> <span class="n">allow_blessed_key</span>
+        <span class="k">if</span> <span class="n">polymorphic_fields</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">options</span><span class="o">.</span><span class="n">polymorphic_fields</span> <span class="o">=</span> <span class="n">polymorphic_fields</span>
+        <span class="k">if</span> <span class="n">validation</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">options</span><span class="o">.</span><span class="n">validation</span> <span class="o">=</span> <span class="n">validation</span>
+            <span class="n">options</span><span class="o">.</span><span class="n">coerce</span> <span class="o">=</span> <span class="kc">True</span>  <span class="c1"># validation implies coerce</span>
+        <span class="k">if</span> <span class="n">date_parser</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">options</span><span class="o">.</span><span class="n">date_parser</span> <span class="o">=</span> <span class="n">date_parser</span>
+
+        <span class="n">options</span><span class="o">.</span><span class="n">namespace</span> <span class="o">=</span> <span class="n">namespace</span> <span class="ow">or</span> <span class="n">canoname</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">abstract</span><span class="p">:</span>
+            <span class="c1"># Custom base classes can set this to skip class initialization.</span>
+            <span class="bp">cls</span><span class="o">.</span><span class="n">__is_abstract__</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="bp">cls</span><span class="o">.</span><span class="n">_options</span> <span class="o">=</span> <span class="n">options</span>
+            <span class="bp">cls</span><span class="o">.</span><span class="fm">__init__</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">__abstract_init__</span>  <span class="c1"># type: ignore</span>
+            <span class="k">return</span>
+        <span class="bp">cls</span><span class="o">.</span><span class="n">__is_abstract__</span> <span class="o">=</span> <span class="kc">False</span>
+
+        <span class="c1"># Add introspection capabilities</span>
+        <span class="bp">cls</span><span class="o">.</span><span class="n">_contribute_to_options</span><span class="p">(</span><span class="n">options</span><span class="p">)</span>
+        <span class="c1"># Add FieldDescriptors for every field.</span>
+        <span class="n">options</span><span class="o">.</span><span class="n">descriptors</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_contribute_field_descriptors</span><span class="p">(</span>
+            <span class="bp">cls</span><span class="p">,</span> <span class="n">options</span><span class="p">)</span>
+
+        <span class="c1"># Store options on new subclass.</span>
+        <span class="bp">cls</span><span class="o">.</span><span class="n">_options</span> <span class="o">=</span> <span class="n">options</span>
+
+        <span class="bp">cls</span><span class="o">.</span><span class="n">_contribute_methods</span><span class="p">()</span>
+
+        <span class="c1"># Register in the global registry, so we can look up</span>
+        <span class="c1"># models by namespace.</span>
+        <span class="n">registry</span><span class="p">[</span><span class="n">options</span><span class="o">.</span><span class="n">namespace</span><span class="p">]</span> <span class="o">=</span> <span class="bp">cls</span>
+
+        <span class="n">codegens</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="p">(</span><span class="s1">&#39;__init__&#39;</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_BUILD_init</span><span class="p">,</span> <span class="s1">&#39;_model_init&#39;</span><span class="p">),</span>
+            <span class="p">(</span><span class="s1">&#39;__hash__&#39;</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_BUILD_hash</span><span class="p">,</span> <span class="s1">&#39;_model_hash&#39;</span><span class="p">),</span>
+            <span class="p">(</span><span class="s1">&#39;__eq__&#39;</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_BUILD_eq</span><span class="p">,</span> <span class="s1">&#39;_model_eq&#39;</span><span class="p">),</span>
+            <span class="p">(</span><span class="s1">&#39;__ne__&#39;</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_BUILD_ne</span><span class="p">,</span> <span class="s1">&#39;_model_ne&#39;</span><span class="p">),</span>
+            <span class="p">(</span><span class="s1">&#39;__gt__&#39;</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_BUILD_gt</span><span class="p">,</span> <span class="s1">&#39;_model_gt&#39;</span><span class="p">),</span>
+            <span class="p">(</span><span class="s1">&#39;__ge__&#39;</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_BUILD_ge</span><span class="p">,</span> <span class="s1">&#39;_model_ge&#39;</span><span class="p">),</span>
+            <span class="p">(</span><span class="s1">&#39;__lt__&#39;</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_BUILD_lt</span><span class="p">,</span> <span class="s1">&#39;_model_lt&#39;</span><span class="p">),</span>
+            <span class="p">(</span><span class="s1">&#39;__le__&#39;</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_BUILD_le</span><span class="p">,</span> <span class="s1">&#39;_model_le&#39;</span><span class="p">),</span>
+        <span class="p">]</span>
+
+        <span class="k">for</span> <span class="n">meth_name</span><span class="p">,</span> <span class="n">meth_gen</span><span class="p">,</span> <span class="n">attr_name</span> <span class="ow">in</span> <span class="n">codegens</span><span class="p">:</span>
+            <span class="c1"># self._model_init = cls._BUILD_init()</span>
+            <span class="c1"># if &#39;__init__&#39; not in cls.__dict__:</span>
+            <span class="c1">#     cls.__init__ = self._model_init</span>
+            <span class="n">meth</span> <span class="o">=</span> <span class="n">meth_gen</span><span class="p">()</span>
+            <span class="nb">setattr</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">attr_name</span><span class="p">,</span> <span class="n">meth</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">meth_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">cls</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">:</span>
+                <span class="nb">setattr</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">meth_name</span><span class="p">,</span> <span class="n">meth</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__abstract_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="n">E_ABSTRACT_INSTANCE</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+            <span class="n">name</span><span class="o">=</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+        <span class="p">))</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">_contribute_to_options</span><span class="p">(</span>
+            <span class="bp">cls</span><span class="p">,</span> <span class="n">options</span><span class="p">:</span> <span class="n">ModelOptions</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+        <span class="o">...</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_contribute_methods</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+        <span class="o">...</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">_contribute_field_descriptors</span><span class="p">(</span>
+            <span class="bp">cls</span><span class="p">,</span>
+            <span class="n">target</span><span class="p">:</span> <span class="n">Type</span><span class="p">,</span>
+            <span class="n">options</span><span class="p">:</span> <span class="n">ModelOptions</span><span class="p">,</span>
+            <span class="n">parent</span><span class="p">:</span> <span class="n">FieldDescriptorT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">FieldMap</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+        <span class="o">...</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">_BUILD_init</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">[[],</span> <span class="kc">None</span><span class="p">]:</span>  <span class="c1"># pragma: no cover</span>
+        <span class="o">...</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">_BUILD_hash</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">[[],</span> <span class="kc">None</span><span class="p">]:</span>  <span class="c1"># pragma: no cover</span>
+        <span class="o">...</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">_BUILD_eq</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">[[],</span> <span class="kc">None</span><span class="p">]:</span>  <span class="c1"># pragma: no cover</span>
+        <span class="o">...</span>
+
+<div class="viewcode-block" id="Model.to_representation"><a class="viewcode-back" href="../../../reference/faust.models.base.html#faust.models.base.Model.to_representation">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">to_representation</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+        <span class="sd">&quot;&quot;&quot;Convert object to JSON serializable object.&quot;&quot;&quot;</span></div>
+
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">_humanize</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+        <span class="sd">&quot;&quot;&quot;Return string representation of object for debugging purposes.&quot;&quot;&quot;</span>
+        <span class="o">...</span>
+
+<div class="viewcode-block" id="Model.is_valid"><a class="viewcode-back" href="../../../reference/faust.models.base.html#faust.models.base.Model.is_valid">[docs]</a>    <span class="k">def</span> <span class="nf">is_valid</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">True</span> <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">validate</span><span class="p">()</span> <span class="k">else</span> <span class="kc">False</span></div>
+
+<div class="viewcode-block" id="Model.validate"><a class="viewcode-back" href="../../../reference/faust.models.base.html#faust.models.base.Model.validate">[docs]</a>    <span class="k">def</span> <span class="nf">validate</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">ValidationError</span><span class="p">]:</span>
+        <span class="n">errors</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__validation_errors__</span>
+        <span class="k">if</span> <span class="n">errors</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">errors</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__validation_errors__</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_itervalidate</span><span class="p">())</span>
+        <span class="k">return</span> <span class="n">errors</span></div>
+
+<div class="viewcode-block" id="Model.validate_or_raise"><a class="viewcode-back" href="../../../reference/faust.models.base.html#faust.models.base.Model.validate_or_raise">[docs]</a>    <span class="k">def</span> <span class="nf">validate_or_raise</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">errors</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">validate</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">errors</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">errors</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span></div>
+
+    <span class="k">def</span> <span class="nf">_itervalidate</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">ValidationError</span><span class="p">]:</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">descr</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_options</span><span class="o">.</span><span class="n">descriptors</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">yield from</span> <span class="n">descr</span><span class="o">.</span><span class="n">validate_all</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">))</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">validation_errors</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">ValidationError</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">validate</span><span class="p">()</span>
+
+<div class="viewcode-block" id="Model.derive"><a class="viewcode-back" href="../../../reference/faust.models.base.html#faust.models.base.Model.derive">[docs]</a>    <span class="k">def</span> <span class="nf">derive</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">objects</span><span class="p">:</span> <span class="n">ModelT</span><span class="p">,</span> <span class="o">**</span><span class="n">fields</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ModelT</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Derive new model with certain fields changed.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_derive</span><span class="p">(</span><span class="o">*</span><span class="n">objects</span><span class="p">,</span> <span class="o">**</span><span class="n">fields</span><span class="p">)</span></div>
+
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>  <span class="c1"># pragma: no cover</span>
+    <span class="k">def</span> <span class="nf">_derive</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">objects</span><span class="p">:</span> <span class="n">ModelT</span><span class="p">,</span> <span class="o">**</span><span class="n">fields</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ModelT</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
+
+<div class="viewcode-block" id="Model.dumps"><a class="viewcode-back" href="../../../reference/faust.models.base.html#faust.models.base.Model.dumps">[docs]</a>    <span class="k">def</span> <span class="nf">dumps</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">serializer</span><span class="p">:</span> <span class="n">CodecArg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bytes</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Serialize object to the target serialization format.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">dumps</span><span class="p">(</span><span class="n">serializer</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_options</span><span class="o">.</span><span class="n">serializer</span><span class="p">,</span>
+                     <span class="bp">self</span><span class="o">.</span><span class="n">to_representation</span><span class="p">())</span></div>
+
+    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">f</span><span class="s1">&#39;&lt;{type(self).__name__}: {self._humanize()}&gt;&#39;</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../../index.html">
+              <img class="logo" src="../../../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../../../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../playbooks/index.html">Playbooks</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../userguide/index.html">User Guide</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../reference/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../history/index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2020, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

@@ -1,0 +1,252 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>faust.utils.venusian &#8212; Faust 1.11.0a1 documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="copyright" title="Copyright" href="../copyright.html" />
+    <link rel="next" title="faust.utils.terminal" href="faust.utils.terminal.html" />
+    <link rel="prev" title="faust.utils.urls" href="faust.utils.urls.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="faust-utils-venusian">
+<h1><code class="docutils literal notranslate"><span class="pre">faust.utils.venusian</span></code><a class="headerlink" href="#faust-utils-venusian" title="Permalink to this headline">¶</a></h1>
+<span class="target" id="module-faust.utils.venusian"></span><p>Venusian (see <a class="reference external" href="https://pypi.python.org/pypi/venusian/">venusian</a>).</p>
+<p>We define our own interface so we don’t have to specify the
+callback argument.</p>
+<dl class="class">
+<dt id="faust.utils.venusian.Scanner">
+<em class="property">class </em><code class="sig-prename descclassname">faust.utils.venusian.</code><code class="sig-name descname">Scanner</code><span class="sig-paren">(</span><em class="sig-param">**kw</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/venusian.html#Scanner"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.utils.venusian.Scanner" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="method">
+<dt id="faust.utils.venusian.Scanner.scan">
+<code class="sig-name descname">scan</code><span class="sig-paren">(</span><em class="sig-param">package</em>, <em class="sig-param">categories=None</em>, <em class="sig-param">onerror=None</em>, <em class="sig-param">ignore=None</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/venusian.html#Scanner.scan"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.utils.venusian.Scanner.scan" title="Permalink to this definition">¶</a></dt>
+<dd><p>Scan a Python package and any of its subpackages.  All
+top-level objects will be considered; those marked with
+venusian callback attributes related to <code class="docutils literal notranslate"><span class="pre">category</span></code> will be
+processed.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">package</span></code> argument should be a reference to a Python
+package or module object.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">categories</span></code> argument should be sequence of Venusian
+callback categories (each category usually a string) or the
+special value <code class="docutils literal notranslate"><span class="pre">None</span></code> which means all Venusian callback
+categories.  The default is <code class="docutils literal notranslate"><span class="pre">None</span></code>.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">onerror</span></code> argument should either be <code class="docutils literal notranslate"><span class="pre">None</span></code> or a callback
+function which behaves the same way as the <code class="docutils literal notranslate"><span class="pre">onerror</span></code> callback
+function described in
+<a class="reference external" href="http://docs.python.org/library/pkgutil.html#pkgutil.walk_packages">http://docs.python.org/library/pkgutil.html#pkgutil.walk_packages</a> .
+By default, during a scan, Venusian will propagate all errors that
+happen during its code importing process, including
+<a class="reference external" href="https://docs.python.org/dev/library/exceptions.html#ImportError" title="(in Python v3.9)"><code class="xref py py-exc docutils literal notranslate"><span class="pre">ImportError</span></code></a>.  If you use a custom <code class="docutils literal notranslate"><span class="pre">onerror</span></code> callback, you
+can change this behavior.</p>
+<p>Here’s an example <code class="docutils literal notranslate"><span class="pre">onerror</span></code> callback that ignores
+<a class="reference external" href="https://docs.python.org/dev/library/exceptions.html#ImportError" title="(in Python v3.9)"><code class="xref py py-exc docutils literal notranslate"><span class="pre">ImportError</span></code></a>:</p>
+<div class="highlight-python3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">sys</span>
+<span class="k">def</span> <span class="nf">onerror</span><span class="p">(</span><span class="n">name</span><span class="p">):</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">issubclass</span><span class="p">(</span><span class="n">sys</span><span class="o">.</span><span class="n">exc_info</span><span class="p">()[</span><span class="mi">0</span><span class="p">],</span> <span class="ne">ImportError</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="c1"># reraise the last exception</span>
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">name</span></code> passed to <code class="docutils literal notranslate"><span class="pre">onerror</span></code> is the module or package dotted
+name that could not be imported due to an exception.</p>
+<div class="versionadded">
+<p><span class="versionmodified added">New in version 1.0: </span>the <code class="docutils literal notranslate"><span class="pre">onerror</span></code> callback</p>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">ignore</span></code> argument allows you to ignore certain modules,
+packages, or global objects during a scan.  It should be a sequence
+containing strings and/or callables that will be used to match
+against the full dotted name of each object encountered during a
+scan.  The sequence can contain any of these three types of objects:</p>
+<ul class="simple">
+<li><p>A string representing a full dotted name.  To name an object by
+dotted name, use a string representing the full dotted name.  For
+example, if you want to ignore the <code class="docutils literal notranslate"><span class="pre">my.package</span></code> package <em>and any
+of its subobjects or subpackages</em> during the scan, pass
+<code class="docutils literal notranslate"><span class="pre">ignore=['my.package']</span></code>.</p></li>
+<li><p>A string representing a relative dotted name.  To name an object
+relative to the <code class="docutils literal notranslate"><span class="pre">package</span></code> passed to this method, use a string
+beginning with a dot.  For example, if the <code class="docutils literal notranslate"><span class="pre">package</span></code> you’ve
+passed is imported as <code class="docutils literal notranslate"><span class="pre">my.package</span></code>, and you pass
+<code class="docutils literal notranslate"><span class="pre">ignore=['.mymodule']</span></code>, the <code class="docutils literal notranslate"><span class="pre">my.package.mymodule</span></code> mymodule <em>and
+any of its subobjects or subpackages</em> will be omitted during scan
+processing.</p></li>
+<li><p>A callable that accepts a full dotted name string of an object as
+its single positional argument and returns <code class="docutils literal notranslate"><span class="pre">True</span></code> or <code class="docutils literal notranslate"><span class="pre">False</span></code>.
+For example, if you want to skip all packages, modules, and global
+objects with a full dotted path that ends with the word “tests”, you
+can use <code class="docutils literal notranslate"><span class="pre">ignore=[re.compile('tests$').search]</span></code>.  If the callable
+returns <code class="docutils literal notranslate"><span class="pre">True</span></code> (or anything else truthy), the object is ignored,
+if it returns <code class="docutils literal notranslate"><span class="pre">False</span></code> (or anything else falsy) the object is not
+ignored.  <em>Note that unlike string matches, ignores that use a
+callable don’t cause submodules and subobjects of a module or
+package represented by a dotted name to also be ignored, they match
+individual objects found during a scan, including packages,
+modules, and global objects</em>.</p></li>
+</ul>
+<p>You can mix and match the three types of strings in the list.  For
+example, if the package being scanned is <code class="docutils literal notranslate"><span class="pre">my</span></code>,
+<code class="docutils literal notranslate"><span class="pre">ignore=['my.package',</span> <span class="pre">'.someothermodule',</span>
+<span class="pre">re.compile('tests$').search]</span></code> would cause <code class="docutils literal notranslate"><span class="pre">my.package</span></code> (and all
+its submodules and subobjects) to be ignored, <code class="docutils literal notranslate"><span class="pre">my.someothermodule</span></code>
+to be ignored, and any modules, packages, or global objects found
+during the scan that have a full dotted name that ends with the word
+<code class="docutils literal notranslate"><span class="pre">tests</span></code> to be ignored.</p>
+<p>Note that packages and modules matched by any ignore in the list will
+not be imported, and their top-level code will not be run as a result.</p>
+<p>A string or callable alone can also be passed as <code class="docutils literal notranslate"><span class="pre">ignore</span></code> without a
+surrounding list.</p>
+<div class="versionadded">
+<p><span class="versionmodified added">New in version 1.0a3: </span>the <code class="docutils literal notranslate"><span class="pre">ignore</span></code> argument</p>
+</div>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="function">
+<dt id="faust.utils.venusian.attach">
+<code class="sig-prename descclassname">faust.utils.venusian.</code><code class="sig-name descname">attach</code><span class="sig-paren">(</span><em class="sig-param">fun: Callable, category: str, *, callback: Callable[[venusian.Scanner, str, Any], None] = None, **kwargs: Any</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/utils/venusian.html#attach"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.utils.venusian.attach" title="Permalink to this definition">¶</a></dt>
+<dd><p>Shortcut for <a class="reference external" href="https://venusian.readthedocs.io/en/latest/api.html#venusian.attach" title="(in venusian v3.0.0)"><code class="xref py py-func docutils literal notranslate"><span class="pre">venusian.attach()</span></code></a>.</p>
+<p>This shortcut makes the callback argument optional.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../playbooks/index.html">Playbooks</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../userguide/index.html">User Guide</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../history/index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">API Reference</a><ul>
+      <li>Previous: <a href="faust.utils.urls.html" title="previous chapter"><code class="docutils literal notranslate"><span class="pre">faust.utils.urls</span></code></a></li>
+      <li>Next: <a href="faust.utils.terminal.html" title="next chapter"><code class="docutils literal notranslate"><span class="pre">faust.utils.terminal</span></code></a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2020, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../_sources/reference/faust.utils.venusian.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

@@ -1,0 +1,600 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>Tables and Windowing &#8212; Faust 1.11.0a1 documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="copyright" title="Copyright" href="../copyright.html" />
+    <link rel="next" title="Tasks, Timers, Cron Jobs, Web Views, and CLI Commands" href="tasks.html" />
+    <link rel="prev" title="Models, Serialization, and Codecs" href="models.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="tables-and-windowing">
+<span id="guide-tables"></span><h1>Tables and Windowing<a class="headerlink" href="#tables-and-windowing" title="Permalink to this headline">¶</a></h1>
+<div class="topic">
+<p class="topic-title first"></p>
+<p><em>“A man sees in the world what he carries in his heart.”</em></p>
+<p>– Goethe, <em>Faust: First part</em></p>
+</div>
+<div class="contents local topic" id="contents">
+<ul class="simple">
+<li><p><a class="reference internal" href="#tables" id="id1">Tables</a></p>
+<ul>
+<li><p><a class="reference internal" href="#basics" id="id2">Basics</a></p></li>
+<li><p><a class="reference internal" href="#co-partitioning-tables-and-streams" id="id3">Co-partitioning Tables and Streams</a></p></li>
+<li><p><a class="reference internal" href="#table-sharding" id="id4">Table Sharding</a></p></li>
+<li><p><a class="reference internal" href="#the-changelog" id="id5">The Changelog</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#windowing" id="id6">Windowing</a></p>
+<ul>
+<li><p><a class="reference internal" href="#how-to" id="id7">How To</a></p></li>
+<li><p><a class="reference internal" href="#iterating-over-keys-values-items-in-a-windowed-table" id="id8">Iterating over keys/values/items in a windowed table.</a></p></li>
+<li><p><a class="reference internal" href="#out-of-order-events" id="id9">“Out of Order” Events</a></p></li>
+<li><p><a class="reference internal" href="#table-serialization" id="id10">Table Serialization</a></p></li>
+</ul>
+</li>
+</ul>
+</div>
+<div class="section" id="tables">
+<h2><a class="toc-backref" href="#id1">Tables</a><a class="headerlink" href="#tables" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="basics">
+<h3><a class="toc-backref" href="#id2">Basics</a><a class="headerlink" href="#basics" title="Permalink to this headline">¶</a></h3>
+<p>A table is a distributed in-memory dictionary, backed by a Kafka
+changelog topic used for persistence and fault-tolerance. We can replay
+the changelog upon network failure and node restarts, allowing us to rebuild the
+state of the table as it was before the fault.</p>
+<p>To create a table use <code class="docutils literal notranslate"><span class="pre">app.Table</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">table</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">Table</span><span class="p">(</span><span class="s1">&#39;totals&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>You cannot modify a table outside of a stream operation; this means that you can
+only mutate the table from within an <code class="docutils literal notranslate"><span class="pre">async</span> <span class="pre">for</span> <span class="pre">event</span> <span class="pre">in</span> <span class="pre">stream:</span></code> block.
+We require this to align the table’s partitions with the stream’s, and to
+ensure the source topic partitions are correctly rebalanced to a different
+worker upon failure, along with any necessary table partitions.</p>
+<p>Modifying a table outside of a stream will raise an error:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">table</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">Table</span><span class="p">(</span><span class="s1">&#39;totals&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+
+<span class="c1"># cannot modify table, as we are not iterating over stream</span>
+<span class="n">table</span><span class="p">[</span><span class="s1">&#39;foo&#39;</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">30</span>
+</pre></div>
+</div>
+<p>This source-topic-event to table-modification-event requirement also ensures
+that producing to the changelog and committing messages from the source
+happen simultaneously.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>An abruptly terminated Faust worker can allow some changelog entries
+to go through, before having committed the source topic offsets.</p>
+<p>Duplicate messages may result in double-counting and other data
+consistency issues, but since version 1.5 of Faust you can
+enable a setting for strict processing guarantees.</p>
+<p>See the <a class="reference internal" href="settings.html#std:setting-processing_guarantee"><code class="xref std std-setting docutils literal notranslate"><span class="pre">processing_guarantee</span></code></a> setting for more information.</p>
+</div>
+</div>
+<div class="section" id="co-partitioning-tables-and-streams">
+<h3><a class="toc-backref" href="#id3">Co-partitioning Tables and Streams</a><a class="headerlink" href="#co-partitioning-tables-and-streams" title="Permalink to this headline">¶</a></h3>
+<p>When managing stream partitions and their corresponding changelog
+partitions, “co-partitioning” ensures the correct distribution of stateful
+processing among available clients, but one requirement is that tables and
+streams must share shards.</p>
+<p>To shard the table differently, you must first repartition the stream using
+<a class="reference internal" href="../reference/faust.html#faust.Stream.group_by" title="faust.Stream.group_by"><code class="xref py py-class docutils literal notranslate"><span class="pre">group_by</span></code></a>.</p>
+<p>Repartition a stream:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">withdrawals_topic</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">topic</span><span class="p">(</span><span class="s1">&#39;withdrawals&#39;</span><span class="p">,</span> <span class="n">value_type</span><span class="o">=</span><span class="n">Withdrawal</span><span class="p">)</span>
+
+<span class="n">country_to_total</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">Table</span><span class="p">(</span>
+    <span class="s1">&#39;country_to_total&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span><span class="o">.</span><span class="n">tumbling</span><span class="p">(</span><span class="mf">10.0</span><span class="p">,</span> <span class="n">expires</span><span class="o">=</span><span class="mf">10.0</span><span class="p">)</span>
+
+<span class="n">withdrawals_stream</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">topic</span><span class="p">(</span><span class="s1">&#39;withdrawals&#39;</span><span class="p">,</span> <span class="n">value_type</span><span class="o">=</span><span class="n">Withdrawal</span><span class="p">)</span><span class="o">.</span><span class="n">stream</span><span class="p">()</span>
+<span class="n">withdrawals_by_country</span> <span class="o">=</span> <span class="n">withdrawals_stream</span><span class="o">.</span><span class="n">group_by</span><span class="p">(</span><span class="n">Withdrawal</span><span class="o">.</span><span class="n">country</span><span class="p">)</span>
+
+<span class="nd">@app.agent</span>
+<span class="n">async</span> <span class="k">def</span> <span class="nf">process_withdrawal</span><span class="p">(</span><span class="n">withdrawals</span><span class="p">):</span>
+    <span class="n">async</span> <span class="k">for</span> <span class="n">withdrawal</span> <span class="ow">in</span> <span class="n">withdrawals</span><span class="o">.</span><span class="n">group_by</span><span class="p">(</span><span class="n">Withdrawal</span><span class="o">.</span><span class="n">country</span><span class="p">):</span>
+        <span class="n">country_to_total</span><span class="p">[</span><span class="n">withdrawal</span><span class="o">.</span><span class="n">country</span><span class="p">]</span> <span class="o">+=</span> <span class="n">withdrawal</span><span class="o">.</span><span class="n">amount</span>
+</pre></div>
+</div>
+<p>If the stream and table are not co-partitioned, we could end up with a
+table shard ending up on a different worker than the worker processing its
+corresponding stream partition.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>For this reason, table changelog topics must have the same number of partitions as the
+source topic.</p>
+</div>
+</div>
+<div class="section" id="table-sharding">
+<h3><a class="toc-backref" href="#id4">Table Sharding</a><a class="headerlink" href="#table-sharding" title="Permalink to this headline">¶</a></h3>
+<p>Tables shards in Kafka must organize using a disjoint distribution of keys
+so that any computation for a subset of keys always happen together in the
+same worker process.</p>
+<p>The following is an example of incorrect usage where subsets of keys are
+likely to be processed by different worker processes:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">withdrawals_topic</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">topic</span><span class="p">(</span><span class="s1">&#39;withdrawals&#39;</span><span class="p">,</span> <span class="n">key_type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span>
+                              <span class="n">value_type</span><span class="o">=</span><span class="n">Withdrawal</span><span class="p">)</span>
+
+<span class="n">user_to_total</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">Table</span><span class="p">(</span><span class="s1">&#39;user_to_total&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+<span class="n">country_to_total</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">Table</span><span class="p">(</span>
+    <span class="s1">&#39;country_to_total&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span><span class="o">.</span><span class="n">tumbling</span><span class="p">(</span><span class="mf">10.0</span><span class="p">,</span> <span class="n">expires</span><span class="o">=</span><span class="mf">10.0</span><span class="p">)</span>
+
+
+<span class="nd">@app.agent</span><span class="p">(</span><span class="n">withdrawals_topic</span><span class="p">)</span>
+<span class="n">async</span> <span class="k">def</span> <span class="nf">process_withdrawal</span><span class="p">(</span><span class="n">withdrawals</span><span class="p">):</span>
+    <span class="n">async</span> <span class="k">for</span> <span class="n">withdrawal</span> <span class="ow">in</span> <span class="n">withdrawals</span><span class="p">:</span>
+        <span class="n">user_to_total</span><span class="p">[</span><span class="n">withdrawal</span><span class="o">.</span><span class="n">user</span><span class="p">]</span> <span class="o">+=</span> <span class="n">withdrawal</span><span class="o">.</span><span class="n">amount</span>
+        <span class="n">country_to_total</span><span class="p">[</span><span class="n">withdrawal</span><span class="o">.</span><span class="n">country</span><span class="p">]</span> <span class="o">+=</span> <span class="n">withdrawal</span><span class="o">.</span><span class="n">amount</span>
+</pre></div>
+</div>
+<p>Here the stream <code class="docutils literal notranslate"><span class="pre">withdrawals</span></code> is (implicitly) partitioned by the user ID used
+as message key. So the <code class="docutils literal notranslate"><span class="pre">country_to_total</span></code> table, instead of being
+partitioned by country name, is partitioned by the user ID. In practice,
+this means that data for a country may reside on multiple partitions, and
+worker instances end up with incomplete data.</p>
+<p>To fix that rewrite your program like this, using two distinct agents
+and repartition the stream by country when populating the table:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">withdrawals_topic</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">topic</span><span class="p">(</span><span class="s1">&#39;withdrawals&#39;</span><span class="p">,</span> <span class="n">value_type</span><span class="o">=</span><span class="n">Withdrawal</span><span class="p">)</span>
+
+<span class="n">user_to_total</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">Table</span><span class="p">(</span><span class="s1">&#39;user_to_total&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+<span class="n">country_to_total</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">Table</span><span class="p">(</span>
+    <span class="s1">&#39;country_to_total&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span><span class="o">.</span><span class="n">tumbling</span><span class="p">(</span><span class="mf">10.0</span><span class="p">,</span> <span class="n">expires</span><span class="o">=</span><span class="mf">10.0</span><span class="p">)</span>
+
+
+<span class="nd">@app.agent</span><span class="p">(</span><span class="n">withdrawals_topic</span><span class="p">)</span>
+<span class="n">async</span> <span class="k">def</span> <span class="nf">find_large_user_withdrawals</span><span class="p">(</span><span class="n">withdrawals</span><span class="p">):</span>
+    <span class="n">async</span> <span class="k">for</span> <span class="n">withdrawal</span> <span class="ow">in</span> <span class="n">withdrawals</span><span class="p">:</span>
+        <span class="n">user_to_total</span><span class="p">[</span><span class="n">withdrawal</span><span class="o">.</span><span class="n">user</span><span class="p">]</span> <span class="o">+=</span> <span class="n">withdrawal</span><span class="o">.</span><span class="n">amount</span>
+
+
+<span class="nd">@app.agent</span><span class="p">(</span><span class="n">withdrawals_topic</span><span class="p">)</span>
+<span class="n">async</span> <span class="k">def</span> <span class="nf">find_large_country_withdrawals</span><span class="p">(</span><span class="n">withdrawals</span><span class="p">):</span>
+    <span class="n">async</span> <span class="k">for</span> <span class="n">withdrawal</span> <span class="ow">in</span> <span class="n">withdrawals</span><span class="o">.</span><span class="n">group_by</span><span class="p">(</span><span class="n">Withdrawal</span><span class="o">.</span><span class="n">country</span><span class="p">):</span>
+        <span class="n">country_to_total</span><span class="p">[</span><span class="n">withdrawal</span><span class="o">.</span><span class="n">country</span><span class="p">]</span> <span class="o">+=</span> <span class="n">withdrawal</span><span class="o">.</span><span class="n">amount</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="the-changelog">
+<h3><a class="toc-backref" href="#id5">The Changelog</a><a class="headerlink" href="#the-changelog" title="Permalink to this headline">¶</a></h3>
+<p>Every modification to a table has a corresponding changelog update,
+the changelog is used to recover data after a failure.</p>
+<p>We store the changelog in Kafka as a topic and use log compaction
+to only keep the <em>most recent value for a key in the log</em>.
+Kafka periodically compacts the table, to ensure the log does not
+grow beyond the number of keys in the table.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>In production the RocksDB store allows for almost instantaneous recovery
+of tables: a worker only needs to retrieve updates missed since last time
+the instance was up.</p>
+</div>
+<p>If you change the value for a key in the table, please make sure you update
+the table with the new value after:</p>
+<p>In order to publish a changelog message into Kafka for fault-tolerance the
+table needs to be set explicitly. Hence, while changing values in Tables by
+reference, we still need to explicitly set the value to publish to the
+changelog, as shown below:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">user_withdrawals</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">Table</span><span class="p">(</span><span class="s1">&#39;user_withdrawals&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span>
+<span class="n">topic</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">topic</span><span class="p">(</span><span class="s1">&#39;withdrawals&#39;</span><span class="p">,</span> <span class="n">value_type</span><span class="o">=</span><span class="n">Withdrawal</span><span class="p">)</span>
+
+<span class="n">async</span> <span class="k">for</span> <span class="n">event</span> <span class="ow">in</span> <span class="n">topic</span><span class="o">.</span><span class="n">stream</span><span class="p">():</span>
+    <span class="c1"># get value for key in table</span>
+    <span class="n">withdrawals</span> <span class="o">=</span> <span class="n">user_withdrawals</span><span class="p">[</span><span class="n">event</span><span class="o">.</span><span class="n">account</span><span class="p">]</span>
+    <span class="c1"># modify the value</span>
+    <span class="n">withdrawals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">event</span><span class="o">.</span><span class="n">amount</span><span class="p">)</span>
+    <span class="c1"># write it back to the table (also updating changelog):</span>
+    <span class="n">user_withdrawals</span><span class="p">[</span><span class="n">event</span><span class="o">.</span><span class="n">account</span><span class="p">]</span> <span class="o">=</span> <span class="n">withdrawals</span>
+</pre></div>
+</div>
+<p>If you forget to do so, like in the following example, the program will
+work but will have inconsistent data if a recovery is needed for any reason:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">user_withdrawals</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">Table</span><span class="p">(</span><span class="s1">&#39;user_withdrawals&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span>
+<span class="n">topic</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">topic</span><span class="p">(</span><span class="s1">&#39;withdrawals&#39;</span><span class="p">,</span> <span class="n">value_type</span><span class="o">=</span><span class="n">Withdrawal</span><span class="p">)</span>
+
+<span class="n">async</span> <span class="k">for</span> <span class="n">event</span> <span class="ow">in</span> <span class="n">topic</span><span class="o">.</span><span class="n">stream</span><span class="p">():</span>
+    <span class="n">withdrawals</span> <span class="o">=</span> <span class="n">user_withdrawals</span><span class="p">[</span><span class="n">event</span><span class="o">.</span><span class="n">account</span><span class="p">]</span>
+    <span class="n">withdrawals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">event</span><span class="o">.</span><span class="n">amount</span><span class="p">)</span>
+    <span class="c1"># OOPS! Did not update the table with the new value</span>
+</pre></div>
+</div>
+<p>Due to this changelog, both table keys and values must be serializable.</p>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<ul class="simple">
+<li><p>The <a class="reference internal" href="models.html#guide-models"><span class="std std-ref">Models, Serialization, and Codecs</span></a> guide for more information about models and
+serialization.</p></li>
+</ul>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Faust creates an internal changelog topic for each table. The Faust
+application should be the only client producing to the changelog topics.</p>
+</div>
+</div>
+</div>
+<div class="section" id="windowing">
+<h2><a class="toc-backref" href="#id6">Windowing</a><a class="headerlink" href="#windowing" title="Permalink to this headline">¶</a></h2>
+<p>Windowing allows us to process streams while preserving state over defined
+windows of time. A windowed table preserves key-value pairs according to the
+configured “Windowing Policy.”</p>
+<p>We support the following policies:</p>
+<dl class="class">
+<dt id="TumblingWindow">
+<em class="property">class </em><code class="sig-name descname">TumblingWindow</code><a class="headerlink" href="#TumblingWindow" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<p>This class creates fixed-sized, non-overlapping and contiguous time intervals
+to preserve key-value pairs, e.g. <code class="docutils literal notranslate"><span class="pre">Tumbling(10)</span></code> will create non-overlapping
+10 seconds windows:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>window <span class="m">1</span>: ----------
+window <span class="m">2</span>:           ----------
+window <span class="m">3</span>:                     ----------
+window <span class="m">4</span>:                               ----------
+window <span class="m">5</span>:                                         ----------
+</pre></div>
+</div>
+<p>This class is exposed as a method from the output of <code class="docutils literal notranslate"><span class="pre">app.Table()</span></code>, it takes
+a mandatory parameter <code class="docutils literal notranslate"><span class="pre">size</span></code>, representing the window (time interval) duration
+and an optional parameter <code class="docutils literal notranslate"><span class="pre">expires</span></code>, representing the duration for which we
+want to store the data (key-value pairs) allocated to each window.</p>
+<dl class="class">
+<dt id="HoppingWindow">
+<em class="property">class </em><code class="sig-name descname">HoppingWindow</code><a class="headerlink" href="#HoppingWindow" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<p>This class creates fixed-sized, overlapping time intervals to preserve key-value
+pairs, e.g. <code class="docutils literal notranslate"><span class="pre">Hopping(10,</span> <span class="pre">5)</span></code> will create overlapping 10 seconds windows. Each
+window will be created every 5 seconds.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>window <span class="m">1</span>: ----------
+window <span class="m">2</span>:      ----------
+window <span class="m">3</span>:           ----------
+window <span class="m">4</span>:                ----------
+window <span class="m">5</span>:                     ----------
+window <span class="m">6</span>:                          ----------
+</pre></div>
+</div>
+<p>This class is exposed as a method from the output of <code class="docutils literal notranslate"><span class="pre">app.Table()</span></code>, it takes 2
+mandatory parameters:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">size</span></code>, representing the window (time interval) duration.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">step</span></code>, representing the time interval used to create new windows.</p></li>
+</ul>
+<p>It also takes an optional parameter <code class="docutils literal notranslate"><span class="pre">expires</span></code>, representing the duration for
+which we want to store the data (key-value pairs) allocated to each window.</p>
+<div class="section" id="how-to">
+<h3><a class="toc-backref" href="#id7">How To</a><a class="headerlink" href="#how-to" title="Permalink to this headline">¶</a></h3>
+<p>You can define a windowed table like this:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">timedelta</span>
+<span class="n">views</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">Table</span><span class="p">(</span><span class="s1">&#39;views&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span><span class="o">.</span><span class="n">tumbling</span><span class="p">(</span>
+    <span class="n">timedelta</span><span class="p">(</span><span class="n">minutes</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span>
+    <span class="n">expires</span><span class="o">=</span><span class="n">timedelta</span><span class="p">(</span><span class="n">hours</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>Since a key can exist in multiple windows, the windowed table returns a special
+wrapper for <code class="docutils literal notranslate"><span class="pre">table[k]</span></code>, called a <code class="docutils literal notranslate"><span class="pre">WindowSet</span></code>.</p>
+<p>Here’s an example of a windowed table in use:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">page_views_topic</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">topic</span><span class="p">(</span><span class="s1">&#39;page_views&#39;</span><span class="p">,</span> <span class="n">value_type</span><span class="o">=</span><span class="nb">str</span><span class="p">)</span>
+
+<span class="nd">@app.agent</span><span class="p">(</span><span class="n">events_topic</span><span class="p">)</span>
+<span class="n">async</span> <span class="k">def</span> <span class="nf">aggregate_page_views</span><span class="p">(</span><span class="n">pages</span><span class="p">):</span>
+    <span class="c1"># values in this streams are URLs as strings.</span>
+    <span class="n">async</span> <span class="k">for</span> <span class="n">page_url</span> <span class="ow">in</span> <span class="n">pages</span><span class="p">:</span>
+
+        <span class="c1"># increment one to all windows this page URL fall into.</span>
+        <span class="n">views</span><span class="p">[</span><span class="n">page_url</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+
+        <span class="k">if</span> <span class="n">views</span><span class="p">[</span><span class="n">page_url</span><span class="p">]</span><span class="o">.</span><span class="n">now</span><span class="p">()</span> <span class="o">&gt;=</span> <span class="mi">10000</span><span class="p">:</span>
+            <span class="c1"># Page is trending for current processing time window</span>
+            <span class="k">print</span><span class="p">(</span><span class="s1">&#39;Trending now&#39;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">views</span><span class="p">[</span><span class="n">page_url</span><span class="p">]</span><span class="o">.</span><span class="n">current</span><span class="p">()</span> <span class="o">&gt;=</span> <span class="mi">10000</span><span class="p">:</span>
+            <span class="c1"># Page would be trending in the current event&#39;s time window</span>
+            <span class="k">print</span><span class="p">(</span><span class="s1">&#39;Trending when event happened&#39;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">views</span><span class="p">[</span><span class="n">page_url</span><span class="p">]</span><span class="o">.</span><span class="n">value</span><span class="p">()</span> <span class="o">&gt;=</span> <span class="mi">10000</span><span class="p">:</span>
+            <span class="c1"># Page would be trending in the current event&#39;s time window</span>
+            <span class="c1"># according to the relative time set when creating the</span>
+            <span class="c1"># table.</span>
+            <span class="k">print</span><span class="p">(</span><span class="s1">&#39;Trending when event happened&#39;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">views</span><span class="p">[</span><span class="n">page_url</span><span class="p">]</span><span class="o">.</span><span class="n">delta</span><span class="p">(</span><span class="n">timedelta</span><span class="p">(</span><span class="n">minutes</span><span class="o">=</span><span class="mi">30</span><span class="p">))</span> <span class="o">&gt;</span> <span class="n">views</span><span class="p">[</span><span class="n">page_url</span><span class="p">]</span><span class="o">.</span><span class="n">now</span><span class="p">():</span>
+            <span class="k">print</span><span class="p">(</span><span class="s1">&#39;Less popular compared to 30 minutes back&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>In this table, <code class="docutils literal notranslate"><span class="pre">table[k].now()</span></code> returns the most recent value for the
+current processing window, overriding the _relative_to_ option used to create
+the window.</p>
+<p>In this table, <code class="docutils literal notranslate"><span class="pre">table[k].current()</span></code> returns the most recent value relative
+to the time of the currently processing event, overriding the _relative_to_
+option used to create the window.</p>
+<p>In this table, <code class="docutils literal notranslate"><span class="pre">table[k].value()</span></code> returns the most recent value relative
+to the time of the currently processing event, and is the default behavior.</p>
+<p>You can also make the current value relative to the current local time,
+relative to a different field in the event (if it has a custom timestamp
+field), or of another event.</p>
+<p>The default behavior is “relative to current stream”:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">views</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">Table</span><span class="p">(</span><span class="s1">&#39;views&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span><span class="o">.</span><span class="n">tumbling</span><span class="p">(</span><span class="o">...</span><span class="p">)</span><span class="o">.</span><span class="n">relative_to_stream</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>Where <code class="docutils literal notranslate"><span class="pre">.relative_to_stream()</span></code> means values are selected based on the window
+of the current event in the currently processing stream.</p>
+<p>You can also use <code class="docutils literal notranslate"><span class="pre">.relative_to_now()</span></code>: this means the window of the current
+local time is used instead:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">views</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">Table</span><span class="p">(</span><span class="s1">&#39;views&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span><span class="o">.</span><span class="n">tumbling</span><span class="p">(</span><span class="o">...</span><span class="p">)</span><span class="o">.</span><span class="n">relative_to_now</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>If the current event has a custom timestamp field that you want to use,
+<code class="docutils literal notranslate"><span class="pre">relative_to_field(field_descriptor)</span></code> is suited for that task:</p>
+<div class="highlight-python3 notranslate"><div class="highlight"><pre><span></span><span class="n">views</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">Table</span><span class="p">(</span><span class="s1">&#39;views&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span> \
+    <span class="o">.</span><span class="n">tumbling</span><span class="p">(</span><span class="o">...</span><span class="p">)</span> \
+    <span class="o">.</span><span class="n">relative_to_field</span><span class="p">(</span><span class="n">Account</span><span class="o">.</span><span class="n">date_created</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>You can override this default behavior when accessing data in the table:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@app.agent</span><span class="p">(</span><span class="n">topic</span><span class="p">)</span>
+<span class="n">async</span> <span class="k">def</span> <span class="nf">process</span><span class="p">(</span><span class="n">stream</span><span class="p">):</span>
+    <span class="n">async</span> <span class="k">for</span> <span class="n">event</span> <span class="ow">in</span> <span class="n">stream</span><span class="p">:</span>
+        <span class="c1"># Get latest value for key&#39;, based on the tables default</span>
+        <span class="c1"># relative to option.</span>
+        <span class="k">print</span><span class="p">(</span><span class="n">table</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">value</span><span class="p">())</span>
+
+        <span class="c1"># You can bypass the default relative to option, and</span>
+        <span class="c1"># get the value closest to the event timestamp</span>
+        <span class="k">print</span><span class="p">(</span><span class="n">table</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">current</span><span class="p">())</span>
+
+        <span class="c1"># You can bypass the default relative to option, and</span>
+        <span class="c1"># get the value closest to the current local time</span>
+        <span class="k">print</span><span class="p">(</span><span class="n">table</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">now</span><span class="p">())</span>
+
+        <span class="c1"># Or get the value for a delta, e.g. 30 seconds ago, relative</span>
+        <span class="c1"># to the event timestamp</span>
+        <span class="k">print</span><span class="p">(</span><span class="n">table</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">delta</span><span class="p">(</span><span class="mi">30</span><span class="p">))</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>We always retrieve window data based on timestamps. With tumbling windows
+there is just one window at a time, so for a given timestamp there is just
+one corresponding window. This is not the case for for hopping windows, in
+which a timestamp could be located in more than 1 window.</p>
+<p>At this point, when accessing data from a hopping table, we always access the
+latest window for a given timestamp and we have no way of modifying this
+behavior.</p>
+</div>
+</div>
+<div class="section" id="iterating-over-keys-values-items-in-a-windowed-table">
+<span id="windowed-table-iter"></span><h3><a class="toc-backref" href="#id8">Iterating over keys/values/items in a windowed table.</a><a class="headerlink" href="#iterating-over-keys-values-items-in-a-windowed-table" title="Permalink to this headline">¶</a></h3>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Tables are distributed across workers, so when iterating over table
+contents you will only see the partitions assigned to the current worker.</p>
+<p>Iterating over all the keys in a table will require you to visit
+all workers, which is highly impractical in a production system.</p>
+<p>For this reason table iteration is mostly used in debugging
+and observing your system.</p>
+</div>
+<p>To iterate over the keys/items/values in windowed table you may
+add the <code class="docutils literal notranslate"><span class="pre">key_index</span></code> option to enable support for it:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">windowed_table</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">Table</span><span class="p">(</span>
+    <span class="s1">&#39;name&#39;</span><span class="p">,</span>
+    <span class="n">default</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span>
+<span class="p">)</span><span class="o">.</span><span class="n">hopping</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="n">expires</span><span class="o">=</span><span class="n">timedelta</span><span class="p">(</span><span class="n">minutes</span><span class="o">=</span><span class="mi">10</span><span class="p">),</span> <span class="n">key_index</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Adding the key index means we keep a second table as an index of the
+keys present in the table. Whenever a new key is added we add the key to
+the key index, similarly whenever a key is deleted we also delete it from the
+index.</p>
+<p>This enables fast iteration over the keys, items and values in the windowed
+table, with the caveat that those keys may not exist in all windows.</p>
+<p>The table iterator views (<code class="docutils literal notranslate"><span class="pre">.keys()</span></code>/<code class="docutils literal notranslate"><span class="pre">.items()</span></code>/<code class="docutils literal notranslate"><span class="pre">.values()</span></code>)
+will be time-relative to the stream by default, unless you have changed
+the time-relativity using the <code class="docutils literal notranslate"><span class="pre">.relative_to_now</span></code> or
+<code class="docutils literal notranslate"><span class="pre">relative_to_timestamp</span></code> modifiers:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Show keys present relative to time of current event in stream:</span>
+<span class="k">print</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">windowed_table</span><span class="o">.</span><span class="n">keys</span><span class="p">()))</span>
+
+<span class="c1"># Show items present relative to time of current event in stream:</span>
+<span class="k">print</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">windowed_table</span><span class="o">.</span><span class="n">items</span><span class="p">()))</span>
+
+<span class="c1"># Show values present relative to time of current event in stream:</span>
+<span class="k">print</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">windowed_table</span><span class="o">.</span><span class="n">values</span><span class="p">()))</span>
+</pre></div>
+</div>
+<p>You can also manually specify the time-relativity:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Change time-relativity to current wall-clock time,</span>
+<span class="c1"># and show a list of items present in that window.</span>
+<span class="k">print</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">windowed_table</span><span class="o">.</span><span class="n">relative_to_now</span><span class="p">()</span><span class="o">.</span><span class="n">items</span><span class="p">()))</span>
+
+<span class="c1"># Get items present 30 seconds ago:</span>
+<span class="k">print</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">windowed_table</span><span class="o">.</span><span class="n">relative_to_now</span><span class="p">()</span><span class="o">.</span><span class="n">items</span><span class="p">()</span><span class="o">.</span><span class="n">delta</span><span class="p">(</span><span class="mf">30.0</span><span class="p">)))</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="out-of-order-events">
+<h3><a class="toc-backref" href="#id9">“Out of Order” Events</a><a class="headerlink" href="#out-of-order-events" title="Permalink to this headline">¶</a></h3>
+<p>Kafka maintains the order of messages published to it, but when using custom
+timestamp fields, relative ordering is not guaranteed.</p>
+<p>For example, a producer can lose network connectivity while sending a batch
+of messages and be forced to retry sending them later, then messages in the
+topic won’t be in timestamp order.</p>
+<p>Windowed tables in Faust correctly handles such “out of order ” events, at least
+until the message is as old as the table expiry configuration.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>We handle out of order events by storing separate aggregates for each
+window in the last <code class="docutils literal notranslate"><span class="pre">expires</span></code> seconds. The space complexity for this
+is <code class="docutils literal notranslate"><span class="pre">O(w</span> <span class="pre">*</span> <span class="pre">K)</span></code> where <code class="docutils literal notranslate"><span class="pre">w</span></code> is the number of windows in the last
+expires seconds and <code class="docutils literal notranslate"><span class="pre">K</span></code> is the number of keys in the table.</p>
+</div>
+</div>
+<div class="section" id="table-serialization">
+<h3><a class="toc-backref" href="#id10">Table Serialization</a><a class="headerlink" href="#table-serialization" title="Permalink to this headline">¶</a></h3>
+<p>A table is a mapping with keys and values, serialized using JSON by default.</p>
+<p>If you want to use a different serialization mechanism you must provide
+the <code class="docutils literal notranslate"><span class="pre">key_type</span></code> and <code class="docutils literal notranslate"><span class="pre">value_type</span></code> arguments which could be <code class="docutils literal notranslate"><span class="pre">bytes</span></code> or <code class="docutils literal notranslate"><span class="pre">model</span></code> type (faust.Record):</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">table</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">Table</span><span class="p">(</span>
+    <span class="s1">&#39;name&#39;</span><span class="p">,</span>
+    <span class="n">key_type</span><span class="o">=</span><span class="n">Withdrawal</span><span class="p">,</span>
+    <span class="n">value_type</span><span class="o">=</span><span class="n">Withdrawal</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../playbooks/index.html">Playbooks</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">User Guide</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="application.html">The App - Define your Faust project</a></li>
+<li class="toctree-l2"><a class="reference internal" href="agents.html">Agents - Self-organizing Stream Processors</a></li>
+<li class="toctree-l2"><a class="reference internal" href="streams.html">Streams - Infinite Data Structures</a></li>
+<li class="toctree-l2"><a class="reference internal" href="channels.html">Channels &amp; Topics - Data Sources</a></li>
+<li class="toctree-l2"><a class="reference internal" href="models.html">Models, Serialization, and Codecs</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Tables and Windowing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tasks.html">Tasks, Timers, Cron Jobs, Web Views, and CLI Commands</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cli.html">Command-line Interface</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sensors.html">Sensors - Monitors and Statistics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="testing.html">Testing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="livecheck.html">LiveCheck: End-to-end test for production/staging.</a></li>
+<li class="toctree-l2"><a class="reference internal" href="settings.html">Configuration Reference</a></li>
+<li class="toctree-l2"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="kafka.html">Kafka - The basics you need to know</a></li>
+<li class="toctree-l2"><a class="reference internal" href="debugging.html">Debugging</a></li>
+<li class="toctree-l2"><a class="reference internal" href="workers.html">Workers Guide</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../history/index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">User Guide</a><ul>
+      <li>Previous: <a href="models.html" title="previous chapter">Models, Serialization, and Codecs</a></li>
+      <li>Next: <a href="tasks.html" title="next chapter">Tasks, Timers, Cron Jobs, Web Views, and CLI Commands</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2020, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../_sources/userguide/tables.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

@@ -1,0 +1,647 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>Change history for Faust 1.5 &#8212; Faust 1.11.0a1 documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="copyright" title="Copyright" href="../copyright.html" />
+    <link rel="next" title="Change history for Faust 1.4" href="changelog-1.4.html" />
+    <link rel="prev" title="Change history for Faust 1.6" href="changelog-1.6.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="change-history-for-faust-1-5">
+<span id="changelog-1-5"></span><h1>Change history for Faust 1.5<a class="headerlink" href="#change-history-for-faust-1-5" title="Permalink to this headline">¶</a></h1>
+<p>This document contain change notes for bugfix releases in
+the Faust 1.5.x series. If you’re looking for changes in the latest
+series, please visit the latest <a class="reference internal" href="../changelog.html#changelog"><span class="std std-ref">Changes</span></a>.</p>
+<p>For even older releases you can visit the <a class="reference internal" href="index.html#history"><span class="std std-ref">History</span></a> section.</p>
+<div class="section" id="version-1-5-4">
+<span id="id1"></span><h2>1.5.4<a class="headerlink" href="#version-1-5-4" title="Permalink to this headline">¶</a></h2>
+<dl class="field-list simple">
+<dt class="field-odd">release-date</dt>
+<dd class="field-odd"><p>2019-04-9 2:09 P.M PST</p>
+</dd>
+<dt class="field-even">release-by</dt>
+<dd class="field-even"><p>Ask Solem (<a class="reference external" href="https://github.com/ask/">&#64;ask</a>)</p>
+</dd>
+</dl>
+<ul>
+<li><p>New <a class="reference internal" href="../userguide/settings.html#std:setting-producer_api_version"><code class="xref std std-setting docutils literal notranslate"><span class="pre">producer_api_version</span></code></a> setting.</p>
+<blockquote>
+<div><p>This can be set to the value “0.10” to remove headers
+from all messages produced.</p>
+<p>Use this if you have downstream consumers that do not
+support the new Kafka protocol format yet.</p>
+</div></blockquote>
+</li>
+<li><p>The <a class="reference internal" href="../userguide/settings.html#std:setting-stream_recovery_delay"><code class="xref std std-setting docutils literal notranslate"><span class="pre">stream_recovery_delay</span></code></a> setting has been disabled by default.</p>
+<blockquote>
+<div><p>After rebalancing the worker will sleep a bit before starting
+recovery, the idea being that another recovery may be waiting just behind
+it so we wait a bit, but this has shown to be not as effective
+as intended.</p>
+</div></blockquote>
+</li>
+<li><p><strong>Web</strong>: Cache can now be configured to take headers into account.</p>
+<blockquote>
+<div><p>Create the cache manager for your blueprint with the <code class="docutils literal notranslate"><span class="pre">include_headers</span></code>
+argument:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">cache</span> <span class="o">=</span> <span class="n">blueprint</span><span class="o">.</span><span class="n">cache</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="mf">300.0</span><span class="p">,</span> <span class="n">include_headers</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Contributed by Sanyam Satia (<a class="reference external" href="https://github.com/ssatia/">&#64;ssatia</a>).</p>
+</div></blockquote>
+</li>
+</ul>
+</div>
+<div class="section" id="version-1-5-3">
+<span id="id2"></span><h2>1.5.3<a class="headerlink" href="#version-1-5-3" title="Permalink to this headline">¶</a></h2>
+<dl class="field-list simple">
+<dt class="field-odd">release-date</dt>
+<dd class="field-odd"><p>2019-04-06 11:25 P.M PST</p>
+</dd>
+<dt class="field-even">release-by</dt>
+<dd class="field-even"><p>Ask Solem (<a class="reference external" href="https://github.com/ask/">&#64;ask</a>)</p>
+</dd>
+</dl>
+<ul>
+<li><p><strong>Requirements</strong>:</p>
+<blockquote>
+<div><ul>
+<li><p>Now depends on <a class="reference external" href="https://pypi.python.org/pypi/robinhood-aiokafka/">robinhood-aiokafka</a> 1.0.2</p>
+<blockquote>
+<div><p>This version disables the “LeaveGroup” timeout
+added in 1.0.0, as it was causing problems.</p>
+</div></blockquote>
+</li>
+</ul>
+</div></blockquote>
+</li>
+<li><p><strong>Documentation</strong>: Fixed spelling.</p></li>
+<li><p><strong>Tests</strong>: Fixed flaky regression test.</p></li>
+</ul>
+</div>
+<div class="section" id="version-1-5-2">
+<span id="id3"></span><h2>1.5.2<a class="headerlink" href="#version-1-5-2" title="Permalink to this headline">¶</a></h2>
+<dl class="field-list simple">
+<dt class="field-odd">release-date</dt>
+<dd class="field-odd"><p>2019-03-28 11:00 A.M PST</p>
+</dd>
+<dt class="field-even">release-by</dt>
+<dd class="field-even"><p>Ask Solem (<a class="reference external" href="https://github.com/ask/">&#64;ask</a>)</p>
+</dd>
+</dl>
+<ul>
+<li><p><strong>Requirements</strong></p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Now depends on <a class="reference external" href="https://mode.readthedocs.io/en/latest/changelog.html#version-3-1-1" title="(in Mode v4.3)"><span class="xref std std-ref">Mode 3.1.1</span></a>.</p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p>Timers: Prevent drift + add some tiny drift.</p>
+<blockquote>
+<div><p>Thanks to Bob Haddleton (<a class="reference external" href="https://github.com/bobh66/">&#64;bobh66</a>).</p>
+</div></blockquote>
+</li>
+<li><p><strong>App</strong>: Autodiscovery now avoids importing <code class="docutils literal notranslate"><span class="pre">__main__.py</span></code> (<span class="xref issue">Issue #324</span>).</p>
+<blockquote>
+<div><p>Added regression test.</p>
+</div></blockquote>
+</li>
+<li><p>The <code class="xref std std-setting docutils literal notranslate"><span class="pre">stream_ack_exceptions</span></code> setting has been deprecated.</p>
+<blockquote>
+<div><p>It was not having any effect, and we have no current use for it.</p>
+</div></blockquote>
+</li>
+<li><p>The <code class="xref std std-setting docutils literal notranslate"><span class="pre">stream_ack_cancelled_tasks</span></code> setting has been deprecated.</p>
+<blockquote>
+<div><p>It was not having any effect, and we have no current use for it.</p>
+</div></blockquote>
+</li>
+<li><p><strong>App</strong>: Autodiscovery failed to load when using <code class="docutils literal notranslate"><span class="pre">app.main()</span></code> in some
+cases (<span class="xref issue">Issue #323</span>).</p>
+<blockquote>
+<div><p>Added regression test.</p>
+</div></blockquote>
+</li>
+<li><p><strong>Worker</strong>: Fixed error during agent shutdown.</p></li>
+<li><p><strong>Monitor</strong>: Monitor assignment latency + assignments completed/failed.</p>
+<blockquote>
+<div><p>Implemented in the default monitor, but also for statsd and datadog.</p>
+</div></blockquote>
+</li>
+<li><p><strong>CLI</strong>: The <strong class="program">faust</strong> program had the wrong help description.</p></li>
+<li><p><strong>Docs</strong>: Fixes typo in <a class="reference internal" href="../userguide/settings.html#std:setting-web_cors_options"><code class="xref std std-setting docutils literal notranslate"><span class="pre">web_cors_options</span></code></a> example.</p></li>
+<li><p><strong>App</strong>: Do no wait for table recovery finished signal,
+if the app is not starting the recovery service.</p></li>
+</ul>
+</div>
+<div class="section" id="version-1-5-1">
+<span id="id4"></span><h2>1.5.1<a class="headerlink" href="#version-1-5-1" title="Permalink to this headline">¶</a></h2>
+<dl class="field-list simple">
+<dt class="field-odd">release-date</dt>
+<dd class="field-odd"><p>2019-03-24 09:45 P.M PST</p>
+</dd>
+<dt class="field-even">release-by</dt>
+<dd class="field-even"><p>Ask Solem (<a class="reference external" href="https://github.com/ask/">&#64;ask</a>)</p>
+</dd>
+</dl>
+<ul>
+<li><p>Fixed hanging in partition assignment introduced in Faust 1.5
+(<span class="xref issue">Issue #320</span>).</p>
+<blockquote>
+<div><p>Contributed by Bob Haddleton (<a class="reference external" href="https://github.com/bobh66/">&#64;bobh66</a>).</p>
+</div></blockquote>
+</li>
+</ul>
+</div>
+<div class="section" id="version-1-5-0">
+<span id="id5"></span><h2>1.5.0<a class="headerlink" href="#version-1-5-0" title="Permalink to this headline">¶</a></h2>
+<dl class="field-list simple">
+<dt class="field-odd">release-date</dt>
+<dd class="field-odd"><p>2019-03-22 02:18 P.M PST</p>
+</dd>
+<dt class="field-even">release-by</dt>
+<dd class="field-even"><p>Ask Solem (<a class="reference external" href="https://github.com/ask/">&#64;ask</a>)</p>
+</dd>
+</dl>
+<ul>
+<li><p><strong>Requirements</strong></p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Now depends on <a class="reference external" href="https://pypi.python.org/pypi/robinhood-aiokafka/">robinhood-aiokafka</a> 1.0.1</p></li>
+<li><p>Now depends on <a class="reference external" href="https://mode.readthedocs.io/en/latest/changelog.html#version-3-1-0" title="(in Mode v4.3)"><span class="xref std std-ref">Mode 3.1</span></a>.</p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p>Exactly-Once semantics: New <a class="reference internal" href="../userguide/settings.html#std:setting-processing_guarantee"><code class="xref std std-setting docutils literal notranslate"><span class="pre">processing_guarantee</span></code></a> setting.</p>
+<blockquote>
+<div><p>Experimental support for “exactly-once” semantics.</p>
+<p>This mode ensures tables and counts in tables/windows are consistent
+even as nodes in the cluster are abruptly terminated.</p>
+<p>To enable this mode set the <a class="reference internal" href="../userguide/settings.html#std:setting-processing_guarantee"><code class="xref std std-setting docutils literal notranslate"><span class="pre">processing_guarantee</span></code></a> setting:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">App</span><span class="p">(</span><span class="n">processing_guarantee</span><span class="o">=</span><span class="s1">&#39;exactly_once&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>If you do enable “exactly_once” for an existing app, you must make sure
+all workers are running the latest version and possibly
+starting from a clean set of intermediate topics.</p>
+<p>You can accomplish this by bumping up the app version number:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">App</span><span class="p">(</span><span class="n">version</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">processing_guarantee</span><span class="o">=</span><span class="s1">&#39;exactly_once&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The new processing guarantee require a new version of the
+assignor protocol, for this reason a “exactly_once” worker will
+not work with older versions of Faust running in the same consumer
+group: so to roll out this change you will have to stop all the
+workers, deploy the new version and only then restart the workers.</p>
+</div>
+</div></blockquote>
+</li>
+<li><p>New optimizations for stream processing and windows.</p>
+<blockquote>
+<div><p>If Cython is available during installation, Faust will be installed
+with compiled extensions.</p>
+<p>You can set the <span class="target" id="index-0"></span><code class="xref std std-envvar docutils literal notranslate"><span class="pre">NO_CYTHON</span></code> environment variable
+to disable the use of these extensions even if compiled.</p>
+</div></blockquote>
+</li>
+<li><p>New <a class="reference internal" href="../userguide/settings.html#std:setting-topic_allow_declare"><code class="xref std std-setting docutils literal notranslate"><span class="pre">topic_allow_declare</span></code></a> setting.</p>
+<blockquote>
+<div><p>If disabled your faust worker instances will never actually
+declare topics.</p>
+<p>Use this if your Kafka administrator does not allow you to
+create topics.</p>
+</div></blockquote>
+</li>
+<li><p>New <a class="reference internal" href="../userguide/settings.html#std:setting-ConsumerScheduler"><code class="xref std std-setting docutils literal notranslate"><span class="pre">ConsumerScheduler</span></code></a> setting.</p>
+<blockquote>
+<div><p>This class can override how events are delivered to agents.
+The default will go round robin between both topics and partitions,
+to ensure all topic partitions get a chance of being processed.</p>
+<p>Contributed by Miha Troha (<a class="reference external" href="https://github.com/miatroha/">&#64;miatroha</a>).</p>
+</div></blockquote>
+</li>
+<li><p><strong>Authentication</strong>: Support for GSSAPI authentication.</p>
+<blockquote>
+<div><p>See documentation for the <a class="reference internal" href="../userguide/settings.html#std:setting-broker_credentials"><code class="xref std std-setting docutils literal notranslate"><span class="pre">broker_credentials</span></code></a> setting.</p>
+<p>Contributed by Julien Surloppe (<a class="reference external" href="https://github.com/jsurloppe/">&#64;jsurloppe</a>).</p>
+</div></blockquote>
+</li>
+<li><p><strong>Authentication</strong>: Support for SASL authentication.</p>
+<blockquote>
+<div><p>See documentation for the <a class="reference internal" href="../userguide/settings.html#std:setting-broker_credentials"><code class="xref std std-setting docutils literal notranslate"><span class="pre">broker_credentials</span></code></a> setting.</p>
+</div></blockquote>
+</li>
+<li><p>New <a class="reference internal" href="../userguide/settings.html#std:setting-broker_credentials"><code class="xref std std-setting docutils literal notranslate"><span class="pre">broker_credentials</span></code></a> setting can also be used to configure
+SSL authentication.</p></li>
+<li><p><strong>Models</strong>: Records can now use comparison operators.</p>
+<blockquote>
+<div><p>Comparison of models using the <code class="docutils literal notranslate"><span class="pre">&gt;</span></code>, <code class="docutils literal notranslate"><span class="pre">&lt;</span></code>, <code class="docutils literal notranslate"><span class="pre">&gt;=</span></code> and <code class="docutils literal notranslate"><span class="pre">&lt;=</span></code> operators
+now work similarly to <a class="reference external" href="https://docs.python.org/dev/library/dataclasses.html#module-dataclasses" title="(in Python v3.9)"><code class="xref py py-mod docutils literal notranslate"><span class="pre">dataclasses</span></code></a>.</p>
+</div></blockquote>
+</li>
+<li><p><strong>Models</strong>: Now raise an error if non-default fields follows default fields.</p>
+<blockquote>
+<div><p>The following model will now raise an error:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">Account</span><span class="p">(</span><span class="n">faust</span><span class="o">.</span><span class="n">Record</span><span class="p">):</span>
+    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">amount</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span>
+    <span class="n">userid</span><span class="p">:</span> <span class="nb">str</span>
+</pre></div>
+</div>
+<p>This is because a non-default field is defined after a default field,
+and this would mess up argument ordering.</p>
+<p>To define the model without error, make sure you move default fields
+below any non-default fields:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">Account</span><span class="p">(</span><span class="n">faust</span><span class="o">.</span><span class="n">Record</span><span class="p">):</span>
+    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">userid</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">amount</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Remember that when adding fields to an already existing model
+you should always add new fields as optional fields.</p>
+<p>This will help your application stay backward compatible.</p>
+</div>
+</div></blockquote>
+</li>
+<li><p><strong>App</strong>: Sending messages API now supports a <code class="docutils literal notranslate"><span class="pre">headers</span></code> argument.</p>
+<blockquote>
+<div><p>When sending messages you can now attach arbitrary headers
+as a dict, or list of tuples; where the values are bytes:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">await</span> <span class="n">topic</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="n">value</span><span class="p">,</span> <span class="n">headers</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;x&#39;</span><span class="p">:</span> <span class="sa">b</span><span class="s1">&#39;foo&#39;</span><span class="p">})</span>
+</pre></div>
+</div>
+<div class="admonition-supported-transports admonition">
+<p class="admonition-title">Supported transports</p>
+<p>Headers are currently only supported by the default <a class="reference external" href="https://pypi.python.org/pypi/aiokafka/">aiokafka</a>
+transport, and requires Kafka server 0.11 and later.</p>
+</div>
+</div></blockquote>
+</li>
+<li><p><strong>Agent</strong>: RPC operations can now take advantage of message headers.</p>
+<blockquote>
+<div><p>The default way to attach metadata to values, such as the reply-to
+address and the correlation id, is to wrap the value in an envelope.</p>
+<p>With headers support now landed we can use message headers for this:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@app.agent</span><span class="p">(</span><span class="n">use_reply_headers</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+<span class="n">async</span> <span class="k">def</span> <span class="nf">x</span><span class="p">(</span><span class="n">stream</span><span class="p">):</span>
+    <span class="n">async</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">stream</span><span class="p">:</span>
+        <span class="k">yield</span> <span class="n">item</span> <span class="o">**</span> <span class="mi">2</span>
+</pre></div>
+</div>
+<p>Faust will be using headers by default in version 2.0.</p>
+</div></blockquote>
+</li>
+<li><p><strong>App</strong>: Sending messages API now supports a <code class="docutils literal notranslate"><span class="pre">timestamp</span></code> argument
+(<span class="xref issue">Issue #276</span>).</p>
+<blockquote>
+<div><p>When sending messages you can now specify the timestamp
+of the message:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">await</span> <span class="n">topic</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="n">value</span><span class="p">,</span> <span class="n">timestamp</span><span class="o">=</span><span class="n">custom_timestamp</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>If no timestamp is provided the current time will be used
+(<a class="reference external" href="https://docs.python.org/dev/library/time.html#time.time" title="(in Python v3.9)"><code class="xref py py-func docutils literal notranslate"><span class="pre">time.time()</span></code></a>).</p>
+<p>Contributed by Miha Troha (<a class="reference external" href="https://github.com/mihatroha/">&#64;mihatroha</a>).</p>
+</div></blockquote>
+</li>
+<li><p><strong>App</strong>: New <a class="reference internal" href="../userguide/settings.html#std:setting-consumer_auto_offset_reset"><code class="xref std std-setting docutils literal notranslate"><span class="pre">consumer_auto_offset_reset</span></code></a> setting (<span class="xref issue">Issue #267</span>).</p>
+<blockquote>
+<div><p>Contributed by Ryan Whitten (<a class="reference external" href="https://github.com/rwhitten577/">&#64;rwhitten577</a>).</p>
+</div></blockquote>
+</li>
+<li><p><strong>Stream</strong>: <code class="docutils literal notranslate"><span class="pre">group_by</span></code> repartitioned topic name now includes the agent
+name (<span class="xref issue">Issue #284</span>).</p></li>
+<li><p><strong>App</strong>: Web server is no longer running in a separate thread by default.</p>
+<blockquote>
+<div><p>Running the web server in a separate thread is beneficial as it
+will not be affected by back pressure in the main thread event loop,
+but it also makes programming harder when it cannot share the loop
+of the parent.</p>
+<p>If you want to run the web server in a separate thread, use the new
+<a class="reference internal" href="../userguide/settings.html#std:setting-web_in_thread"><code class="xref std std-setting docutils literal notranslate"><span class="pre">web_in_thread</span></code></a> setting.</p>
+</div></blockquote>
+</li>
+<li><p><strong>App</strong>: New <a class="reference internal" href="../userguide/settings.html#std:setting-web_in_thread"><code class="xref std std-setting docutils literal notranslate"><span class="pre">web_in_thread</span></code></a> controls separate thread for web
+server.</p></li>
+<li><p><strong>App</strong>: New <a class="reference internal" href="../userguide/settings.html#std:setting-logging_config"><code class="xref std std-setting docutils literal notranslate"><span class="pre">logging_config</span></code></a> setting.</p></li>
+<li><p><strong>App</strong>: Autodiscovery now ignores modules matching “<em>test</em>” (<span class="xref issue">Issue #242</span>).</p>
+<blockquote>
+<div><p>Contributed by Chris Seto (<a class="reference external" href="https://github.com/chrisseto/">&#64;chrisseto</a>).</p>
+</div></blockquote>
+</li>
+<li><p><strong>Transport</strong>: <a class="reference external" href="https://pypi.python.org/pypi/aiokafka/">aiokafka</a> transport now supports headers when using
+Kafka server versions 0.11 and later.</p></li>
+<li><p><strong>Tables</strong>: New flags can be used to check if actives/standbys are up to
+date.</p>
+<blockquote>
+<div><ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">app.tables.actives_ready</span></code></p>
+<blockquote>
+<div><p>Set to <code class="xref py py-const docutils literal notranslate"><span class="pre">True</span></code> when tables have synced all active partitions.</p>
+</div></blockquote>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">app.tables.standbys_ready</span></code></p>
+<blockquote>
+<div><p>Set to <code class="xref py py-const docutils literal notranslate"><span class="pre">True</span></code> when standby partitions are up-to-date.</p>
+</div></blockquote>
+</li>
+</ul>
+</div></blockquote>
+</li>
+<li><p><strong>RocksDB</strong>: Now crash with <a class="reference internal" href="../reference/faust.exceptions.html#faust.exceptions.ConsistencyError" title="faust.exceptions.ConsistencyError"><code class="xref py py-class docutils literal notranslate"><span class="pre">ConsistencyError</span></code></a>
+if the persisted offset is greater than the current highwater.</p>
+<blockquote>
+<div><p>This means the changelog topic has been modified in Kafka and the
+recorded offset no longer exists. We crash as we believe this require
+human intervention, but should some projects have less strict durability
+requirements we may make this an option.</p>
+</div></blockquote>
+</li>
+<li><p><strong>RocksDB</strong>: <code class="docutils literal notranslate"><span class="pre">len(table)</span></code> now only counts databases for active partitions
+(<span class="xref issue">Issue #270</span>).</p></li>
+<li><p><strong>Agent</strong>: Fixes crash when worker assigned no partitions and having
+the <code class="docutils literal notranslate"><span class="pre">isolated_partitions</span></code> flag enabled (<span class="xref issue">Issue #181</span>).</p></li>
+<li><p><strong>Table</strong>: Fixes <a class="reference external" href="https://docs.python.org/dev/library/exceptions.html#KeyError" title="(in Python v3.9)"><code class="xref py py-exc docutils literal notranslate"><span class="pre">KeyError</span></code></a> crash for already removed key.</p></li>
+<li><p><strong>Table</strong>: WindowRange is no longer a <a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.NamedTuple" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">NamedTuple</span></code></a>.</p>
+<blockquote>
+<div><p>This will make it easier to avoid hashing mistakes such that
+window ranges are never represented as both normal tuple and named tuple
+variants in the table.</p>
+</div></blockquote>
+</li>
+<li><p><strong>Transports</strong>: Adds experimental <code class="docutils literal notranslate"><span class="pre">confluent://</span></code> transport.</p>
+<blockquote>
+<div><p>This transport uses the <a class="reference external" href="https://pypi.python.org/pypi/confluent-kafka/">confluent-kafka</a> client.</p>
+<p>It is not feature complete, and notably is missing sticky partition
+assignment so you should not use this transport for tables.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">confluent://</span></code> transport is not recommended for production
+use at this time as it has several limitations.</p>
+</div>
+</div></blockquote>
+</li>
+<li><p><strong>Stream</strong>: Fixed deadlock when using <code class="docutils literal notranslate"><span class="pre">Stream.take</span></code> to buffer events
+(<span class="xref issue">Issue #262</span>).</p>
+<blockquote>
+<div><p>Contributed by Nimi Wariboko Jr (<a class="reference external" href="https://github.com/nemosupremo/">&#64;nemosupremo</a>).</p>
+</div></blockquote>
+</li>
+<li><p><strong>Web</strong>: Views can now define <code class="docutils literal notranslate"><span class="pre">options</span></code> method to
+implement a handler for the HTTP <code class="docutils literal notranslate"><span class="pre">OPTIONS</span></code> method.
+(<span class="xref issue">Issue #304</span>)</p>
+<blockquote>
+<div><p>Contributed by Perk Lim (<a class="reference external" href="https://github.com/perklun/">&#64;perklun</a>).</p>
+</div></blockquote>
+</li>
+<li><p><strong>Stream</strong>: Fixed acking behavior of <code class="docutils literal notranslate"><span class="pre">Stream.take</span></code> (<span class="xref issue">Issue #266</span>).</p>
+<blockquote>
+<div><p>When <code class="docutils literal notranslate"><span class="pre">take</span></code> is buffering the events should be acked after processing
+the buffer is complete, instead it was acking when adding into the buffer.</p>
+<p>Fix contributed by Amit Ripshtos (<a class="reference external" href="https://github.com/amitripshtos/">&#64;amitripshtos</a>).</p>
+</div></blockquote>
+</li>
+<li><dl>
+<dt><strong>Transport</strong>: Aiokafka was not limiting how many messages to read in</dt><dd><p>a fetch request (<span class="xref issue">Issue #292</span>).</p>
+<blockquote>
+<div><p>Fix contributed by Miha Troha (<a class="reference external" href="https://github.com/mihatroha/">&#64;mihatroha</a>).</p>
+</div></blockquote>
+</dd>
+</dl>
+</li>
+<li><p><strong>Typing</strong>: Added type stubs for <code class="docutils literal notranslate"><span class="pre">faust.web.Request</span></code>.</p></li>
+<li><p><strong>Typing</strong>: Fixed type stubs for <code class="docutils literal notranslate"><span class="pre">&#64;app.agent</span></code> decorator.</p></li>
+<li><p><strong>Web</strong>: Added support for Cross-Resource Origin Sharing headers (CORS).</p>
+<blockquote>
+<div><p>See new <a class="reference internal" href="../userguide/settings.html#std:setting-web_cors_options"><code class="xref std std-setting docutils literal notranslate"><span class="pre">web_cors_options</span></code></a> setting.</p>
+</div></blockquote>
+</li>
+<li><dl>
+<dt><strong>Debugging</strong>: Added <a class="reference external" href="https://opentracing.io">OpenTracing</a> hooks to streams/tasks/timers/Crontabs</dt><dd><p>and rebalancing process.</p>
+<blockquote>
+<div><p>To enable you have to define a custom <code class="docutils literal notranslate"><span class="pre">Tracer</span></code> class that will
+record and publish the traces to systems such as <a class="reference external" href="https://www.jaegertracing.io">Jeager</a> or <a class="reference external" href="https://zipkin.io">Zipkin</a>.</p>
+<p>This class needs to have a <code class="docutils literal notranslate"><span class="pre">.trace(name,</span> <span class="pre">**extra_context)</span></code> context
+manager:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span>
+<span class="kn">import</span> <span class="nn">opentracing</span>
+<span class="kn">from</span> <span class="nn">opentracing.ext.tags</span> <span class="kn">import</span> <span class="n">SAMPLING_PRIORITY</span>
+
+<span class="k">class</span> <span class="nc">FaustTracer</span><span class="p">:</span>
+    <span class="n">_tracers</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">opentracing</span><span class="o">.</span><span class="n">Tracer</span><span class="p">]</span>
+    <span class="n">_default_tracer</span><span class="p">:</span> <span class="n">opentracing</span><span class="o">.</span><span class="n">Tracer</span> <span class="o">=</span> <span class="bp">None</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_tracers</span> <span class="o">=</span> <span class="p">{}</span>
+
+    <span class="nd">@cached_property</span>
+    <span class="k">def</span> <span class="nf">default_tracer</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">opentracing</span><span class="o">.</span><span class="n">Tracer</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_default_tracer</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_default_tracer</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_tracer</span><span class="p">(</span><span class="s1">&#39;APP_NAME&#39;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">trace</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+              <span class="n">sample_rate</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="bp">None</span><span class="p">,</span>
+              <span class="o">**</span><span class="n">extra_context</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">opentracing</span><span class="o">.</span><span class="n">Span</span><span class="p">:</span>
+            <span class="n">span</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">default_tracer</span><span class="o">.</span><span class="n">start_span</span><span class="p">(</span>
+            <span class="n">operation_name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span>
+            <span class="n">tags</span><span class="o">=</span><span class="n">extra_context</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">sample_rate</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">priority</span> <span class="o">=</span> <span class="mi">1</span> <span class="k">if</span> <span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">sample_rate</span> <span class="k">else</span> <span class="mi">0</span>
+            <span class="n">span</span><span class="o">.</span><span class="n">set_tag</span><span class="p">(</span><span class="n">SAMPLING_PRIORITY</span><span class="p">,</span> <span class="n">priority</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">span</span>
+
+    <span class="k">def</span> <span class="nf">get_tracer</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">service_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">opentracing</span><span class="o">.</span><span class="n">Tracer</span><span class="p">:</span>
+        <span class="n">tracer</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tracers</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">service_name</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">tracer</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">tracer</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tracers</span><span class="p">[</span><span class="n">service_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">CREATE_TRACER</span><span class="p">(</span><span class="n">service_name</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">tracer</span><span class="o">.</span><span class="n">_tracer</span>
+</pre></div>
+</div>
+<p>After implementing the interface you need to set the <code class="docutils literal notranslate"><span class="pre">app.tracer</span></code>
+attribute:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">app</span> <span class="o">=</span> <span class="n">faust</span><span class="o">.</span><span class="n">App</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>
+<span class="n">app</span><span class="o">.</span><span class="n">tracer</span> <span class="o">=</span> <span class="n">FaustTracer</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>That’s it! Now traces will go through your custom tracing implementation.</p>
+</div></blockquote>
+</dd>
+</dl>
+</li>
+</ul>
+<ul>
+<li><p><strong>CLI</strong>: Commands <code class="docutils literal notranslate"><span class="pre">--help</span></code> output now always show the default for
+every parameter.</p></li>
+<li><p><strong>Channels</strong>: Fixed bug in <code class="docutils literal notranslate"><span class="pre">channel.send</span></code> that caused a memory leak.</p>
+<blockquote>
+<div><p>This bug was not present when using <code class="docutils literal notranslate"><span class="pre">app.topic()</span></code>.</p>
+</div></blockquote>
+</li>
+<li><p><strong>Documentation</strong>: Improvements by:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Amit Rip (<a class="reference external" href="https://github.com/amitripshtos/">&#64;amitripshtos</a>).</p></li>
+<li><p>Sebastian Roll (<a class="reference external" href="https://github.com/SebastianRoll/">&#64;SebastianRoll</a>).</p></li>
+<li><p>Mousse (<a class="reference external" href="https://github.com/zibuyu1995/">&#64;zibuyu1995</a>).</p></li>
+<li><p>Zhanzhao (Deo) Liang (<a class="reference external" href="https://github.com/DeoLeung/">&#64;DeoLeung</a>).</p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p><strong>Testing</strong>:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>99% total unit test coverage</p></li>
+<li><p>New script to verify documentation defaults are up to date are
+run for every git commit.</p></li>
+</ul>
+</div></blockquote>
+</li>
+</ul>
+</div>
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../playbooks/index.html">Playbooks</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../userguide/index.html">User Guide</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">History</a><ul>
+      <li>Previous: <a href="changelog-1.6.html" title="previous chapter">Change history for Faust 1.6</a></li>
+      <li>Next: <a href="changelog-1.4.html" title="next chapter">Change history for Faust 1.4</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2020, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../_sources/history/changelog-1.5.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

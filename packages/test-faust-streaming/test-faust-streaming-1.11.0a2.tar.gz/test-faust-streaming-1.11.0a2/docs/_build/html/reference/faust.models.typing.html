@@ -1,0 +1,327 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>faust.models.typing &#8212; Faust 1.11.0a1 documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="copyright" title="Copyright" href="../copyright.html" />
+    <link rel="next" title="faust.sensors" href="faust.sensors.html" />
+    <link rel="prev" title="faust.models.tags" href="faust.models.tags.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="faust-models-typing">
+<h1><code class="docutils literal notranslate"><span class="pre">faust.models.typing</span></code><a class="headerlink" href="#faust-models-typing" title="Permalink to this headline">¶</a></h1>
+<span class="target" id="module-faust.models.typing"></span><p>Parsing Type Expressions.</p>
+<p>This module contains tools for parsing type expressions such as
+<code class="docutils literal notranslate"><span class="pre">List[Mapping[str,</span> <span class="pre">Tuple[int,</span> <span class="pre">Tuple[str,</span> <span class="pre">str]]]]</span></code>,
+then converting that to a generator expression that can be used
+to deserialize such a structure.</p>
+<dl class="class">
+<dt id="faust.models.typing.NodeType">
+<em class="property">class </em><code class="sig-prename descclassname">faust.models.typing.</code><code class="sig-name descname">NodeType</code><a class="reference internal" href="../_modules/faust/models/typing.html#NodeType"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.models.typing.NodeType" title="Permalink to this definition">¶</a></dt>
+<dd><p>An enumeration.</p>
+<dl class="attribute">
+<dt id="faust.models.typing.NodeType.ROOT">
+<code class="sig-name descname">ROOT</code><em class="property"> = 'ROOT'</em><a class="headerlink" href="#faust.models.typing.NodeType.ROOT" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="faust.models.typing.NodeType.UNION">
+<code class="sig-name descname">UNION</code><em class="property"> = 'UNION'</em><a class="headerlink" href="#faust.models.typing.NodeType.UNION" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="faust.models.typing.NodeType.ANY">
+<code class="sig-name descname">ANY</code><em class="property"> = 'ANY'</em><a class="headerlink" href="#faust.models.typing.NodeType.ANY" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="faust.models.typing.NodeType.LITERAL">
+<code class="sig-name descname">LITERAL</code><em class="property"> = 'LITERAL'</em><a class="headerlink" href="#faust.models.typing.NodeType.LITERAL" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="faust.models.typing.NodeType.DATETIME">
+<code class="sig-name descname">DATETIME</code><em class="property"> = 'DATETIME'</em><a class="headerlink" href="#faust.models.typing.NodeType.DATETIME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="faust.models.typing.NodeType.DECIMAL">
+<code class="sig-name descname">DECIMAL</code><em class="property"> = 'DECIMAL'</em><a class="headerlink" href="#faust.models.typing.NodeType.DECIMAL" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="faust.models.typing.NodeType.NAMEDTUPLE">
+<code class="sig-name descname">NAMEDTUPLE</code><em class="property"> = 'NAMEDTUPLE'</em><a class="headerlink" href="#faust.models.typing.NodeType.NAMEDTUPLE" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="faust.models.typing.NodeType.TUPLE">
+<code class="sig-name descname">TUPLE</code><em class="property"> = 'TUPLE'</em><a class="headerlink" href="#faust.models.typing.NodeType.TUPLE" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="faust.models.typing.NodeType.SET">
+<code class="sig-name descname">SET</code><em class="property"> = 'SET'</em><a class="headerlink" href="#faust.models.typing.NodeType.SET" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="faust.models.typing.NodeType.DICT">
+<code class="sig-name descname">DICT</code><em class="property"> = 'DICT'</em><a class="headerlink" href="#faust.models.typing.NodeType.DICT" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="faust.models.typing.NodeType.LIST">
+<code class="sig-name descname">LIST</code><em class="property"> = 'LIST'</em><a class="headerlink" href="#faust.models.typing.NodeType.LIST" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="faust.models.typing.NodeType.MODEL">
+<code class="sig-name descname">MODEL</code><em class="property"> = 'MODEL'</em><a class="headerlink" href="#faust.models.typing.NodeType.MODEL" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="faust.models.typing.NodeType.USER">
+<code class="sig-name descname">USER</code><em class="property"> = 'USER'</em><a class="headerlink" href="#faust.models.typing.NodeType.USER" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="faust.models.typing.TypeExpression">
+<em class="property">class </em><code class="sig-prename descclassname">faust.models.typing.</code><code class="sig-name descname">TypeExpression</code><span class="sig-paren">(</span><em class="sig-param">expr: Type, root: Optional[faust.models.typing.RootNode] = None, *, user_types: MutableMapping[Union[Type, Tuple[Type, ...]], Callable[Any, Any]] = None, date_parser: Callable[Any, datetime.datetime] = None</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/models/typing.html#TypeExpression"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.models.typing.TypeExpression" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="attribute">
+<dt id="faust.models.typing.TypeExpression.DEFAULT_NODE">
+<code class="sig-name descname">DEFAULT_NODE</code><a class="headerlink" href="#faust.models.typing.TypeExpression.DEFAULT_NODE" title="Permalink to this definition">¶</a></dt>
+<dd><p>alias of <code class="xref py py-class docutils literal notranslate"><span class="pre">LiteralNode</span></code></p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.models.typing.TypeExpression.type">
+<code class="sig-name descname">type</code><em class="property"> = 'ROOT'</em><a class="headerlink" href="#faust.models.typing.TypeExpression.type" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="faust.models.typing.TypeExpression.compatible_types">
+<code class="sig-name descname">compatible_types</code><em class="property"> = ()</em><a class="headerlink" href="#faust.models.typing.TypeExpression.compatible_types" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="faust.models.typing.TypeExpression.as_function">
+<code class="sig-name descname">as_function</code><span class="sig-paren">(</span><em class="sig-param">*</em>, <em class="sig-param">name: str = 'expr'</em>, <em class="sig-param">argument_name: str = 'a'</em>, <em class="sig-param">stacklevel: int = 1</em>, <em class="sig-param">locals: Dict[str</em>, <em class="sig-param">Any] = None</em>, <em class="sig-param">globals: Dict[str</em>, <em class="sig-param">Any] = None</em><span class="sig-paren">)</span> &#x2192; Callable[T, T]<a class="reference internal" href="../_modules/faust/models/typing.html#TypeExpression.as_function"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.models.typing.TypeExpression.as_function" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Callable" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Callable</span></code></a>[[~T], ~T]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.models.typing.TypeExpression.as_string">
+<code class="sig-name descname">as_string</code><span class="sig-paren">(</span><em class="sig-param">*</em>, <em class="sig-param">name: str = 'expr'</em>, <em class="sig-param">argument_name: str = 'a'</em><span class="sig-paren">)</span> &#x2192; str<a class="reference internal" href="../_modules/faust/models/typing.html#TypeExpression.as_string"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.models.typing.TypeExpression.as_string" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.models.typing.TypeExpression.as_comprehension">
+<code class="sig-name descname">as_comprehension</code><span class="sig-paren">(</span><em class="sig-param">argument_name: str = 'a'</em><span class="sig-paren">)</span> &#x2192; str<a class="reference internal" href="../_modules/faust/models/typing.html#TypeExpression.as_comprehension"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.models.typing.TypeExpression.as_comprehension" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.models.typing.TypeExpression.build">
+<code class="sig-name descname">build</code><span class="sig-paren">(</span><em class="sig-param">var: faust.models.typing.Variable</em>, <em class="sig-param">*args: Type</em><span class="sig-paren">)</span> &#x2192; str<a class="reference internal" href="../_modules/faust/models/typing.html#TypeExpression.build"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.models.typing.TypeExpression.build" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.models.typing.TypeExpression.has_models">
+<em class="property">property </em><code class="sig-name descname">has_models</code><a class="headerlink" href="#faust.models.typing.TypeExpression.has_models" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/functions.html#bool" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.models.typing.TypeExpression.has_custom_types">
+<em class="property">property </em><code class="sig-name descname">has_custom_types</code><a class="headerlink" href="#faust.models.typing.TypeExpression.has_custom_types" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/functions.html#bool" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.models.typing.TypeExpression.has_generic_types">
+<em class="property">property </em><code class="sig-name descname">has_generic_types</code><a class="headerlink" href="#faust.models.typing.TypeExpression.has_generic_types" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/functions.html#bool" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.models.typing.TypeExpression.has_nonfield_types">
+<em class="property">property </em><code class="sig-name descname">has_nonfield_types</code><a class="headerlink" href="#faust.models.typing.TypeExpression.has_nonfield_types" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/functions.html#bool" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../playbooks/index.html">Playbooks</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../userguide/index.html">User Guide</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../history/index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">API Reference</a><ul>
+      <li>Previous: <a href="faust.models.tags.html" title="previous chapter"><code class="docutils literal notranslate"><span class="pre">faust.models.tags</span></code></a></li>
+      <li>Next: <a href="faust.sensors.html" title="next chapter"><code class="docutils literal notranslate"><span class="pre">faust.sensors</span></code></a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2020, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../_sources/reference/faust.models.typing.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

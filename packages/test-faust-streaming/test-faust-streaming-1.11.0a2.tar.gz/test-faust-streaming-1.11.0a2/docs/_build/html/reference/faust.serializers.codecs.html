@@ -1,0 +1,397 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>faust.serializers.codecs &#8212; Faust 1.11.0a1 documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="copyright" title="Copyright" href="../copyright.html" />
+    <link rel="next" title="faust.serializers.registry" href="faust.serializers.registry.html" />
+    <link rel="prev" title="faust.sensors.statsd" href="faust.sensors.statsd.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="faust-serializers-codecs">
+<h1><code class="docutils literal notranslate"><span class="pre">faust.serializers.codecs</span></code><a class="headerlink" href="#faust-serializers-codecs" title="Permalink to this headline">¶</a></h1>
+<div class="contents local topic" id="contents">
+<ul class="simple">
+<li><p><a class="reference internal" href="#supported-codecs" id="id1">Supported codecs</a></p></li>
+<li><p><a class="reference internal" href="#serialization-by-name" id="id2">Serialization by name</a></p></li>
+<li><p><a class="reference internal" href="#codec-registry" id="id3">Codec registry</a></p></li>
+</ul>
+</div>
+<span class="target" id="module-faust.serializers.codecs"></span><p>Serialization utilities.</p>
+<div class="section" id="supported-codecs">
+<h2><a class="toc-backref" href="#id1">Supported codecs</a><a class="headerlink" href="#supported-codecs" title="Permalink to this headline">¶</a></h2>
+<ul class="simple">
+<li><p><strong>raw</strong>     - No encoding/serialization (bytes only).</p></li>
+<li><p><strong>json</strong>    - json with UTF-8 encoding.</p></li>
+<li><p><strong>yaml</strong>    - YAML (safe version)</p></li>
+<li><p><strong>pickle</strong>  - pickle with base64 encoding (not urlsafe).</p></li>
+<li><p><strong>binary</strong>  - base64 encoding (not urlsafe).</p></li>
+</ul>
+</div>
+<div class="section" id="serialization-by-name">
+<h2><a class="toc-backref" href="#id2">Serialization by name</a><a class="headerlink" href="#serialization-by-name" title="Permalink to this headline">¶</a></h2>
+<p>The <a class="reference internal" href="#faust.serializers.codecs.dumps" title="faust.serializers.codecs.dumps"><code class="xref py py-func docutils literal notranslate"><span class="pre">dumps()</span></code></a> function takes a codec name and the object to encode,
+then returns bytes:</p>
+<div class="highlight-pycon notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">s</span> <span class="o">=</span> <span class="n">dumps</span><span class="p">(</span><span class="s1">&#39;json&#39;</span><span class="p">,</span> <span class="n">obj</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>For the reverse direction, the <a class="reference internal" href="#faust.serializers.codecs.loads" title="faust.serializers.codecs.loads"><code class="xref py py-func docutils literal notranslate"><span class="pre">loads()</span></code></a> function takes a codec
+name and bytes to decode:</p>
+<div class="highlight-pycon notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">obj</span> <span class="o">=</span> <span class="n">loads</span><span class="p">(</span><span class="s1">&#39;json&#39;</span><span class="p">,</span> <span class="n">s</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>You can also combine encoders in the name, like in this case
+where json is combined with gzip compression:</p>
+<div class="highlight-pycon notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">obj</span> <span class="o">=</span> <span class="n">loads</span><span class="p">(</span><span class="s1">&#39;json|gzip&#39;</span><span class="p">,</span> <span class="n">s</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="codec-registry">
+<h2><a class="toc-backref" href="#id3">Codec registry</a><a class="headerlink" href="#codec-registry" title="Permalink to this headline">¶</a></h2>
+<p>Codecs are configured by name and this module maintains
+a mapping from name to <a class="reference internal" href="#faust.serializers.codecs.Codec" title="faust.serializers.codecs.Codec"><code class="xref py py-class docutils literal notranslate"><span class="pre">Codec</span></code></a> instance: the <code class="xref py py-attr docutils literal notranslate"><span class="pre">codecs</span></code>
+attribute.</p>
+<p>You can add a new codec to this mapping by:</p>
+<div class="highlight-pycon notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">faust.serializers</span> <span class="kn">import</span> <span class="n">codecs</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">codecs</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">custom</span><span class="p">,</span> <span class="n">custom_serializer</span><span class="p">())</span>
+</pre></div>
+</div>
+<p>A codec subclass requires two methods to be implemented: <code class="docutils literal notranslate"><span class="pre">_loads()</span></code>
+and <code class="docutils literal notranslate"><span class="pre">_dumps()</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">msgpack</span>
+
+<span class="kn">from</span> <span class="nn">faust.serializers</span> <span class="kn">import</span> <span class="n">codecs</span>
+
+<span class="k">class</span> <span class="nc">raw_msgpack</span><span class="p">(</span><span class="n">codecs</span><span class="o">.</span><span class="n">Codec</span><span class="p">):</span>
+
+    <span class="k">def</span> <span class="nf">_dumps</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bytes</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">msgpack</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_loads</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">s</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">msgpack</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Our codec now encodes/decodes to raw msgpack format, but we
+may also need to transfer this payload over a transport easily confused
+by binary data, such as JSON where everything is Unicode.</p>
+<p>You can chain codecs together, so to add a binary text encoding like Base64,
+to your codec, we use the <code class="docutils literal notranslate"><span class="pre">|</span></code> operator to form a combined codec:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">msgpack</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">codecs</span><span class="o">.</span><span class="n">Codec</span><span class="p">:</span>
+    <span class="k">return</span> <span class="n">raw_msgpack</span><span class="p">()</span> <span class="o">|</span> <span class="n">codecs</span><span class="o">.</span><span class="n">binary</span><span class="p">()</span>
+
+<span class="n">codecs</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s1">&#39;msgpack&#39;</span><span class="p">,</span> <span class="n">msgpack</span><span class="p">())</span>
+</pre></div>
+</div>
+<p>At this point we monkey-patched Faust to support
+our codec, and we can use it to define records like this:</p>
+<div class="highlight-pycon notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">faust.serializers</span> <span class="kn">import</span> <span class="n">Record</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">class</span> <span class="nc">Point</span><span class="p">(</span><span class="n">Record</span><span class="p">,</span> <span class="n">serializer</span><span class="o">=</span><span class="s1">&#39;msgpack&#39;</span><span class="p">):</span>
+<span class="gp">... </span>    <span class="n">x</span><span class="p">:</span> <span class="nb">int</span>
+<span class="gp">... </span>    <span class="n">y</span><span class="p">:</span> <span class="nb">int</span>
+</pre></div>
+</div>
+<p>The problem with monkey-patching is that we must make sure the patching
+happens before we use the feature.</p>
+<p>Faust also supports registering <em>codec extensions</em>
+using setuptools entry points, so instead we can create an installable msgpack
+extension.</p>
+<p>To do so we need to define a package with the following directory layout:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>faust-msgpack/
+    setup.py
+    faust_msgpack.py
+</pre></div>
+</div>
+<p>The first file, <code class="file docutils literal notranslate"><span class="pre">faust-msgpack/setup.py</span></code>, defines metadata about our
+package and should look like the following example:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">setuptools</span> <span class="kn">import</span> <span class="n">setup</span><span class="p">,</span> <span class="n">find_packages</span>
+
+<span class="n">setup</span><span class="p">(</span>
+    <span class="n">name</span><span class="o">=</span><span class="s1">&#39;faust-msgpack&#39;</span><span class="p">,</span>
+    <span class="n">version</span><span class="o">=</span><span class="s1">&#39;1.0.0&#39;</span><span class="p">,</span>
+    <span class="n">description</span><span class="o">=</span><span class="s1">&#39;Faust msgpack serialization support&#39;</span><span class="p">,</span>
+    <span class="n">author</span><span class="o">=</span><span class="s1">&#39;Ola A. Normann&#39;</span><span class="p">,</span>
+    <span class="n">author_email</span><span class="o">=</span><span class="s1">&#39;ola@normann.no&#39;</span><span class="p">,</span>
+    <span class="n">url</span><span class="o">=</span><span class="s1">&#39;http://github.com/example/faust-msgpack&#39;</span><span class="p">,</span>
+    <span class="n">platforms</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;any&#39;</span><span class="p">],</span>
+    <span class="n">license</span><span class="o">=</span><span class="s1">&#39;BSD&#39;</span><span class="p">,</span>
+    <span class="n">packages</span><span class="o">=</span><span class="n">find_packages</span><span class="p">(</span><span class="n">exclude</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;ez_setup&#39;</span><span class="p">,</span> <span class="s1">&#39;tests&#39;</span><span class="p">,</span> <span class="s1">&#39;tests.*&#39;</span><span class="p">]),</span>
+    <span class="n">zip_safe</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span>
+    <span class="n">install_requires</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;msgpack-python&#39;</span><span class="p">],</span>
+    <span class="n">tests_require</span><span class="o">=</span><span class="p">[],</span>
+    <span class="n">entry_points</span><span class="o">=</span><span class="p">{</span>
+        <span class="s1">&#39;faust.codecs&#39;</span><span class="p">:</span> <span class="p">[</span>
+            <span class="s1">&#39;msgpack = faust_msgpack:msgpack&#39;</span><span class="p">,</span>
+        <span class="p">],</span>
+    <span class="p">},</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>The most important part being the <code class="docutils literal notranslate"><span class="pre">entry_points</span></code> key which tells
+Faust how to load our plugin. We have set the name of our
+codec to <code class="docutils literal notranslate"><span class="pre">msgpack</span></code> and the path to the codec class
+to be <code class="docutils literal notranslate"><span class="pre">faust_msgpack:msgpack</span></code>. This will be imported by Faust
+as <code class="docutils literal notranslate"><span class="pre">from</span> <span class="pre">faust_msgpack</span> <span class="pre">import</span> <span class="pre">msgpack</span></code>, so we need to define
+that part next in our <code class="file docutils literal notranslate"><span class="pre">faust-msgpack/faust_msgpack.py</span></code> module:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">faust.serializers</span> <span class="kn">import</span> <span class="n">codecs</span>
+
+<span class="k">class</span> <span class="nc">raw_msgpack</span><span class="p">(</span><span class="n">codecs</span><span class="o">.</span><span class="n">Codec</span><span class="p">):</span>
+
+    <span class="k">def</span> <span class="nf">_dumps</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bytes</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">msgpack</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">msgpack</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">codecs</span><span class="o">.</span><span class="n">Codec</span><span class="p">:</span>
+    <span class="k">return</span> <span class="n">raw_msgpack</span><span class="p">()</span> <span class="o">|</span> <span class="n">codecs</span><span class="o">.</span><span class="n">binary</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>That’s it! To install and use our new extension we do:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> python setup.py install
+</pre></div>
+</div>
+<p>At this point may want to publish this on PyPI to share
+the extension with other Faust users.</p>
+<dl class="class">
+<dt id="faust.serializers.codecs.Codec">
+<em class="property">class </em><code class="sig-prename descclassname">faust.serializers.codecs.</code><code class="sig-name descname">Codec</code><span class="sig-paren">(</span><em class="sig-param">children: Tuple[faust.types.codecs.CodecT</em>, <em class="sig-param">...] = None</em>, <em class="sig-param">**kwargs: Any</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/serializers/codecs.html#Codec"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.serializers.codecs.Codec" title="Permalink to this definition">¶</a></dt>
+<dd><p>Base class for codecs.</p>
+<dl class="attribute">
+<dt id="faust.serializers.codecs.Codec.children">
+<code class="sig-name descname">children</code><em class="property"> = None</em><a class="headerlink" href="#faust.serializers.codecs.Codec.children" title="Permalink to this definition">¶</a></dt>
+<dd><p>next steps in the recursive codec chain.
+<code class="docutils literal notranslate"><span class="pre">x</span> <span class="pre">=</span> <span class="pre">pickle</span> <span class="pre">|</span> <span class="pre">binary</span></code> returns codec with
+children set to <code class="docutils literal notranslate"><span class="pre">(pickle,</span> <span class="pre">binary)</span></code>.</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.serializers.codecs.Codec.nodes">
+<code class="sig-name descname">nodes</code><em class="property"> = None</em><a class="headerlink" href="#faust.serializers.codecs.Codec.nodes" title="Permalink to this definition">¶</a></dt>
+<dd><p>cached version of children including this codec as the first node.
+could use chain below, but seems premature so just copying the list.</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.serializers.codecs.Codec.kwargs">
+<code class="sig-name descname">kwargs</code><em class="property"> = None</em><a class="headerlink" href="#faust.serializers.codecs.Codec.kwargs" title="Permalink to this definition">¶</a></dt>
+<dd><p>subclasses can support keyword arguments,
+the base implementation of <a class="reference internal" href="#faust.serializers.codecs.Codec.clone" title="faust.serializers.codecs.Codec.clone"><code class="xref py py-meth docutils literal notranslate"><span class="pre">clone()</span></code></a> uses this to
+preserve keyword arguments in copies.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.serializers.codecs.Codec.dumps">
+<code class="sig-name descname">dumps</code><span class="sig-paren">(</span><em class="sig-param">obj: Any</em><span class="sig-paren">)</span> &#x2192; bytes<a class="reference internal" href="../_modules/faust/serializers/codecs.html#Codec.dumps"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.serializers.codecs.Codec.dumps" title="Permalink to this definition">¶</a></dt>
+<dd><p>Encode object <code class="docutils literal notranslate"><span class="pre">obj</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#bytes" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bytes</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.serializers.codecs.Codec.loads">
+<code class="sig-name descname">loads</code><span class="sig-paren">(</span><em class="sig-param">s: bytes</em><span class="sig-paren">)</span> &#x2192; Any<a class="reference internal" href="../_modules/faust/serializers/codecs.html#Codec.loads"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.serializers.codecs.Codec.loads" title="Permalink to this definition">¶</a></dt>
+<dd><p>Decode object from string.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Any" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.serializers.codecs.Codec.clone">
+<code class="sig-name descname">clone</code><span class="sig-paren">(</span><em class="sig-param">*children: faust.types.codecs.CodecT</em><span class="sig-paren">)</span> &#x2192; faust.types.codecs.CodecT<a class="reference internal" href="../_modules/faust/serializers/codecs.html#Codec.clone"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.serializers.codecs.Codec.clone" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create a clone of this codec, with optional children added.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="faust.types.codecs.html#faust.types.codecs.CodecT" title="faust.types.codecs.CodecT"><code class="xref py py-class docutils literal notranslate"><span class="pre">CodecT</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="function">
+<dt id="faust.serializers.codecs.register">
+<code class="sig-prename descclassname">faust.serializers.codecs.</code><code class="sig-name descname">register</code><span class="sig-paren">(</span><em class="sig-param">name: str</em>, <em class="sig-param">codec: faust.types.codecs.CodecT</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/serializers/codecs.html#register"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.serializers.codecs.register" title="Permalink to this definition">¶</a></dt>
+<dd><p>Register new codec in the codec registry.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="faust.serializers.codecs.get_codec">
+<code class="sig-prename descclassname">faust.serializers.codecs.</code><code class="sig-name descname">get_codec</code><span class="sig-paren">(</span><em class="sig-param">name_or_codec: Union[faust.types.codecs.CodecT, str, None]</em><span class="sig-paren">)</span> &#x2192; faust.types.codecs.CodecT<a class="reference internal" href="../_modules/faust/serializers/codecs.html#get_codec"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.serializers.codecs.get_codec" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get codec by name.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="faust.types.codecs.html#faust.types.codecs.CodecT" title="faust.types.codecs.CodecT"><code class="xref py py-class docutils literal notranslate"><span class="pre">CodecT</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="faust.serializers.codecs.dumps">
+<code class="sig-prename descclassname">faust.serializers.codecs.</code><code class="sig-name descname">dumps</code><span class="sig-paren">(</span><em class="sig-param">codec: Union[faust.types.codecs.CodecT, str, None], obj: Any</em><span class="sig-paren">)</span> &#x2192; bytes<a class="reference internal" href="../_modules/faust/serializers/codecs.html#dumps"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.serializers.codecs.dumps" title="Permalink to this definition">¶</a></dt>
+<dd><p>Encode object into bytes.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#bytes" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bytes</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="faust.serializers.codecs.loads">
+<code class="sig-prename descclassname">faust.serializers.codecs.</code><code class="sig-name descname">loads</code><span class="sig-paren">(</span><em class="sig-param">codec: Union[faust.types.codecs.CodecT, str, None], s: bytes</em><span class="sig-paren">)</span> &#x2192; Any<a class="reference internal" href="../_modules/faust/serializers/codecs.html#loads"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.serializers.codecs.loads" title="Permalink to this definition">¶</a></dt>
+<dd><p>Decode object from bytes.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Any" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../playbooks/index.html">Playbooks</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../userguide/index.html">User Guide</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../history/index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">API Reference</a><ul>
+      <li>Previous: <a href="faust.sensors.statsd.html" title="previous chapter"><code class="docutils literal notranslate"><span class="pre">faust.sensors.statsd</span></code></a></li>
+      <li>Next: <a href="faust.serializers.registry.html" title="next chapter"><code class="docutils literal notranslate"><span class="pre">faust.serializers.registry</span></code></a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2020, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../_sources/reference/faust.serializers.codecs.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

@@ -1,0 +1,223 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>faust.cli.send &#8212; Faust 1.11.0a1 documentation</title>
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../../../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <link rel="copyright" title="Copyright" href="../../../copyright.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for faust.cli.send</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Program ``faust send`` used to send events to agents and topics.&quot;&quot;&quot;</span>
+<span class="kn">import</span> <span class="nn">asyncio</span>
+<span class="kn">import</span> <span class="nn">random</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="k">import</span> <span class="n">Any</span>
+<span class="kn">from</span> <span class="nn">faust.types</span> <span class="k">import</span> <span class="n">CodecArg</span><span class="p">,</span> <span class="n">K</span><span class="p">,</span> <span class="n">RecordMetadata</span><span class="p">,</span> <span class="n">V</span>
+<span class="kn">from</span> <span class="nn">.base</span> <span class="k">import</span> <span class="n">AppCommand</span><span class="p">,</span> <span class="n">argument</span><span class="p">,</span> <span class="n">option</span>
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;send&#39;</span><span class="p">]</span>
+
+
+<div class="viewcode-block" id="send"><a class="viewcode-back" href="../../../reference/faust.cli.send.html#faust.cli.send.send">[docs]</a><span class="k">class</span> <span class="nc">send</span><span class="p">(</span><span class="n">AppCommand</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Send message to agent/topic.&quot;&quot;&quot;</span>
+
+    <span class="n">topic</span><span class="p">:</span> <span class="n">Any</span>
+    <span class="n">key</span><span class="p">:</span> <span class="n">K</span>
+    <span class="n">key_serializer</span><span class="p">:</span> <span class="n">CodecArg</span>
+    <span class="n">value</span><span class="p">:</span> <span class="n">V</span>
+    <span class="n">value_serializer</span><span class="p">:</span> <span class="n">CodecArg</span>
+    <span class="n">repeat</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">min_latency</span><span class="p">:</span> <span class="nb">float</span>
+    <span class="n">max_latency</span><span class="p">:</span> <span class="nb">float</span>
+
+    <span class="n">options</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">option</span><span class="p">(</span><span class="s1">&#39;--key-type&#39;</span><span class="p">,</span> <span class="s1">&#39;-K&#39;</span><span class="p">,</span>
+               <span class="n">help</span><span class="o">=</span><span class="s1">&#39;Name of model to serialize key into.&#39;</span><span class="p">),</span>
+        <span class="n">option</span><span class="p">(</span><span class="s1">&#39;--key-serializer&#39;</span><span class="p">,</span>
+               <span class="n">help</span><span class="o">=</span><span class="s1">&#39;Override default serializer for key.&#39;</span><span class="p">),</span>
+        <span class="n">option</span><span class="p">(</span><span class="s1">&#39;--value-type&#39;</span><span class="p">,</span> <span class="s1">&#39;-V&#39;</span><span class="p">,</span>
+               <span class="n">help</span><span class="o">=</span><span class="s1">&#39;Name of model to serialize value into.&#39;</span><span class="p">),</span>
+        <span class="n">option</span><span class="p">(</span><span class="s1">&#39;--value-serializer&#39;</span><span class="p">,</span>
+               <span class="n">help</span><span class="o">=</span><span class="s1">&#39;Override default serializer for value.&#39;</span><span class="p">),</span>
+        <span class="n">option</span><span class="p">(</span><span class="s1">&#39;--key&#39;</span><span class="p">,</span> <span class="s1">&#39;-k&#39;</span><span class="p">,</span>
+               <span class="n">help</span><span class="o">=</span><span class="s1">&#39;String value for key (use json if model).&#39;</span><span class="p">),</span>
+        <span class="n">option</span><span class="p">(</span><span class="s1">&#39;--partition&#39;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span>
+               <span class="n">help</span><span class="o">=</span><span class="s1">&#39;Specific partition to send to.&#39;</span><span class="p">),</span>
+        <span class="n">option</span><span class="p">(</span><span class="s1">&#39;--repeat&#39;</span><span class="p">,</span> <span class="s1">&#39;-r&#39;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+               <span class="n">help</span><span class="o">=</span><span class="s1">&#39;Send message n times.&#39;</span><span class="p">),</span>
+        <span class="n">option</span><span class="p">(</span><span class="s1">&#39;--min-latency&#39;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>
+               <span class="n">help</span><span class="o">=</span><span class="s1">&#39;Minimum delay between sending.&#39;</span><span class="p">),</span>
+        <span class="n">option</span><span class="p">(</span><span class="s1">&#39;--max-latency&#39;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>
+               <span class="n">help</span><span class="o">=</span><span class="s1">&#39;Maximum delay between sending.&#39;</span><span class="p">),</span>
+
+        <span class="n">argument</span><span class="p">(</span><span class="s1">&#39;entity&#39;</span><span class="p">),</span>
+        <span class="n">argument</span><span class="p">(</span><span class="s1">&#39;value&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+    <span class="p">]</span>
+
+<div class="viewcode-block" id="send.run"><a class="viewcode-back" href="../../../reference/faust.cli.send.html#faust.cli.send.send.run">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                  <span class="n">entity</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+                  <span class="n">value</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+                  <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+                  <span class="n">key</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                  <span class="n">key_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                  <span class="n">key_serializer</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                  <span class="n">value_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                  <span class="n">value_serializer</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                  <span class="n">partition</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+                  <span class="n">timestamp</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                  <span class="n">repeat</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+                  <span class="n">min_latency</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span>
+                  <span class="n">max_latency</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span>
+                  <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Send message to topic/agent/channel.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">key</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">key</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">to_key</span><span class="p">(</span><span class="n">key_type</span><span class="p">,</span> <span class="n">key</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">to_value</span><span class="p">(</span><span class="n">value_type</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+        <span class="n">topic</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">to_topic</span><span class="p">(</span><span class="n">entity</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">repeat</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">carp</span><span class="p">(</span><span class="n">f</span><span class="s1">&#39;k=</span><span class="si">{key!r}</span><span class="s1"> v=</span><span class="si">{value!r}</span><span class="s1"> -&gt; </span><span class="si">{topic!r}</span><span class="s1">...&#39;</span><span class="p">)</span>
+            <span class="n">fut_send_complete</span> <span class="o">=</span> <span class="k">await</span> <span class="n">topic</span><span class="o">.</span><span class="n">send</span><span class="p">(</span>
+                <span class="n">key</span><span class="o">=</span><span class="n">key</span><span class="p">,</span>
+                <span class="n">value</span><span class="o">=</span><span class="n">value</span><span class="p">,</span>
+                <span class="n">partition</span><span class="o">=</span><span class="n">partition</span><span class="p">,</span>
+                <span class="n">timestamp</span><span class="o">=</span><span class="n">timestamp</span><span class="p">,</span>
+                <span class="n">key_serializer</span><span class="o">=</span><span class="n">key_serializer</span><span class="p">,</span>
+                <span class="n">value_serializer</span><span class="o">=</span><span class="n">value_serializer</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">meta</span><span class="p">:</span> <span class="n">RecordMetadata</span> <span class="o">=</span> <span class="k">await</span> <span class="n">fut_send_complete</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">say</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">meta</span><span class="o">.</span><span class="n">_asdict</span><span class="p">()))</span>
+            <span class="k">if</span> <span class="n">i</span> <span class="ow">and</span> <span class="n">max_latency</span><span class="p">:</span>
+                <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="n">min_latency</span><span class="p">,</span> <span class="n">max_latency</span><span class="p">))</span>
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">producer</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span></div></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../../index.html">
+              <img class="logo" src="../../../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../../../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../playbooks/index.html">Playbooks</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../userguide/index.html">User Guide</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../reference/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../history/index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2020, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

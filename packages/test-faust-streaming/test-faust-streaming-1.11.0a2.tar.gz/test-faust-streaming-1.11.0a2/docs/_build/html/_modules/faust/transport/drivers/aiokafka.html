@@ -1,0 +1,1169 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>faust.transport.drivers.aiokafka &#8212; Faust 1.9.0 documentation</title>
+    <link rel="stylesheet" href="../../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../../" src="../../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../../../../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" />
+    <link rel="copyright" title="Copyright" href="../../../../copyright.html" />
+   
+  <link rel="stylesheet" href="../../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for faust.transport.drivers.aiokafka</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Message transport using :pypi:`aiokafka`.&quot;&quot;&quot;</span>
+<span class="kn">import</span> <span class="nn">asyncio</span>
+<span class="kn">import</span> <span class="nn">typing</span>
+
+<span class="kn">from</span> <span class="nn">collections</span> <span class="k">import</span> <span class="n">deque</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">Any</span><span class="p">,</span>
+    <span class="n">Awaitable</span><span class="p">,</span>
+    <span class="n">Callable</span><span class="p">,</span>
+    <span class="n">ClassVar</span><span class="p">,</span>
+    <span class="n">Iterable</span><span class="p">,</span>
+    <span class="n">List</span><span class="p">,</span>
+    <span class="n">Mapping</span><span class="p">,</span>
+    <span class="n">MutableMapping</span><span class="p">,</span>
+    <span class="n">Optional</span><span class="p">,</span>
+    <span class="n">Set</span><span class="p">,</span>
+    <span class="n">Tuple</span><span class="p">,</span>
+    <span class="n">Type</span><span class="p">,</span>
+    <span class="n">cast</span><span class="p">,</span>
+    <span class="n">no_type_check</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="kn">import</span> <span class="nn">aiokafka</span>
+<span class="kn">import</span> <span class="nn">aiokafka.abc</span>
+<span class="kn">import</span> <span class="nn">opentracing</span>
+<span class="kn">from</span> <span class="nn">aiokafka.consumer.group_coordinator</span> <span class="k">import</span> <span class="n">OffsetCommitRequest</span>
+<span class="kn">from</span> <span class="nn">aiokafka.errors</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">CommitFailedError</span><span class="p">,</span>
+    <span class="n">ConsumerStoppedError</span><span class="p">,</span>
+    <span class="n">IllegalStateError</span><span class="p">,</span>
+    <span class="n">KafkaError</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">aiokafka.structs</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">OffsetAndMetadata</span><span class="p">,</span>
+    <span class="n">TopicPartition</span> <span class="k">as</span> <span class="n">_TopicPartition</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">aiokafka.util</span> <span class="k">import</span> <span class="n">parse_kafka_version</span>
+<span class="kn">from</span> <span class="nn">kafka.errors</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">NotControllerError</span><span class="p">,</span>
+    <span class="n">TopicAlreadyExistsError</span> <span class="k">as</span> <span class="n">TopicExistsError</span><span class="p">,</span>
+    <span class="n">for_code</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">kafka.partitioner.default</span> <span class="k">import</span> <span class="n">DefaultPartitioner</span>
+<span class="kn">from</span> <span class="nn">kafka.partitioner.hashed</span> <span class="k">import</span> <span class="n">murmur2</span>
+<span class="kn">from</span> <span class="nn">kafka.protocol.metadata</span> <span class="k">import</span> <span class="n">MetadataRequest_v1</span>
+<span class="kn">from</span> <span class="nn">mode</span> <span class="k">import</span> <span class="n">Service</span><span class="p">,</span> <span class="n">get_logger</span>
+<span class="kn">from</span> <span class="nn">mode.utils.futures</span> <span class="k">import</span> <span class="n">StampedeWrapper</span>
+<span class="kn">from</span> <span class="nn">mode.utils.objects</span> <span class="k">import</span> <span class="n">cached_property</span>
+<span class="kn">from</span> <span class="nn">mode.utils.times</span> <span class="k">import</span> <span class="n">Seconds</span><span class="p">,</span> <span class="n">want_seconds</span>
+<span class="kn">from</span> <span class="nn">mode.utils.typing</span> <span class="k">import</span> <span class="n">Deque</span>
+<span class="kn">from</span> <span class="nn">opentracing.ext</span> <span class="k">import</span> <span class="n">tags</span>
+<span class="kn">from</span> <span class="nn">yarl</span> <span class="k">import</span> <span class="n">URL</span>
+
+<span class="kn">from</span> <span class="nn">faust.auth</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">GSSAPICredentials</span><span class="p">,</span>
+    <span class="n">SASLCredentials</span><span class="p">,</span>
+    <span class="n">SSLCredentials</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">faust.exceptions</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">ConsumerNotStarted</span><span class="p">,</span>
+    <span class="n">ImproperlyConfigured</span><span class="p">,</span>
+    <span class="n">NotReady</span><span class="p">,</span>
+    <span class="n">ProducerSendError</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">faust.transport</span> <span class="k">import</span> <span class="n">base</span>
+<span class="kn">from</span> <span class="nn">faust.transport.consumer</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">ConsumerThread</span><span class="p">,</span>
+    <span class="n">RecordMap</span><span class="p">,</span>
+    <span class="n">ThreadDelegateConsumer</span><span class="p">,</span>
+    <span class="n">ensure_TPset</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">faust.types</span> <span class="k">import</span> <span class="n">ConsumerMessage</span><span class="p">,</span> <span class="n">HeadersArg</span><span class="p">,</span> <span class="n">RecordMetadata</span><span class="p">,</span> <span class="n">TP</span>
+<span class="kn">from</span> <span class="nn">faust.types.auth</span> <span class="k">import</span> <span class="n">CredentialsT</span>
+<span class="kn">from</span> <span class="nn">faust.types.transports</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">ConsumerT</span><span class="p">,</span>
+    <span class="n">PartitionerT</span><span class="p">,</span>
+    <span class="n">ProducerT</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">faust.utils.kafka.protocol.admin</span> <span class="k">import</span> <span class="n">CreateTopicsRequest</span>
+<span class="kn">from</span> <span class="nn">faust.utils.tracing</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">noop_span</span><span class="p">,</span>
+    <span class="n">set_current_span</span><span class="p">,</span>
+    <span class="n">traced_from_parent_span</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;Consumer&#39;</span><span class="p">,</span> <span class="s1">&#39;Producer&#39;</span><span class="p">,</span> <span class="s1">&#39;Transport&#39;</span><span class="p">]</span>
+
+<span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">aiokafka</span><span class="p">,</span> <span class="s1">&#39;__robinhood__&#39;</span><span class="p">):</span>  <span class="c1"># pragma: no cover</span>
+    <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+        <span class="s1">&#39;Please install robinhood-aiokafka, not aiokafka&#39;</span><span class="p">)</span>
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">get_logger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+<span class="n">DEFAULT_GENERATION_ID</span> <span class="o">=</span> <span class="n">OffsetCommitRequest</span><span class="o">.</span><span class="n">DEFAULT_GENERATION_ID</span>
+
+<span class="n">TOPIC_LENGTH_MAX</span> <span class="o">=</span> <span class="mi">249</span>
+
+
+<span class="k">def</span> <span class="nf">server_list</span><span class="p">(</span><span class="n">urls</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">URL</span><span class="p">],</span> <span class="n">default_port</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+    <span class="sd">&quot;&quot;&quot;Convert list of urls to list of servers accepted by :pypi:`aiokafka`.&quot;&quot;&quot;</span>
+    <span class="n">default_host</span> <span class="o">=</span> <span class="s1">&#39;127.0.0.1&#39;</span>
+    <span class="k">return</span> <span class="p">[</span><span class="n">f</span><span class="s1">&#39;{u.host or default_host}:{u.port or default_port}&#39;</span> <span class="k">for</span> <span class="n">u</span> <span class="ow">in</span> <span class="n">urls</span><span class="p">]</span>
+
+
+<span class="k">class</span> <span class="nc">ConsumerRebalanceListener</span><span class="p">(</span>
+        <span class="n">aiokafka</span><span class="o">.</span><span class="n">abc</span><span class="o">.</span><span class="n">ConsumerRebalanceListener</span><span class="p">):</span>  <span class="c1"># type: ignore</span>
+    <span class="c1"># kafka&#39;s ridiculous class based callback interface makes this hacky.</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">thread</span><span class="p">:</span> <span class="n">ConsumerThread</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_thread</span><span class="p">:</span> <span class="n">ConsumerThread</span> <span class="o">=</span> <span class="n">thread</span>
+
+    <span class="k">def</span> <span class="nf">on_partitions_revoked</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span> <span class="n">revoked</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">_TopicPartition</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Awaitable</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Call when partitions are being revoked.&quot;&quot;&quot;</span>
+        <span class="n">thread</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_thread</span>
+        <span class="c1"># XXX Must call app.on_rebalance_start as early as possible.</span>
+        <span class="c1"># we call this in the sync method, this way when we know</span>
+        <span class="c1"># that it will be called even if await never returns to the coroutine.</span>
+        <span class="n">thread</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">on_rebalance_start</span><span class="p">()</span>
+
+        <span class="c1"># this way we should also get a warning if the coroutine</span>
+        <span class="c1"># is never awaited.</span>
+        <span class="k">return</span> <span class="n">thread</span><span class="o">.</span><span class="n">on_partitions_revoked</span><span class="p">(</span><span class="n">ensure_TPset</span><span class="p">(</span><span class="n">revoked</span><span class="p">))</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">on_partitions_assigned</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span> <span class="n">assigned</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">_TopicPartition</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Call when partitions are being assigned.&quot;&quot;&quot;</span>
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_thread</span><span class="o">.</span><span class="n">on_partitions_assigned</span><span class="p">(</span><span class="n">ensure_TPset</span><span class="p">(</span><span class="n">assigned</span><span class="p">))</span>
+
+
+<div class="viewcode-block" id="Consumer"><a class="viewcode-back" href="../../../../reference/faust.transport.drivers.aiokafka.html#faust.transport.drivers.aiokafka.Consumer">[docs]</a><span class="k">class</span> <span class="nc">Consumer</span><span class="p">(</span><span class="n">ThreadDelegateConsumer</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Kafka consumer using :pypi:`aiokafka`.&quot;&quot;&quot;</span>
+
+    <span class="n">logger</span> <span class="o">=</span> <span class="n">logger</span>
+
+    <span class="n">RebalanceListener</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">ConsumerRebalanceListener</span><span class="p">]]</span>
+    <span class="n">RebalanceListener</span> <span class="o">=</span> <span class="n">ConsumerRebalanceListener</span>
+
+    <span class="n">consumer_stopped_errors</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="ne">BaseException</span><span class="p">],</span> <span class="o">...</span><span class="p">]]</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">ConsumerStoppedError</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_new_consumer_thread</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ConsumerThread</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">AIOKafkaConsumerThread</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">loop</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">loop</span><span class="p">,</span> <span class="n">beacon</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">beacon</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Consumer.create_topic"><a class="viewcode-back" href="../../../../reference/faust.transport.drivers.aiokafka.html#faust.transport.drivers.aiokafka.Consumer.create_topic">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">create_topic</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                           <span class="n">topic</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+                           <span class="n">partitions</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+                           <span class="n">replication</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+                           <span class="o">*</span><span class="p">,</span>
+                           <span class="n">config</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                           <span class="n">timeout</span><span class="p">:</span> <span class="n">Seconds</span> <span class="o">=</span> <span class="mf">30.0</span><span class="p">,</span>
+                           <span class="n">retention</span><span class="p">:</span> <span class="n">Seconds</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                           <span class="n">compacting</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                           <span class="n">deleting</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                           <span class="n">ensure_created</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Create/declare topic on server.&quot;&quot;&quot;</span>
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_thread</span><span class="o">.</span><span class="n">create_topic</span><span class="p">(</span>
+            <span class="n">topic</span><span class="p">,</span>
+            <span class="n">partitions</span><span class="p">,</span>
+            <span class="n">replication</span><span class="p">,</span>
+            <span class="n">config</span><span class="o">=</span><span class="n">config</span><span class="p">,</span>
+            <span class="n">timeout</span><span class="o">=</span><span class="n">timeout</span><span class="p">,</span>
+            <span class="n">retention</span><span class="o">=</span><span class="n">retention</span><span class="p">,</span>
+            <span class="n">compacting</span><span class="o">=</span><span class="n">compacting</span><span class="p">,</span>
+            <span class="n">deleting</span><span class="o">=</span><span class="n">deleting</span><span class="p">,</span>
+            <span class="n">ensure_created</span><span class="o">=</span><span class="n">ensure_created</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_new_topicpartition</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">topic</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">partition</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TP</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="n">TP</span><span class="p">,</span> <span class="n">_TopicPartition</span><span class="p">(</span><span class="n">topic</span><span class="p">,</span> <span class="n">partition</span><span class="p">))</span>
+
+    <span class="k">def</span> <span class="nf">_to_message</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tp</span><span class="p">:</span> <span class="n">TP</span><span class="p">,</span> <span class="n">record</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ConsumerMessage</span><span class="p">:</span>
+        <span class="n">timestamp</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="n">record</span><span class="o">.</span><span class="n">timestamp</span>
+        <span class="n">timestamp_s</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="nb">float</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">timestamp</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">timestamp_s</span> <span class="o">=</span> <span class="n">timestamp</span> <span class="o">/</span> <span class="mf">1000.0</span>
+        <span class="k">return</span> <span class="n">ConsumerMessage</span><span class="p">(</span>
+            <span class="n">record</span><span class="o">.</span><span class="n">topic</span><span class="p">,</span>
+            <span class="n">record</span><span class="o">.</span><span class="n">partition</span><span class="p">,</span>
+            <span class="n">record</span><span class="o">.</span><span class="n">offset</span><span class="p">,</span>
+            <span class="n">timestamp_s</span><span class="p">,</span>
+            <span class="n">record</span><span class="o">.</span><span class="n">timestamp_type</span><span class="p">,</span>
+            <span class="n">record</span><span class="o">.</span><span class="n">headers</span><span class="p">,</span>
+            <span class="n">record</span><span class="o">.</span><span class="n">key</span><span class="p">,</span>
+            <span class="n">record</span><span class="o">.</span><span class="n">value</span><span class="p">,</span>
+            <span class="n">record</span><span class="o">.</span><span class="n">checksum</span><span class="p">,</span>
+            <span class="n">record</span><span class="o">.</span><span class="n">serialized_key_size</span><span class="p">,</span>
+            <span class="n">record</span><span class="o">.</span><span class="n">serialized_value_size</span><span class="p">,</span>
+            <span class="n">tp</span><span class="p">,</span>
+        <span class="p">)</span>
+
+<div class="viewcode-block" id="Consumer.on_stop"><a class="viewcode-back" href="../../../../reference/faust.transport.drivers.aiokafka.html#faust.transport.drivers.aiokafka.Consumer.on_stop">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">on_stop</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Call when consumer is stopping.&quot;&quot;&quot;</span>
+        <span class="k">await</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">on_stop</span><span class="p">()</span>
+        <span class="n">transport</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">Transport</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">transport</span><span class="p">)</span>
+        <span class="n">transport</span><span class="o">.</span><span class="n">_topic_waiters</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span></div></div>
+
+
+<span class="k">class</span> <span class="nc">AIOKafkaConsumerThread</span><span class="p">(</span><span class="n">ConsumerThread</span><span class="p">):</span>
+    <span class="n">_consumer</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">aiokafka</span><span class="o">.</span><span class="n">AIOKafkaConsumer</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">_pending_rebalancing_spans</span><span class="p">:</span> <span class="n">Deque</span><span class="p">[</span><span class="n">opentracing</span><span class="o">.</span><span class="n">Span</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">consumer</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">Consumer</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">consumer</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_partitioner</span><span class="p">:</span> <span class="n">PartitionerT</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">conf</span><span class="o">.</span><span class="n">producer_partitioner</span> <span class="ow">or</span> <span class="n">DefaultPartitioner</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_rebalance_listener</span> <span class="o">=</span> <span class="n">consumer</span><span class="o">.</span><span class="n">RebalanceListener</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_pending_rebalancing_spans</span> <span class="o">=</span> <span class="n">deque</span><span class="p">()</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">on_start</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Call when consumer starts.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_consumer</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_consumer</span><span class="p">(</span><span class="n">loop</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">thread_loop</span><span class="p">)</span>
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_consumer</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">on_thread_stop</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Call when consumer thread is stopping.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_consumer</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_consumer</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">_create_consumer</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">loop</span><span class="p">:</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">AbstractEventLoop</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">aiokafka</span><span class="o">.</span><span class="n">AIOKafkaConsumer</span><span class="p">:</span>
+        <span class="n">transport</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">Transport</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">transport</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">client_only</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_client_consumer</span><span class="p">(</span><span class="n">transport</span><span class="p">,</span> <span class="n">loop</span><span class="o">=</span><span class="n">loop</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_worker_consumer</span><span class="p">(</span><span class="n">transport</span><span class="p">,</span> <span class="n">loop</span><span class="o">=</span><span class="n">loop</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_create_worker_consumer</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">transport</span><span class="p">:</span> <span class="s1">&#39;Transport&#39;</span><span class="p">,</span>
+            <span class="n">loop</span><span class="p">:</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">AbstractEventLoop</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">aiokafka</span><span class="o">.</span><span class="n">AIOKafkaConsumer</span><span class="p">:</span>
+        <span class="n">isolation_level</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;read_uncommitted&#39;</span>
+        <span class="n">conf</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">conf</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">consumer</span><span class="o">.</span><span class="n">in_transaction</span><span class="p">:</span>
+            <span class="n">isolation_level</span> <span class="o">=</span> <span class="s1">&#39;read_committed&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_assignor</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">assignor</span>
+        <span class="n">auth_settings</span> <span class="o">=</span> <span class="n">credentials_to_aiokafka_auth</span><span class="p">(</span>
+            <span class="n">conf</span><span class="o">.</span><span class="n">broker_credentials</span><span class="p">,</span> <span class="n">conf</span><span class="o">.</span><span class="n">ssl_context</span><span class="p">)</span>
+        <span class="n">max_poll_interval</span> <span class="o">=</span> <span class="n">conf</span><span class="o">.</span><span class="n">broker_max_poll_interval</span> <span class="ow">or</span> <span class="mi">0</span>
+
+        <span class="n">request_timeout</span> <span class="o">=</span> <span class="n">conf</span><span class="o">.</span><span class="n">broker_request_timeout</span>
+        <span class="n">session_timeout</span> <span class="o">=</span> <span class="n">conf</span><span class="o">.</span><span class="n">broker_session_timeout</span>
+        <span class="n">rebalance_timeout</span> <span class="o">=</span> <span class="n">conf</span><span class="o">.</span><span class="n">broker_rebalance_timeout</span>
+
+        <span class="k">if</span> <span class="n">session_timeout</span> <span class="o">&gt;</span> <span class="n">request_timeout</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">ImproperlyConfigured</span><span class="p">(</span>
+                <span class="n">f</span><span class="s1">&#39;Setting broker_session_timeout=</span><span class="si">{session_timeout}</span><span class="s1"> &#39;</span>
+                <span class="n">f</span><span class="s1">&#39;cannot be greater than &#39;</span>
+                <span class="n">f</span><span class="s1">&#39;broker_request_timeout=</span><span class="si">{request_timeout}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">aiokafka</span><span class="o">.</span><span class="n">AIOKafkaConsumer</span><span class="p">(</span>
+            <span class="n">loop</span><span class="o">=</span><span class="n">loop</span><span class="p">,</span>
+            <span class="n">client_id</span><span class="o">=</span><span class="n">conf</span><span class="o">.</span><span class="n">broker_client_id</span><span class="p">,</span>
+            <span class="n">group_id</span><span class="o">=</span><span class="n">conf</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+            <span class="n">bootstrap_servers</span><span class="o">=</span><span class="n">server_list</span><span class="p">(</span>
+                <span class="n">transport</span><span class="o">.</span><span class="n">url</span><span class="p">,</span> <span class="n">transport</span><span class="o">.</span><span class="n">default_port</span><span class="p">),</span>
+            <span class="n">partition_assignment_strategy</span><span class="o">=</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_assignor</span><span class="p">],</span>
+            <span class="n">enable_auto_commit</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="n">auto_offset_reset</span><span class="o">=</span><span class="n">conf</span><span class="o">.</span><span class="n">consumer_auto_offset_reset</span><span class="p">,</span>
+            <span class="n">max_poll_records</span><span class="o">=</span><span class="n">conf</span><span class="o">.</span><span class="n">broker_max_poll_records</span><span class="p">,</span>
+            <span class="n">max_poll_interval_ms</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">max_poll_interval</span> <span class="o">*</span> <span class="mf">1000.0</span><span class="p">),</span>
+            <span class="n">max_partition_fetch_bytes</span><span class="o">=</span><span class="n">conf</span><span class="o">.</span><span class="n">consumer_max_fetch_size</span><span class="p">,</span>
+            <span class="n">fetch_max_wait_ms</span><span class="o">=</span><span class="mi">1500</span><span class="p">,</span>
+            <span class="n">request_timeout_ms</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">request_timeout</span> <span class="o">*</span> <span class="mf">1000.0</span><span class="p">),</span>
+            <span class="n">check_crcs</span><span class="o">=</span><span class="n">conf</span><span class="o">.</span><span class="n">broker_check_crcs</span><span class="p">,</span>
+            <span class="n">session_timeout_ms</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">session_timeout</span> <span class="o">*</span> <span class="mf">1000.0</span><span class="p">),</span>
+            <span class="n">rebalance_timeout_ms</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">rebalance_timeout</span> <span class="o">*</span> <span class="mf">1000.0</span><span class="p">),</span>
+            <span class="n">heartbeat_interval_ms</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">conf</span><span class="o">.</span><span class="n">broker_heartbeat_interval</span> <span class="o">*</span> <span class="mf">1000.0</span><span class="p">),</span>
+            <span class="n">isolation_level</span><span class="o">=</span><span class="n">isolation_level</span><span class="p">,</span>
+            <span class="n">traced_from_parent_span</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">traced_from_parent_span</span><span class="p">,</span>
+            <span class="n">start_rebalancing_span</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">start_rebalancing_span</span><span class="p">,</span>
+            <span class="n">start_coordinator_span</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">start_coordinator_span</span><span class="p">,</span>
+            <span class="n">on_generation_id_known</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">on_generation_id_known</span><span class="p">,</span>
+            <span class="n">flush_spans</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">flush_spans</span><span class="p">,</span>
+            <span class="o">**</span><span class="n">auth_settings</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_create_client_consumer</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">transport</span><span class="p">:</span> <span class="s1">&#39;Transport&#39;</span><span class="p">,</span>
+            <span class="n">loop</span><span class="p">:</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">AbstractEventLoop</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">aiokafka</span><span class="o">.</span><span class="n">AIOKafkaConsumer</span><span class="p">:</span>
+        <span class="n">conf</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">conf</span>
+        <span class="n">auth_settings</span> <span class="o">=</span> <span class="n">credentials_to_aiokafka_auth</span><span class="p">(</span>
+            <span class="n">conf</span><span class="o">.</span><span class="n">broker_credentials</span><span class="p">,</span> <span class="n">conf</span><span class="o">.</span><span class="n">ssl_context</span><span class="p">)</span>
+        <span class="n">max_poll_interval</span> <span class="o">=</span> <span class="n">conf</span><span class="o">.</span><span class="n">broker_max_poll_interval</span> <span class="ow">or</span> <span class="mi">0</span>
+        <span class="k">return</span> <span class="n">aiokafka</span><span class="o">.</span><span class="n">AIOKafkaConsumer</span><span class="p">(</span>
+            <span class="n">loop</span><span class="o">=</span><span class="n">loop</span><span class="p">,</span>
+            <span class="n">client_id</span><span class="o">=</span><span class="n">conf</span><span class="o">.</span><span class="n">broker_client_id</span><span class="p">,</span>
+            <span class="n">bootstrap_servers</span><span class="o">=</span><span class="n">server_list</span><span class="p">(</span>
+                <span class="n">transport</span><span class="o">.</span><span class="n">url</span><span class="p">,</span> <span class="n">transport</span><span class="o">.</span><span class="n">default_port</span><span class="p">),</span>
+            <span class="n">request_timeout_ms</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">conf</span><span class="o">.</span><span class="n">broker_request_timeout</span> <span class="o">*</span> <span class="mf">1000.0</span><span class="p">),</span>
+            <span class="n">enable_auto_commit</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">max_poll_records</span><span class="o">=</span><span class="n">conf</span><span class="o">.</span><span class="n">broker_max_poll_records</span><span class="p">,</span>
+            <span class="n">max_poll_interval_ms</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">max_poll_interval</span> <span class="o">*</span> <span class="mf">1000.0</span><span class="p">),</span>
+            <span class="n">auto_offset_reset</span><span class="o">=</span><span class="n">conf</span><span class="o">.</span><span class="n">consumer_auto_offset_reset</span><span class="p">,</span>
+            <span class="n">check_crcs</span><span class="o">=</span><span class="n">conf</span><span class="o">.</span><span class="n">broker_check_crcs</span><span class="p">,</span>
+            <span class="o">**</span><span class="n">auth_settings</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="nd">@cached_property</span>
+    <span class="k">def</span> <span class="nf">trace_category</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">f</span><span class="s1">&#39;</span><span class="si">{self.app.conf.name}</span><span class="s1">-_aiokafka&#39;</span>
+
+    <span class="k">def</span> <span class="nf">start_rebalancing_span</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">opentracing</span><span class="o">.</span><span class="n">Span</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_start_span</span><span class="p">(</span><span class="s1">&#39;rebalancing&#39;</span><span class="p">,</span> <span class="n">lazy</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">start_coordinator_span</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">opentracing</span><span class="o">.</span><span class="n">Span</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_start_span</span><span class="p">(</span><span class="s1">&#39;coordinator&#39;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_start_span</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span>
+                    <span class="n">lazy</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">opentracing</span><span class="o">.</span><span class="n">Span</span><span class="p">:</span>
+        <span class="n">tracer</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">tracer</span>
+        <span class="k">if</span> <span class="n">tracer</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">span</span> <span class="o">=</span> <span class="n">tracer</span><span class="o">.</span><span class="n">get_tracer</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">trace_category</span><span class="p">)</span><span class="o">.</span><span class="n">start_span</span><span class="p">(</span>
+                <span class="n">operation_name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">span</span><span class="o">.</span><span class="n">set_tag</span><span class="p">(</span><span class="n">tags</span><span class="o">.</span><span class="n">SAMPLING_PRIORITY</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">_span_add_default_tags</span><span class="p">(</span><span class="n">span</span><span class="p">)</span>
+            <span class="n">set_current_span</span><span class="p">(</span><span class="n">span</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">lazy</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_transform_span_lazy</span><span class="p">(</span><span class="n">span</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">span</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">noop_span</span><span class="p">()</span>
+
+    <span class="nd">@no_type_check</span>
+    <span class="k">def</span> <span class="nf">_transform_span_lazy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">span</span><span class="p">:</span> <span class="n">opentracing</span><span class="o">.</span><span class="n">Span</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># XXX slow</span>
+        <span class="n">consumer</span> <span class="o">=</span> <span class="bp">self</span>
+        <span class="k">if</span> <span class="n">typing</span><span class="o">.</span><span class="n">TYPE_CHECKING</span><span class="p">:</span>
+            <span class="c1"># MyPy completely disallows the statements below</span>
+            <span class="c1"># claiming it is an illegal dynamic baseclass.</span>
+            <span class="c1"># We know mypy, but do it anyway :D</span>
+            <span class="k">pass</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">cls</span> <span class="o">=</span> <span class="n">span</span><span class="o">.</span><span class="vm">__class__</span>
+            <span class="k">class</span> <span class="nc">LazySpan</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
+
+                <span class="k">def</span> <span class="nf">finish</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">consumer</span><span class="o">.</span><span class="n">_span_finish</span><span class="p">(</span><span class="n">span</span><span class="p">)</span>
+
+            <span class="n">span</span><span class="o">.</span><span class="n">_real_finish</span><span class="p">,</span> <span class="n">span</span><span class="o">.</span><span class="n">finish</span> <span class="o">=</span> <span class="n">span</span><span class="o">.</span><span class="n">finish</span><span class="p">,</span> <span class="n">LazySpan</span><span class="o">.</span><span class="n">finish</span>
+
+    <span class="k">def</span> <span class="nf">_span_finish</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">span</span><span class="p">:</span> <span class="n">opentracing</span><span class="o">.</span><span class="n">Span</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">_consumer</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_consumer</span><span class="o">.</span><span class="n">_coordinator</span><span class="o">.</span><span class="n">generation</span> <span class="o">==</span> <span class="n">DEFAULT_GENERATION_ID</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_on_span_generation_pending</span><span class="p">(</span><span class="n">span</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_on_span_generation_known</span><span class="p">(</span><span class="n">span</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_on_span_generation_pending</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">span</span><span class="p">:</span> <span class="n">opentracing</span><span class="o">.</span><span class="n">Span</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_pending_rebalancing_spans</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">span</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_on_span_generation_known</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">span</span><span class="p">:</span> <span class="n">opentracing</span><span class="o">.</span><span class="n">Span</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_consumer</span><span class="p">:</span>
+            <span class="n">coordinator</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_consumer</span><span class="o">.</span><span class="n">_coordinator</span>
+            <span class="n">coordinator_id</span> <span class="o">=</span> <span class="n">coordinator</span><span class="o">.</span><span class="n">coordinator_id</span>
+            <span class="n">app_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">conf</span><span class="o">.</span><span class="n">id</span>
+            <span class="n">generation</span> <span class="o">=</span> <span class="n">coordinator</span><span class="o">.</span><span class="n">generation</span>
+            <span class="n">member_id</span> <span class="o">=</span> <span class="n">coordinator</span><span class="o">.</span><span class="n">member_id</span>
+
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">op_name</span> <span class="o">=</span> <span class="n">span</span><span class="o">.</span><span class="n">operation_name</span>
+                <span class="n">set_tag</span> <span class="o">=</span> <span class="n">span</span><span class="o">.</span><span class="n">set_tag</span>
+            <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+                <span class="k">pass</span>  <span class="c1"># not a real span</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">trace_id_str</span> <span class="o">=</span> <span class="n">f</span><span class="s1">&#39;reb-</span><span class="si">{app_id}</span><span class="s1">-</span><span class="si">{generation}</span><span class="s1">&#39;</span>
+                <span class="n">trace_id</span> <span class="o">=</span> <span class="n">murmur2</span><span class="p">(</span><span class="n">trace_id_str</span><span class="o">.</span><span class="n">encode</span><span class="p">())</span>
+
+                <span class="n">span</span><span class="o">.</span><span class="n">context</span><span class="o">.</span><span class="n">trace_id</span> <span class="o">=</span> <span class="n">trace_id</span>
+                <span class="k">if</span> <span class="n">op_name</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s1">&#39;.REPLACE_WITH_MEMBER_ID&#39;</span><span class="p">):</span>
+                    <span class="n">span</span><span class="o">.</span><span class="n">set_operation_name</span><span class="p">(</span><span class="n">f</span><span class="s1">&#39;rebalancing node </span><span class="si">{member_id}</span><span class="s1">&#39;</span><span class="p">)</span>
+                <span class="n">set_tag</span><span class="p">(</span><span class="s1">&#39;kafka_generation&#39;</span><span class="p">,</span> <span class="n">generation</span><span class="p">)</span>
+                <span class="n">set_tag</span><span class="p">(</span><span class="s1">&#39;kafka_member_id&#39;</span><span class="p">,</span> <span class="n">member_id</span><span class="p">)</span>
+                <span class="n">set_tag</span><span class="p">(</span><span class="s1">&#39;kafka_coordinator_id&#39;</span><span class="p">,</span> <span class="n">coordinator_id</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">_span_add_default_tags</span><span class="p">(</span><span class="n">span</span><span class="p">)</span>
+                <span class="n">span</span><span class="o">.</span><span class="n">_real_finish</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">_on_span_cancelled_early</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">span</span><span class="p">:</span> <span class="n">opentracing</span><span class="o">.</span><span class="n">Span</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">op_name</span> <span class="o">=</span> <span class="n">span</span><span class="o">.</span><span class="n">operation_name</span>
+        <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">span</span><span class="o">.</span><span class="n">set_operation_name</span><span class="p">(</span><span class="n">f</span><span class="s1">&#39;</span><span class="si">{op_name}</span><span class="s1"> (CANCELLED)&#39;</span><span class="p">)</span>
+            <span class="n">span</span><span class="o">.</span><span class="n">_real_finish</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">traced_from_parent_span</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                                <span class="n">parent_span</span><span class="p">:</span> <span class="n">opentracing</span><span class="o">.</span><span class="n">Span</span><span class="p">,</span>
+                                <span class="n">lazy</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+                                <span class="o">**</span><span class="n">extra_context</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">traced_from_parent_span</span><span class="p">(</span>
+            <span class="n">parent_span</span><span class="p">,</span>
+            <span class="n">callback</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_transform_span_lazy</span> <span class="k">if</span> <span class="n">lazy</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="o">**</span><span class="n">extra_context</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">flush_spans</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">while</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pending_rebalancing_spans</span><span class="p">:</span>
+            <span class="n">span</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pending_rebalancing_spans</span><span class="o">.</span><span class="n">popleft</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_on_span_cancelled_early</span><span class="p">(</span><span class="n">span</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">on_generation_id_known</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">while</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pending_rebalancing_spans</span><span class="p">:</span>
+            <span class="n">span</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pending_rebalancing_spans</span><span class="o">.</span><span class="n">popleft</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_on_span_generation_known</span><span class="p">(</span><span class="n">span</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">close</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Close consumer for graceful shutdown.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_consumer</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_consumer</span><span class="o">.</span><span class="n">set_close</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_consumer</span><span class="o">.</span><span class="n">_coordinator</span><span class="o">.</span><span class="n">set_close</span><span class="p">()</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">subscribe</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">topics</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Reset subscription (requires rebalance).&quot;&quot;&quot;</span>
+        <span class="c1"># XXX pattern does not work :/</span>
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">call_thread</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_ensure_consumer</span><span class="p">()</span><span class="o">.</span><span class="n">subscribe</span><span class="p">,</span>
+            <span class="n">topics</span><span class="o">=</span><span class="nb">set</span><span class="p">(</span><span class="n">topics</span><span class="p">),</span>
+            <span class="n">listener</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_rebalance_listener</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">seek_to_committed</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Mapping</span><span class="p">[</span><span class="n">TP</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;Seek partitions to the last committed offset.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">call_thread</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_ensure_consumer</span><span class="p">()</span><span class="o">.</span><span class="n">seek_to_committed</span><span class="p">)</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">commit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">offsets</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="n">TP</span><span class="p">,</span> <span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Commit topic offsets.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">call_thread</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_commit</span><span class="p">,</span> <span class="n">offsets</span><span class="p">)</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">_commit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">offsets</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="n">TP</span><span class="p">,</span> <span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="n">consumer</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ensure_consumer</span><span class="p">()</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">aiokafka_offsets</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="n">tp</span><span class="p">:</span> <span class="n">OffsetAndMetadata</span><span class="p">(</span><span class="n">offset</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">tp</span><span class="p">,</span> <span class="n">offset</span> <span class="ow">in</span> <span class="n">offsets</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+            <span class="p">}</span>
+            <span class="k">await</span> <span class="n">consumer</span><span class="o">.</span><span class="n">commit</span><span class="p">(</span><span class="n">aiokafka_offsets</span><span class="p">)</span>
+        <span class="k">except</span> <span class="n">CommitFailedError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+            <span class="k">if</span> <span class="s1">&#39;already rebalanced&#39;</span> <span class="ow">in</span> <span class="nb">str</span><span class="p">(</span><span class="n">exc</span><span class="p">):</span>
+                <span class="k">return</span> <span class="kc">False</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="n">f</span><span class="s1">&#39;Committing raised exception: </span><span class="si">%r</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">exc</span><span class="p">)</span>
+            <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">crash</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">except</span> <span class="n">IllegalStateError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span>
+                <span class="s1">&#39;Got exception: </span><span class="si">%r</span><span class="se">\n</span><span class="s1">Current assignment: </span><span class="si">%r</span><span class="s1">&#39;</span><span class="p">,</span>
+                <span class="n">exc</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">assignment</span><span class="p">())</span>
+            <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">crash</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">return</span> <span class="kc">True</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">position</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tp</span><span class="p">:</span> <span class="n">TP</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;Return the current position for topic partition.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">call_thread</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_ensure_consumer</span><span class="p">()</span><span class="o">.</span><span class="n">position</span><span class="p">,</span> <span class="n">tp</span><span class="p">)</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">seek_to_beginning</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">partitions</span><span class="p">:</span> <span class="n">_TopicPartition</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Seek list of offsets to the first available offset.&quot;&quot;&quot;</span>
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">call_thread</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_ensure_consumer</span><span class="p">()</span><span class="o">.</span><span class="n">seek_to_beginning</span><span class="p">,</span> <span class="o">*</span><span class="n">partitions</span><span class="p">)</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">seek_wait</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">partitions</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="n">TP</span><span class="p">,</span> <span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Seek partitions to specific offset and wait for operation.&quot;&quot;&quot;</span>
+        <span class="n">consumer</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ensure_consumer</span><span class="p">()</span>
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">call_thread</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_seek_wait</span><span class="p">,</span> <span class="n">consumer</span><span class="p">,</span> <span class="n">partitions</span><span class="p">)</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">_seek_wait</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                         <span class="n">consumer</span><span class="p">:</span> <span class="n">Consumer</span><span class="p">,</span>
+                         <span class="n">partitions</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="n">TP</span><span class="p">,</span> <span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">tp</span><span class="p">,</span> <span class="n">offset</span> <span class="ow">in</span> <span class="n">partitions</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">dev</span><span class="p">(</span><span class="s1">&#39;SEEK </span><span class="si">%r</span><span class="s1"> -&gt; </span><span class="si">%r</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">tp</span><span class="p">,</span> <span class="n">offset</span><span class="p">)</span>
+            <span class="n">consumer</span><span class="o">.</span><span class="n">seek</span><span class="p">(</span><span class="n">tp</span><span class="p">,</span> <span class="n">offset</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">offset</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">consumer</span><span class="o">.</span><span class="n">_read_offset</span><span class="p">[</span><span class="n">tp</span><span class="p">]</span> <span class="o">=</span> <span class="n">offset</span>
+        <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">gather</span><span class="p">(</span><span class="o">*</span><span class="p">[</span>
+            <span class="n">consumer</span><span class="o">.</span><span class="n">position</span><span class="p">(</span><span class="n">tp</span><span class="p">)</span> <span class="k">for</span> <span class="n">tp</span> <span class="ow">in</span> <span class="n">partitions</span>
+        <span class="p">])</span>
+
+    <span class="k">def</span> <span class="nf">seek</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">partition</span><span class="p">:</span> <span class="n">TP</span><span class="p">,</span> <span class="n">offset</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Seek partition to specific offset.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_ensure_consumer</span><span class="p">()</span><span class="o">.</span><span class="n">seek</span><span class="p">(</span><span class="n">partition</span><span class="p">,</span> <span class="n">offset</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">assignment</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Set</span><span class="p">[</span><span class="n">TP</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;Return the current assignment.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">ensure_TPset</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_ensure_consumer</span><span class="p">()</span><span class="o">.</span><span class="n">assignment</span><span class="p">())</span>
+
+    <span class="k">def</span> <span class="nf">highwater</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tp</span><span class="p">:</span> <span class="n">TP</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Return the last offset in a specific partition.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">consumer</span><span class="o">.</span><span class="n">in_transaction</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ensure_consumer</span><span class="p">()</span><span class="o">.</span><span class="n">last_stable_offset</span><span class="p">(</span><span class="n">tp</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ensure_consumer</span><span class="p">()</span><span class="o">.</span><span class="n">highwater</span><span class="p">(</span><span class="n">tp</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">topic_partitions</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">topic</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;Return the number of partitions configured for topic by name.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_consumer</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_consumer</span><span class="o">.</span><span class="n">_coordinator</span><span class="o">.</span><span class="n">_metadata_snapshot</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">topic</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">earliest_offsets</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                               <span class="o">*</span><span class="n">partitions</span><span class="p">:</span> <span class="n">TP</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Mapping</span><span class="p">[</span><span class="n">TP</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;Return the earliest offsets for a list of partitions.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">call_thread</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_ensure_consumer</span><span class="p">()</span><span class="o">.</span><span class="n">beginning_offsets</span><span class="p">,</span> <span class="n">partitions</span><span class="p">)</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">highwaters</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">partitions</span><span class="p">:</span> <span class="n">TP</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Mapping</span><span class="p">[</span><span class="n">TP</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;Return the last offsets for a list of partitions.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">call_thread</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_highwaters</span><span class="p">,</span> <span class="n">partitions</span><span class="p">)</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">_highwaters</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">partitions</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">TP</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Mapping</span><span class="p">[</span><span class="n">TP</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
+        <span class="n">consumer</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ensure_consumer</span><span class="p">()</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">consumer</span><span class="o">.</span><span class="n">in_transaction</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">{</span>
+                <span class="n">tp</span><span class="p">:</span> <span class="n">consumer</span><span class="o">.</span><span class="n">last_stable_offset</span><span class="p">(</span><span class="n">tp</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">tp</span> <span class="ow">in</span> <span class="n">partitions</span>
+            <span class="p">}</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="n">Mapping</span><span class="p">[</span><span class="n">TP</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span>
+                        <span class="k">await</span> <span class="n">consumer</span><span class="o">.</span><span class="n">end_offsets</span><span class="p">(</span><span class="n">partitions</span><span class="p">))</span>
+
+    <span class="k">def</span> <span class="nf">_ensure_consumer</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">aiokafka</span><span class="o">.</span><span class="n">AIOKafkaConsumer</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_consumer</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">ConsumerNotStarted</span><span class="p">(</span><span class="s1">&#39;Consumer thread not yet started&#39;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_consumer</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">getmany</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                      <span class="n">active_partitions</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Set</span><span class="p">[</span><span class="n">TP</span><span class="p">]],</span>
+                      <span class="n">timeout</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RecordMap</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Fetch batch of messages from server.&quot;&quot;&quot;</span>
+        <span class="c1"># Implementation for the Fetcher service.</span>
+        <span class="n">_consumer</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ensure_consumer</span><span class="p">()</span>
+        <span class="c1"># NOTE: Since we are enqueing the fetch request,</span>
+        <span class="c1"># we need to check when dequeued that we are not in a rebalancing</span>
+        <span class="c1"># state at that point to return early, or we</span>
+        <span class="c1"># will create a deadlock (fetch request starts after flow stopped)</span>
+        <span class="k">return</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">call_thread</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_fetch_records</span><span class="p">,</span>
+            <span class="n">_consumer</span><span class="p">,</span>
+            <span class="n">active_partitions</span><span class="p">,</span>
+            <span class="n">timeout</span><span class="o">=</span><span class="n">timeout</span><span class="p">,</span>
+            <span class="n">max_records</span><span class="o">=</span><span class="n">_consumer</span><span class="o">.</span><span class="n">_max_poll_records</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">_fetch_records</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                             <span class="n">consumer</span><span class="p">:</span> <span class="n">aiokafka</span><span class="o">.</span><span class="n">AIOKafkaConsumer</span><span class="p">,</span>
+                             <span class="n">active_partitions</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="n">TP</span><span class="p">],</span>
+                             <span class="n">timeout</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                             <span class="n">max_records</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RecordMap</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">consumer</span><span class="o">.</span><span class="n">flow_active</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">{}</span>
+        <span class="n">fetcher</span> <span class="o">=</span> <span class="n">consumer</span><span class="o">.</span><span class="n">_fetcher</span>
+        <span class="k">if</span> <span class="n">consumer</span><span class="o">.</span><span class="n">_closed</span> <span class="ow">or</span> <span class="n">fetcher</span><span class="o">.</span><span class="n">_closed</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">ConsumerStoppedError</span><span class="p">()</span>
+        <span class="k">with</span> <span class="n">fetcher</span><span class="o">.</span><span class="n">_subscriptions</span><span class="o">.</span><span class="n">fetch_context</span><span class="p">():</span>
+            <span class="k">return</span> <span class="k">await</span> <span class="n">fetcher</span><span class="o">.</span><span class="n">fetched_records</span><span class="p">(</span>
+                <span class="n">active_partitions</span><span class="p">,</span>
+                <span class="n">timeout</span><span class="o">=</span><span class="n">timeout</span><span class="p">,</span>
+                <span class="n">max_records</span><span class="o">=</span><span class="n">max_records</span><span class="p">,</span>
+            <span class="p">)</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">create_topic</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                           <span class="n">topic</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+                           <span class="n">partitions</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+                           <span class="n">replication</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+                           <span class="o">*</span><span class="p">,</span>
+                           <span class="n">config</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                           <span class="n">timeout</span><span class="p">:</span> <span class="n">Seconds</span> <span class="o">=</span> <span class="mf">30.0</span><span class="p">,</span>
+                           <span class="n">retention</span><span class="p">:</span> <span class="n">Seconds</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                           <span class="n">compacting</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                           <span class="n">deleting</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                           <span class="n">ensure_created</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Create/declare topic on server.&quot;&quot;&quot;</span>
+        <span class="n">transport</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">Transport</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">consumer</span><span class="o">.</span><span class="n">transport</span><span class="p">)</span>
+        <span class="n">_consumer</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ensure_consumer</span><span class="p">()</span>
+        <span class="n">_retention</span> <span class="o">=</span> <span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">want_seconds</span><span class="p">(</span><span class="n">retention</span><span class="p">)</span> <span class="o">*</span> <span class="mf">1000.0</span><span class="p">)</span>
+                      <span class="k">if</span> <span class="n">retention</span> <span class="k">else</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">topic</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">TOPIC_LENGTH_MAX</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="n">f</span><span class="s1">&#39;Topic name </span><span class="si">{topic!r}</span><span class="s1"> is too long (max=</span><span class="si">{TOPIC_LENGTH_MAX}</span><span class="s1">)&#39;</span><span class="p">)</span>
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">call_thread</span><span class="p">(</span>
+            <span class="n">transport</span><span class="o">.</span><span class="n">_create_topic</span><span class="p">,</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">_consumer</span><span class="o">.</span><span class="n">_client</span><span class="p">,</span>
+            <span class="n">topic</span><span class="p">,</span>
+            <span class="n">partitions</span><span class="p">,</span>
+            <span class="n">replication</span><span class="p">,</span>
+            <span class="n">config</span><span class="o">=</span><span class="n">config</span><span class="p">,</span>
+            <span class="n">timeout</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">want_seconds</span><span class="p">(</span><span class="n">timeout</span><span class="p">)</span> <span class="o">*</span> <span class="mf">1000.0</span><span class="p">),</span>
+            <span class="n">retention</span><span class="o">=</span><span class="n">_retention</span><span class="p">,</span>
+            <span class="n">compacting</span><span class="o">=</span><span class="n">compacting</span><span class="p">,</span>
+            <span class="n">deleting</span><span class="o">=</span><span class="n">deleting</span><span class="p">,</span>
+            <span class="n">ensure_created</span><span class="o">=</span><span class="n">ensure_created</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">key_partition</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                      <span class="n">topic</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+                      <span class="n">key</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bytes</span><span class="p">],</span>
+                      <span class="n">partition</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;Hash key to determine partition destination.&quot;&quot;&quot;</span>
+        <span class="n">consumer</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ensure_consumer</span><span class="p">()</span>
+        <span class="n">metadata</span> <span class="o">=</span> <span class="n">consumer</span><span class="o">.</span><span class="n">_client</span><span class="o">.</span><span class="n">cluster</span>
+        <span class="n">partitions_for_topic</span> <span class="o">=</span> <span class="n">metadata</span><span class="o">.</span><span class="n">partitions_for_topic</span><span class="p">(</span><span class="n">topic</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">partitions_for_topic</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">partition</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="n">partition</span> <span class="o">&gt;=</span> <span class="mi">0</span>
+            <span class="k">assert</span> <span class="n">partition</span> <span class="ow">in</span> <span class="n">partitions_for_topic</span><span class="p">,</span> \
+                <span class="s1">&#39;Unrecognized partition&#39;</span>
+            <span class="k">return</span> <span class="n">partition</span>
+
+        <span class="n">all_partitions</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">partitions_for_topic</span><span class="p">)</span>
+        <span class="n">available</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">metadata</span><span class="o">.</span><span class="n">available_partitions_for_topic</span><span class="p">(</span><span class="n">topic</span><span class="p">))</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_partitioner</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">all_partitions</span><span class="p">,</span> <span class="n">available</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="Producer"><a class="viewcode-back" href="../../../../reference/faust.transport.drivers.aiokafka.html#faust.transport.drivers.aiokafka.Producer">[docs]</a><span class="k">class</span> <span class="nc">Producer</span><span class="p">(</span><span class="n">base</span><span class="o">.</span><span class="n">Producer</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Kafka producer using :pypi:`aiokafka`.&quot;&quot;&quot;</span>
+
+    <span class="n">logger</span> <span class="o">=</span> <span class="n">logger</span>
+
+    <span class="n">allow_headers</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">_producer</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">aiokafka</span><span class="o">.</span><span class="n">AIOKafkaProducer</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">def</span> <span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_send_on_produce_message</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">on_produce_message</span><span class="o">.</span><span class="n">send</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">partitioner</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">partitioner</span> <span class="o">=</span> <span class="n">DefaultPartitioner</span><span class="p">()</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_api_version</span> <span class="o">!=</span> <span class="s1">&#39;auto&#39;</span><span class="p">:</span>
+            <span class="n">wanted_api_version</span> <span class="o">=</span> <span class="n">parse_kafka_version</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_api_version</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">wanted_api_version</span> <span class="o">&lt;</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">11</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">allow_headers</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="k">def</span> <span class="nf">_settings_default</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+        <span class="n">transport</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">Transport</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">transport</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s1">&#39;bootstrap_servers&#39;</span><span class="p">:</span> <span class="n">server_list</span><span class="p">(</span>
+                <span class="n">transport</span><span class="o">.</span><span class="n">url</span><span class="p">,</span> <span class="n">transport</span><span class="o">.</span><span class="n">default_port</span><span class="p">),</span>
+            <span class="s1">&#39;client_id&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">client_id</span><span class="p">,</span>
+            <span class="s1">&#39;acks&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">acks</span><span class="p">,</span>
+            <span class="s1">&#39;linger_ms&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">linger_ms</span><span class="p">,</span>
+            <span class="s1">&#39;max_batch_size&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_batch_size</span><span class="p">,</span>
+            <span class="s1">&#39;max_request_size&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_request_size</span><span class="p">,</span>
+            <span class="s1">&#39;compression_type&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">compression_type</span><span class="p">,</span>
+            <span class="s1">&#39;on_irrecoverable_error&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_on_irrecoverable_error</span><span class="p">,</span>
+            <span class="s1">&#39;security_protocol&#39;</span><span class="p">:</span> <span class="s1">&#39;SSL&#39;</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">ssl_context</span> <span class="k">else</span> <span class="s1">&#39;PLAINTEXT&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;partitioner&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">partitioner</span><span class="p">,</span>
+            <span class="s1">&#39;request_timeout_ms&#39;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">request_timeout</span> <span class="o">*</span> <span class="mi">1000</span><span class="p">),</span>
+            <span class="s1">&#39;api_version&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_api_version</span><span class="p">,</span>
+        <span class="p">}</span>
+
+    <span class="k">def</span> <span class="nf">_settings_auth</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="n">credentials_to_aiokafka_auth</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">credentials</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ssl_context</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Producer.begin_transaction"><a class="viewcode-back" href="../../../../reference/faust.transport.drivers.aiokafka.html#faust.transport.drivers.aiokafka.Producer.begin_transaction">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">begin_transaction</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">transactional_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Begin transaction by id.&quot;&quot;&quot;</span>
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ensure_producer</span><span class="p">()</span><span class="o">.</span><span class="n">begin_transaction</span><span class="p">(</span><span class="n">transactional_id</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Producer.commit_transaction"><a class="viewcode-back" href="../../../../reference/faust.transport.drivers.aiokafka.html#faust.transport.drivers.aiokafka.Producer.commit_transaction">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">commit_transaction</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">transactional_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Commit transaction by id.&quot;&quot;&quot;</span>
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ensure_producer</span><span class="p">()</span><span class="o">.</span><span class="n">commit_transaction</span><span class="p">(</span><span class="n">transactional_id</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Producer.abort_transaction"><a class="viewcode-back" href="../../../../reference/faust.transport.drivers.aiokafka.html#faust.transport.drivers.aiokafka.Producer.abort_transaction">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">abort_transaction</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">transactional_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Abort and rollback transaction by id.&quot;&quot;&quot;</span>
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ensure_producer</span><span class="p">()</span><span class="o">.</span><span class="n">abort_transaction</span><span class="p">(</span><span class="n">transactional_id</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Producer.stop_transaction"><a class="viewcode-back" href="../../../../reference/faust.transport.drivers.aiokafka.html#faust.transport.drivers.aiokafka.Producer.stop_transaction">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">stop_transaction</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">transactional_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Stop transaction by id.&quot;&quot;&quot;</span>
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ensure_producer</span><span class="p">()</span><span class="o">.</span><span class="n">stop_transaction</span><span class="p">(</span><span class="n">transactional_id</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Producer.maybe_begin_transaction"><a class="viewcode-back" href="../../../../reference/faust.transport.drivers.aiokafka.html#faust.transport.drivers.aiokafka.Producer.maybe_begin_transaction">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">maybe_begin_transaction</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">transactional_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Begin transaction (if one does not already exist).&quot;&quot;&quot;</span>
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ensure_producer</span><span class="p">()</span><span class="o">.</span><span class="n">maybe_begin_transaction</span><span class="p">(</span><span class="n">transactional_id</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Producer.commit_transactions"><a class="viewcode-back" href="../../../../reference/faust.transport.drivers.aiokafka.html#faust.transport.drivers.aiokafka.Producer.commit_transactions">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">commit_transactions</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">tid_to_offset_map</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">[</span><span class="n">TP</span><span class="p">,</span> <span class="nb">int</span><span class="p">]],</span>
+            <span class="n">group_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+            <span class="n">start_new_transaction</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Commit transactions.&quot;&quot;&quot;</span>
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ensure_producer</span><span class="p">()</span><span class="o">.</span><span class="n">commit</span><span class="p">(</span>
+            <span class="n">tid_to_offset_map</span><span class="p">,</span> <span class="n">group_id</span><span class="p">,</span>
+            <span class="n">start_new_transaction</span><span class="o">=</span><span class="n">start_new_transaction</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_settings_extra</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">in_transaction</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;acks&#39;</span><span class="p">:</span> <span class="s1">&#39;all&#39;</span><span class="p">}</span>
+        <span class="k">return</span> <span class="p">{}</span>
+
+    <span class="k">def</span> <span class="nf">_new_producer</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">aiokafka</span><span class="o">.</span><span class="n">AIOKafkaProducer</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_producer_type</span><span class="p">(</span>
+            <span class="n">loop</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">loop</span><span class="p">,</span>
+            <span class="o">**</span><span class="p">{</span><span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">_settings_default</span><span class="p">(),</span>
+               <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">_settings_auth</span><span class="p">(),</span>
+               <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">_settings_extra</span><span class="p">()},</span>
+        <span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">_producer_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Type</span><span class="p">[</span><span class="n">aiokafka</span><span class="o">.</span><span class="n">BaseProducer</span><span class="p">]:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">in_transaction</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">aiokafka</span><span class="o">.</span><span class="n">MultiTXNProducer</span>
+        <span class="k">return</span> <span class="n">aiokafka</span><span class="o">.</span><span class="n">AIOKafkaProducer</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">_on_irrecoverable_error</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">exc</span><span class="p">:</span> <span class="ne">BaseException</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">consumer</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">transport</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">consumer</span>
+        <span class="k">if</span> <span class="n">consumer</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+            <span class="c1"># coverage executes this line, but does not mark as covered.</span>
+            <span class="k">await</span> <span class="n">consumer</span><span class="o">.</span><span class="n">crash</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span>
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">crash</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Producer.create_topic"><a class="viewcode-back" href="../../../../reference/faust.transport.drivers.aiokafka.html#faust.transport.drivers.aiokafka.Producer.create_topic">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">create_topic</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                           <span class="n">topic</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+                           <span class="n">partitions</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+                           <span class="n">replication</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+                           <span class="o">*</span><span class="p">,</span>
+                           <span class="n">config</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                           <span class="n">timeout</span><span class="p">:</span> <span class="n">Seconds</span> <span class="o">=</span> <span class="mf">20.0</span><span class="p">,</span>
+                           <span class="n">retention</span><span class="p">:</span> <span class="n">Seconds</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                           <span class="n">compacting</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                           <span class="n">deleting</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                           <span class="n">ensure_created</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Create/declare topic on server.&quot;&quot;&quot;</span>
+        <span class="n">_retention</span> <span class="o">=</span> <span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">want_seconds</span><span class="p">(</span><span class="n">retention</span><span class="p">)</span> <span class="o">*</span> <span class="mf">1000.0</span><span class="p">)</span>
+                      <span class="k">if</span> <span class="n">retention</span> <span class="k">else</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="n">producer</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ensure_producer</span><span class="p">()</span>
+        <span class="k">await</span> <span class="n">cast</span><span class="p">(</span><span class="n">Transport</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">transport</span><span class="p">)</span><span class="o">.</span><span class="n">_create_topic</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">producer</span><span class="o">.</span><span class="n">client</span><span class="p">,</span>
+            <span class="n">topic</span><span class="p">,</span>
+            <span class="n">partitions</span><span class="p">,</span>
+            <span class="n">replication</span><span class="p">,</span>
+            <span class="n">config</span><span class="o">=</span><span class="n">config</span><span class="p">,</span>
+            <span class="n">timeout</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">want_seconds</span><span class="p">(</span><span class="n">timeout</span><span class="p">)</span> <span class="o">*</span> <span class="mf">1000.0</span><span class="p">),</span>
+            <span class="n">retention</span><span class="o">=</span><span class="n">_retention</span><span class="p">,</span>
+            <span class="n">compacting</span><span class="o">=</span><span class="n">compacting</span><span class="p">,</span>
+            <span class="n">deleting</span><span class="o">=</span><span class="n">deleting</span><span class="p">,</span>
+            <span class="n">ensure_created</span><span class="o">=</span><span class="n">ensure_created</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_ensure_producer</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">aiokafka</span><span class="o">.</span><span class="n">BaseProducer</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_producer</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">NotReady</span><span class="p">(</span><span class="s1">&#39;Producer service not yet started&#39;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_producer</span>
+
+<div class="viewcode-block" id="Producer.on_start"><a class="viewcode-back" href="../../../../reference/faust.transport.drivers.aiokafka.html#faust.transport.drivers.aiokafka.Producer.on_start">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">on_start</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Call when producer starts.&quot;&quot;&quot;</span>
+        <span class="k">await</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">on_start</span><span class="p">()</span>
+        <span class="n">producer</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_producer</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_new_producer</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">beacon</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">producer</span><span class="p">)</span>
+        <span class="k">await</span> <span class="n">producer</span><span class="o">.</span><span class="n">start</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="Producer.on_stop"><a class="viewcode-back" href="../../../../reference/faust.transport.drivers.aiokafka.html#faust.transport.drivers.aiokafka.Producer.on_stop">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">on_stop</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Call when producer stops.&quot;&quot;&quot;</span>
+        <span class="k">await</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">on_stop</span><span class="p">()</span>
+        <span class="n">cast</span><span class="p">(</span><span class="n">Transport</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">transport</span><span class="p">)</span><span class="o">.</span><span class="n">_topic_waiters</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+        <span class="n">producer</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_producer</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_producer</span><span class="p">,</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">producer</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">await</span> <span class="n">producer</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="Producer.send"><a class="viewcode-back" href="../../../../reference/faust.transport.drivers.aiokafka.html#faust.transport.drivers.aiokafka.Producer.send">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">send</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">topic</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bytes</span><span class="p">],</span>
+                   <span class="n">value</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bytes</span><span class="p">],</span>
+                   <span class="n">partition</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
+                   <span class="n">timestamp</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span>
+                   <span class="n">headers</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">HeadersArg</span><span class="p">],</span>
+                   <span class="o">*</span><span class="p">,</span>
+                   <span class="n">transactional_id</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Awaitable</span><span class="p">[</span><span class="n">RecordMetadata</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;Schedule message to be transmitted by producer.&quot;&quot;&quot;</span>
+        <span class="n">producer</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ensure_producer</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">headers</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">headers</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">):</span>
+                <span class="n">headers</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">headers</span><span class="o">.</span><span class="n">items</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_send_on_produce_message</span><span class="p">(</span>
+            <span class="n">key</span><span class="o">=</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="n">value</span><span class="p">,</span>
+            <span class="n">partition</span><span class="o">=</span><span class="n">partition</span><span class="p">,</span>
+            <span class="n">timestamp</span><span class="o">=</span><span class="n">timestamp</span><span class="p">,</span>
+            <span class="n">headers</span><span class="o">=</span><span class="n">headers</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">headers</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">allow_headers</span><span class="p">:</span>
+            <span class="n">headers</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">timestamp_ms</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">timestamp</span> <span class="o">*</span> <span class="mf">1000.0</span><span class="p">)</span> <span class="k">if</span> <span class="n">timestamp</span> <span class="k">else</span> <span class="n">timestamp</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="n">Awaitable</span><span class="p">[</span><span class="n">RecordMetadata</span><span class="p">],</span> <span class="k">await</span> <span class="n">producer</span><span class="o">.</span><span class="n">send</span><span class="p">(</span>
+                <span class="n">topic</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span>
+                <span class="n">key</span><span class="o">=</span><span class="n">key</span><span class="p">,</span>
+                <span class="n">partition</span><span class="o">=</span><span class="n">partition</span><span class="p">,</span>
+                <span class="n">timestamp_ms</span><span class="o">=</span><span class="n">timestamp_ms</span><span class="p">,</span>
+                <span class="n">headers</span><span class="o">=</span><span class="n">headers</span><span class="p">,</span>
+                <span class="n">transactional_id</span><span class="o">=</span><span class="n">transactional_id</span><span class="p">,</span>
+            <span class="p">))</span>
+        <span class="k">except</span> <span class="n">KafkaError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">ProducerSendError</span><span class="p">(</span><span class="n">f</span><span class="s1">&#39;Error while sending: </span><span class="si">{exc!r}</span><span class="s1">&#39;</span><span class="p">)</span> <span class="kn">from</span> <span class="nn">exc</span></div>
+
+<div class="viewcode-block" id="Producer.send_and_wait"><a class="viewcode-back" href="../../../../reference/faust.transport.drivers.aiokafka.html#faust.transport.drivers.aiokafka.Producer.send_and_wait">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">send_and_wait</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">topic</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bytes</span><span class="p">],</span>
+                            <span class="n">value</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bytes</span><span class="p">],</span>
+                            <span class="n">partition</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
+                            <span class="n">timestamp</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span>
+                            <span class="n">headers</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">HeadersArg</span><span class="p">],</span>
+                            <span class="o">*</span><span class="p">,</span>
+                            <span class="n">transactional_id</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RecordMetadata</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Send message and wait for it to be transmitted.&quot;&quot;&quot;</span>
+        <span class="n">fut</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">send</span><span class="p">(</span>
+            <span class="n">topic</span><span class="p">,</span>
+            <span class="n">key</span><span class="o">=</span><span class="n">key</span><span class="p">,</span>
+            <span class="n">value</span><span class="o">=</span><span class="n">value</span><span class="p">,</span>
+            <span class="n">partition</span><span class="o">=</span><span class="n">partition</span><span class="p">,</span>
+            <span class="n">timestamp</span><span class="o">=</span><span class="n">timestamp</span><span class="p">,</span>
+            <span class="n">headers</span><span class="o">=</span><span class="n">headers</span><span class="p">,</span>
+            <span class="n">transactional_id</span><span class="o">=</span><span class="n">transactional_id</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="k">await</span> <span class="n">fut</span></div>
+
+<div class="viewcode-block" id="Producer.flush"><a class="viewcode-back" href="../../../../reference/faust.transport.drivers.aiokafka.html#faust.transport.drivers.aiokafka.Producer.flush">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">flush</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Wait for producer to finish transmitting all buffered messages.&quot;&quot;&quot;</span>
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">buffer</span><span class="o">.</span><span class="n">flush</span><span class="p">()</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_producer</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_producer</span><span class="o">.</span><span class="n">flush</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="Producer.key_partition"><a class="viewcode-back" href="../../../../reference/faust.transport.drivers.aiokafka.html#faust.transport.drivers.aiokafka.Producer.key_partition">[docs]</a>    <span class="k">def</span> <span class="nf">key_partition</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">topic</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TP</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Hash key to determine partition destination.&quot;&quot;&quot;</span>
+        <span class="n">producer</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ensure_producer</span><span class="p">()</span>
+        <span class="n">partition</span> <span class="o">=</span> <span class="n">producer</span><span class="o">.</span><span class="n">_partition</span><span class="p">(</span>
+            <span class="n">topic</span><span class="p">,</span>
+            <span class="n">partition</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">key</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">value</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">serialized_key</span><span class="o">=</span><span class="n">key</span><span class="p">,</span>
+            <span class="n">serialized_value</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">TP</span><span class="p">(</span><span class="n">topic</span><span class="p">,</span> <span class="n">partition</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Producer.supports_headers"><a class="viewcode-back" href="../../../../reference/faust.transport.drivers.aiokafka.html#faust.transport.drivers.aiokafka.Producer.supports_headers">[docs]</a>    <span class="k">def</span> <span class="nf">supports_headers</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Return :const:`True` if message headers are supported.&quot;&quot;&quot;</span>
+        <span class="n">producer</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ensure_producer</span><span class="p">()</span>
+        <span class="n">client</span> <span class="o">=</span> <span class="n">producer</span><span class="o">.</span><span class="n">client</span>
+        <span class="k">if</span> <span class="n">client</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">NotReady</span><span class="p">(</span><span class="s1">&#39;Producer client not yet connected&#39;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">client</span><span class="o">.</span><span class="n">api_version</span> <span class="o">&gt;=</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">11</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="Transport"><a class="viewcode-back" href="../../../../reference/faust.transport.drivers.aiokafka.html#faust.transport.drivers.aiokafka.Transport">[docs]</a><span class="k">class</span> <span class="nc">Transport</span><span class="p">(</span><span class="n">base</span><span class="o">.</span><span class="n">Transport</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Kafka transport using :pypi:`aiokafka`.&quot;&quot;&quot;</span>
+
+    <span class="n">Consumer</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">ConsumerT</span><span class="p">]]</span>
+    <span class="n">Consumer</span> <span class="o">=</span> <span class="n">Consumer</span>
+    <span class="n">Producer</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">ProducerT</span><span class="p">]]</span>
+    <span class="n">Producer</span> <span class="o">=</span> <span class="n">Producer</span>
+
+    <span class="n">default_port</span> <span class="o">=</span> <span class="mi">9092</span>
+    <span class="n">driver_version</span> <span class="o">=</span> <span class="n">f</span><span class="s1">&#39;aiokafka=</span><span class="si">{aiokafka.__version__}</span><span class="s1">&#39;</span>
+
+    <span class="n">_topic_waiters</span><span class="p">:</span> <span class="n">MutableMapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">StampedeWrapper</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_topic_waiters</span> <span class="o">=</span> <span class="p">{}</span>
+
+    <span class="k">def</span> <span class="nf">_topic_config</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                      <span class="n">retention</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                      <span class="n">compacting</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                      <span class="n">deleting</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MutableMapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+        <span class="n">config</span><span class="p">:</span> <span class="n">MutableMapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">cleanup_flags</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">compacting</span><span class="p">:</span>
+            <span class="n">cleanup_flags</span> <span class="o">|=</span> <span class="p">{</span><span class="s1">&#39;compact&#39;</span><span class="p">}</span>
+        <span class="k">if</span> <span class="n">deleting</span><span class="p">:</span>
+            <span class="n">cleanup_flags</span> <span class="o">|=</span> <span class="p">{</span><span class="s1">&#39;delete&#39;</span><span class="p">}</span>
+        <span class="k">if</span> <span class="n">cleanup_flags</span><span class="p">:</span>
+            <span class="n">config</span><span class="p">[</span><span class="s1">&#39;cleanup.policy&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;,&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">cleanup_flags</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">retention</span><span class="p">:</span>
+            <span class="n">config</span><span class="p">[</span><span class="s1">&#39;retention.ms&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">retention</span>
+        <span class="k">return</span> <span class="n">config</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">_create_topic</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                            <span class="n">owner</span><span class="p">:</span> <span class="n">Service</span><span class="p">,</span>
+                            <span class="n">client</span><span class="p">:</span> <span class="n">aiokafka</span><span class="o">.</span><span class="n">AIOKafkaClient</span><span class="p">,</span>
+                            <span class="n">topic</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+                            <span class="n">partitions</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+                            <span class="n">replication</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+                            <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">assert</span> <span class="n">topic</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">wrap</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_topic_waiters</span><span class="p">[</span><span class="n">topic</span><span class="p">]</span>
+        <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+            <span class="n">wrap</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_topic_waiters</span><span class="p">[</span><span class="n">topic</span><span class="p">]</span> <span class="o">=</span> <span class="n">StampedeWrapper</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_really_create_topic</span><span class="p">,</span>
+                <span class="n">owner</span><span class="p">,</span>
+                <span class="n">client</span><span class="p">,</span>
+                <span class="n">topic</span><span class="p">,</span>
+                <span class="n">partitions</span><span class="p">,</span>
+                <span class="n">replication</span><span class="p">,</span>
+                <span class="n">loop</span><span class="o">=</span><span class="n">asyncio</span><span class="o">.</span><span class="n">get_event_loop</span><span class="p">(),</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">await</span> <span class="n">wrap</span><span class="p">()</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_topic_waiters</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">topic</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="k">raise</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">_get_controller_node</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">owner</span><span class="p">:</span> <span class="n">Service</span><span class="p">,</span>
+            <span class="n">client</span><span class="p">:</span> <span class="n">aiokafka</span><span class="o">.</span><span class="n">AIOKafkaClient</span><span class="p">,</span>
+            <span class="n">timeout</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">30000</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>  <span class="c1"># pragma: no cover</span>
+        <span class="n">nodes</span> <span class="o">=</span> <span class="p">[</span><span class="n">broker</span><span class="o">.</span><span class="n">nodeId</span> <span class="k">for</span> <span class="n">broker</span> <span class="ow">in</span> <span class="n">client</span><span class="o">.</span><span class="n">cluster</span><span class="o">.</span><span class="n">brokers</span><span class="p">()]</span>
+        <span class="k">for</span> <span class="n">node_id</span> <span class="ow">in</span> <span class="n">nodes</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">node_id</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">NotReady</span><span class="p">(</span><span class="s1">&#39;Not connected to Kafka Broker&#39;</span><span class="p">)</span>
+            <span class="n">request</span> <span class="o">=</span> <span class="n">MetadataRequest_v1</span><span class="p">([])</span>
+            <span class="n">wait_result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">owner</span><span class="o">.</span><span class="n">wait</span><span class="p">(</span>
+                <span class="n">client</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">node_id</span><span class="p">,</span> <span class="n">request</span><span class="p">),</span>
+                <span class="n">timeout</span><span class="o">=</span><span class="n">timeout</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="n">wait_result</span><span class="o">.</span><span class="n">stopped</span><span class="p">:</span>
+                <span class="n">owner</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">f</span><span class="s1">&#39;Shutting down - skipping creation.&#39;</span><span class="p">)</span>
+                <span class="k">return</span> <span class="kc">None</span>
+            <span class="n">response</span> <span class="o">=</span> <span class="n">wait_result</span><span class="o">.</span><span class="n">result</span>
+            <span class="k">return</span> <span class="n">response</span><span class="o">.</span><span class="n">controller_id</span>
+        <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="n">f</span><span class="s1">&#39;Controller node not found&#39;</span><span class="p">)</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">_really_create_topic</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">owner</span><span class="p">:</span> <span class="n">Service</span><span class="p">,</span>
+            <span class="n">client</span><span class="p">:</span> <span class="n">aiokafka</span><span class="o">.</span><span class="n">AIOKafkaClient</span><span class="p">,</span>
+            <span class="n">topic</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+            <span class="n">partitions</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+            <span class="n">replication</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+            <span class="o">*</span><span class="p">,</span>
+            <span class="n">config</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">timeout</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">30000</span><span class="p">,</span>
+            <span class="n">retention</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">compacting</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">deleting</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">ensure_created</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+        <span class="n">owner</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Creating topic </span><span class="si">%r</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">topic</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">topic</span> <span class="ow">in</span> <span class="n">client</span><span class="o">.</span><span class="n">cluster</span><span class="o">.</span><span class="n">topics</span><span class="p">():</span>
+            <span class="n">owner</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s1">&#39;Topic </span><span class="si">%r</span><span class="s1"> exists, skipping creation.&#39;</span><span class="p">,</span> <span class="n">topic</span><span class="p">)</span>
+            <span class="k">return</span>
+
+        <span class="n">protocol_version</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="n">extra_configs</span> <span class="o">=</span> <span class="n">config</span> <span class="ow">or</span> <span class="p">{}</span>
+        <span class="n">config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_topic_config</span><span class="p">(</span><span class="n">retention</span><span class="p">,</span> <span class="n">compacting</span><span class="p">,</span> <span class="n">deleting</span><span class="p">)</span>
+        <span class="n">config</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">extra_configs</span><span class="p">)</span>
+
+        <span class="n">controller_node</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_controller_node</span><span class="p">(</span><span class="n">owner</span><span class="p">,</span> <span class="n">client</span><span class="p">,</span>
+                                                          <span class="n">timeout</span><span class="o">=</span><span class="n">timeout</span><span class="p">)</span>
+        <span class="n">owner</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s1">&#39;Found controller: </span><span class="si">%r</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">controller_node</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">controller_node</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">owner</span><span class="o">.</span><span class="n">should_stop</span><span class="p">:</span>
+                <span class="n">owner</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Shutting down hence controller not found&#39;</span><span class="p">)</span>
+                <span class="k">return</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s1">&#39;Controller node is None&#39;</span><span class="p">)</span>
+
+        <span class="n">request</span> <span class="o">=</span> <span class="n">CreateTopicsRequest</span><span class="p">[</span><span class="n">protocol_version</span><span class="p">](</span>
+            <span class="p">[(</span><span class="n">topic</span><span class="p">,</span> <span class="n">partitions</span><span class="p">,</span> <span class="n">replication</span><span class="p">,</span> <span class="p">[],</span> <span class="nb">list</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">items</span><span class="p">()))],</span>
+            <span class="n">timeout</span><span class="p">,</span>
+            <span class="kc">False</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">wait_result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">owner</span><span class="o">.</span><span class="n">wait</span><span class="p">(</span>
+            <span class="n">client</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">controller_node</span><span class="p">,</span> <span class="n">request</span><span class="p">),</span>
+            <span class="n">timeout</span><span class="o">=</span><span class="n">timeout</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">wait_result</span><span class="o">.</span><span class="n">stopped</span><span class="p">:</span>
+            <span class="n">owner</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="n">f</span><span class="s1">&#39;Shutting down - skipping creation.&#39;</span><span class="p">)</span>
+            <span class="k">return</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="n">wait_result</span><span class="o">.</span><span class="n">result</span>
+
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">topic_error_codes</span><span class="p">),</span> <span class="s1">&#39;single topic&#39;</span>
+
+        <span class="n">_</span><span class="p">,</span> <span class="n">code</span><span class="p">,</span> <span class="n">reason</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">topic_error_codes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="n">code</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">ensure_created</span> <span class="ow">and</span> <span class="n">code</span> <span class="o">==</span> <span class="n">TopicExistsError</span><span class="o">.</span><span class="n">errno</span><span class="p">:</span>
+                <span class="n">owner</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+                    <span class="s1">&#39;Topic </span><span class="si">%r</span><span class="s1"> exists, skipping creation.&#39;</span><span class="p">,</span> <span class="n">topic</span><span class="p">)</span>
+                <span class="k">return</span>
+            <span class="k">elif</span> <span class="n">code</span> <span class="o">==</span> <span class="n">NotControllerError</span><span class="o">.</span><span class="n">errno</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="n">f</span><span class="s1">&#39;Invalid controller: </span><span class="si">{controller_node}</span><span class="s1">&#39;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">for_code</span><span class="p">(</span><span class="n">code</span><span class="p">)(</span>
+                    <span class="n">f</span><span class="s1">&#39;Cannot create topic: </span><span class="si">{topic}</span><span class="s1"> (</span><span class="si">{code}</span><span class="s1">): </span><span class="si">{reason}</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">owner</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Topic </span><span class="si">%r</span><span class="s1"> created.&#39;</span><span class="p">,</span> <span class="n">topic</span><span class="p">)</span>
+            <span class="k">return</span></div>
+
+
+<span class="k">def</span> <span class="nf">credentials_to_aiokafka_auth</span><span class="p">(</span><span class="n">credentials</span><span class="p">:</span> <span class="n">CredentialsT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                                 <span class="n">ssl_context</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Mapping</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">credentials</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">credentials</span><span class="p">,</span> <span class="n">SSLCredentials</span><span class="p">):</span>
+            <span class="k">return</span> <span class="p">{</span>
+                <span class="s1">&#39;security_protocol&#39;</span><span class="p">:</span> <span class="n">credentials</span><span class="o">.</span><span class="n">protocol</span><span class="o">.</span><span class="n">value</span><span class="p">,</span>
+                <span class="s1">&#39;ssl_context&#39;</span><span class="p">:</span> <span class="n">credentials</span><span class="o">.</span><span class="n">context</span><span class="p">,</span>
+            <span class="p">}</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">credentials</span><span class="p">,</span> <span class="n">SASLCredentials</span><span class="p">):</span>
+            <span class="k">return</span> <span class="p">{</span>
+                <span class="s1">&#39;security_protocol&#39;</span><span class="p">:</span> <span class="n">credentials</span><span class="o">.</span><span class="n">protocol</span><span class="o">.</span><span class="n">value</span><span class="p">,</span>
+                <span class="s1">&#39;sasl_mechanism&#39;</span><span class="p">:</span> <span class="n">credentials</span><span class="o">.</span><span class="n">mechanism</span><span class="o">.</span><span class="n">value</span><span class="p">,</span>
+                <span class="s1">&#39;sasl_plain_username&#39;</span><span class="p">:</span> <span class="n">credentials</span><span class="o">.</span><span class="n">username</span><span class="p">,</span>
+                <span class="s1">&#39;sasl_plain_password&#39;</span><span class="p">:</span> <span class="n">credentials</span><span class="o">.</span><span class="n">password</span><span class="p">,</span>
+                <span class="s1">&#39;ssl_context&#39;</span><span class="p">:</span> <span class="n">credentials</span><span class="o">.</span><span class="n">ssl_context</span><span class="p">,</span>
+            <span class="p">}</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">credentials</span><span class="p">,</span> <span class="n">GSSAPICredentials</span><span class="p">):</span>
+            <span class="k">return</span> <span class="p">{</span>
+                <span class="s1">&#39;security_protocol&#39;</span><span class="p">:</span> <span class="n">credentials</span><span class="o">.</span><span class="n">protocol</span><span class="o">.</span><span class="n">value</span><span class="p">,</span>
+                <span class="s1">&#39;sasl_mechanism&#39;</span><span class="p">:</span> <span class="n">credentials</span><span class="o">.</span><span class="n">mechanism</span><span class="o">.</span><span class="n">value</span><span class="p">,</span>
+                <span class="s1">&#39;sasl_kerberos_service_name&#39;</span><span class="p">:</span>
+                    <span class="n">credentials</span><span class="o">.</span><span class="n">kerberos_service_name</span><span class="p">,</span>
+                <span class="s1">&#39;sasl_kerberos_domain_name&#39;</span><span class="p">:</span>
+                    <span class="n">credentials</span><span class="o">.</span><span class="n">kerberos_domain_name</span><span class="p">,</span>
+                <span class="s1">&#39;ssl_context&#39;</span><span class="p">:</span> <span class="n">credentials</span><span class="o">.</span><span class="n">ssl_context</span><span class="p">,</span>
+            <span class="p">}</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">ImproperlyConfigured</span><span class="p">(</span>
+                <span class="n">f</span><span class="s1">&#39;aiokafka does not support </span><span class="si">{credentials}</span><span class="s1">&#39;</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">ssl_context</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s1">&#39;security_protocol&#39;</span><span class="p">:</span> <span class="s1">&#39;SSL&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;ssl_context&#39;</span><span class="p">:</span> <span class="n">ssl_context</span><span class="p">,</span>
+        <span class="p">}</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;security_protocol&#39;</span><span class="p">:</span> <span class="s1">&#39;PLAINTEXT&#39;</span><span class="p">}</span>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../../../index.html">
+              <img class="logo" src="../../../../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../../../../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../playbooks/index.html">Playbooks</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../userguide/index.html">User Guide</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../reference/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../history/index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2019, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

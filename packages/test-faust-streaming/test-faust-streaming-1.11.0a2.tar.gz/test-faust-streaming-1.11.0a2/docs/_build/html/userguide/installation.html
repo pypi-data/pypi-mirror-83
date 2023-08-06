@@ -1,0 +1,288 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>Installation &#8212; Faust 1.11.0a1 documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="copyright" title="Copyright" href="../copyright.html" />
+    <link rel="next" title="Kafka - The basics you need to know" href="kafka.html" />
+    <link rel="prev" title="Configuration Reference" href="settings.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="installation">
+<span id="id1"></span><h1>Installation<a class="headerlink" href="#installation" title="Permalink to this headline">¶</a></h1>
+<div class="contents local topic" id="contents">
+<ul class="simple">
+<li><p><a class="reference internal" href="#id2" id="id4">Installation</a></p></li>
+</ul>
+</div>
+<div class="section" id="id2">
+<h2><a class="toc-backref" href="#id4">Installation</a><a class="headerlink" href="#id2" title="Permalink to this headline">¶</a></h2>
+<p>You can install Faust either via the Python Package Index (PyPI)
+or from source.</p>
+<p>To install using <cite>pip</cite>:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> pip install -U faust
+</pre></div>
+</div>
+<div class="section" id="bundles">
+<span id="id3"></span><h3>Bundles<a class="headerlink" href="#bundles" title="Permalink to this headline">¶</a></h3>
+<p>Faust also defines a group of <a class="reference external" href="https://pypi.python.org/pypi/setuptools/">setuptools</a> extensions that can be used
+to install Faust and the dependencies for a given feature.</p>
+<p>You can specify these in your requirements or on the <strong class="command">pip</strong>
+command-line by using brackets. Separate multiple bundles using the comma:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> pip install <span class="s2">&quot;faust[rocksdb]&quot;</span>
+
+<span class="gp">$</span> pip install <span class="s2">&quot;faust[rocksdb,uvloop,fast,redis]&quot;</span>
+</pre></div>
+</div>
+<p>The following bundles are available:</p>
+<div class="section" id="stores">
+<h4>Stores<a class="headerlink" href="#stores" title="Permalink to this headline">¶</a></h4>
+<dl class="field-list">
+<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">faust[rocksdb]</span></code></dt>
+<dd class="field-odd"><p>for using <a class="reference external" href="http://rocksdb.org">RocksDB</a> for storing Faust table state.</p>
+<p><strong>Recommended in production.</strong></p>
+</dd>
+</dl>
+</div>
+<div class="section" id="caching">
+<h4>Caching<a class="headerlink" href="#caching" title="Permalink to this headline">¶</a></h4>
+<dl class="field-list simple">
+<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">faust[redis]</span></code></dt>
+<dd class="field-odd"><p>for using <cite>Redis_</cite> as a simple caching backend (Memcached-style).</p>
+</dd>
+</dl>
+</div>
+<div class="section" id="codecs">
+<h4>Codecs<a class="headerlink" href="#codecs" title="Permalink to this headline">¶</a></h4>
+<dl class="field-list simple">
+<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">faust[yaml]</span></code></dt>
+<dd class="field-odd"><p>for using YAML and the <a class="reference external" href="https://pypi.python.org/pypi/PyYAML/">PyYAML</a> library in streams.</p>
+</dd>
+</dl>
+</div>
+<div class="section" id="optimization">
+<h4>Optimization<a class="headerlink" href="#optimization" title="Permalink to this headline">¶</a></h4>
+<dl class="field-list simple">
+<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">faust[fast]</span></code></dt>
+<dd class="field-odd"><p>for installing all the available C speedup extensions to Faust core.</p>
+</dd>
+</dl>
+</div>
+<div class="section" id="sensors">
+<h4>Sensors<a class="headerlink" href="#sensors" title="Permalink to this headline">¶</a></h4>
+<dl class="field-list simple">
+<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">faust[datadog]</span></code></dt>
+<dd class="field-odd"><p>for using the Datadog Faust monitor.</p>
+</dd>
+<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">faust[statsd]</span></code></dt>
+<dd class="field-even"><p>for using the Statsd Faust monitor.</p>
+</dd>
+</dl>
+</div>
+<div class="section" id="event-loops">
+<h4>Event Loops<a class="headerlink" href="#event-loops" title="Permalink to this headline">¶</a></h4>
+<dl class="field-list simple">
+<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">faust[uvloop]</span></code></dt>
+<dd class="field-odd"><p>for using Faust with <a class="reference external" href="https://pypi.python.org/pypi/uvloop/">uvloop</a>.</p>
+</dd>
+<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">faust[eventlet]</span></code></dt>
+<dd class="field-even"><p>for using Faust with <a class="reference external" href="https://pypi.python.org/pypi/eventlet/">eventlet</a></p>
+</dd>
+</dl>
+</div>
+<div class="section" id="debugging">
+<h4>Debugging<a class="headerlink" href="#debugging" title="Permalink to this headline">¶</a></h4>
+<dl class="field-list simple">
+<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">faust[debug]</span></code></dt>
+<dd class="field-odd"><p>for using <a class="reference external" href="https://pypi.python.org/pypi/aiomonitor/">aiomonitor</a> to connect and debug a running Faust worker.</p>
+</dd>
+<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">faust[setproctitle]</span></code></dt>
+<dd class="field-even"><p>when the <a class="reference external" href="https://pypi.python.org/pypi/setproctitle/">setproctitle</a> module is installed the Faust worker will
+use it to set a nicer process name in <strong class="program">ps</strong>/<strong class="program">top</strong> listings.
+Also installed with the <code class="docutils literal notranslate"><span class="pre">fast</span></code> and <code class="docutils literal notranslate"><span class="pre">debug</span></code> bundles.</p>
+</dd>
+</dl>
+</div>
+</div>
+<div class="section" id="downloading-and-installing-from-source">
+<h3>Downloading and installing from source<a class="headerlink" href="#downloading-and-installing-from-source" title="Permalink to this headline">¶</a></h3>
+<p>Download the latest version of Faust from
+<a class="reference external" href="http://pypi.org/project/faust">http://pypi.org/project/faust</a></p>
+<p>You can install it by doing:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> tar xvfz faust-0.0.0.tar.gz
+<span class="gp">$</span> <span class="nb">cd</span> faust-0.0.0
+<span class="gp">$</span> python setup.py build
+<span class="gp">#</span> python setup.py install
+</pre></div>
+</div>
+<p>The last command must be executed as a privileged user if
+you are not currently using a virtualenv.</p>
+</div>
+<div class="section" id="using-the-development-version">
+<h3>Using the development version<a class="headerlink" href="#using-the-development-version" title="Permalink to this headline">¶</a></h3>
+<div class="section" id="with-pip">
+<h4>With pip<a class="headerlink" href="#with-pip" title="Permalink to this headline">¶</a></h4>
+<p>You can install the latest snapshot of Faust using the following
+<strong class="program">pip</strong> command:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> pip install https://github.com/robinhood/faust/zipball/master#egg<span class="o">=</span>faust
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../playbooks/index.html">Playbooks</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">User Guide</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="application.html">The App - Define your Faust project</a></li>
+<li class="toctree-l2"><a class="reference internal" href="agents.html">Agents - Self-organizing Stream Processors</a></li>
+<li class="toctree-l2"><a class="reference internal" href="streams.html">Streams - Infinite Data Structures</a></li>
+<li class="toctree-l2"><a class="reference internal" href="channels.html">Channels &amp; Topics - Data Sources</a></li>
+<li class="toctree-l2"><a class="reference internal" href="models.html">Models, Serialization, and Codecs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tables.html">Tables and Windowing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tasks.html">Tasks, Timers, Cron Jobs, Web Views, and CLI Commands</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cli.html">Command-line Interface</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sensors.html">Sensors - Monitors and Statistics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="testing.html">Testing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="livecheck.html">LiveCheck: End-to-end test for production/staging.</a></li>
+<li class="toctree-l2"><a class="reference internal" href="settings.html">Configuration Reference</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="kafka.html">Kafka - The basics you need to know</a></li>
+<li class="toctree-l2"><a class="reference internal" href="debugging.html">Debugging</a></li>
+<li class="toctree-l2"><a class="reference internal" href="workers.html">Workers Guide</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../history/index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">User Guide</a><ul>
+      <li>Previous: <a href="settings.html" title="previous chapter">Configuration Reference</a></li>
+      <li>Next: <a href="kafka.html" title="next chapter">Kafka - The basics you need to know</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2020, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../_sources/userguide/installation.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

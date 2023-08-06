@@ -1,0 +1,229 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>faust.agents.manager &#8212; Faust 1.9.0 documentation</title>
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../../../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <link rel="copyright" title="Copyright" href="../../../copyright.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for faust.agents.manager</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Agent manager.&quot;&quot;&quot;</span>
+<span class="kn">import</span> <span class="nn">asyncio</span>
+
+<span class="kn">from</span> <span class="nn">collections</span> <span class="k">import</span> <span class="n">defaultdict</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="k">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">MutableMapping</span><span class="p">,</span> <span class="n">MutableSet</span><span class="p">,</span> <span class="n">Set</span>
+<span class="kn">from</span> <span class="nn">weakref</span> <span class="k">import</span> <span class="n">WeakSet</span>
+
+<span class="kn">from</span> <span class="nn">mode</span> <span class="k">import</span> <span class="n">Service</span>
+<span class="kn">from</span> <span class="nn">mode.utils.collections</span> <span class="k">import</span> <span class="n">ManagedUserDict</span>
+<span class="kn">from</span> <span class="nn">mode.utils.compat</span> <span class="k">import</span> <span class="n">OrderedDict</span>
+
+<span class="kn">from</span> <span class="nn">faust.types</span> <span class="k">import</span> <span class="n">AgentManagerT</span><span class="p">,</span> <span class="n">AgentT</span><span class="p">,</span> <span class="n">AppT</span>
+<span class="kn">from</span> <span class="nn">faust.types.tuples</span> <span class="k">import</span> <span class="n">TP</span><span class="p">,</span> <span class="n">tp_set_to_map</span>
+<span class="kn">from</span> <span class="nn">faust.utils.tracing</span> <span class="k">import</span> <span class="n">traced_from_parent_span</span>
+
+
+<div class="viewcode-block" id="AgentManager"><a class="viewcode-back" href="../../../reference/faust.agents.manager.html#faust.agents.AgentManager">[docs]</a><span class="k">class</span> <span class="nc">AgentManager</span><span class="p">(</span><span class="n">Service</span><span class="p">,</span> <span class="n">AgentManagerT</span><span class="p">,</span> <span class="n">ManagedUserDict</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Agent manager.&quot;&quot;&quot;</span>
+
+    <span class="n">_by_topic</span><span class="p">:</span> <span class="n">MutableMapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">MutableSet</span><span class="p">[</span><span class="n">AgentT</span><span class="p">]]</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">app</span><span class="p">:</span> <span class="n">AppT</span><span class="p">,</span>
+                 <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">app</span> <span class="o">=</span> <span class="n">app</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_by_topic</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="n">WeakSet</span><span class="p">)</span>
+        <span class="n">Service</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+<div class="viewcode-block" id="AgentManager.on_start"><a class="viewcode-back" href="../../../reference/faust.agents.manager.html#faust.agents.AgentManager.on_start">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">on_start</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Call when agents are being started.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">update_topic_index</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">agent</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+            <span class="k">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">maybe_start</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="AgentManager.service_reset"><a class="viewcode-back" href="../../../reference/faust.agents.manager.html#faust.agents.AgentManager.service_reset">[docs]</a>    <span class="k">def</span> <span class="nf">service_reset</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Reset service state on restart.&quot;&quot;&quot;</span>
+        <span class="p">[</span><span class="n">agent</span><span class="o">.</span><span class="n">service_reset</span><span class="p">()</span> <span class="k">for</span> <span class="n">agent</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">values</span><span class="p">()]</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">service_reset</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="AgentManager.on_stop"><a class="viewcode-back" href="../../../reference/faust.agents.manager.html#faust.agents.AgentManager.on_stop">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">on_stop</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Call when agents are being stopped.&quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">agent</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">shield</span><span class="p">(</span><span class="n">agent</span><span class="o">.</span><span class="n">stop</span><span class="p">())</span>
+            <span class="k">except</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">CancelledError</span><span class="p">:</span>
+                <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="AgentManager.stop"><a class="viewcode-back" href="../../../reference/faust.agents.manager.html#faust.agents.AgentManager.stop">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">stop</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Stop all running agents.&quot;&quot;&quot;</span>
+        <span class="c1"># Cancel first so _execute_actor sees we are not stopped.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cancel</span><span class="p">()</span>
+        <span class="c1"># Then stop the agents</span>
+        <span class="k">await</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="AgentManager.cancel"><a class="viewcode-back" href="../../../reference/faust.agents.manager.html#faust.agents.AgentManager.cancel">[docs]</a>    <span class="k">def</span> <span class="nf">cancel</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Cancel all running agents.&quot;&quot;&quot;</span>
+        <span class="p">[</span><span class="n">agent</span><span class="o">.</span><span class="n">cancel</span><span class="p">()</span> <span class="k">for</span> <span class="n">agent</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">values</span><span class="p">()]</span></div>
+
+<div class="viewcode-block" id="AgentManager.update_topic_index"><a class="viewcode-back" href="../../../reference/faust.agents.manager.html#faust.agents.AgentManager.update_topic_index">[docs]</a>    <span class="k">def</span> <span class="nf">update_topic_index</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Update indices.&quot;&quot;&quot;</span>
+        <span class="c1"># keep mapping from topic name to set of agents.</span>
+        <span class="n">by_topic_index</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_by_topic</span>
+        <span class="k">for</span> <span class="n">agent</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+            <span class="k">for</span> <span class="n">topic</span> <span class="ow">in</span> <span class="n">agent</span><span class="o">.</span><span class="n">get_topic_names</span><span class="p">():</span>
+                <span class="n">by_topic_index</span><span class="p">[</span><span class="n">topic</span><span class="p">]</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">agent</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="AgentManager.on_rebalance"><a class="viewcode-back" href="../../../reference/faust.agents.manager.html#faust.agents.AgentManager.on_rebalance">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">on_rebalance</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                           <span class="n">revoked</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="n">TP</span><span class="p">],</span>
+                           <span class="n">newly_assigned</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="n">TP</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Call when a rebalance is needed.&quot;&quot;&quot;</span>
+        <span class="n">T</span> <span class="o">=</span> <span class="n">traced_from_parent_span</span><span class="p">()</span>
+        <span class="c1"># for isolated_partitions agents we stop agents for revoked</span>
+        <span class="c1"># partitions.</span>
+        <span class="k">for</span> <span class="n">agent</span><span class="p">,</span> <span class="n">tps</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_collect_agents_for_update</span><span class="p">(</span><span class="n">revoked</span><span class="p">)</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">await</span> <span class="n">T</span><span class="p">(</span><span class="n">agent</span><span class="o">.</span><span class="n">on_partitions_revoked</span><span class="p">)(</span><span class="n">tps</span><span class="p">)</span>
+        <span class="c1"># for isolated_partitions agents we start agents for newly</span>
+        <span class="c1"># assigned partitions</span>
+        <span class="k">for</span> <span class="n">agent</span><span class="p">,</span> <span class="n">tps</span> <span class="ow">in</span> <span class="n">T</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_collect_agents_for_update</span><span class="p">)(</span>
+                <span class="n">newly_assigned</span><span class="p">)</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">await</span> <span class="n">T</span><span class="p">(</span><span class="n">agent</span><span class="o">.</span><span class="n">on_partitions_assigned</span><span class="p">)(</span><span class="n">tps</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_collect_agents_for_update</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span> <span class="n">tps</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="n">TP</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="n">AgentT</span><span class="p">,</span> <span class="n">Set</span><span class="p">[</span><span class="n">TP</span><span class="p">]]:</span>
+        <span class="n">by_agent</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="n">AgentT</span><span class="p">,</span> <span class="n">Set</span><span class="p">[</span><span class="n">TP</span><span class="p">]]</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">set</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">topic</span><span class="p">,</span> <span class="n">tps</span> <span class="ow">in</span> <span class="n">tp_set_to_map</span><span class="p">(</span><span class="n">tps</span><span class="p">)</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">for</span> <span class="n">agent</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_by_topic</span><span class="p">[</span><span class="n">topic</span><span class="p">]:</span>
+                <span class="n">by_agent</span><span class="p">[</span><span class="n">agent</span><span class="p">]</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">tps</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">by_agent</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../../index.html">
+              <img class="logo" src="../../../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../../../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../playbooks/index.html">Playbooks</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../userguide/index.html">User Guide</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../reference/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../history/index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2019, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

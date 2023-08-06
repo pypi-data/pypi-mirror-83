@@ -1,0 +1,859 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>faust.types.settings.params &#8212; Faust 1.11.0a1 documentation</title>
+    <link rel="stylesheet" href="../../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../../" src="../../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../../../../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" />
+    <link rel="copyright" title="Copyright" href="../../../../copyright.html" />
+   
+  <link rel="stylesheet" href="../../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for faust.types.settings.params</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">abc</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">ssl</span>
+<span class="kn">import</span> <span class="nn">typing</span>
+<span class="kn">import</span> <span class="nn">warnings</span>
+<span class="kn">from</span> <span class="nn">datetime</span> <span class="k">import</span> <span class="n">timedelta</span><span class="p">,</span> <span class="n">timezone</span><span class="p">,</span> <span class="n">tzinfo</span>
+<span class="kn">from</span> <span class="nn">pathlib</span> <span class="k">import</span> <span class="n">Path</span> <span class="k">as</span> <span class="n">_Path</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">Any</span><span class="p">,</span>
+    <span class="n">Callable</span><span class="p">,</span>
+    <span class="n">ClassVar</span><span class="p">,</span>
+    <span class="n">Generic</span><span class="p">,</span>
+    <span class="n">Iterable</span><span class="p">,</span>
+    <span class="n">List</span><span class="p">,</span>
+    <span class="n">Mapping</span><span class="p">,</span>
+    <span class="n">Optional</span><span class="p">,</span>
+    <span class="n">Tuple</span><span class="p">,</span>
+    <span class="n">Type</span><span class="p">,</span>
+    <span class="n">TypeVar</span><span class="p">,</span>
+    <span class="n">Union</span><span class="p">,</span>
+    <span class="n">cast</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="kn">from</span> <span class="nn">mode</span> <span class="k">import</span> <span class="n">Seconds</span> <span class="k">as</span> <span class="n">_Seconds</span><span class="p">,</span> <span class="n">want_seconds</span>
+<span class="kn">from</span> <span class="nn">mode.utils.imports</span> <span class="k">import</span> <span class="n">SymbolArg</span><span class="p">,</span> <span class="n">symbol_by_name</span>
+<span class="kn">from</span> <span class="nn">mode.utils.logging</span> <span class="k">import</span> <span class="n">Severity</span> <span class="k">as</span> <span class="n">_Severity</span>
+<span class="kn">from</span> <span class="nn">yarl</span> <span class="k">import</span> <span class="n">URL</span> <span class="k">as</span> <span class="n">_URL</span>
+
+<span class="kn">from</span> <span class="nn">faust.exceptions</span> <span class="k">import</span> <span class="n">ImproperlyConfigured</span>
+<span class="kn">from</span> <span class="nn">faust.utils</span> <span class="k">import</span> <span class="n">json</span>
+<span class="kn">from</span> <span class="nn">faust.utils.urls</span> <span class="k">import</span> <span class="n">URIListArg</span><span class="p">,</span> <span class="n">urllist</span>
+
+<span class="kn">from</span> <span class="nn">faust.types.auth</span> <span class="k">import</span> <span class="n">CredentialsArg</span><span class="p">,</span> <span class="n">CredentialsT</span><span class="p">,</span> <span class="n">to_credentials</span>
+<span class="kn">from</span> <span class="nn">faust.types.codecs</span> <span class="k">import</span> <span class="n">CodecArg</span><span class="p">,</span> <span class="n">CodecT</span>
+
+<span class="k">if</span> <span class="n">typing</span><span class="o">.</span><span class="n">TYPE_CHECKING</span><span class="p">:</span>
+    <span class="kn">from</span> <span class="nn">.settings</span> <span class="k">import</span> <span class="n">Settings</span> <span class="k">as</span> <span class="n">_Settings</span>
+    <span class="kn">from</span> <span class="nn">.sections</span> <span class="k">import</span> <span class="n">Section</span> <span class="k">as</span> <span class="n">_Section</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="k">class</span> <span class="nc">_Section</span><span class="p">:</span> <span class="o">...</span>       <span class="c1"># noqa</span>
+    <span class="k">class</span> <span class="nc">_Settings</span><span class="p">:</span> <span class="o">...</span>      <span class="c1"># noqa</span>
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="s1">&#39;AutodiscoverArg&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;DictArg&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;URLArg&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;BrokerArg&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;Param&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;Bool&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;Str&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;Severity&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;Int&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;UnsignedInt&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;Version&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;Port&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;Seconds&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;Credentials&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;SSLContext&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;Dict&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;LogHandlers&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;Timezone&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;BrokerList&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;URL&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;Path&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;Codec&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;Enum&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;Symbol&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;to_bool&#39;</span><span class="p">,</span>
+<span class="p">]</span>
+
+<span class="c1">#: Default transport used when no scheme specified.</span>
+<span class="n">DEFAULT_BROKER_SCHEME</span> <span class="o">=</span> <span class="s1">&#39;kafka&#39;</span>
+
+<span class="n">T</span> <span class="o">=</span> <span class="n">TypeVar</span><span class="p">(</span><span class="s1">&#39;T&#39;</span><span class="p">)</span>
+<span class="n">IT</span> <span class="o">=</span> <span class="n">TypeVar</span><span class="p">(</span><span class="s1">&#39;IT&#39;</span><span class="p">)</span>   <span class="c1"># Input type.</span>
+<span class="n">OT</span> <span class="o">=</span> <span class="n">TypeVar</span><span class="p">(</span><span class="s1">&#39;OT&#39;</span><span class="p">)</span>   <span class="c1"># Output type.</span>
+
+<span class="n">BOOLEAN_TERMS</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">&#39;&#39;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="s1">&#39;false&#39;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="s1">&#39;no&#39;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="s1">&#39;0&#39;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="s1">&#39;true&#39;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="s1">&#39;yes&#39;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="s1">&#39;1&#39;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="s1">&#39;on&#39;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="s1">&#39;off&#39;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+<span class="p">}</span>
+
+<span class="n">AutodiscoverArg</span> <span class="o">=</span> <span class="n">Union</span><span class="p">[</span>
+    <span class="nb">bool</span><span class="p">,</span>
+    <span class="n">Iterable</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+    <span class="n">Callable</span><span class="p">[[],</span> <span class="n">Iterable</span><span class="p">[</span><span class="nb">str</span><span class="p">]],</span>
+<span class="p">]</span>
+
+<span class="n">DictArg</span> <span class="o">=</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">T</span><span class="p">]]</span>
+
+<span class="n">URLArg</span> <span class="o">=</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">_URL</span><span class="p">]</span>
+<span class="n">BrokerArg</span> <span class="o">=</span> <span class="n">URIListArg</span>
+
+<span class="n">DEPRECATION_WARNING_TEMPLATE</span> <span class="o">=</span> <span class="s1">&#39;&#39;&#39;</span>
+<span class="s1">Setting </span><span class="si">{self.name}</span><span class="s1"> is deprecated since Faust version </span><span class="se">\</span>
+<span class="si">{self.version_deprecated}</span><span class="s1">: </span><span class="si">{self.deprecation_reason}</span><span class="s1">. </span><span class="si">{alt_removal}</span><span class="s1"></span>
+<span class="s1">&#39;&#39;&#39;</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+
+<span class="n">DEPRECATION_REMOVAL_WARNING</span> <span class="o">=</span> <span class="s1">&#39;&#39;&#39;</span>
+<span class="s1">Further the setting is scheduled to be removed in Faust version </span><span class="se">\</span>
+<span class="si">{self.version_removal}</span><span class="s1">.</span>
+<span class="s1">&#39;&#39;&#39;</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+
+
+<div class="viewcode-block" id="to_bool"><a class="viewcode-back" href="../../../../reference/faust.types.settings.params.html#faust.to_bool">[docs]</a><span class="k">def</span> <span class="nf">to_bool</span><span class="p">(</span><span class="n">term</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">bool</span><span class="p">],</span> <span class="o">*</span><span class="p">,</span>
+            <span class="n">table</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="n">BOOLEAN_TERMS</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Convert common terms for true/false to bool.</span>
+
+<span class="sd">    Examples (true/false/yes/no/on/off/1/0).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">table</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">table</span> <span class="o">=</span> <span class="n">BOOLEAN_TERMS</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">term</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">table</span><span class="p">[</span><span class="n">term</span><span class="o">.</span><span class="n">lower</span><span class="p">()]</span>
+        <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s1">&#39;Cannot coerce </span><span class="si">{0!r}</span><span class="s1"> to type bool&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">term</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">term</span></div>
+
+
+<span class="n">OutputCallable</span> <span class="o">=</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">_Settings</span><span class="p">,</span> <span class="n">OT</span><span class="p">],</span> <span class="n">OT</span><span class="p">]</span>
+<span class="n">OnDefaultCallable</span> <span class="o">=</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">_Settings</span><span class="p">],</span> <span class="n">IT</span><span class="p">]</span>
+
+
+<div class="viewcode-block" id="Param"><a class="viewcode-back" href="../../../../reference/faust.types.settings.params.html#faust.Param">[docs]</a><span class="k">class</span> <span class="nc">Param</span><span class="p">(</span><span class="n">Generic</span><span class="p">[</span><span class="n">IT</span><span class="p">,</span> <span class="n">OT</span><span class="p">],</span> <span class="nb">property</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Faust setting desscription.</span>
+
+<span class="sd">    Describes a Faust setting, how to read it from environment</span>
+<span class="sd">    variables or from a configuration object.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1">#: Textual description of setting type.</span>
+    <span class="c1">#: This is used by :file:`extra/tools/render_configuration_reference.py`</span>
+    <span class="c1">#: to display the types supported by this setting.</span>
+    <span class="c1">#:</span>
+    <span class="c1">#: Can be a tuple of actual classes, or a tuple of strings.</span>
+    <span class="c1">#: If a tuple of classes say a setting that accepts :class:`str`</span>
+    <span class="c1">#: and :class:`int`:</span>
+    <span class="c1">#:</span>
+    <span class="c1">#: .. sourcecode:: python</span>
+    <span class="c1">#:</span>
+    <span class="c1">#:      text_type = (str, int)</span>
+    <span class="c1">#:</span>
+    <span class="c1">#: the generated description will be:</span>
+    <span class="c1">#:</span>
+    <span class="c1">#: .. sourcecode:: restructuredtext</span>
+    <span class="c1">#:</span>
+    <span class="c1">#:   :type: :class:`str` / :class:`int`</span>
+    <span class="c1">#:</span>
+    <span class="n">text_type</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="o">...</span><span class="p">]]</span> <span class="o">=</span> <span class="p">(</span><span class="n">Any</span><span class="p">,)</span>
+
+    <span class="c1">#: Setting name (e.g. ``broker_request_timeout``).</span>
+    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
+
+    <span class="c1">#: Storage name (e.g. ``_broker_request_timeout``).</span>
+    <span class="c1">#: This is the attribute name where we&#39;ll be storing</span>
+    <span class="c1">#: the actual value for the setting.</span>
+    <span class="c1">#: For example ``Settings.broker_request_timeout`` will be a</span>
+    <span class="c1">#: property that calls ``Param.__get__`` on attribute access,</span>
+    <span class="c1">#: and ``.__set__`` when setting attribute value, and those</span>
+    <span class="c1">#: will use the underlying ``Settings._broker_request_timeout``</span>
+    <span class="c1">#: storage attribute to access/store the current value.</span>
+    <span class="n">storage_name</span><span class="p">:</span> <span class="nb">str</span>
+
+    <span class="c1">#: Default value for setting.</span>
+    <span class="c1">#:</span>
+    <span class="c1">#: Note that this will not be used if :attr:`default_alias` or</span>
+    <span class="c1">#: :attr:`defaut_template` is set.</span>
+    <span class="n">default</span><span class="p">:</span> <span class="n">IT</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">IT</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+
+    <span class="c1">#: Environment variable name for setting.</span>
+    <span class="c1">#: For :setting:`broker_request_timeout` this would be</span>
+    <span class="c1">#: ``env_name=&quot;BROKER_REQUEST_TIMEOUT&quot;``</span>
+    <span class="n">env_name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="c1">#: If setting is not customized this is an optional</span>
+    <span class="c1">#: list of other settings that we should take default value from.</span>
+    <span class="c1">#: For example the :setting:`broker_consumer`/:setting:`broker_producer`</span>
+    <span class="c1">#: settings can configure the broker URL for consumers and producers</span>
+    <span class="c1">#: separately but take their default value from the `broker` setting.</span>
+    <span class="n">default_alias</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="c1">#: Default template.</span>
+    <span class="c1">#: If set the default value will be generated from this format string</span>
+    <span class="c1">#: template.</span>
+    <span class="c1">#: For exmaple the :setting:`canonical_url` setting uses</span>
+    <span class="c1">#: ``default_template=&#39;http://{conf.web_host}:{conf.web_port}&#39; to</span>
+    <span class="c1">#: generate a default value from the :setting:`web_host` and</span>
+    <span class="c1">#: :setting:`web_port` settings.</span>
+    <span class="n">default_template</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="c1">#: Set to true if the value can be :const:`None`.</span>
+    <span class="n">allow_none</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="c1"># If set to True we don&#39;t modify the value</span>
+    <span class="c1"># of the attribute to set a default.</span>
+    <span class="c1"># This is used by e.g. the env_prefix setting</span>
+    <span class="c1"># which has custom constructor code in Settings.on_init</span>
+    <span class="n">ignore_default</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="c1">#: The configuration section this setting belongs to.</span>
+    <span class="c1">#: E.g. ``sections.Common``.</span>
+    <span class="n">section</span><span class="p">:</span> <span class="n">_Section</span>
+
+    <span class="c1">#: The version that this setting was first introduced.</span>
+    <span class="c1">#: This is used by :file:`extra/tools/render_configuration_reference.py`</span>
+    <span class="c1">#: to generate a version added directive:</span>
+    <span class="c1">#:</span>
+    <span class="c1">#: .. sourcecode:: restructuredtext</span>
+    <span class="c1">#:</span>
+    <span class="c1">#:    .. versionadded:: 1.10</span>
+    <span class="n">version_introduced</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="c1">#: Set this if the setting is deprecated and should not be used anymore.</span>
+    <span class="c1">#: Deprecated settings are not added to the configuration reference.</span>
+    <span class="c1">#: Note: You must also set a :attr:`deprecation_reason`.</span>
+    <span class="n">version_deprecated</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">deprecation_reason</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="c1">#: Mapping of version changes and reason for changing.</span>
+    <span class="c1">#: This is used by :file:`extra/tools/render_configuration_reference.py`</span>
+    <span class="c1">#: For example if this was enabled by default but then changed</span>
+    <span class="c1">#: to be disabled by default in version 1.30, then you can specify</span>
+    <span class="c1">#: that as ``version_changed={&#39;1.30&#39;: &#39;Disabled by default.&#39;}``</span>
+    <span class="c1">#: and the configuration reference will be rendered with the</span>
+    <span class="c1">#: following version changed directive added:</span>
+    <span class="c1">#:</span>
+    <span class="c1">#: .. sourcecode:: restructuredtext</span>
+    <span class="c1">#:</span>
+    <span class="c1">#:    .. versionchanged:: 1.30</span>
+    <span class="c1">#:</span>
+    <span class="c1">#:         Disabled by default.</span>
+    <span class="n">version_changed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="c1">#: Set this if the setting should be disabled completely,</span>
+    <span class="c1">#: but still be included in the code.</span>
+    <span class="c1">#: This is rare, no setting should be included in the</span>
+    <span class="c1">#: code if it has been removed.  Currently this is only</span>
+    <span class="c1">#: used for the example setting that describes how you can add new</span>
+    <span class="c1">#: settings.</span>
+    <span class="n">version_removed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="c1">#: Mapping of related command line options.</span>
+    <span class="c1">#: This should be a mapping from command name to a list of option names.</span>
+    <span class="c1">#:</span>
+    <span class="c1">#: For example the :setting:`canonical_url` setting lists related</span>
+    <span class="c1">#: options as:</span>
+    <span class="c1">#:</span>
+    <span class="c1">#: .. sourcecode:: python</span>
+    <span class="c1">#:</span>
+    <span class="c1">#:    related_cli_options={</span>
+    <span class="c1">#:      &#39;faust worker&#39;: [&#39;--web-host&#39;, &#39;--web-port&#39;],</span>
+    <span class="c1">#:    }</span>
+    <span class="c1">#:</span>
+    <span class="c1">#: And this will end up in the configuration reference as:</span>
+    <span class="c1">#:</span>
+    <span class="c1">#: .. sourcecode:: restructuredtext</span>
+    <span class="c1">#:</span>
+    <span class="c1">#:   :related-options: :option:`faust worker --web-host`,</span>
+    <span class="c1">#:                     :option:`faust worker --web-port`</span>
+    <span class="n">related_cli_options</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span>
+
+    <span class="c1">#: List of related settings.</span>
+    <span class="c1">#: For example for the :setting:`canonical_url` setting</span>
+    <span class="c1">#: the list of related settings are defined as:</span>
+    <span class="c1">#: ``related_settings=[web_host, web_port]``.</span>
+    <span class="c1">#: The configuration reference will then include that as:</span>
+    <span class="c1">#:</span>
+    <span class="c1">#: .. sourcecode:: restructuredtext</span>
+    <span class="c1">#:</span>
+    <span class="c1">#:    :related-settings: :setting:`web_host`, :setting:`web_port`</span>
+    <span class="n">related_settings</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Any</span><span class="p">]</span>
+
+    <span class="c1">#: Template used to generate a deprecation warning for deprecated settings.</span>
+    <span class="n">deprecation_warning_template</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">DEPRECATION_WARNING_TEMPLATE</span>
+
+    <span class="c1">#: Template used to generate an additional removal warning</span>
+    <span class="c1">#: for the deprecation warning.</span>
+    <span class="n">deprecation_removal_warning</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">DEPRECATION_REMOVAL_WARNING</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span>
+                 <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+                 <span class="n">env_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">default</span><span class="p">:</span> <span class="n">IT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">default_alias</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">default_template</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">allow_none</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">ignore_default</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">section</span><span class="p">:</span> <span class="n">_Section</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">version_introduced</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">version_deprecated</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">version_removed</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">version_changed</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">deprecation_reason</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">related_cli_options</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">related_settings</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">help</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">assert</span> <span class="n">name</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">name</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">storage_name</span> <span class="o">=</span> <span class="n">f</span><span class="s1">&#39;_</span><span class="si">{name}</span><span class="s1">&#39;</span>
+        <span class="k">if</span> <span class="n">env_name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">env_name</span> <span class="o">=</span> <span class="n">env_name</span>
+        <span class="k">if</span> <span class="n">default</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">default</span> <span class="o">=</span> <span class="n">default</span>
+        <span class="k">if</span> <span class="n">default_alias</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">default_alias</span> <span class="o">=</span> <span class="n">default_alias</span>
+        <span class="k">if</span> <span class="n">default_template</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">default_template</span> <span class="o">=</span> <span class="n">default_template</span>
+        <span class="k">if</span> <span class="n">allow_none</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">allow_none</span> <span class="o">=</span> <span class="n">allow_none</span>
+        <span class="k">if</span> <span class="n">ignore_default</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ignore_default</span> <span class="o">=</span> <span class="n">ignore_default</span>
+        <span class="k">if</span> <span class="n">section</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">section</span> <span class="o">=</span> <span class="n">section</span>
+        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">section</span>
+        <span class="k">if</span> <span class="n">version_introduced</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">version_introduced</span> <span class="o">=</span> <span class="n">version_introduced</span>
+        <span class="k">if</span> <span class="n">version_deprecated</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">version_deprecated</span> <span class="o">=</span> <span class="n">version_deprecated</span>
+        <span class="k">if</span> <span class="n">version_removed</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">version_removed</span> <span class="o">=</span> <span class="n">version_removed</span>
+        <span class="k">if</span> <span class="n">version_changed</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">version_changed</span> <span class="o">=</span> <span class="n">version_changed</span>
+        <span class="k">if</span> <span class="n">deprecation_reason</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">deprecation_reason</span> <span class="o">=</span> <span class="n">deprecation_reason</span>
+        <span class="k">if</span> <span class="n">help</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="vm">__doc__</span> <span class="o">=</span> <span class="n">help</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_on_get_value_</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">OutputCallable</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_on_set_default_</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">OnDefaultCallable</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">options</span> <span class="o">=</span> <span class="n">kwargs</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">related_cli_options</span> <span class="o">=</span> <span class="n">related_cli_options</span> <span class="ow">or</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">related_settings</span> <span class="o">=</span> <span class="n">related_settings</span> <span class="ow">or</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_init_options</span><span class="p">(</span><span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">version_deprecated</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">deprecation_reason</span>
+
+    <span class="k">def</span> <span class="nf">_init_options</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Use in subclasses to quickly override ``__init__``.&quot;&quot;&quot;</span>
+        <span class="o">...</span>
+
+<div class="viewcode-block" id="Param.on_get_value"><a class="viewcode-back" href="../../../../reference/faust.types.settings.params.html#faust.Param.on_get_value">[docs]</a>    <span class="k">def</span> <span class="nf">on_get_value</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fun</span><span class="p">:</span> <span class="n">OutputCallable</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OutputCallable</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Decorator that adds a callback when this setting is retrieved.&quot;&quot;&quot;</span>
+        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">_on_get_value_</span> <span class="ow">is</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_on_get_value_</span> <span class="o">=</span> <span class="n">fun</span>
+        <span class="k">return</span> <span class="n">fun</span></div>
+
+<div class="viewcode-block" id="Param.on_set_default"><a class="viewcode-back" href="../../../../reference/faust.types.settings.params.html#faust.Param.on_set_default">[docs]</a>    <span class="k">def</span> <span class="nf">on_set_default</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fun</span><span class="p">:</span> <span class="n">OnDefaultCallable</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OnDefaultCallable</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Decorator that adds a callback when a default value is used.&quot;&quot;&quot;</span>
+        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">_on_set_default_</span> <span class="ow">is</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_on_set_default_</span> <span class="o">=</span> <span class="n">fun</span>
+        <span class="k">return</span> <span class="n">fun</span></div>
+
+    <span class="k">def</span> <span class="nf">__get__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="nb">type</span><span class="p">:</span> <span class="n">Type</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OT</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">obj</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span>  <span class="c1"># type: ignore</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">version_deprecated</span><span class="p">:</span>
+            <span class="c1"># we use UserWarning because DeprecationWarning is silenced</span>
+            <span class="c1"># by default in Python.</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="ne">UserWarning</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">build_deprecation_warning</span><span class="p">()))</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">on_get</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__set__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">IT</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">on_set</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">prepare_set</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">value</span><span class="p">))</span>
+
+<div class="viewcode-block" id="Param.on_get"><a class="viewcode-back" href="../../../../reference/faust.types.settings.params.html#faust.Param.on_get">[docs]</a>    <span class="k">def</span> <span class="nf">on_get</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">conf</span><span class="p">:</span> <span class="n">_Settings</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OT</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;What happens when the setting is accessed/retrieved.&quot;&quot;&quot;</span>
+        <span class="n">value</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">conf</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">storage_name</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">default_alias</span><span class="p">:</span>
+            <span class="n">retval</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">conf</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">default_alias</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">retval</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">prepare_get</span><span class="p">(</span><span class="n">conf</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_on_get_value_</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_on_get_value_</span><span class="p">(</span><span class="n">conf</span><span class="p">,</span> <span class="n">retval</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">retval</span></div>
+
+<div class="viewcode-block" id="Param.prepare_get"><a class="viewcode-back" href="../../../../reference/faust.types.settings.params.html#faust.Param.prepare_get">[docs]</a>    <span class="k">def</span> <span class="nf">prepare_get</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">conf</span><span class="p">:</span> <span class="n">_Settings</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">OT</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OT</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Prepare value when accessed/retrieved.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">value</span></div>
+
+<div class="viewcode-block" id="Param.on_set"><a class="viewcode-back" href="../../../../reference/faust.types.settings.params.html#faust.Param.on_set">[docs]</a>    <span class="k">def</span> <span class="nf">on_set</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">settings</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">OT</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;What happens when the setting is stored/set.&quot;&quot;&quot;</span>
+        <span class="n">settings</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">storage_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+        <span class="k">assert</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">settings</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">storage_name</span><span class="p">)</span> <span class="o">==</span> <span class="n">value</span></div>
+
+<div class="viewcode-block" id="Param.set_class_default"><a class="viewcode-back" href="../../../../reference/faust.types.settings.params.html#faust.Param.set_class_default">[docs]</a>    <span class="k">def</span> <span class="nf">set_class_default</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="bp">cls</span><span class="p">:</span> <span class="n">Type</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Set class default value for storage attribute.&quot;&quot;&quot;</span>
+        <span class="nb">setattr</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">storage_name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">default</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Param.on_init_set_value"><a class="viewcode-back" href="../../../../reference/faust.types.settings.params.html#faust.Param.on_init_set_value">[docs]</a>    <span class="k">def</span> <span class="nf">on_init_set_value</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                          <span class="n">conf</span><span class="p">:</span> <span class="n">_Settings</span><span class="p">,</span>
+                          <span class="n">provided_value</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">IT</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;What happens at ``Settings.__init__`` to store provided value.</span>
+
+<span class="sd">        Arguments:</span>
+<span class="sd">            conf: Settings object.</span>
+<span class="sd">            provided_value: Provided configuration value passed to</span>
+<span class="sd">                            ``Settings.__init__`` or :const:`None` if not set.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">provided_value</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="fm">__set__</span><span class="p">(</span><span class="n">conf</span><span class="p">,</span> <span class="n">provided_value</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Param.on_init_set_default"><a class="viewcode-back" href="../../../../reference/faust.types.settings.params.html#faust.Param.on_init_set_default">[docs]</a>    <span class="k">def</span> <span class="nf">on_init_set_default</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                            <span class="n">conf</span><span class="p">:</span> <span class="n">_Settings</span><span class="p">,</span>
+                            <span class="n">provided_value</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">IT</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;What happens at ``Settings.__init__`` to set default value.</span>
+
+<span class="sd">        Arguments:</span>
+<span class="sd">            conf: Settings object.</span>
+<span class="sd">            provided_value: Provided configuration value passed to</span>
+<span class="sd">                            ``Settings.__init__`` or :const:`None` if not set.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">provided_value</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">default_value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">default</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_on_set_default_</span><span class="p">:</span>
+                <span class="n">default_value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_on_set_default_</span><span class="p">(</span><span class="n">conf</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">default_value</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">default_template</span><span class="p">:</span>
+                <span class="n">default_value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">default_template</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">conf</span><span class="o">=</span><span class="n">conf</span><span class="p">)</span>
+            <span class="nb">setattr</span><span class="p">(</span><span class="n">conf</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">storage_name</span><span class="p">,</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">prepare_init_default</span><span class="p">(</span><span class="n">conf</span><span class="p">,</span> <span class="n">default_value</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="Param.build_deprecation_warning"><a class="viewcode-back" href="../../../../reference/faust.types.settings.params.html#faust.Param.build_deprecation_warning">[docs]</a>    <span class="k">def</span> <span class="nf">build_deprecation_warning</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Build deprecation warning for this setting.&quot;&quot;&quot;</span>
+        <span class="n">alt_removal</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">version_removed</span><span class="p">:</span>
+            <span class="n">alt_removal</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">deprecation_removal_warning</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">=</span><span class="bp">self</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">deprecation_warning_template</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">=</span><span class="bp">self</span><span class="p">,</span>
+            <span class="n">alt_removal</span><span class="o">=</span><span class="n">alt_removal</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="Param.validate_before"><a class="viewcode-back" href="../../../../reference/faust.types.settings.params.html#faust.Param.validate_before">[docs]</a>    <span class="k">def</span> <span class="nf">validate_before</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">IT</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Validate value before setting is converted to the target type.&quot;&quot;&quot;</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="Param.validate_after"><a class="viewcode-back" href="../../../../reference/faust.types.settings.params.html#faust.Param.validate_after">[docs]</a>    <span class="k">def</span> <span class="nf">validate_after</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">OT</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Validate value after it has been converted to its target type.&quot;&quot;&quot;</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="Param.prepare_set"><a class="viewcode-back" href="../../../../reference/faust.types.settings.params.html#faust.Param.prepare_set">[docs]</a>    <span class="k">def</span> <span class="nf">prepare_set</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">conf</span><span class="p">:</span> <span class="n">_Settings</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">IT</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OT</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Prepare value for storage.&quot;&quot;&quot;</span>
+        <span class="n">skip_validate</span> <span class="o">=</span> <span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">allow_none</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">skip_validate</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">validate_before</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">new_value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">to_python</span><span class="p">(</span><span class="n">conf</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">new_value</span> <span class="o">=</span> <span class="n">value</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">skip_validate</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">validate_after</span><span class="p">(</span><span class="n">new_value</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">new_value</span></div>
+
+<div class="viewcode-block" id="Param.prepare_init_default"><a class="viewcode-back" href="../../../../reference/faust.types.settings.params.html#faust.Param.prepare_init_default">[docs]</a>    <span class="k">def</span> <span class="nf">prepare_init_default</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">conf</span><span class="p">:</span> <span class="n">_Settings</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">IT</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OT</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Prepare default value for storage.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">to_python</span><span class="p">(</span><span class="n">conf</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">None</span></div>
+
+<div class="viewcode-block" id="Param.to_python"><a class="viewcode-back" href="../../../../reference/faust.types.settings.params.html#faust.Param.to_python">[docs]</a>    <span class="k">def</span> <span class="nf">to_python</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">conf</span><span class="p">:</span> <span class="n">_Settings</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">IT</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OT</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Convert value in input type to its output type.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="n">OT</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">active</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="k">return</span> <span class="ow">not</span> <span class="nb">bool</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">version_removed</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">deprecated</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">bool</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">version_deprecated</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">class_name</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span></div>
+
+
+<div class="viewcode-block" id="Bool"><a class="viewcode-back" href="../../../../reference/faust.types.settings.params.html#faust.Bool">[docs]</a><span class="k">class</span> <span class="nc">Bool</span><span class="p">(</span><span class="n">Param</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="nb">bool</span><span class="p">]):</span>
+    <span class="sd">&quot;&quot;&quot;Boolean setting type.&quot;&quot;&quot;</span>
+    <span class="n">text_type</span> <span class="o">=</span> <span class="p">(</span><span class="nb">bool</span><span class="p">,)</span>
+
+<div class="viewcode-block" id="Bool.to_python"><a class="viewcode-back" href="../../../../reference/faust.types.settings.params.html#faust.Bool.to_python">[docs]</a>    <span class="k">def</span> <span class="nf">to_python</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">conf</span><span class="p">:</span> <span class="n">_Settings</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Convert given value to :class:`bool`.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">to_bool</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">bool</span><span class="p">(</span><span class="n">value</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="Str"><a class="viewcode-back" href="../../../../reference/faust.types.settings.params.html#faust.Str">[docs]</a><span class="k">class</span> <span class="nc">Str</span><span class="p">(</span><span class="n">Param</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]):</span>
+    <span class="sd">&quot;&quot;&quot;String setting type.&quot;&quot;&quot;</span>
+    <span class="n">text_type</span> <span class="o">=</span> <span class="p">(</span><span class="nb">str</span><span class="p">,)</span></div>
+
+
+<div class="viewcode-block" id="Severity"><a class="viewcode-back" href="../../../../reference/faust.types.settings.params.html#faust.Severity">[docs]</a><span class="k">class</span> <span class="nc">Severity</span><span class="p">(</span><span class="n">Param</span><span class="p">[</span><span class="n">_Severity</span><span class="p">,</span> <span class="n">_Severity</span><span class="p">]):</span>
+    <span class="sd">&quot;&quot;&quot;Logging severity setting type.&quot;&quot;&quot;</span>
+    <span class="n">text_type</span> <span class="o">=</span> <span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span></div>
+
+
+<span class="k">class</span> <span class="nc">Number</span><span class="p">(</span><span class="n">Param</span><span class="p">[</span><span class="n">IT</span><span class="p">,</span> <span class="n">OT</span><span class="p">]):</span>
+    <span class="sd">&quot;&quot;&quot;Number setting type (baseclass for int/float).&quot;&quot;&quot;</span>
+    <span class="n">min_value</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">max_value</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">number_aliases</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="n">IT</span><span class="p">,</span> <span class="n">OT</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="nf">_init_options</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                      <span class="n">min_value</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                      <span class="n">max_value</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                      <span class="n">number_aliases</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="n">IT</span><span class="p">,</span> <span class="n">OT</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                      <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">min_value</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">min_value</span> <span class="o">=</span> <span class="n">min_value</span>
+        <span class="k">if</span> <span class="n">max_value</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">max_value</span> <span class="o">=</span> <span class="n">max_value</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">number_aliases</span> <span class="o">=</span> <span class="n">number_aliases</span> <span class="ow">or</span> <span class="p">{}</span>
+
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">convert</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">conf</span><span class="p">:</span> <span class="n">_Settings</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">IT</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OT</span><span class="p">:</span>
+        <span class="o">...</span>
+
+    <span class="k">def</span> <span class="nf">to_python</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                  <span class="n">conf</span><span class="p">:</span> <span class="n">_Settings</span><span class="p">,</span>
+                  <span class="n">value</span><span class="p">:</span> <span class="n">IT</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OT</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Convert given value to number.&quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">number_aliases</span><span class="p">[</span><span class="n">value</span><span class="p">]</span>
+        <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">convert</span><span class="p">(</span><span class="n">conf</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">validate_after</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">OT</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Validate number value.&quot;&quot;&quot;</span>
+        <span class="n">v</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+        <span class="n">min_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">min_value</span>
+        <span class="n">max_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_value</span>
+        <span class="k">if</span> <span class="n">min_</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">v</span> <span class="o">&lt;</span> <span class="n">min_</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="bp">self</span><span class="o">.</span><span class="n">_out_of_range</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">max_</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">v</span> <span class="o">&gt;</span> <span class="n">max_</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="bp">self</span><span class="o">.</span><span class="n">_out_of_range</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_out_of_range</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ImproperlyConfigured</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">ImproperlyConfigured</span><span class="p">(</span>
+            <span class="n">f</span><span class="s1">&#39;Value </span><span class="si">{value}</span><span class="s1"> is out of range for </span><span class="si">{self.class_name}</span><span class="s1"> &#39;</span>
+            <span class="n">f</span><span class="s1">&#39;(min=</span><span class="si">{self.min_value}</span><span class="s1"> max=</span><span class="si">{self.max_value}</span><span class="s1">)&#39;</span><span class="p">)</span>
+
+
+<span class="n">NumberInputArg</span> <span class="o">=</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span>
+
+
+<span class="k">class</span> <span class="nc">_Int</span><span class="p">(</span><span class="n">Number</span><span class="p">[</span><span class="n">IT</span><span class="p">,</span> <span class="n">OT</span><span class="p">]):</span>
+    <span class="n">text_type</span> <span class="o">=</span> <span class="p">(</span><span class="nb">int</span><span class="p">,)</span>
+
+    <span class="k">def</span> <span class="nf">convert</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                <span class="n">conf</span><span class="p">:</span> <span class="n">_Settings</span><span class="p">,</span>
+                <span class="n">value</span><span class="p">:</span> <span class="n">IT</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OT</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Convert given value to int.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="n">OT</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">cast</span><span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="n">value</span><span class="p">)))</span>
+
+
+<div class="viewcode-block" id="Int"><a class="viewcode-back" href="../../../../reference/faust.types.settings.params.html#faust.Int">[docs]</a><span class="k">class</span> <span class="nc">Int</span><span class="p">(</span><span class="n">_Int</span><span class="p">[</span><span class="n">NumberInputArg</span><span class="p">,</span> <span class="nb">int</span><span class="p">]):</span>
+    <span class="sd">&quot;&quot;&quot;Signed integer setting type.&quot;&quot;&quot;</span></div>
+
+
+<div class="viewcode-block" id="UnsignedInt"><a class="viewcode-back" href="../../../../reference/faust.types.settings.params.html#faust.UnsignedInt">[docs]</a><span class="k">class</span> <span class="nc">UnsignedInt</span><span class="p">(</span><span class="n">_Int</span><span class="p">[</span><span class="n">NumberInputArg</span><span class="p">,</span> <span class="nb">int</span><span class="p">]):</span>
+    <span class="sd">&quot;&quot;&quot;Unsigned integer setting type.&quot;&quot;&quot;</span>
+    <span class="n">min_value</span> <span class="o">=</span> <span class="mi">0</span></div>
+
+
+<div class="viewcode-block" id="Version"><a class="viewcode-back" href="../../../../reference/faust.types.settings.params.html#faust.Version">[docs]</a><span class="k">class</span> <span class="nc">Version</span><span class="p">(</span><span class="n">Int</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Version setting type.</span>
+
+<span class="sd">    Versions must be greater than ``1``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">min_value</span> <span class="o">=</span> <span class="mi">1</span></div>
+
+
+<div class="viewcode-block" id="Port"><a class="viewcode-back" href="../../../../reference/faust.types.settings.params.html#faust.Port">[docs]</a><span class="k">class</span> <span class="nc">Port</span><span class="p">(</span><span class="n">UnsignedInt</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Network port setting type.</span>
+
+<span class="sd">    Ports must be in the range 1-65535.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">min_value</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">max_value</span> <span class="o">=</span> <span class="mi">65535</span></div>
+
+
+<div class="viewcode-block" id="Seconds"><a class="viewcode-back" href="../../../../reference/faust.types.settings.params.html#faust.Seconds">[docs]</a><span class="k">class</span> <span class="nc">Seconds</span><span class="p">(</span><span class="n">Param</span><span class="p">[</span><span class="n">_Seconds</span><span class="p">,</span> <span class="nb">float</span><span class="p">]):</span>
+    <span class="sd">&quot;&quot;&quot;Seconds setting type.</span>
+
+<span class="sd">    Converts from :class:`float`/:class:`~datetime.timedelta` to</span>
+<span class="sd">    :class:`float`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">text_type</span> <span class="o">=</span> <span class="p">(</span><span class="nb">float</span><span class="p">,</span> <span class="n">timedelta</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Seconds.to_python"><a class="viewcode-back" href="../../../../reference/faust.types.settings.params.html#faust.Seconds.to_python">[docs]</a>    <span class="k">def</span> <span class="nf">to_python</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">conf</span><span class="p">:</span> <span class="n">_Settings</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">_Seconds</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">want_seconds</span><span class="p">(</span><span class="n">value</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="Credentials"><a class="viewcode-back" href="../../../../reference/faust.types.settings.params.html#faust.Credentials">[docs]</a><span class="k">class</span> <span class="nc">Credentials</span><span class="p">(</span><span class="n">Param</span><span class="p">[</span><span class="n">CredentialsArg</span><span class="p">,</span> <span class="n">Optional</span><span class="p">[</span><span class="n">CredentialsT</span><span class="p">]]):</span>
+    <span class="sd">&quot;&quot;&quot;Authentication credentials setting type.&quot;&quot;&quot;</span>
+    <span class="n">text_type</span> <span class="o">=</span> <span class="p">(</span><span class="n">CredentialsT</span><span class="p">,)</span>
+
+<div class="viewcode-block" id="Credentials.to_python"><a class="viewcode-back" href="../../../../reference/faust.types.settings.params.html#faust.Credentials.to_python">[docs]</a>    <span class="k">def</span> <span class="nf">to_python</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                  <span class="n">conf</span><span class="p">:</span> <span class="n">_Settings</span><span class="p">,</span>
+                  <span class="n">value</span><span class="p">:</span> <span class="n">CredentialsArg</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">CredentialsT</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="n">to_credentials</span><span class="p">(</span><span class="n">value</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="SSLContext"><a class="viewcode-back" href="../../../../reference/faust.types.settings.params.html#faust.SSLContext">[docs]</a><span class="k">class</span> <span class="nc">SSLContext</span><span class="p">(</span><span class="n">Param</span><span class="p">[</span><span class="n">ssl</span><span class="o">.</span><span class="n">SSLContext</span><span class="p">,</span> <span class="n">Optional</span><span class="p">[</span><span class="n">ssl</span><span class="o">.</span><span class="n">SSLContext</span><span class="p">]]):</span>
+    <span class="sd">&quot;&quot;&quot;SSL context setting type.&quot;&quot;&quot;</span>
+    <span class="n">text_type</span> <span class="o">=</span> <span class="p">(</span><span class="n">ssl</span><span class="o">.</span><span class="n">SSLContext</span><span class="p">,)</span></div>
+
+
+<div class="viewcode-block" id="Dict"><a class="viewcode-back" href="../../../../reference/faust.types.settings.params.html#faust.Dict">[docs]</a><span class="k">class</span> <span class="nc">Dict</span><span class="p">(</span><span class="n">Param</span><span class="p">[</span><span class="n">DictArg</span><span class="p">[</span><span class="n">T</span><span class="p">],</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">T</span><span class="p">]]):</span>
+    <span class="sd">&quot;&quot;&quot;Dictionary setting type.&quot;&quot;&quot;</span>
+    <span class="n">text_type</span> <span class="o">=</span> <span class="p">(</span><span class="nb">dict</span><span class="p">,)</span>
+
+<div class="viewcode-block" id="Dict.to_python"><a class="viewcode-back" href="../../../../reference/faust.types.settings.params.html#faust.Dict.to_python">[docs]</a>    <span class="k">def</span> <span class="nf">to_python</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                  <span class="n">conf</span><span class="p">:</span> <span class="n">_Settings</span><span class="p">,</span>
+                  <span class="n">value</span><span class="p">:</span> <span class="n">DictArg</span><span class="p">[</span><span class="n">T</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">T</span><span class="p">]:</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">value</span>
+        <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span><span class="n">value</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="LogHandlers"><a class="viewcode-back" href="../../../../reference/faust.types.settings.params.html#faust.LogHandlers">[docs]</a><span class="k">class</span> <span class="nc">LogHandlers</span><span class="p">(</span><span class="n">Param</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">logging</span><span class="o">.</span><span class="n">Handler</span><span class="p">],</span> <span class="n">List</span><span class="p">[</span><span class="n">logging</span><span class="o">.</span><span class="n">Handler</span><span class="p">]]):</span>
+    <span class="sd">&quot;&quot;&quot;Log handler list setting type.&quot;&quot;&quot;</span>
+    <span class="n">text_type</span> <span class="o">=</span> <span class="p">(</span><span class="n">List</span><span class="p">[</span><span class="n">logging</span><span class="o">.</span><span class="n">Handler</span><span class="p">],)</span>
+
+<div class="viewcode-block" id="LogHandlers.prepare_init_default"><a class="viewcode-back" href="../../../../reference/faust.types.settings.params.html#faust.LogHandlers.prepare_init_default">[docs]</a>    <span class="k">def</span> <span class="nf">prepare_init_default</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span> <span class="n">conf</span><span class="p">:</span> <span class="n">_Settings</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">logging</span><span class="o">.</span><span class="n">Handler</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="p">[]</span></div></div>
+
+
+<div class="viewcode-block" id="Timezone"><a class="viewcode-back" href="../../../../reference/faust.types.settings.params.html#faust.Timezone">[docs]</a><span class="k">class</span> <span class="nc">Timezone</span><span class="p">(</span><span class="n">Param</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">tzinfo</span><span class="p">],</span> <span class="n">tzinfo</span><span class="p">]):</span>
+    <span class="sd">&quot;&quot;&quot;Timezone setting type.&quot;&quot;&quot;</span>
+    <span class="n">text_type</span> <span class="o">=</span> <span class="p">(</span><span class="n">tzinfo</span><span class="p">,)</span>
+    <span class="n">builtin_timezones</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;UTC&#39;</span><span class="p">:</span> <span class="n">timezone</span><span class="o">.</span><span class="n">utc</span><span class="p">}</span>
+
+<div class="viewcode-block" id="Timezone.to_python"><a class="viewcode-back" href="../../../../reference/faust.types.settings.params.html#faust.Timezone.to_python">[docs]</a>    <span class="k">def</span> <span class="nf">to_python</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">conf</span><span class="p">:</span> <span class="n">_Settings</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">tzinfo</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">tzinfo</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="n">tzinfo</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">builtin_timezones</span><span class="p">[</span><span class="n">value</span><span class="o">.</span><span class="n">lower</span><span class="p">()])</span>
+            <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+                <span class="kn">import</span> <span class="nn">pytz</span>
+                <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="n">tzinfo</span><span class="p">,</span> <span class="n">pytz</span><span class="o">.</span><span class="n">timezone</span><span class="p">(</span><span class="n">value</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">value</span></div></div>
+
+
+<div class="viewcode-block" id="BrokerList"><a class="viewcode-back" href="../../../../reference/faust.types.settings.params.html#faust.BrokerList">[docs]</a><span class="k">class</span> <span class="nc">BrokerList</span><span class="p">(</span><span class="n">Param</span><span class="p">[</span><span class="n">BrokerArg</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="n">_URL</span><span class="p">]]):</span>
+    <span class="sd">&quot;&quot;&quot;Broker URL list setting type.&quot;&quot;&quot;</span>
+    <span class="n">text_type</span> <span class="o">=</span> <span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">_URL</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span>
+    <span class="n">default_scheme</span> <span class="o">=</span> <span class="n">DEFAULT_BROKER_SCHEME</span>
+
+<div class="viewcode-block" id="BrokerList.to_python"><a class="viewcode-back" href="../../../../reference/faust.types.settings.params.html#faust.BrokerList.to_python">[docs]</a>    <span class="k">def</span> <span class="nf">to_python</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">conf</span><span class="p">:</span> <span class="n">_Settings</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">BrokerArg</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">_URL</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">broker_list</span><span class="p">(</span><span class="n">value</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="BrokerList.broker_list"><a class="viewcode-back" href="../../../../reference/faust.types.settings.params.html#faust.BrokerList.broker_list">[docs]</a>    <span class="k">def</span> <span class="nf">broker_list</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">BrokerArg</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">_URL</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="n">urllist</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">default_scheme</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">default_scheme</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="URL"><a class="viewcode-back" href="../../../../reference/faust.types.settings.params.html#faust.URL">[docs]</a><span class="k">class</span> <span class="nc">URL</span><span class="p">(</span><span class="n">Param</span><span class="p">[</span><span class="n">URLArg</span><span class="p">,</span> <span class="n">_URL</span><span class="p">]):</span>
+    <span class="sd">&quot;&quot;&quot;URL setting type.&quot;&quot;&quot;</span>
+    <span class="n">text_type</span> <span class="o">=</span> <span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">_URL</span><span class="p">)</span>
+
+<div class="viewcode-block" id="URL.to_python"><a class="viewcode-back" href="../../../../reference/faust.types.settings.params.html#faust.URL.to_python">[docs]</a>    <span class="k">def</span> <span class="nf">to_python</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">conf</span><span class="p">:</span> <span class="n">_Settings</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">URLArg</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_URL</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">_URL</span><span class="p">(</span><span class="n">value</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="Path"><a class="viewcode-back" href="../../../../reference/faust.types.settings.params.html#faust.Path">[docs]</a><span class="k">class</span> <span class="nc">Path</span><span class="p">(</span><span class="n">Param</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">_Path</span><span class="p">],</span> <span class="n">_Path</span><span class="p">]):</span>
+    <span class="sd">&quot;&quot;&quot;Path setting type.&quot;&quot;&quot;</span>
+    <span class="n">text_type</span> <span class="o">=</span> <span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">_Path</span><span class="p">)</span>
+    <span class="n">expanduser</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+
+<div class="viewcode-block" id="Path.to_python"><a class="viewcode-back" href="../../../../reference/faust.types.settings.params.html#faust.Path.to_python">[docs]</a>    <span class="k">def</span> <span class="nf">to_python</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">conf</span><span class="p">:</span> <span class="n">_Settings</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">_Path</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">_Path</span><span class="p">:</span>
+        <span class="n">p</span> <span class="o">=</span> <span class="n">_Path</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">expanduser</span><span class="p">:</span>
+            <span class="n">p</span> <span class="o">=</span> <span class="n">p</span><span class="o">.</span><span class="n">expanduser</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">prepare_path</span><span class="p">(</span><span class="n">conf</span><span class="p">,</span> <span class="n">p</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Path.prepare_path"><a class="viewcode-back" href="../../../../reference/faust.types.settings.params.html#faust.Path.prepare_path">[docs]</a>    <span class="k">def</span> <span class="nf">prepare_path</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">conf</span><span class="p">:</span> <span class="n">_Settings</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="n">_Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_Path</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">path</span></div></div>
+
+
+<div class="viewcode-block" id="Codec"><a class="viewcode-back" href="../../../../reference/faust.types.settings.params.html#faust.Codec">[docs]</a><span class="k">class</span> <span class="nc">Codec</span><span class="p">(</span><span class="n">Param</span><span class="p">[</span><span class="n">CodecArg</span><span class="p">,</span> <span class="n">CodecArg</span><span class="p">]):</span>
+    <span class="sd">&quot;&quot;&quot;Serialization codec setting type.&quot;&quot;&quot;</span>
+    <span class="n">text_type</span> <span class="o">=</span> <span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">CodecT</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Enum"><a class="viewcode-back" href="../../../../reference/faust.types.settings.params.html#faust.Enum">[docs]</a><span class="k">def</span> <span class="nf">Enum</span><span class="p">(</span><span class="n">typ</span><span class="p">:</span> <span class="n">T</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Type</span><span class="p">[</span><span class="n">Param</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">T</span><span class="p">],</span> <span class="n">T</span><span class="p">]]:</span>
+    <span class="sd">&quot;&quot;&quot;Generate new enum setting type.&quot;&quot;&quot;</span>
+
+    <span class="k">class</span> <span class="nc">EnumParam</span><span class="p">(</span><span class="n">Param</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">T</span><span class="p">],</span> <span class="n">T</span><span class="p">]):</span>
+        <span class="n">text_type</span> <span class="o">=</span> <span class="p">(</span><span class="nb">str</span><span class="p">,)</span>
+
+        <span class="k">def</span> <span class="nf">to_python</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">conf</span><span class="p">:</span> <span class="n">_Settings</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">T</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">T</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">typ</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
+
+    <span class="k">return</span> <span class="n">EnumParam</span></div>
+
+
+<span class="k">class</span> <span class="nc">_Symbol</span><span class="p">(</span><span class="n">Param</span><span class="p">[</span><span class="n">IT</span><span class="p">,</span> <span class="n">OT</span><span class="p">]):</span>
+    <span class="n">text_type</span> <span class="o">=</span> <span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">Type</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">to_python</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">conf</span><span class="p">:</span> <span class="n">_Settings</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">IT</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OT</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="n">OT</span><span class="p">,</span> <span class="n">symbol_by_name</span><span class="p">(</span><span class="n">value</span><span class="p">))</span>
+
+
+<div class="viewcode-block" id="Symbol"><a class="viewcode-back" href="../../../../reference/faust.types.settings.params.html#faust.Symbol">[docs]</a><span class="k">def</span> <span class="nf">Symbol</span><span class="p">(</span><span class="n">typ</span><span class="p">:</span> <span class="n">T</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Type</span><span class="p">[</span><span class="n">Param</span><span class="p">[</span><span class="n">SymbolArg</span><span class="p">[</span><span class="n">T</span><span class="p">],</span> <span class="n">T</span><span class="p">]]:</span>
+    <span class="sd">&quot;&quot;&quot;Generate new symbol setting type.&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">_Symbol</span><span class="p">[</span><span class="n">SymbolArg</span><span class="p">[</span><span class="n">T</span><span class="p">],</span> <span class="n">T</span><span class="p">]</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../../../index.html">
+              <img class="logo" src="../../../../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../../../../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../playbooks/index.html">Playbooks</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../userguide/index.html">User Guide</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../reference/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../history/index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2020, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

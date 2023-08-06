@@ -1,0 +1,534 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>faust.web.base &#8212; Faust 1.11.0a1 documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="copyright" title="Copyright" href="../copyright.html" />
+    <link rel="next" title="faust.web.blueprints" href="faust.web.blueprints.html" />
+    <link rel="prev" title="faust.web.apps.stats" href="faust.web.apps.stats.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="faust-web-base">
+<h1><code class="docutils literal notranslate"><span class="pre">faust.web.base</span></code><a class="headerlink" href="#faust-web-base" title="Permalink to this headline">¶</a></h1>
+<span class="target" id="module-faust.web.base"></span><p>Base interface for Web server and views.</p>
+<dl class="class">
+<dt id="faust.web.base.Response">
+<em class="property">class </em><code class="sig-prename descclassname">faust.web.base.</code><code class="sig-name descname">Response</code><a class="reference internal" href="../_modules/faust/web/base.html#Response"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.web.base.Response" title="Permalink to this definition">¶</a></dt>
+<dd><p>Web server response and status.</p>
+<dl class="method">
+<dt id="faust.web.base.Response.status">
+<em class="property">abstract property </em><code class="sig-name descname">status</code><a class="headerlink" href="#faust.web.base.Response.status" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return the response status code.
+:rtype: <a class="reference external" href="https://docs.python.org/dev/library/functions.html#int" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a></p>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.web.base.Response.body">
+<em class="property">abstract property </em><code class="sig-name descname">body</code><a class="headerlink" href="#faust.web.base.Response.body" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return the response body as bytes.
+:rtype: <a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#bytes" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bytes</span></code></a></p>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.web.base.Response.headers">
+<em class="property">abstract property </em><code class="sig-name descname">headers</code><a class="headerlink" href="#faust.web.base.Response.headers" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return mapping of response HTTP headers.
+:rtype: <a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.MutableMapping" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">MutableMapping</span></code></a>[~KT, ~VT]</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.web.base.Response.content_length">
+<em class="property">abstract property </em><code class="sig-name descname">content_length</code><a class="headerlink" href="#faust.web.base.Response.content_length" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return the size of the response body.
+:rtype: <a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Optional" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/functions.html#int" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>]</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.web.base.Response.content_type">
+<em class="property">abstract property </em><code class="sig-name descname">content_type</code><a class="headerlink" href="#faust.web.base.Response.content_type" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return the response content type.
+:rtype: <a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.web.base.Response.charset">
+<em class="property">abstract property </em><code class="sig-name descname">charset</code><a class="headerlink" href="#faust.web.base.Response.charset" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return the response character set.
+:rtype: <a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Optional" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>]</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.web.base.Response.chunked">
+<em class="property">abstract property </em><code class="sig-name descname">chunked</code><a class="headerlink" href="#faust.web.base.Response.chunked" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return <code class="xref py py-const docutils literal notranslate"><span class="pre">True</span></code> if response is chunked.
+:rtype: <a class="reference external" href="https://docs.python.org/dev/library/functions.html#bool" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a></p>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.web.base.Response.compression">
+<em class="property">abstract property </em><code class="sig-name descname">compression</code><a class="headerlink" href="#faust.web.base.Response.compression" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return <code class="xref py py-const docutils literal notranslate"><span class="pre">True</span></code> if the response body is compressed.
+:rtype: <a class="reference external" href="https://docs.python.org/dev/library/functions.html#bool" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a></p>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.web.base.Response.keep_alive">
+<em class="property">abstract property </em><code class="sig-name descname">keep_alive</code><a class="headerlink" href="#faust.web.base.Response.keep_alive" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return <code class="xref py py-const docutils literal notranslate"><span class="pre">True</span></code> if HTTP keep-alive enabled.
+:rtype: <a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Optional" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/functions.html#bool" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>]</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.web.base.Response.body_length">
+<em class="property">abstract property </em><code class="sig-name descname">body_length</code><a class="headerlink" href="#faust.web.base.Response.body_length" title="Permalink to this definition">¶</a></dt>
+<dd><p>Size of HTTP response body.
+:rtype: <a class="reference external" href="https://docs.python.org/dev/library/functions.html#int" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a></p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="faust.web.base.BlueprintManager">
+<em class="property">class </em><code class="sig-prename descclassname">faust.web.base.</code><code class="sig-name descname">BlueprintManager</code><span class="sig-paren">(</span><em class="sig-param">initial: Iterable[Tuple[str</em>, <em class="sig-param">Union[_T</em>, <em class="sig-param">str]]] = None</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/web/base.html#BlueprintManager"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.web.base.BlueprintManager" title="Permalink to this definition">¶</a></dt>
+<dd><p>Manager of all blueprints.</p>
+<dl class="method">
+<dt id="faust.web.base.BlueprintManager.add">
+<code class="sig-name descname">add</code><span class="sig-paren">(</span><em class="sig-param">prefix: str, blueprint: Union[_T, str]</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/web/base.html#BlueprintManager.add"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.web.base.BlueprintManager.add" title="Permalink to this definition">¶</a></dt>
+<dd><p>Register blueprint with this app.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.web.base.BlueprintManager.apply">
+<code class="sig-name descname">apply</code><span class="sig-paren">(</span><em class="sig-param">web: faust.web.base.Web</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/web/base.html#BlueprintManager.apply"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.web.base.BlueprintManager.apply" title="Permalink to this definition">¶</a></dt>
+<dd><p>Apply all blueprints.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="faust.web.base.Web">
+<em class="property">class </em><code class="sig-prename descclassname">faust.web.base.</code><code class="sig-name descname">Web</code><span class="sig-paren">(</span><em class="sig-param">app: faust.types.app.AppT</em>, <em class="sig-param">**kwargs: Any</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/web/base.html#Web"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.web.base.Web" title="Permalink to this definition">¶</a></dt>
+<dd><p>Web server and HTTP interface.</p>
+<dl class="attribute">
+<dt id="faust.web.base.Web.default_blueprints">
+<code class="sig-name descname">default_blueprints</code><em class="property"> = [('/router', 'faust.web.apps.router:blueprint'), ('/table', 'faust.web.apps.tables.blueprint')]</em><a class="headerlink" href="#faust.web.base.Web.default_blueprints" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="faust.web.base.Web.production_blueprints">
+<code class="sig-name descname">production_blueprints</code><em class="property"> = [('', 'faust.web.apps.production_index:blueprint')]</em><a class="headerlink" href="#faust.web.base.Web.production_blueprints" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="faust.web.base.Web.debug_blueprints">
+<code class="sig-name descname">debug_blueprints</code><em class="property"> = [('/graph', 'faust.web.apps.graph:blueprint'), ('', 'faust.web.apps.stats:blueprint')]</em><a class="headerlink" href="#faust.web.base.Web.debug_blueprints" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="faust.web.base.Web.content_separator">
+<code class="sig-name descname">content_separator</code><em class="property"> = b'\r\n\r\n'</em><a class="headerlink" href="#faust.web.base.Web.content_separator" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="faust.web.base.Web.header_separator">
+<code class="sig-name descname">header_separator</code><em class="property"> = b'\r\n'</em><a class="headerlink" href="#faust.web.base.Web.header_separator" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="faust.web.base.Web.header_key_value_separator">
+<code class="sig-name descname">header_key_value_separator</code><em class="property"> = b': '</em><a class="headerlink" href="#faust.web.base.Web.header_key_value_separator" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="faust.web.base.Web.text">
+<em class="property">abstract </em><code class="sig-name descname">text</code><span class="sig-paren">(</span><em class="sig-param">value: str</em>, <em class="sig-param">*</em>, <em class="sig-param">content_type: str = None</em>, <em class="sig-param">status: int = 200</em>, <em class="sig-param">reason: str = None</em>, <em class="sig-param">headers: MutableMapping = None</em><span class="sig-paren">)</span> &#x2192; faust.web.base.Response<a class="reference internal" href="../_modules/faust/web/base.html#Web.text"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.web.base.Web.text" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create text response, using “text/plain” content-type.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="#faust.web.base.Response" title="faust.web.base.Response"><code class="xref py py-class docutils literal notranslate"><span class="pre">Response</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.web.base.Web.html">
+<em class="property">abstract </em><code class="sig-name descname">html</code><span class="sig-paren">(</span><em class="sig-param">value: str</em>, <em class="sig-param">*</em>, <em class="sig-param">content_type: str = None</em>, <em class="sig-param">status: int = 200</em>, <em class="sig-param">reason: str = None</em>, <em class="sig-param">headers: MutableMapping = None</em><span class="sig-paren">)</span> &#x2192; faust.web.base.Response<a class="reference internal" href="../_modules/faust/web/base.html#Web.html"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.web.base.Web.html" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create HTML response from string, <code class="docutils literal notranslate"><span class="pre">text/html</span></code> content-type.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="#faust.web.base.Response" title="faust.web.base.Response"><code class="xref py py-class docutils literal notranslate"><span class="pre">Response</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.web.base.Web.json">
+<em class="property">abstract </em><code class="sig-name descname">json</code><span class="sig-paren">(</span><em class="sig-param">value: Any</em>, <em class="sig-param">*</em>, <em class="sig-param">content_type: str = None</em>, <em class="sig-param">status: int = 200</em>, <em class="sig-param">reason: str = None</em>, <em class="sig-param">headers: MutableMapping = None</em><span class="sig-paren">)</span> &#x2192; faust.web.base.Response<a class="reference internal" href="../_modules/faust/web/base.html#Web.json"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.web.base.Web.json" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create new JSON response.</p>
+<p>Accepts any JSON-serializable value and will automatically
+serialize it for you.</p>
+<p>The content-type is set to “application/json”.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="#faust.web.base.Response" title="faust.web.base.Response"><code class="xref py py-class docutils literal notranslate"><span class="pre">Response</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.web.base.Web.bytes">
+<em class="property">abstract </em><code class="sig-name descname">bytes</code><span class="sig-paren">(</span><em class="sig-param">value: bytes</em>, <em class="sig-param">*</em>, <em class="sig-param">content_type: str = None</em>, <em class="sig-param">status: int = 200</em>, <em class="sig-param">reason: str = None</em>, <em class="sig-param">headers: MutableMapping = None</em><span class="sig-paren">)</span> &#x2192; faust.web.base.Response<a class="reference internal" href="../_modules/faust/web/base.html#Web.bytes"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.web.base.Web.bytes" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create new <code class="docutils literal notranslate"><span class="pre">bytes</span></code> response - for binary data.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="#faust.web.base.Response" title="faust.web.base.Response"><code class="xref py py-class docutils literal notranslate"><span class="pre">Response</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.web.base.Web.bytes_to_response">
+<em class="property">abstract </em><code class="sig-name descname">bytes_to_response</code><span class="sig-paren">(</span><em class="sig-param">s: bytes</em><span class="sig-paren">)</span> &#x2192; faust.web.base.Response<a class="reference internal" href="../_modules/faust/web/base.html#Web.bytes_to_response"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.web.base.Web.bytes_to_response" title="Permalink to this definition">¶</a></dt>
+<dd><p>Deserialize HTTP response from byte string.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="#faust.web.base.Response" title="faust.web.base.Response"><code class="xref py py-class docutils literal notranslate"><span class="pre">Response</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.web.base.Web.response_to_bytes">
+<em class="property">abstract </em><code class="sig-name descname">response_to_bytes</code><span class="sig-paren">(</span><em class="sig-param">response: faust.web.base.Response</em><span class="sig-paren">)</span> &#x2192; bytes<a class="reference internal" href="../_modules/faust/web/base.html#Web.response_to_bytes"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.web.base.Web.response_to_bytes" title="Permalink to this definition">¶</a></dt>
+<dd><p>Serialize HTTP response into byte string.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="#faust.web.base.Web.bytes" title="faust.web.base.Web.bytes"><code class="xref py py-class docutils literal notranslate"><span class="pre">bytes</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.web.base.Web.route">
+<em class="property">abstract </em><code class="sig-name descname">route</code><span class="sig-paren">(</span><em class="sig-param">pattern: str</em>, <em class="sig-param">handler: Callable</em>, <em class="sig-param">cors_options: Mapping[str</em>, <em class="sig-param">faust.types.web.ResourceOptions] = None</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/web/base.html#Web.route"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.web.base.Web.route" title="Permalink to this definition">¶</a></dt>
+<dd><p>Add route for handler.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.web.base.Web.add_static">
+<em class="property">abstract </em><code class="sig-name descname">add_static</code><span class="sig-paren">(</span><em class="sig-param">prefix: str, path: Union[pathlib.Path, str], **kwargs: Any</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/web/base.html#Web.add_static"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.web.base.Web.add_static" title="Permalink to this definition">¶</a></dt>
+<dd><p>Add static route.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.web.base.Web.read_request_content">
+<em class="property">abstract async </em><code class="sig-name descname">read_request_content</code><span class="sig-paren">(</span><em class="sig-param">request: faust.web.base.Request</em><span class="sig-paren">)</span> &#x2192; bytes<a class="reference internal" href="../_modules/faust/web/base.html#Web.read_request_content"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.web.base.Web.read_request_content" title="Permalink to this definition">¶</a></dt>
+<dd><p>Read HTTP body as bytes.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="#faust.web.base.Web.bytes" title="faust.web.base.Web.bytes"><code class="xref py py-class docutils literal notranslate"><span class="pre">bytes</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.web.base.Web.wsgi">
+<em class="property">abstract async </em><code class="sig-name descname">wsgi</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; Any<a class="reference internal" href="../_modules/faust/web/base.html#Web.wsgi"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.web.base.Web.wsgi" title="Permalink to this definition">¶</a></dt>
+<dd><p>WSGI entry point.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Any" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.web.base.Web.add_view">
+<code class="sig-name descname">add_view</code><span class="sig-paren">(</span><em class="sig-param">view_cls: Type[faust.types.web.View], *, prefix: str = '', cors_options: Mapping[str, faust.types.web.ResourceOptions] = None</em><span class="sig-paren">)</span> &#x2192; faust.types.web.View<a class="reference internal" href="../_modules/faust/web/base.html#Web.add_view"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.web.base.Web.add_view" title="Permalink to this definition">¶</a></dt>
+<dd><p>Add route for view.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="faust.types.web.html#faust.types.web.View" title="faust.types.web.View"><code class="xref py py-class docutils literal notranslate"><span class="pre">View</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.web.base.Web.url_for">
+<code class="sig-name descname">url_for</code><span class="sig-paren">(</span><em class="sig-param">view_name: str</em>, <em class="sig-param">**kwargs: Any</em><span class="sig-paren">)</span> &#x2192; str<a class="reference internal" href="../_modules/faust/web/base.html#Web.url_for"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.web.base.Web.url_for" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get URL by view name.</p>
+<p>If the provided view name has associated URL parameters,
+those need to be passed in as kwargs, or a <a class="reference external" href="https://docs.python.org/dev/library/exceptions.html#TypeError" title="(in Python v3.9)"><code class="xref py py-exc docutils literal notranslate"><span class="pre">TypeError</span></code></a>
+will be raised.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.web.base.Web.init_server">
+<code class="sig-name descname">init_server</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/web/base.html#Web.init_server"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.web.base.Web.init_server" title="Permalink to this definition">¶</a></dt>
+<dd><p>Initialize and setup web server.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.web.base.Web.url">
+<em class="property">property </em><code class="sig-name descname">url</code><a class="headerlink" href="#faust.web.base.Web.url" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return the canonical URL to this worker (including port).
+:rtype: <a class="reference external" href="https://yarl.readthedocs.io/en/latest/api.html#yarl.URL" title="(in yarl v1.5)"><code class="xref py py-class docutils literal notranslate"><span class="pre">URL</span></code></a></p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.web.base.Web.logger">
+<code class="sig-name descname">logger</code><em class="property"> = &lt;Logger faust.web.base (WARNING)&gt;</em><a class="headerlink" href="#faust.web.base.Web.logger" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="faust.web.base.Request">
+<em class="property">class </em><code class="sig-prename descclassname">faust.web.base.</code><code class="sig-name descname">Request</code><span class="sig-paren">(</span><em class="sig-param">*args</em>, <em class="sig-param">**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/faust/web/base.html#Request"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.web.base.Request" title="Permalink to this definition">¶</a></dt>
+<dd><p>HTTP Request.</p>
+<dl class="method">
+<dt id="faust.web.base.Request.can_read_body">
+<em class="property">abstract </em><code class="sig-name descname">can_read_body</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; bool<a class="reference internal" href="../_modules/faust/web/base.html#Request.can_read_body"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.web.base.Request.can_read_body" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return <code class="xref py py-const docutils literal notranslate"><span class="pre">True</span></code> if the request has a body.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/functions.html#bool" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.web.base.Request.read">
+<em class="property">abstract async </em><code class="sig-name descname">read</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; bytes<a class="reference internal" href="../_modules/faust/web/base.html#Request.read"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.web.base.Request.read" title="Permalink to this definition">¶</a></dt>
+<dd><p>Read post data as bytes.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#bytes" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bytes</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.web.base.Request.text">
+<em class="property">abstract async </em><code class="sig-name descname">text</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; str<a class="reference internal" href="../_modules/faust/web/base.html#Request.text"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.web.base.Request.text" title="Permalink to this definition">¶</a></dt>
+<dd><p>Read post data as text.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.web.base.Request.json">
+<em class="property">abstract async </em><code class="sig-name descname">json</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; Any<a class="reference internal" href="../_modules/faust/web/base.html#Request.json"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.web.base.Request.json" title="Permalink to this definition">¶</a></dt>
+<dd><p>Read post data and deserialize as JSON.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Any" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.web.base.Request.post">
+<em class="property">abstract async </em><code class="sig-name descname">post</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; Mapping[str, str]<a class="reference internal" href="../_modules/faust/web/base.html#Request.post"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.web.base.Request.post" title="Permalink to this definition">¶</a></dt>
+<dd><p>Read post data.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Mapping" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Mapping</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.web.base.Request.match_info">
+<em class="property">abstract property </em><code class="sig-name descname">match_info</code><a class="headerlink" href="#faust.web.base.Request.match_info" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return match info from URL route as a mapping.
+:rtype: <a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Mapping" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Mapping</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>]</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.web.base.Request.query">
+<em class="property">abstract property </em><code class="sig-name descname">query</code><a class="headerlink" href="#faust.web.base.Request.query" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return HTTP query parameters as a mapping.
+:rtype: <a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Mapping" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Mapping</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>]</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.web.base.Request.cookies">
+<em class="property">abstract property </em><code class="sig-name descname">cookies</code><a class="headerlink" href="#faust.web.base.Request.cookies" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return cookies as a mapping.
+:rtype: <a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Mapping" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Mapping</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Any" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code></a>]</p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../playbooks/index.html">Playbooks</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../userguide/index.html">User Guide</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../history/index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">API Reference</a><ul>
+      <li>Previous: <a href="faust.web.apps.stats.html" title="previous chapter"><code class="docutils literal notranslate"><span class="pre">faust.web.apps.stats</span></code></a></li>
+      <li>Next: <a href="faust.web.blueprints.html" title="next chapter"><code class="docutils literal notranslate"><span class="pre">faust.web.blueprints</span></code></a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2020, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../_sources/reference/faust.web.base.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

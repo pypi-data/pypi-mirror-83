@@ -1,0 +1,335 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>Faust - Python Stream Processing &#8212; Faust 1.11.0a1 documentation</title>
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="_static/language_data.js"></script>
+    <link rel="shortcut icon" href="_static/favicon.ico"/>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="copyright" title="Copyright" href="copyright.html" />
+    <link rel="next" title="Copyright" href="copyright.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="faust-python-stream-processing">
+<h1>Faust - Python Stream Processing<a class="headerlink" href="#faust-python-stream-processing" title="Permalink to this headline">¶</a></h1>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Python Streams ٩(◕‿◕)۶</span>
+<span class="c1"># Forever scalable event processing &amp; in-memory durable K/V store;</span>
+<span class="c1"># w/ asyncio &amp; static typing.</span>
+<span class="kn">import</span> <span class="nn">faust</span>
+</pre></div>
+</div>
+<p><strong>Faust</strong> is a stream processing library, porting the ideas from
+<a class="reference external" href="https://kafka.apache.org/documentation/streams">Kafka Streams</a> to Python.</p>
+<p>It is used at <a class="reference external" href="http://robinhood.com">Robinhood</a> to build high performance distributed systems
+and real-time data pipelines that process billions of events every day.</p>
+<p>Faust provides both <em>stream processing</em> and <em>event processing</em>,
+sharing similarity with tools such as
+<a class="reference external" href="https://kafka.apache.org/documentation/streams">Kafka Streams</a>, <a class="reference external" href="http://spark.apache.org">Apache Spark</a>/<a class="reference external" href="http://storm.apache.org">Storm</a>/<a class="reference external" href="http://samza.apache.org">Samza</a>/<a class="reference external" href="http://flink.apache.org">Flink</a>,</p>
+<p>It does not use a DSL, it’s just Python!
+This means you can use all your favorite Python libraries
+when stream processing: NumPy, PyTorch, Pandas, NLTK, Django,
+Flask, SQLAlchemy, ++</p>
+<p>Faust requires Python 3.6 or later for the new <a class="reference external" href="https://medium.freecodecamp.org/a-guide-to-asynchronous-programming-in-python-with-asyncio-232e2afa44f6">async/await</a> syntax,
+and variable type annotations.</p>
+<p>Here’s an example processing a stream of incoming orders:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">app</span> <span class="o">=</span> <span class="n">faust</span><span class="o">.</span><span class="n">App</span><span class="p">(</span><span class="s1">&#39;myapp&#39;</span><span class="p">,</span> <span class="n">broker</span><span class="o">=</span><span class="s1">&#39;kafka://localhost&#39;</span><span class="p">)</span>
+
+<span class="c1"># Models describe how messages are serialized:</span>
+<span class="c1"># {&quot;account_id&quot;: &quot;3fae-...&quot;, &quot;amount&quot;: 3}</span>
+<span class="k">class</span> <span class="nc">Order</span><span class="p">(</span><span class="n">faust</span><span class="o">.</span><span class="n">Record</span><span class="p">):</span>
+    <span class="n">account_id</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">amount</span><span class="p">:</span> <span class="nb">int</span>
+
+<span class="nd">@app.agent</span><span class="p">(</span><span class="n">value_type</span><span class="o">=</span><span class="n">Order</span><span class="p">)</span>
+<span class="n">async</span> <span class="k">def</span> <span class="nf">order</span><span class="p">(</span><span class="n">orders</span><span class="p">):</span>
+    <span class="n">async</span> <span class="k">for</span> <span class="n">order</span> <span class="ow">in</span> <span class="n">orders</span><span class="p">:</span>
+        <span class="c1"># process infinite stream of orders.</span>
+        <span class="k">print</span><span class="p">(</span><span class="n">f</span><span class="s1">&#39;Order for {order.account_id}: {order.amount}&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The Agent decorator defines a “stream processor” that essentially
+consumes from a Kafka topic and does something for every event it receives.</p>
+<p>The agent is an <code class="docutils literal notranslate"><span class="pre">async</span> <span class="pre">def</span></code> function, so can also perform
+other operations asynchronously, such as web requests.</p>
+<p>This system can persist state, acting like a database.
+Tables are named distributed key/value stores you can use
+as regular Python dictionaries.</p>
+<p>Tables are stored locally on each machine using a super fast
+embedded database written in C++, called <a class="reference external" href="http://rocksdb.org">RocksDB</a>.</p>
+<p>Tables can also store aggregate counts that are optionally “windowed”
+so you can keep track
+of “number of clicks from the last day,” or
+“number of clicks in the last hour.” for example. Like <a class="reference external" href="https://kafka.apache.org/documentation/streams">Kafka Streams</a>,
+we support tumbling, hopping and sliding windows of time, and old windows
+can be expired to stop data from filling up.</p>
+<p>For reliability we use a Kafka topic as “write-ahead-log”.
+Whenever a key is changed we publish to the changelog.
+Standby nodes consume from this changelog to keep an exact replica
+of the data and enables instant recovery should any of the nodes fail.</p>
+<p>To the user a table is just a dictionary, but data is persisted between
+restarts and replicated across nodes so on failover other nodes can take over
+automatically.</p>
+<p>You can count page views by URL:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># data sent to &#39;clicks&#39; topic sharded by URL key.</span>
+<span class="c1"># e.g. key=&quot;http://example.com&quot; value=&quot;1&quot;</span>
+<span class="n">click_topic</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">topic</span><span class="p">(</span><span class="s1">&#39;clicks&#39;</span><span class="p">,</span> <span class="n">key_type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span> <span class="n">value_type</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+
+<span class="c1"># default value for missing URL will be 0 with `default=int`</span>
+<span class="n">counts</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">Table</span><span class="p">(</span><span class="s1">&#39;click_counts&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+
+<span class="nd">@app.agent</span><span class="p">(</span><span class="n">click_topic</span><span class="p">)</span>
+<span class="n">async</span> <span class="k">def</span> <span class="nf">count_click</span><span class="p">(</span><span class="n">clicks</span><span class="p">):</span>
+    <span class="n">async</span> <span class="k">for</span> <span class="n">url</span><span class="p">,</span> <span class="n">count</span> <span class="ow">in</span> <span class="n">clicks</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="n">counts</span><span class="p">[</span><span class="n">url</span><span class="p">]</span> <span class="o">+=</span> <span class="n">count</span>
+</pre></div>
+</div>
+<p>The data sent to the Kafka topic is partitioned, which means
+the clicks will be sharded by URL in such a way that every count
+for the same URL will be delivered to the same Faust worker instance.</p>
+<p>Faust supports any type of stream data: bytes, Unicode and serialized
+structures, but also comes with “Models” that use modern Python
+syntax to describe how keys and values in streams are serialized:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Order is a json serialized dictionary,</span>
+<span class="c1"># having these fields:</span>
+
+<span class="k">class</span> <span class="nc">Order</span><span class="p">(</span><span class="n">faust</span><span class="o">.</span><span class="n">Record</span><span class="p">):</span>
+    <span class="n">account_id</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">product_id</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">price</span><span class="p">:</span> <span class="nb">float</span>
+    <span class="n">quantity</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span>
+
+<span class="n">orders_topic</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">topic</span><span class="p">(</span><span class="s1">&#39;orders&#39;</span><span class="p">,</span> <span class="n">key_type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span> <span class="n">value_type</span><span class="o">=</span><span class="n">Order</span><span class="p">)</span>
+
+<span class="nd">@app.agent</span><span class="p">(</span><span class="n">orders_topic</span><span class="p">)</span>
+<span class="n">async</span> <span class="k">def</span> <span class="nf">process_order</span><span class="p">(</span><span class="n">orders</span><span class="p">):</span>
+    <span class="n">async</span> <span class="k">for</span> <span class="n">order</span> <span class="ow">in</span> <span class="n">orders</span><span class="p">:</span>
+        <span class="c1"># process each order using regular Python</span>
+        <span class="n">total_price</span> <span class="o">=</span> <span class="n">order</span><span class="o">.</span><span class="n">price</span> <span class="o">*</span> <span class="n">order</span><span class="o">.</span><span class="n">quantity</span>
+        <span class="n">await</span> <span class="n">send_order_received_email</span><span class="p">(</span><span class="n">order</span><span class="o">.</span><span class="n">account_id</span><span class="p">,</span> <span class="n">order</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Faust is statically typed, using the <a class="reference external" href="https://pypi.python.org/pypi/mypy/">mypy</a> type checker,
+so you can take advantage of static types when writing applications.</p>
+<p>The Faust source code is small, well organized, and serves as a good
+resource for learning the implementation of <a class="reference external" href="https://kafka.apache.org/documentation/streams">Kafka Streams</a>.</p>
+<dl class="simple">
+<dt><strong>Learn more about Faust in the</strong> <a class="reference internal" href="introduction.html#introduction"><span class="std std-ref">Introducing Faust</span></a> <strong>introduction page</strong></dt><dd><p>to read more about Faust, system requirements, installation instructions,
+community resources, and more.</p>
+</dd>
+<dt><strong>or go directly to the</strong> <a class="reference internal" href="playbooks/quickstart.html#quickstart"><span class="std std-ref">Quick Start</span></a> <strong>tutorial</strong></dt><dd><p>to see Faust in action by programming a streaming application.</p>
+</dd>
+<dt><strong>then explore the</strong> <a class="reference internal" href="userguide/index.html#guide"><span class="std std-ref">User Guide</span></a></dt><dd><p>for in-depth information organized by topic.</p>
+</dd>
+</dl>
+<hr class="docutils" />
+<div class="section" id="contents">
+<h2>Contents<a class="headerlink" href="#contents" title="Permalink to this headline">¶</a></h2>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="copyright.html">Copyright</a></li>
+</ul>
+</div>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="introduction.html">Introducing Faust</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="introduction.html#what-can-it-do">What can it do?</a></li>
+<li class="toctree-l2"><a class="reference internal" href="introduction.html#how-do-i-use-it">How do I use it?</a></li>
+<li class="toctree-l2"><a class="reference internal" href="introduction.html#what-do-i-need">What do I need?</a></li>
+<li class="toctree-l2"><a class="reference internal" href="introduction.html#extensions">Extensions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="introduction.html#design-considerations">Design considerations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="introduction.html#getting-help">Getting Help</a></li>
+<li class="toctree-l2"><a class="reference internal" href="introduction.html#resources">Resources</a></li>
+<li class="toctree-l2"><a class="reference internal" href="introduction.html#license">License</a></li>
+</ul>
+</li>
+</ul>
+</div>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="playbooks/index.html">Playbooks</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="playbooks/quickstart.html">Quick Start</a></li>
+<li class="toctree-l2"><a class="reference internal" href="playbooks/pageviews.html">Tutorial: Count page views</a></li>
+<li class="toctree-l2"><a class="reference internal" href="playbooks/leaderelection.html">Tutorial: Leader Election</a></li>
+<li class="toctree-l2"><a class="reference internal" href="playbooks/vskafka.html">Overview: Faust vs Kafka Streams</a></li>
+<li class="toctree-l2"><a class="reference internal" href="playbooks/vscelery.html">Overview: Faust vs. Celery</a></li>
+<li class="toctree-l2"><a class="reference internal" href="playbooks/cheatsheet.html">Cheat Sheet</a></li>
+</ul>
+</li>
+</ul>
+</div>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="userguide/index.html">User Guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="userguide/application.html">The App - Define your Faust project</a></li>
+<li class="toctree-l2"><a class="reference internal" href="userguide/agents.html">Agents - Self-organizing Stream Processors</a></li>
+<li class="toctree-l2"><a class="reference internal" href="userguide/streams.html">Streams - Infinite Data Structures</a></li>
+<li class="toctree-l2"><a class="reference internal" href="userguide/channels.html">Channels &amp; Topics - Data Sources</a></li>
+<li class="toctree-l2"><a class="reference internal" href="userguide/models.html">Models, Serialization, and Codecs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="userguide/tables.html">Tables and Windowing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="userguide/tasks.html">Tasks, Timers, Cron Jobs, Web Views, WebSockets and CLI Commands</a></li>
+<li class="toctree-l2"><a class="reference internal" href="userguide/cli.html">Command-line Interface</a></li>
+<li class="toctree-l2"><a class="reference internal" href="userguide/sensors.html">Sensors - Monitors and Statistics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="userguide/testing.html">Testing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="userguide/livecheck.html">LiveCheck: End-to-end test for production/staging.</a></li>
+<li class="toctree-l2"><a class="reference internal" href="userguide/settings.html">Configuration Reference</a></li>
+<li class="toctree-l2"><a class="reference internal" href="userguide/installation.html">Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="userguide/kafka.html">Kafka - The basics you need to know</a></li>
+<li class="toctree-l2"><a class="reference internal" href="userguide/debugging.html">Debugging</a></li>
+<li class="toctree-l2"><a class="reference internal" href="userguide/workers.html">Workers Guide</a></li>
+</ul>
+</li>
+</ul>
+</div>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="reference/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="history/index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="glossary.html">Glossary</a></li>
+</ul>
+</div>
+</div>
+<div class="section" id="indices-and-tables">
+<h2>Indices and tables<a class="headerlink" href="#indices-and-tables" title="Permalink to this headline">¶</a></h2>
+<ul class="simple">
+<li><p><a class="reference internal" href="genindex.html"><span class="std std-ref">Index</span></a></p></li>
+<li><p><a class="reference internal" href="py-modindex.html"><span class="std std-ref">Module Index</span></a></p></li>
+<li><p><a class="reference internal" href="search.html"><span class="std std-ref">Search Page</span></a></p></li>
+</ul>
+</div>
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="#">
+              <img class="logo" src="_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="#">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="introduction.html">Introducing Faust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="playbooks/index.html">Playbooks</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="userguide/index.html">User Guide</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="reference/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="history/index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="#">Documentation overview</a><ul>
+      <li>Next: <a href="copyright.html" title="next chapter">Copyright</a></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2020, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="_sources/index.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

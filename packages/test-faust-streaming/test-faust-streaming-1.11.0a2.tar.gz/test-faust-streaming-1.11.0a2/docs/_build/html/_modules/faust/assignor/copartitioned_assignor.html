@@ -1,0 +1,367 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>faust.assignor.copartitioned_assignor &#8212; Faust 1.11.0a1 documentation</title>
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../../../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <link rel="copyright" title="Copyright" href="../../../copyright.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for faust.assignor.copartitioned_assignor</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Copartitioned Assignor.&quot;&quot;&quot;</span>
+<span class="kn">from</span> <span class="nn">itertools</span> <span class="k">import</span> <span class="n">cycle</span>
+<span class="kn">from</span> <span class="nn">math</span> <span class="k">import</span> <span class="n">ceil</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="k">import</span> <span class="n">Iterable</span><span class="p">,</span> <span class="n">Iterator</span><span class="p">,</span> <span class="n">MutableMapping</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">,</span> <span class="n">Set</span>
+<span class="kn">from</span> <span class="nn">mode.utils.typing</span> <span class="k">import</span> <span class="n">Counter</span>
+<span class="kn">from</span> <span class="nn">.client_assignment</span> <span class="k">import</span> <span class="n">CopartitionedAssignment</span>
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;CopartitionedAssignor&#39;</span><span class="p">]</span>
+
+
+<div class="viewcode-block" id="CopartitionedAssignor"><a class="viewcode-back" href="../../../reference/faust.assignor.copartitioned_assignor.html#faust.assignor.copartitioned_assignor.CopartitionedAssignor">[docs]</a><span class="k">class</span> <span class="nc">CopartitionedAssignor</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Copartitioned Assignor.</span>
+
+<span class="sd">    All copartitioned topics must have the same number of partitions</span>
+
+<span class="sd">    The assignment is sticky which uses the following heuristics:</span>
+
+<span class="sd">    - Maintain existing assignments as long as within capacity for each client</span>
+<span class="sd">    - Assign actives to standbys when possible (within capacity)</span>
+<span class="sd">    - Assign in order to fill capacity of the clients</span>
+
+<span class="sd">    We optimize for not over utilizing resources instead of under-utilizing</span>
+<span class="sd">    resources. This results in a balanced assignment when capacity is the</span>
+<span class="sd">    default value which is ``ceil(num partitions / num clients)``</span>
+
+<span class="sd">    Notes:</span>
+<span class="sd">        Currently we raise an exception if number of clients is not enough</span>
+<span class="sd">        for the desired `replication`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">capacity</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">num_partitions</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">replicas</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">topics</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
+
+    <span class="n">_num_clients</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">_client_assignments</span><span class="p">:</span> <span class="n">MutableMapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">CopartitionedAssignment</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                 <span class="n">topics</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+                 <span class="n">cluster_asgn</span><span class="p">:</span> <span class="n">MutableMapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">CopartitionedAssignment</span><span class="p">],</span>
+                 <span class="n">num_partitions</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+                 <span class="n">replicas</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+                 <span class="n">capacity</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_num_clients</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">cluster_asgn</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">_num_clients</span><span class="p">,</span> <span class="s1">&#39;Should assign to at least 1 client&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">num_partitions</span> <span class="o">=</span> <span class="n">num_partitions</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">replicas</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">replicas</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_num_clients</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">capacity</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="nb">int</span><span class="p">(</span><span class="n">ceil</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_partitions</span><span class="p">)</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">_num_clients</span><span class="p">))</span>
+            <span class="k">if</span> <span class="n">capacity</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">capacity</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">topics</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">topics</span><span class="p">)</span>
+
+        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">capacity</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_num_clients</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_partitions</span><span class="p">,</span> \
+            <span class="s1">&#39;Not enough capacity&#39;</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_client_assignments</span> <span class="o">=</span> <span class="n">cluster_asgn</span>
+
+<div class="viewcode-block" id="CopartitionedAssignor.get_assignment"><a class="viewcode-back" href="../../../reference/faust.assignor.copartitioned_assignor.html#faust.assignor.copartitioned_assignor.CopartitionedAssignor.get_assignment">[docs]</a>    <span class="k">def</span> <span class="nf">get_assignment</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MutableMapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">CopartitionedAssignment</span><span class="p">]:</span>
+        <span class="k">for</span> <span class="n">copartitioned</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_client_assignments</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+            <span class="n">copartitioned</span><span class="o">.</span><span class="n">unassign_extras</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">capacity</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">replicas</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_assign</span><span class="p">(</span><span class="n">active</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_assign</span><span class="p">(</span><span class="n">active</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_client_assignments</span></div>
+
+    <span class="k">def</span> <span class="nf">_all_assigned</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">active</span><span class="p">:</span> <span class="nb">bool</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="n">assigned_counts</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_assigned_partition_counts</span><span class="p">(</span><span class="n">active</span><span class="p">)</span>
+        <span class="n">total_assigns</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_total_assigns_per_partition</span><span class="p">(</span><span class="n">active</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">all</span><span class="p">(</span><span class="n">assigned_counts</span><span class="p">[</span><span class="n">partition</span><span class="p">]</span> <span class="o">==</span> <span class="n">total_assigns</span>
+                   <span class="k">for</span> <span class="n">partition</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_partitions</span><span class="p">))</span>
+
+    <span class="k">def</span> <span class="nf">_assign</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">active</span><span class="p">:</span> <span class="nb">bool</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_unassign_overassigned</span><span class="p">(</span><span class="n">active</span><span class="p">)</span>
+        <span class="n">unassigned</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_unassigned</span><span class="p">(</span><span class="n">active</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_assign_round_robin</span><span class="p">(</span><span class="n">unassigned</span><span class="p">,</span> <span class="n">active</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">_all_assigned</span><span class="p">(</span><span class="n">active</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_assigned_partition_counts</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">active</span><span class="p">:</span> <span class="nb">bool</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Counter</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="n">Counter</span><span class="p">(</span>
+            <span class="n">partition</span>
+            <span class="k">for</span> <span class="n">copartitioned</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_client_assignments</span><span class="o">.</span><span class="n">values</span><span class="p">()</span>
+            <span class="k">for</span> <span class="n">partition</span> <span class="ow">in</span> <span class="n">copartitioned</span><span class="o">.</span><span class="n">get_assigned_partitions</span><span class="p">(</span><span class="n">active</span><span class="p">)</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_get_client_limit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">active</span><span class="p">:</span> <span class="nb">bool</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">capacity</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_total_assigns_per_partition</span><span class="p">(</span><span class="n">active</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_total_assigns_per_partition</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">active</span><span class="p">:</span> <span class="nb">bool</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="k">return</span> <span class="mi">1</span> <span class="k">if</span> <span class="n">active</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">replicas</span>
+
+    <span class="k">def</span> <span class="nf">_unassign_overassigned</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">active</span><span class="p">:</span> <span class="nb">bool</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># There are cases when multiple clients could have the same</span>
+        <span class="c1"># assignment (zombies).  We need to handle that appropriately.</span>
+        <span class="n">partition_counts</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_assigned_partition_counts</span><span class="p">(</span><span class="n">active</span><span class="p">)</span>
+        <span class="n">total_assigns</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_total_assigns_per_partition</span><span class="p">(</span><span class="n">active</span><span class="o">=</span><span class="n">active</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">partition</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_partitions</span><span class="p">):</span>
+            <span class="n">extras</span> <span class="o">=</span> <span class="n">partition_counts</span><span class="p">[</span><span class="n">partition</span><span class="p">]</span> <span class="o">-</span> <span class="n">total_assigns</span>
+            <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">extras</span><span class="p">):</span>
+                <span class="n">assgn</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span>
+                    <span class="n">assgn</span>
+                    <span class="k">for</span> <span class="n">assgn</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_client_assignments</span><span class="o">.</span><span class="n">values</span><span class="p">()</span>
+                    <span class="k">if</span> <span class="n">assgn</span><span class="o">.</span><span class="n">partition_assigned</span><span class="p">(</span><span class="n">partition</span><span class="p">,</span> <span class="n">active</span><span class="o">=</span><span class="n">active</span><span class="p">)</span>
+                <span class="p">)</span>
+                <span class="n">assgn</span><span class="o">.</span><span class="n">unassign_partition</span><span class="p">(</span><span class="n">partition</span><span class="p">,</span> <span class="n">active</span><span class="o">=</span><span class="n">active</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_get_unassigned</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">active</span><span class="p">:</span> <span class="nb">bool</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
+        <span class="n">partition_counts</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_assigned_partition_counts</span><span class="p">(</span><span class="n">active</span><span class="p">)</span>
+        <span class="n">total_assigns</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_total_assigns_per_partition</span><span class="p">(</span><span class="n">active</span><span class="o">=</span><span class="n">active</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="nb">all</span><span class="p">(</span>
+            <span class="n">partition_counts</span><span class="p">[</span><span class="n">partition</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="n">total_assigns</span>
+            <span class="k">for</span> <span class="n">partition</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_partitions</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="p">[</span>
+            <span class="n">partition</span>
+            <span class="k">for</span> <span class="n">partition</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_partitions</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">total_assigns</span> <span class="o">-</span> <span class="n">partition_counts</span><span class="p">[</span><span class="n">partition</span><span class="p">])</span>
+        <span class="p">]</span>
+
+    <span class="k">def</span> <span class="nf">_can_assign</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">assignment</span><span class="p">:</span> <span class="n">CopartitionedAssignment</span><span class="p">,</span> <span class="n">partition</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+                    <span class="n">active</span><span class="p">:</span> <span class="nb">bool</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_client_exhausted</span><span class="p">(</span><span class="n">assignment</span><span class="p">,</span> <span class="n">active</span><span class="p">)</span> <span class="ow">and</span>
+            <span class="n">assignment</span><span class="o">.</span><span class="n">can_assign</span><span class="p">(</span><span class="n">partition</span><span class="p">,</span> <span class="n">active</span><span class="p">)</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_client_exhausted</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">assignemnt</span><span class="p">:</span> <span class="n">CopartitionedAssignment</span><span class="p">,</span>
+                          <span class="n">active</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span> <span class="n">client_limit</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">client_limit</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">client_limit</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_client_limit</span><span class="p">(</span><span class="n">active</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">assignemnt</span><span class="o">.</span><span class="n">num_assigned</span><span class="p">(</span><span class="n">active</span><span class="p">)</span> <span class="o">==</span> <span class="n">client_limit</span>
+
+    <span class="k">def</span> <span class="nf">_find_promotable_standby</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">partition</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+                                 <span class="n">candidates</span><span class="p">:</span> <span class="n">Iterator</span><span class="p">[</span><span class="n">CopartitionedAssignment</span><span class="p">],</span>
+                                 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">CopartitionedAssignment</span><span class="p">]:</span>
+        <span class="c1"># Round robin to find standby until we make a full cycle</span>
+        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_num_clients</span><span class="p">):</span>
+            <span class="n">assignment</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="n">candidates</span><span class="p">)</span>
+            <span class="n">can_assign</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">assignment</span><span class="o">.</span><span class="n">partition_assigned</span><span class="p">(</span><span class="n">partition</span><span class="p">,</span> <span class="n">active</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="ow">and</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_can_assign</span><span class="p">(</span><span class="n">assignment</span><span class="p">,</span> <span class="n">partition</span><span class="p">,</span> <span class="n">active</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="n">can_assign</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">assignment</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="k">def</span> <span class="nf">_find_round_robin_assignable</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">partition</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+                                     <span class="n">candidates</span><span class="p">:</span> <span class="n">Iterator</span><span class="p">[</span>
+                                         <span class="n">CopartitionedAssignment</span><span class="p">],</span>
+                                     <span class="n">active</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
+                                     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">CopartitionedAssignment</span><span class="p">]:</span>
+        <span class="c1"># Round robin and assign until we make a full circle</span>
+        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_num_clients</span><span class="p">):</span>
+            <span class="n">assignment</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="n">candidates</span><span class="p">)</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_can_assign</span><span class="p">(</span><span class="n">assignment</span><span class="p">,</span> <span class="n">partition</span><span class="p">,</span> <span class="n">active</span><span class="p">):</span>
+                <span class="k">return</span> <span class="n">assignment</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="k">def</span> <span class="nf">_assign_round_robin</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">unassigned</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
+                            <span class="n">active</span><span class="p">:</span> <span class="nb">bool</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># We do round robin assignment as follows:</span>
+        <span class="c1"># - For actives, we first try to assign to a standby</span>
+        <span class="c1"># - For standby, we offset the start for round robin to evenly</span>
+        <span class="c1"># distribute standbys for colocated actives</span>
+        <span class="c1"># - We do round robin</span>
+        <span class="c1"># - If no assignment found, it must be a standby and the only unfilled</span>
+        <span class="c1"># client(s) must be actives/standbys for the partition</span>
+        <span class="c1"># - If no assignment found, we unassign and arbitrary partition from a</span>
+        <span class="c1"># filled assignment such that the partition can be assigned to it</span>
+        <span class="c1"># - This guarantees eventual assignment of all partitions</span>
+        <span class="n">client_limit</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_client_limit</span><span class="p">(</span><span class="n">active</span><span class="p">)</span>
+        <span class="n">candidates</span> <span class="o">=</span> <span class="n">cycle</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_client_assignments</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+        <span class="n">unassigned</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">unassigned</span><span class="p">)</span>
+        <span class="k">while</span> <span class="n">unassigned</span><span class="p">:</span>
+            <span class="n">partition</span> <span class="o">=</span> <span class="n">unassigned</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+
+            <span class="n">assign_to</span> <span class="o">=</span> <span class="kc">None</span>
+
+            <span class="k">if</span> <span class="n">active</span><span class="p">:</span>
+                <span class="c1"># For actives we first try to find a standby to assign to</span>
+                <span class="n">assign_to</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_find_promotable_standby</span><span class="p">(</span><span class="n">partition</span><span class="p">,</span>
+                                                          <span class="n">candidates</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">assign_to</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="c1"># Unassign standby which will be promoted</span>
+                    <span class="n">assign_to</span><span class="o">.</span><span class="n">unassign_partition</span><span class="p">(</span><span class="n">partition</span><span class="p">,</span> <span class="n">active</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># For standbys we offset to round robin start to shuffle</span>
+                <span class="c1"># assignment of standbys</span>
+                <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">partition</span><span class="p">):</span>
+                    <span class="nb">next</span><span class="p">(</span><span class="n">candidates</span><span class="p">)</span>
+
+            <span class="k">assert</span> <span class="n">assign_to</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">active</span>
+
+            <span class="n">assign_to</span> <span class="o">=</span> <span class="n">assign_to</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_find_round_robin_assignable</span><span class="p">(</span>
+                <span class="n">partition</span><span class="p">,</span> <span class="n">candidates</span><span class="p">,</span> <span class="n">active</span><span class="p">)</span>
+
+            <span class="c1"># If round robin assignment didn&#39;t work then we must be</span>
+            <span class="c1"># assigning a standby and the only un-exhausted clients</span>
+            <span class="c1"># are actives for the partition</span>
+            <span class="k">assert</span> <span class="p">(</span>
+                <span class="n">assign_to</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">or</span>
+                <span class="p">(</span>
+                    <span class="ow">not</span> <span class="n">active</span> <span class="ow">and</span>
+                    <span class="nb">all</span><span class="p">(</span>
+                        <span class="n">assgn</span><span class="o">.</span><span class="n">partition_assigned</span><span class="p">(</span><span class="n">partition</span><span class="p">,</span> <span class="n">active</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="ow">or</span>
+                        <span class="n">assgn</span><span class="o">.</span><span class="n">partition_assigned</span><span class="p">(</span><span class="n">partition</span><span class="p">,</span> <span class="n">active</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="ow">or</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">_client_exhausted</span><span class="p">(</span><span class="n">assgn</span><span class="p">,</span> <span class="n">active</span><span class="p">,</span> <span class="n">client_limit</span><span class="p">)</span>
+                        <span class="k">for</span> <span class="n">assgn</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_client_assignments</span><span class="o">.</span><span class="n">values</span><span class="p">()</span>
+                    <span class="p">)</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+
+            <span class="c1"># If round robin didn&#39;t work, we free up the first full standby</span>
+            <span class="c1"># assignment to which the partition can be assigned.</span>
+            <span class="k">if</span> <span class="n">assign_to</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">assign_to</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span>
+                    <span class="n">assigment</span>
+                    <span class="k">for</span> <span class="n">assigment</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_client_assignments</span><span class="o">.</span><span class="n">values</span><span class="p">()</span>
+                    <span class="k">if</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_client_exhausted</span><span class="p">(</span><span class="n">assigment</span><span class="p">,</span> <span class="n">active</span><span class="p">)</span> <span class="ow">and</span>
+                        <span class="n">assigment</span><span class="o">.</span><span class="n">can_assign</span><span class="p">(</span><span class="n">partition</span><span class="p">,</span> <span class="n">active</span><span class="p">))</span>
+                <span class="p">)</span>  <span class="c1"># By above assertion, should never throw error</span>
+                <span class="n">unassigned_partition</span> <span class="o">=</span> <span class="n">assign_to</span><span class="o">.</span><span class="n">pop_partition</span><span class="p">(</span><span class="n">active</span><span class="p">)</span>
+                <span class="n">unassigned</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">unassigned_partition</span><span class="p">)</span>
+
+            <span class="c1"># Assign partition</span>
+            <span class="n">assign_to</span><span class="o">.</span><span class="n">assign_partition</span><span class="p">(</span><span class="n">partition</span><span class="p">,</span> <span class="n">active</span><span class="p">)</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../../index.html">
+              <img class="logo" src="../../../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../../../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../playbooks/index.html">Playbooks</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../userguide/index.html">User Guide</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../reference/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../history/index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2020, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

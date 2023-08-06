@@ -1,0 +1,534 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>mode.utils.imports &#8212; Faust 1.11.0a1 documentation</title>
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../../../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <link rel="copyright" title="Copyright" href="../../../copyright.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for mode.utils.imports</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Importing utilities.&quot;&quot;&quot;</span>
+<span class="kn">import</span> <span class="nn">importlib</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">sys</span>
+<span class="kn">import</span> <span class="nn">typing</span>
+<span class="kn">import</span> <span class="nn">warnings</span>
+<span class="kn">from</span> <span class="nn">contextlib</span> <span class="k">import</span> <span class="n">contextmanager</span><span class="p">,</span> <span class="n">suppress</span>
+<span class="kn">from</span> <span class="nn">types</span> <span class="k">import</span> <span class="n">ModuleType</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">Any</span><span class="p">,</span>
+    <span class="n">Callable</span><span class="p">,</span>
+    <span class="n">Generator</span><span class="p">,</span>
+    <span class="n">Generic</span><span class="p">,</span>
+    <span class="n">Iterable</span><span class="p">,</span>
+    <span class="n">Iterator</span><span class="p">,</span>
+    <span class="n">Mapping</span><span class="p">,</span>
+    <span class="n">MutableMapping</span><span class="p">,</span>
+    <span class="n">NamedTuple</span><span class="p">,</span>
+    <span class="n">Optional</span><span class="p">,</span>
+    <span class="n">Set</span><span class="p">,</span>
+    <span class="n">Type</span><span class="p">,</span>
+    <span class="n">TypeVar</span><span class="p">,</span>
+    <span class="n">Union</span><span class="p">,</span>
+    <span class="n">cast</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="kn">from</span> <span class="nn">.collections</span> <span class="k">import</span> <span class="n">FastUserDict</span>
+<span class="kn">from</span> <span class="nn">.objects</span> <span class="k">import</span> <span class="n">cached_property</span>
+<span class="kn">from</span> <span class="nn">.text</span> <span class="k">import</span> <span class="n">didyoumean</span>
+
+<span class="k">if</span> <span class="n">typing</span><span class="o">.</span><span class="n">TYPE_CHECKING</span><span class="p">:</span>
+    <span class="kn">from</span> <span class="nn">yarl</span> <span class="k">import</span> <span class="n">URL</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="kn">from</span> <span class="nn">yarl</span> <span class="k">import</span> <span class="n">URL</span>
+    <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+        <span class="k">class</span> <span class="nc">URL</span><span class="p">:</span>
+
+            <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">url</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">assert</span> <span class="s1">&#39;://&#39;</span> <span class="ow">in</span> <span class="n">url</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">scheme</span> <span class="o">=</span> <span class="n">url</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;://&#39;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+
+<span class="c1"># - these are taken from kombu.utils.imports</span>
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="s1">&#39;FactoryMapping&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;SymbolArg&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;symbol_by_name&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;load_extension_class_names&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;load_extension_classes&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;cwd_in_path&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;import_from_cwd&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;smart_import&#39;</span><span class="p">,</span>
+<span class="p">]</span>
+
+<span class="n">_T</span> <span class="o">=</span> <span class="n">TypeVar</span><span class="p">(</span><span class="s1">&#39;_T&#39;</span><span class="p">)</span>
+<span class="n">_T_contra</span> <span class="o">=</span> <span class="n">TypeVar</span><span class="p">(</span><span class="s1">&#39;_T_contra&#39;</span><span class="p">,</span> <span class="n">contravariant</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">SymbolArg</span> <span class="o">=</span> <span class="n">Union</span><span class="p">[</span><span class="n">_T</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span>
+
+
+<span class="k">class</span> <span class="nc">FactoryMapping</span><span class="p">(</span><span class="n">FastUserDict</span><span class="p">,</span> <span class="n">Generic</span><span class="p">[</span><span class="n">_T</span><span class="p">]):</span>
+    <span class="sd">&quot;&quot;&quot;Class plugin system.</span>
+
+<span class="sd">    This is an utility to maintain a mapping from name to fully</span>
+<span class="sd">    qualified Python attribute path, and also supporting the use</span>
+<span class="sd">    of these in URLs.</span>
+
+<span class="sd">    Example:</span>
+<span class="sd">        &gt;&gt;&gt; # Specifying the type enables mypy to know that</span>
+<span class="sd">        &gt;&gt;&gt; # this factory returns Driver subclasses.</span>
+<span class="sd">        &gt;&gt;&gt; drivers: FactoryMapping[Type[Driver]]</span>
+<span class="sd">        &gt;&gt;&gt; drivers = FactoryMapping({</span>
+<span class="sd">        ...    &#39;rabbitmq&#39;: &#39;my.drivers.rabbitmq:Driver&#39;,</span>
+<span class="sd">        ...    &#39;kafka&#39;: &#39;my.drivers.kafka:Driver&#39;,</span>
+<span class="sd">        ...    &#39;redis&#39;: &#39;my.drivers.redis:Driver&#39;,</span>
+<span class="sd">        ... })</span>
+
+<span class="sd">        &gt;&gt;&gt; drivers.by_url(&#39;rabbitmq://localhost:9090&#39;)</span>
+<span class="sd">        &lt;class &#39;my.drivers.rabbitmq.Driver&#39;&gt;</span>
+
+<span class="sd">        &gt;&gt;&gt; drivers.by_name(&#39;redis&#39;)</span>
+<span class="sd">        &lt;class &#39;my.drivers.redis.Driver&#39;&gt;</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">aliases</span><span class="p">:</span> <span class="n">MutableMapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span>
+    <span class="n">namespaces</span><span class="p">:</span> <span class="n">Set</span>
+    <span class="n">_finalized</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">aliases</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">namespaces</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">iterate</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="n">_T</span><span class="p">]:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_maybe_finalize</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">aliases</span><span class="p">:</span>
+            <span class="k">yield</span> <span class="bp">self</span><span class="o">.</span><span class="n">by_name</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">by_url</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">url</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">URL</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">_T</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Get class associated with URL (scheme is used as alias key).&quot;&quot;&quot;</span>
+        <span class="c1"># we remove anything after ; so urlparse can recognize the url.</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">by_name</span><span class="p">(</span><span class="n">URL</span><span class="p">(</span><span class="n">url</span><span class="p">)</span><span class="o">.</span><span class="n">scheme</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">by_name</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="n">SymbolArg</span><span class="p">[</span><span class="n">_T</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">_T</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_maybe_finalize</span><span class="p">()</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">symbol_by_name</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">aliases</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">aliases</span><span class="p">)</span>
+        <span class="k">except</span> <span class="n">ModuleNotFoundError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+            <span class="n">name_</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
+            <span class="k">if</span> <span class="s1">&#39;.&#39;</span> <span class="ow">in</span> <span class="n">name_</span><span class="p">:</span>
+                <span class="k">raise</span>
+            <span class="n">alt</span> <span class="o">=</span> <span class="n">didyoumean</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">aliases</span><span class="p">,</span> <span class="n">name_</span><span class="p">,</span>
+                <span class="n">fmt_none</span><span class="o">=</span><span class="n">f</span><span class="s1">&#39;Available choices: {&quot;, &quot;.join(self.aliases)}&#39;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="n">ModuleNotFoundError</span><span class="p">(</span>
+                <span class="n">f</span><span class="s1">&#39;</span><span class="si">{name!r}</span><span class="s1"> is not a valid name. </span><span class="si">{alt}</span><span class="s1">&#39;</span><span class="p">)</span> <span class="kn">from</span> <span class="nn">exc</span>
+
+    <span class="k">def</span> <span class="nf">get_alias</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_maybe_finalize</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">aliases</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="nf">include_setuptools_namespace</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">namespace</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">namespaces</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">namespace</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_maybe_finalize</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_finalized</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_finalized</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_finalize</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">_finalize</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">namespace</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">namespaces</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">aliases</span><span class="o">.</span><span class="n">update</span><span class="p">({</span>
+                <span class="n">name</span><span class="p">:</span> <span class="n">cls_name</span>
+                <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">cls_name</span> <span class="ow">in</span> <span class="n">load_extension_class_names</span><span class="p">(</span><span class="n">namespace</span><span class="p">)</span>
+            <span class="p">})</span>
+
+    <span class="nd">@cached_property</span>
+    <span class="k">def</span> <span class="nf">data</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MutableMapping</span><span class="p">:</span>  <span class="c1"># type: ignore</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">aliases</span>
+
+
+<span class="k">def</span> <span class="nf">_ensure_identifier</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">full</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">for</span> <span class="n">part</span> <span class="ow">in</span> <span class="n">path</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;.&#39;</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">part</span><span class="o">.</span><span class="n">isidentifier</span><span class="p">():</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="n">f</span><span class="s1">&#39;Component </span><span class="si">{part!r}</span><span class="s1"> of </span><span class="si">{full!r}</span><span class="s1"> is not a valid identifier&#39;</span><span class="p">)</span>
+
+
+<span class="k">class</span> <span class="nc">ParsedSymbol</span><span class="p">(</span><span class="n">NamedTuple</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Tuple returned by :func:`parse_symbol`.&quot;&quot;&quot;</span>
+
+    <span class="n">module_name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
+    <span class="n">attribute_name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
+
+
+<span class="k">def</span> <span class="nf">parse_symbol</span><span class="p">(</span><span class="n">s</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span>
+                 <span class="n">package</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">strict_separator</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;:&#39;</span><span class="p">,</span>
+                 <span class="n">relative_separator</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;.&#39;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ParsedSymbol</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Parse :func:`symbol_by_name` argument into components.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        ParsedSymbol: Tuple of ``(module_name, attribute_name)``</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        ValueError: if relative import (arg starts with &#39;.&#39;) and</span>
+<span class="sd">            no ``package`` argument is specified.</span>
+
+<span class="sd">    Examples:</span>
+<span class="sd">        &gt;&gt;&gt; parse_symbol(&#39;mode.services&#39;)</span>
+<span class="sd">        ParsedSymbol(module_name=&#39;mode.services&#39;, attribute_name=None)</span>
+
+<span class="sd">        &gt;&gt;&gt; parse_symbol(&#39;.services&#39;, package=&#39;mode&#39;)</span>
+<span class="sd">        ParsedSymbol(module_name=&#39;.services&#39;, attribute_name=None)</span>
+
+<span class="sd">        &gt;&gt;&gt; parse_symbol(&#39;mode.services.Service&#39;)</span>
+<span class="sd">        ParsedSymbol(module_name=&#39;mode.services&#39;, attribute_name=&#39;Service&#39;)</span>
+
+<span class="sd">        &gt;&gt;&gt; parse_symbol(&#39;mode.services:Service&#39;)</span>
+<span class="sd">        ParsedSymbol(module_name=&#39;mode.services&#39;, attribute_name=&#39;Service&#39;)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">module_name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
+    <span class="n">attribute_name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
+    <span class="n">partition_by</span> <span class="o">=</span> <span class="p">(</span><span class="n">strict_separator</span>
+                    <span class="k">if</span> <span class="n">strict_separator</span> <span class="ow">in</span> <span class="n">s</span> <span class="k">else</span> <span class="n">relative_separator</span><span class="p">)</span>
+
+    <span class="n">module_name</span><span class="p">,</span> <span class="n">used_separator</span><span class="p">,</span> <span class="n">attribute_name</span> <span class="o">=</span> <span class="n">s</span><span class="o">.</span><span class="n">rpartition</span><span class="p">(</span><span class="n">partition_by</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">module_name</span><span class="p">:</span>
+        <span class="c1"># Module name is missing must be either &quot;.foo&quot; or &quot;:foo&quot;,</span>
+        <span class="c1"># and is a relative import.</span>
+        <span class="k">if</span> <span class="n">used_separator</span> <span class="o">==</span> <span class="s1">&#39;:&#39;</span><span class="p">:</span>
+            <span class="c1"># &quot;:foo&quot; is illegal and will result in ValueError below.</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">f</span><span class="s1">&#39;Missing module name with &quot;:&quot; separator: </span><span class="si">{s!r}</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">used_separator</span> <span class="o">==</span> <span class="s1">&#39;.&#39;</span><span class="p">:</span>
+            <span class="c1"># &quot;.foo&quot; is legal but requires a ``package`` argument.</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">package</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="n">f</span><span class="s1">&#39;Relative import </span><span class="si">{s!r}</span><span class="s1"> but package=None (required)&#39;</span><span class="p">)</span>
+            <span class="n">module_name</span><span class="p">,</span> <span class="n">attribute_name</span> <span class="o">=</span> <span class="n">s</span><span class="p">,</span> <span class="kc">None</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">attribute_name</span><span class="p">,</span> <span class="n">module_name</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="kc">None</span><span class="p">,</span> <span class="n">package</span> <span class="k">if</span> <span class="n">package</span> <span class="k">else</span> <span class="n">attribute_name</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">attribute_name</span><span class="p">:</span>
+        <span class="n">_ensure_identifier</span><span class="p">(</span><span class="n">attribute_name</span><span class="p">,</span> <span class="n">full</span><span class="o">=</span><span class="n">s</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">module_name</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+        <span class="n">_ensure_identifier</span><span class="p">(</span><span class="n">module_name</span><span class="o">.</span><span class="n">strip</span><span class="p">(</span><span class="n">relative_separator</span><span class="p">),</span> <span class="n">full</span><span class="o">=</span><span class="n">s</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">ParsedSymbol</span><span class="p">(</span><span class="n">module_name</span><span class="p">,</span> <span class="n">attribute_name</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">symbol_by_name</span><span class="p">(</span>
+        <span class="n">name</span><span class="p">:</span> <span class="n">SymbolArg</span><span class="p">[</span><span class="n">_T</span><span class="p">],</span>
+        <span class="n">aliases</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">imp</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">package</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">sep</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;.&#39;</span><span class="p">,</span>
+        <span class="n">default</span><span class="p">:</span> <span class="n">_T</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_T</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Get symbol by qualified name.</span>
+
+<span class="sd">    The name should be the full dot-separated path to the class::</span>
+
+<span class="sd">        modulename.ClassName</span>
+
+<span class="sd">    Example::</span>
+
+<span class="sd">        mazecache.backends.redis.RedisBackend</span>
+<span class="sd">                                ^- class name</span>
+
+<span class="sd">    or using &#39;:&#39; to separate module and symbol::</span>
+
+<span class="sd">        mazecache.backends.redis:RedisBackend</span>
+
+<span class="sd">    If `aliases` is provided, a dict containing short name/long name</span>
+<span class="sd">    mappings, the name is looked up in the aliases first.</span>
+
+<span class="sd">    Examples:</span>
+<span class="sd">        &gt;&gt;&gt; symbol_by_name(&#39;mazecache.backends.redis:RedisBackend&#39;)</span>
+<span class="sd">        &lt;class &#39;mazecache.backends.redis.RedisBackend&#39;&gt;</span>
+
+<span class="sd">        &gt;&gt;&gt; symbol_by_name(&#39;default&#39;, {</span>
+<span class="sd">        ...     &#39;default&#39;: &#39;mazecache.backends.redis:RedisBackend&#39;})</span>
+<span class="sd">        &lt;class &#39;mazecache.backends.redis.RedisBackend&#39;&gt;</span>
+
+<span class="sd">        # Does not try to look up non-string names.</span>
+<span class="sd">        &gt;&gt;&gt; from mazecache.backends.redis import RedisBackend</span>
+<span class="sd">        &gt;&gt;&gt; symbol_by_name(RedisBackend) is RedisBackend</span>
+<span class="sd">        True</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># This code was copied from kombu.utils.symbol_by_name</span>
+    <span class="n">imp</span> <span class="o">=</span> <span class="n">importlib</span><span class="o">.</span><span class="n">import_module</span> <span class="k">if</span> <span class="n">imp</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">imp</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">name</span>  <span class="c1"># already a class</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="p">(</span><span class="n">aliases</span> <span class="ow">or</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">)</span> <span class="ow">or</span> <span class="n">name</span>
+
+    <span class="n">module_name</span><span class="p">,</span> <span class="n">attribute_name</span> <span class="o">=</span> <span class="n">parse_symbol</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">package</span><span class="o">=</span><span class="n">package</span><span class="p">)</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">module</span> <span class="o">=</span> <span class="n">imp</span><span class="p">(</span>  <span class="c1"># type: ignore</span>
+                <span class="n">module_name</span> <span class="ow">or</span> <span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">package</span><span class="o">=</span><span class="n">package</span><span class="p">,</span>
+                <span class="c1"># kwargs can be used to extend symbol_by_name when a custom</span>
+                <span class="c1"># `imp` function is used.</span>
+                <span class="c1"># importib does not support additional arguments</span>
+                <span class="c1"># beyond (name, package=None), so we have to silence</span>
+                <span class="c1"># mypy error here.</span>
+                <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="n">f</span><span class="s1">&#39;Cannot import </span><span class="si">{name!r}</span><span class="s1">: </span><span class="si">{exc}</span><span class="s1">&#39;</span><span class="p">,</span>
+            <span class="p">)</span><span class="o">.</span><span class="n">with_traceback</span><span class="p">(</span><span class="n">sys</span><span class="o">.</span><span class="n">exc_info</span><span class="p">()[</span><span class="mi">2</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">attribute_name</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="n">_T</span><span class="p">,</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">attribute_name</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="n">_T</span><span class="p">,</span> <span class="n">module</span><span class="p">)</span>
+    <span class="k">except</span> <span class="p">(</span><span class="ne">ImportError</span><span class="p">,</span> <span class="ne">AttributeError</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">default</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span>
+    <span class="k">return</span> <span class="n">default</span>
+
+
+<span class="k">class</span> <span class="nc">EntrypointExtension</span><span class="p">(</span><span class="n">NamedTuple</span><span class="p">):</span>
+    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="nb">type</span><span class="p">:</span> <span class="n">Type</span>
+
+
+<span class="k">class</span> <span class="nc">RawEntrypointExtension</span><span class="p">(</span><span class="n">NamedTuple</span><span class="p">):</span>
+    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">target</span><span class="p">:</span> <span class="nb">str</span>
+
+
+<span class="k">def</span> <span class="nf">load_extension_classes</span><span class="p">(</span><span class="n">namespace</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">EntrypointExtension</span><span class="p">]:</span>
+    <span class="sd">&quot;&quot;&quot;Yield extension classes for setuptools entrypoint namespace.</span>
+
+<span class="sd">    If an entrypoint is defined in ``setup.py``::</span>
+
+<span class="sd">        entry_points={</span>
+<span class="sd">            &#39;faust.codecs&#39;: [</span>
+<span class="sd">                &#39;msgpack = faust_msgpack:msgpack&#39;,</span>
+<span class="sd">            ],</span>
+
+<span class="sd">    Iterating over the &#39;faust.codecs&#39; namespace will yield</span>
+<span class="sd">    the actual attributes specified in the path (``faust_msgpack:msgpack``)::</span>
+
+<span class="sd">        &gt;&gt;&gt; from faust_msgpack import msgpack</span>
+<span class="sd">        &gt;&gt;&gt; attrs = list(load_extension_classes(&#39;faust.codecs&#39;))</span>
+<span class="sd">        assert msgpack in attrs</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">cls_name</span> <span class="ow">in</span> <span class="n">load_extension_class_names</span><span class="p">(</span><span class="n">namespace</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="bp">cls</span><span class="p">:</span> <span class="n">Type</span> <span class="o">=</span> <span class="n">symbol_by_name</span><span class="p">(</span><span class="n">cls_name</span><span class="p">)</span>
+        <span class="k">except</span> <span class="p">(</span><span class="ne">ImportError</span><span class="p">,</span> <span class="ne">SyntaxError</span><span class="p">)</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                <span class="n">f</span><span class="s1">&#39;Cannot load </span><span class="si">{namespace}</span><span class="s1"> extension </span><span class="si">{cls_name!r}</span><span class="s1">: </span><span class="si">{exc!r}</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">yield</span> <span class="n">EntrypointExtension</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="bp">cls</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">load_extension_class_names</span><span class="p">(</span>
+        <span class="n">namespace</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">RawEntrypointExtension</span><span class="p">]:</span>
+    <span class="sd">&quot;&quot;&quot;Get setuptools entrypoint extension class names.</span>
+
+<span class="sd">    If the entrypoint is defined in ``setup.py`` as::</span>
+
+<span class="sd">        entry_points={</span>
+<span class="sd">            &#39;faust.codecs&#39;: [</span>
+<span class="sd">                &#39;msgpack = faust_msgpack:msgpack&#39;,</span>
+<span class="sd">            ],</span>
+
+<span class="sd">    Iterating over the &#39;faust.codecs&#39; namespace will yield the name::</span>
+
+<span class="sd">        &gt;&gt;&gt; list(load_extension_class_names(&#39;faust.codecs&#39;))</span>
+<span class="sd">        [(&#39;msgpack&#39;, &#39;faust_msgpack:msgpack&#39;)]</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="kn">from</span> <span class="nn">pkg_resources</span> <span class="k">import</span> <span class="n">iter_entry_points</span>
+    <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+        <span class="k">return</span>
+
+    <span class="k">for</span> <span class="n">ep</span> <span class="ow">in</span> <span class="n">iter_entry_points</span><span class="p">(</span><span class="n">namespace</span><span class="p">):</span>
+        <span class="k">yield</span> <span class="n">RawEntrypointExtension</span><span class="p">(</span>
+            <span class="n">ep</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+            <span class="s1">&#39;:&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="n">ep</span><span class="o">.</span><span class="n">module_name</span><span class="p">,</span> <span class="n">ep</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="mi">0</span><span class="p">]]),</span>
+        <span class="p">)</span>
+
+
+<span class="nd">@contextmanager</span>
+<span class="k">def</span> <span class="nf">cwd_in_path</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Generator</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Context adding the current working directory to sys.path.&quot;&quot;&quot;</span>
+    <span class="n">cwd</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getcwd</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">cwd</span> <span class="ow">in</span> <span class="n">sys</span><span class="o">.</span><span class="n">path</span><span class="p">:</span>
+        <span class="k">yield</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">sys</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">cwd</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">yield</span> <span class="n">cwd</span>
+        <span class="k">finally</span><span class="p">:</span>
+            <span class="k">with</span> <span class="n">suppress</span><span class="p">(</span><span class="ne">ValueError</span><span class="p">):</span>
+                <span class="n">sys</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">cwd</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">import_from_cwd</span><span class="p">(</span><span class="n">module</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+                    <span class="o">*</span><span class="p">,</span>
+                    <span class="n">imp</span><span class="p">:</span> <span class="n">Callable</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                    <span class="n">package</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ModuleType</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Import module, temporarily including modules in the current directory.</span>
+
+<span class="sd">    Modules located in the current directory has</span>
+<span class="sd">    precedence over modules located in `sys.path`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">imp</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">imp</span> <span class="o">=</span> <span class="n">importlib</span><span class="o">.</span><span class="n">import_module</span>
+    <span class="k">with</span> <span class="n">cwd_in_path</span><span class="p">():</span>
+        <span class="k">return</span> <span class="n">imp</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">package</span><span class="o">=</span><span class="n">package</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">smart_import</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">imp</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Import module if module, otherwise same as :func:`symbol_by_name`.&quot;&quot;&quot;</span>
+    <span class="n">imp</span> <span class="o">=</span> <span class="n">importlib</span><span class="o">.</span><span class="n">import_module</span> <span class="k">if</span> <span class="n">imp</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">imp</span>
+    <span class="k">if</span> <span class="s1">&#39;:&#39;</span> <span class="ow">in</span> <span class="n">path</span><span class="p">:</span>
+        <span class="c1"># Path includes attribute so can just jump</span>
+        <span class="c1"># here (e.g., ``os.path:abspath``).</span>
+        <span class="k">return</span> <span class="n">symbol_by_name</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">imp</span><span class="o">=</span><span class="n">imp</span><span class="p">)</span>
+
+    <span class="c1"># Not sure if path is just a module name or if it includes an</span>
+    <span class="c1"># attribute name (e.g., ``os.path``, vs, ``os.path.abspath``).</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">imp</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+        <span class="c1"># Not a module name, so try module + attribute.</span>
+        <span class="k">return</span> <span class="n">symbol_by_name</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">imp</span><span class="o">=</span><span class="n">imp</span><span class="p">)</span>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../../index.html">
+              <img class="logo" src="../../../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../../../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../playbooks/index.html">Playbooks</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../userguide/index.html">User Guide</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../reference/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../history/index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2020, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

@@ -1,0 +1,310 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>Channels &amp; Topics - Data Sources &#8212; Faust 1.11.0a1 documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="copyright" title="Copyright" href="../copyright.html" />
+    <link rel="next" title="Models, Serialization, and Codecs" href="models.html" />
+    <link rel="prev" title="Streams - Infinite Data Structures" href="streams.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="channels-topics-data-sources">
+<span id="guide-channels"></span><h1>Channels &amp; Topics - Data Sources<a class="headerlink" href="#channels-topics-data-sources" title="Permalink to this headline">¶</a></h1>
+<div class="contents local topic" id="contents">
+<ul class="simple">
+<li><p><a class="reference internal" href="#basics" id="id1">Basics</a></p></li>
+<li><p><a class="reference internal" href="#channels" id="id2">Channels</a></p></li>
+<li><p><a class="reference internal" href="#topics" id="id3">Topics</a></p></li>
+</ul>
+</div>
+<div class="section" id="basics">
+<h2><a class="toc-backref" href="#id1">Basics</a><a class="headerlink" href="#basics" title="Permalink to this headline">¶</a></h2>
+<p>Faust agents iterate over streams, and streams iterate over channels.</p>
+<p>A channel is a construct used to send and receive messages,
+then we have the “topic”, which is a named-channel backed by a Kafka topic.</p>
+<div class="topic">
+<p class="topic-title first"></p>
+<p>Streams read from channels (either a local-channel or a topic).</p>
+<p><code class="docutils literal notranslate"><span class="pre">Agent</span></code> &lt;–&gt; <code class="docutils literal notranslate"><span class="pre">Stream</span></code> &lt;–&gt; <code class="docutils literal notranslate"><span class="pre">Channel</span></code></p>
+<p>Topics are named-channels backed by a transport (to use e.g. Kafka topics):</p>
+<p><code class="docutils literal notranslate"><span class="pre">Agent</span></code> &lt;–&gt; <code class="docutils literal notranslate"><span class="pre">Stream</span></code> &lt;–&gt; <code class="docutils literal notranslate"><span class="pre">Topic</span></code> &lt;–&gt; <code class="docutils literal notranslate"><span class="pre">Transport</span></code> &lt;–&gt; <a class="reference external" href="https://pypi.python.org/pypi/aiokafka/">aiokafka</a></p>
+</div>
+<p>Faust defines these layers of abstraction so that agents can send and
+receive messages using more than one type of transport.</p>
+<p>Topics are highly Kafka specific, while channels are not. That makes
+channels more natural to subclass should you require a different
+means of communication, for example using <a class="reference external" href="http://rabbitmq.com/">RabbitMQ</a> (AMQP),
+<a class="reference external" href="https://stomp.github.io/">Stomp</a>, <a class="reference external" href="http://mqtt.org/">MQTT</a>, <a class="reference external" href="http://nsq.io/">NSQ</a>, <a class="reference external" href="http://zeromq.org/">ZeroMQ</a>, etc.</p>
+</div>
+<div class="section" id="channels">
+<h2><a class="toc-backref" href="#id2">Channels</a><a class="headerlink" href="#channels" title="Permalink to this headline">¶</a></h2>
+<p>A <strong>channel</strong> is a buffer/queue used to send and receive messages.
+This buffer could exist in-memory in the local process only,
+or transmit serialized messages over the network.</p>
+<p>You can create channels manually and read/write from them:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">async</span> <span class="k">def</span> <span class="nf">main</span><span class="p">():</span>
+    <span class="n">channel</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">channel</span><span class="p">()</span>
+
+    <span class="n">await</span> <span class="n">channel</span><span class="o">.</span><span class="n">put</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="n">async</span> <span class="k">for</span> <span class="n">event</span> <span class="ow">in</span> <span class="n">channel</span><span class="p">:</span>
+        <span class="k">print</span><span class="p">(</span><span class="n">event</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
+        <span class="c1"># the channel is infinite so we break after first event</span>
+        <span class="k">break</span>
+</pre></div>
+</div>
+<div class="section" id="reference">
+<h3>Reference<a class="headerlink" href="#reference" title="Permalink to this headline">¶</a></h3>
+<div class="section" id="sending-messages-to-channel">
+<h4>Sending messages to channel<a class="headerlink" href="#sending-messages-to-channel" title="Permalink to this headline">¶</a></h4>
+<dl class="class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">faust.</code><code class="sig-name descname">Channel</code><a class="reference internal" href="../_modules/faust/channels.html#Channel"><span class="viewcode-link">[source]</span></a></dt>
+<dd><dl class="method">
+<dt>
+<em class="property">async </em><code class="sig-name descname">send</code><span class="sig-paren">(</span><em class="sig-param">*, key: Union[bytes, faust.types.core._ModelT, Any, None] = None, value: Union[bytes, faust.types.core._ModelT, Any] = None, partition: int = None, timestamp: float = None, headers: Union[List[Tuple[str, bytes]], Mapping[str, bytes], None] = None, schema: faust.types.serializers.SchemaT = None, key_serializer: Union[faust.types.codecs.CodecT, str, None] = None, value_serializer: Union[faust.types.codecs.CodecT, str, None] = None, callback: Callable[faust.types.tuples.FutureMessage, Union[None, Awaitable[None]]] = None, force: bool = False</em><span class="sig-paren">)</span> &#x2192; Awaitable[faust.types.tuples.RecordMetadata]<a class="reference internal" href="../_modules/faust/channels.html#Channel.send"><span class="viewcode-link">[source]</span></a></dt>
+<dd><p>Send message to channel.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Awaitable" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Awaitable</span></code></a>[<a class="reference internal" href="../reference/faust.types.tuples.html#faust.types.tuples.RecordMetadata" title="faust.types.tuples.RecordMetadata"><code class="xref py py-class docutils literal notranslate"><span class="pre">RecordMetadata</span></code></a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt>
+<code class="sig-name descname">as_future_message</code><span class="sig-paren">(</span><em class="sig-param">key: Union[bytes, faust.types.core._ModelT, Any, None] = None, value: Union[bytes, faust.types.core._ModelT, Any] = None, partition: int = None, timestamp: float = None, headers: Union[List[Tuple[str, bytes]], Mapping[str, bytes], None] = None, schema: faust.types.serializers.SchemaT = None, key_serializer: Union[faust.types.codecs.CodecT, str, None] = None, value_serializer: Union[faust.types.codecs.CodecT, str, None] = None, callback: Callable[faust.types.tuples.FutureMessage, Union[None, Awaitable[None]]] = None, eager_partitioning: bool = False</em><span class="sig-paren">)</span> &#x2192; faust.types.tuples.FutureMessage<a class="reference internal" href="../_modules/faust/channels.html#Channel.as_future_message"><span class="viewcode-link">[source]</span></a></dt>
+<dd><p>Create promise that message will be transmitted.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="../reference/faust.types.tuples.html#faust.types.tuples.FutureMessage" title="faust.types.tuples.FutureMessage"><code class="xref py py-class docutils literal notranslate"><span class="pre">FutureMessage</span></code></a>[]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt>
+<em class="property">async </em><code class="sig-name descname">publish_message</code><span class="sig-paren">(</span><em class="sig-param">fut: faust.types.tuples.FutureMessage</em>, <em class="sig-param">wait: bool = True</em><span class="sig-paren">)</span> &#x2192; Awaitable[faust.types.tuples.RecordMetadata]<a class="reference internal" href="../_modules/faust/channels.html#Channel.publish_message"><span class="viewcode-link">[source]</span></a></dt>
+<dd><p>Publish message to channel.</p>
+<p>This is the interface used by <code class="docutils literal notranslate"><span class="pre">topic.send()</span></code>, etc.
+to actually publish the message on the channel
+after being buffered up or similar.</p>
+<p>It takes a <code class="xref py py-class docutils literal notranslate"><span class="pre">FutureMessage</span></code> object,
+which contains all the information required to send
+the message, and acts as a promise that is resolved
+once the message has been fully transmitted.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Awaitable" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Awaitable</span></code></a>[<a class="reference internal" href="../reference/faust.types.tuples.html#faust.types.tuples.RecordMetadata" title="faust.types.tuples.RecordMetadata"><code class="xref py py-class docutils literal notranslate"><span class="pre">RecordMetadata</span></code></a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="declaring">
+<h4>Declaring<a class="headerlink" href="#declaring" title="Permalink to this headline">¶</a></h4>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Some channels may require you to declare them on the server side
+before they’re used. Faust will create topics considered internal but
+will not create or modify “source topics” (i.e., exposed for use by
+other Kafka applications).</p>
+<p>To define a topic as internal use
+<code class="docutils literal notranslate"><span class="pre">app.topic('name',</span> <span class="pre">...,</span> <span class="pre">internal=True)</span></code>.</p>
+</div>
+<dl class="class">
+<dt>
+<em class="property">class </em><code class="sig-prename descclassname">faust.</code><code class="sig-name descname">Channel</code><a class="reference internal" href="../_modules/faust/channels.html#Channel"><span class="viewcode-link">[source]</span></a></dt>
+<dd><dl class="method">
+<dt>
+<code class="sig-name descname">maybe_declare</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/faust/channels.html#Channel.maybe_declare"><span class="viewcode-link">[source]</span></a></dt>
+<dd><p>Declare/create this channel, but only if it doesn’t exist.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt>
+<em class="property">async </em><code class="sig-name descname">declare</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/channels.html#Channel.declare"><span class="viewcode-link">[source]</span></a></dt>
+<dd><p>Declare/create this channel.</p>
+<p>This is used to create this channel on a server,
+if that is required to operate it.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+</div>
+</div>
+<div class="section" id="topics">
+<h2><a class="toc-backref" href="#id3">Topics</a><a class="headerlink" href="#topics" title="Permalink to this headline">¶</a></h2>
+<p>A <em>topic</em> is a <strong>named channel</strong>, backed by a Kafka topic. The name is used as the address
+of the channel, to share it between multiple processes and each
+process will receive a partition of the topic.</p>
+</div>
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../playbooks/index.html">Playbooks</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">User Guide</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="application.html">The App - Define your Faust project</a></li>
+<li class="toctree-l2"><a class="reference internal" href="agents.html">Agents - Self-organizing Stream Processors</a></li>
+<li class="toctree-l2"><a class="reference internal" href="streams.html">Streams - Infinite Data Structures</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Channels &amp; Topics - Data Sources</a></li>
+<li class="toctree-l2"><a class="reference internal" href="models.html">Models, Serialization, and Codecs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tables.html">Tables and Windowing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tasks.html">Tasks, Timers, Cron Jobs, Web Views, and CLI Commands</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cli.html">Command-line Interface</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sensors.html">Sensors - Monitors and Statistics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="testing.html">Testing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="livecheck.html">LiveCheck: End-to-end test for production/staging.</a></li>
+<li class="toctree-l2"><a class="reference internal" href="settings.html">Configuration Reference</a></li>
+<li class="toctree-l2"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="kafka.html">Kafka - The basics you need to know</a></li>
+<li class="toctree-l2"><a class="reference internal" href="debugging.html">Debugging</a></li>
+<li class="toctree-l2"><a class="reference internal" href="workers.html">Workers Guide</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../history/index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">User Guide</a><ul>
+      <li>Previous: <a href="streams.html" title="previous chapter">Streams - Infinite Data Structures</a></li>
+      <li>Next: <a href="models.html" title="next chapter">Models, Serialization, and Codecs</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2020, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../_sources/userguide/channels.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

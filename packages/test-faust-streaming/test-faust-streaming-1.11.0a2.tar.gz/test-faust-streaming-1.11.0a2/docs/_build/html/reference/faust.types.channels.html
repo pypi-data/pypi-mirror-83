@@ -1,0 +1,400 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>faust.types.channels &#8212; Faust 1.11.0a1 documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="copyright" title="Copyright" href="../copyright.html" />
+    <link rel="next" title="faust.types.codecs" href="faust.types.codecs.html" />
+    <link rel="prev" title="faust.types.auth" href="faust.types.auth.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="faust-types-channels">
+<h1><code class="docutils literal notranslate"><span class="pre">faust.types.channels</span></code><a class="headerlink" href="#faust-types-channels" title="Permalink to this headline">¶</a></h1>
+<span class="target" id="module-faust.types.channels"></span><dl class="class">
+<dt id="faust.types.channels.ChannelT">
+<em class="property">class </em><code class="sig-prename descclassname">faust.types.channels.</code><code class="sig-name descname">ChannelT</code><span class="sig-paren">(</span><em class="sig-param">app: faust.types.channels._AppT</em>, <em class="sig-param">*</em>, <em class="sig-param">schema: faust.types.channels._SchemaT = None</em>, <em class="sig-param">key_type: faust.types.channels._ModelArg = None</em>, <em class="sig-param">value_type: faust.types.channels._ModelArg = None</em>, <em class="sig-param">is_iterator: bool = False</em>, <em class="sig-param">queue: mode.utils.queues.ThrowableQueue = None</em>, <em class="sig-param">maxsize: int = None</em>, <em class="sig-param">root: Optional[faust.types.channels.ChannelT] = None</em>, <em class="sig-param">active_partitions: Set[faust.types.tuples.TP] = None</em>, <em class="sig-param">loop: asyncio.events.AbstractEventLoop = None</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/types/channels.html#ChannelT"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.channels.ChannelT" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="method">
+<dt id="faust.types.channels.ChannelT.clone">
+<em class="property">abstract </em><code class="sig-name descname">clone</code><span class="sig-paren">(</span><em class="sig-param">*</em>, <em class="sig-param">is_iterator: bool = None</em>, <em class="sig-param">**kwargs: Any</em><span class="sig-paren">)</span> &#x2192; faust.types.channels.ChannelT[_T]<a class="reference internal" href="../_modules/faust/types/channels.html#ChannelT.clone"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.channels.ChannelT.clone" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="#faust.types.channels.ChannelT" title="faust.types.channels.ChannelT"><code class="xref py py-class docutils literal notranslate"><span class="pre">ChannelT</span></code></a>[~_T]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.channels.ChannelT.clone_using_queue">
+<em class="property">abstract </em><code class="sig-name descname">clone_using_queue</code><span class="sig-paren">(</span><em class="sig-param">queue: asyncio.queues.Queue</em><span class="sig-paren">)</span> &#x2192; faust.types.channels.ChannelT[_T]<a class="reference internal" href="../_modules/faust/types/channels.html#ChannelT.clone_using_queue"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.channels.ChannelT.clone_using_queue" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="#faust.types.channels.ChannelT" title="faust.types.channels.ChannelT"><code class="xref py py-class docutils literal notranslate"><span class="pre">ChannelT</span></code></a>[~_T]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.channels.ChannelT.stream">
+<em class="property">abstract </em><code class="sig-name descname">stream</code><span class="sig-paren">(</span><em class="sig-param">**kwargs: Any</em><span class="sig-paren">)</span> &#x2192; _StreamT[_T]<a class="reference internal" href="../_modules/faust/types/channels.html#ChannelT.stream"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.channels.ChannelT.stream" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="faust.types.channels.ChannelT.get_topic_name">
+<em class="property">abstract </em><code class="sig-name descname">get_topic_name</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; str<a class="reference internal" href="../_modules/faust/types/channels.html#ChannelT.get_topic_name"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.channels.ChannelT.get_topic_name" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.channels.ChannelT.send">
+<em class="property">abstract async </em><code class="sig-name descname">send</code><span class="sig-paren">(</span><em class="sig-param">*, key: Union[bytes, faust.types.core._ModelT, Any, None] = None, value: Union[bytes, faust.types.core._ModelT, Any] = None, partition: int = None, timestamp: float = None, headers: Union[List[Tuple[str, bytes]], Mapping[str, bytes], None] = None, schema: faust.types.channels._SchemaT = None, key_serializer: Union[faust.types.codecs.CodecT, str, None] = None, value_serializer: Union[faust.types.codecs.CodecT, str, None] = None, callback: Callable[faust.types.tuples.FutureMessage, Union[None, Awaitable[None]]] = None, force: bool = False</em><span class="sig-paren">)</span> &#x2192; Awaitable[faust.types.tuples.RecordMetadata]<a class="reference internal" href="../_modules/faust/types/channels.html#ChannelT.send"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.channels.ChannelT.send" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Awaitable" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Awaitable</span></code></a>[<a class="reference internal" href="faust.types.tuples.html#faust.types.tuples.RecordMetadata" title="faust.types.tuples.RecordMetadata"><code class="xref py py-class docutils literal notranslate"><span class="pre">RecordMetadata</span></code></a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.channels.ChannelT.send_soon">
+<em class="property">abstract </em><code class="sig-name descname">send_soon</code><span class="sig-paren">(</span><em class="sig-param">*, key: Union[bytes, faust.types.core._ModelT, Any, None] = None, value: Union[bytes, faust.types.core._ModelT, Any] = None, partition: int = None, timestamp: float = None, headers: Union[List[Tuple[str, bytes]], Mapping[str, bytes], None] = None, schema: faust.types.channels._SchemaT = None, key_serializer: Union[faust.types.codecs.CodecT, str, None] = None, value_serializer: Union[faust.types.codecs.CodecT, str, None] = None, callback: Callable[faust.types.tuples.FutureMessage, Union[None, Awaitable[None]]] = None, force: bool = False, eager_partitioning: bool = False</em><span class="sig-paren">)</span> &#x2192; faust.types.tuples.FutureMessage<a class="reference internal" href="../_modules/faust/types/channels.html#ChannelT.send_soon"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.channels.ChannelT.send_soon" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="faust.types.tuples.html#faust.types.tuples.FutureMessage" title="faust.types.tuples.FutureMessage"><code class="xref py py-class docutils literal notranslate"><span class="pre">FutureMessage</span></code></a>[]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.channels.ChannelT.as_future_message">
+<em class="property">abstract </em><code class="sig-name descname">as_future_message</code><span class="sig-paren">(</span><em class="sig-param">key: Union[bytes, faust.types.core._ModelT, Any, None] = None, value: Union[bytes, faust.types.core._ModelT, Any] = None, partition: int = None, timestamp: float = None, headers: Union[List[Tuple[str, bytes]], Mapping[str, bytes], None] = None, schema: faust.types.channels._SchemaT = None, key_serializer: Union[faust.types.codecs.CodecT, str, None] = None, value_serializer: Union[faust.types.codecs.CodecT, str, None] = None, callback: Callable[faust.types.tuples.FutureMessage, Union[None, Awaitable[None]]] = None, eager_partitioning: bool = False</em><span class="sig-paren">)</span> &#x2192; faust.types.tuples.FutureMessage<a class="reference internal" href="../_modules/faust/types/channels.html#ChannelT.as_future_message"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.channels.ChannelT.as_future_message" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="faust.types.tuples.html#faust.types.tuples.FutureMessage" title="faust.types.tuples.FutureMessage"><code class="xref py py-class docutils literal notranslate"><span class="pre">FutureMessage</span></code></a>[]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.channels.ChannelT.publish_message">
+<em class="property">abstract async </em><code class="sig-name descname">publish_message</code><span class="sig-paren">(</span><em class="sig-param">fut: faust.types.tuples.FutureMessage</em>, <em class="sig-param">wait: bool = True</em><span class="sig-paren">)</span> &#x2192; Awaitable[faust.types.tuples.RecordMetadata]<a class="reference internal" href="../_modules/faust/types/channels.html#ChannelT.publish_message"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.channels.ChannelT.publish_message" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Awaitable" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Awaitable</span></code></a>[<a class="reference internal" href="faust.types.tuples.html#faust.types.tuples.RecordMetadata" title="faust.types.tuples.RecordMetadata"><code class="xref py py-class docutils literal notranslate"><span class="pre">RecordMetadata</span></code></a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.types.channels.ChannelT.maybe_declare">
+<code class="sig-name descname">maybe_declare</code><a class="reference internal" href="../_modules/faust/types/channels.html#ChannelT.maybe_declare"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.channels.ChannelT.maybe_declare" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.channels.ChannelT.declare">
+<em class="property">abstract async </em><code class="sig-name descname">declare</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/types/channels.html#ChannelT.declare"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.channels.ChannelT.declare" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.channels.ChannelT.prepare_key">
+<em class="property">abstract </em><code class="sig-name descname">prepare_key</code><span class="sig-paren">(</span><em class="sig-param">key: Union[bytes, faust.types.core._ModelT, Any, None], key_serializer: Union[faust.types.codecs.CodecT, str, None], schema: faust.types.channels._SchemaT = None</em><span class="sig-paren">)</span> &#x2192; Any<a class="reference internal" href="../_modules/faust/types/channels.html#ChannelT.prepare_key"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.channels.ChannelT.prepare_key" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Any" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.channels.ChannelT.prepare_value">
+<em class="property">abstract </em><code class="sig-name descname">prepare_value</code><span class="sig-paren">(</span><em class="sig-param">value: Union[bytes, faust.types.core._ModelT, Any], value_serializer: Union[faust.types.codecs.CodecT, str, None], schema: faust.types.channels._SchemaT = None</em><span class="sig-paren">)</span> &#x2192; Any<a class="reference internal" href="../_modules/faust/types/channels.html#ChannelT.prepare_value"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.channels.ChannelT.prepare_value" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Any" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.channels.ChannelT.decode">
+<em class="property">abstract async </em><code class="sig-name descname">decode</code><span class="sig-paren">(</span><em class="sig-param">message: faust.types.tuples.Message</em>, <em class="sig-param">*</em>, <em class="sig-param">propagate: bool = False</em><span class="sig-paren">)</span> &#x2192; faust.types.channels._EventT[_T]<a class="reference internal" href="../_modules/faust/types/channels.html#ChannelT.decode"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.channels.ChannelT.decode" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">_EventT</span></code>[~_T]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.channels.ChannelT.deliver">
+<em class="property">abstract async </em><code class="sig-name descname">deliver</code><span class="sig-paren">(</span><em class="sig-param">message: faust.types.tuples.Message</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/types/channels.html#ChannelT.deliver"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.channels.ChannelT.deliver" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.channels.ChannelT.put">
+<em class="property">abstract async </em><code class="sig-name descname">put</code><span class="sig-paren">(</span><em class="sig-param">value: faust.types.channels._EventT[_T]</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/types/channels.html#ChannelT.put"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.channels.ChannelT.put" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.channels.ChannelT.get">
+<em class="property">abstract async </em><code class="sig-name descname">get</code><span class="sig-paren">(</span><em class="sig-param">*</em>, <em class="sig-param">timeout: Union[datetime.timedelta</em>, <em class="sig-param">float</em>, <em class="sig-param">str] = None</em><span class="sig-paren">)</span> &#x2192; faust.types.channels._EventT[_T]<a class="reference internal" href="../_modules/faust/types/channels.html#ChannelT.get"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.channels.ChannelT.get" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">_EventT</span></code>[~_T]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.channels.ChannelT.empty">
+<em class="property">abstract </em><code class="sig-name descname">empty</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; bool<a class="reference internal" href="../_modules/faust/types/channels.html#ChannelT.empty"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.channels.ChannelT.empty" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/functions.html#bool" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.channels.ChannelT.on_key_decode_error">
+<em class="property">abstract async </em><code class="sig-name descname">on_key_decode_error</code><span class="sig-paren">(</span><em class="sig-param">exc: Exception</em>, <em class="sig-param">message: faust.types.tuples.Message</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/types/channels.html#ChannelT.on_key_decode_error"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.channels.ChannelT.on_key_decode_error" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.channels.ChannelT.on_value_decode_error">
+<em class="property">abstract async </em><code class="sig-name descname">on_value_decode_error</code><span class="sig-paren">(</span><em class="sig-param">exc: Exception</em>, <em class="sig-param">message: faust.types.tuples.Message</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/types/channels.html#ChannelT.on_value_decode_error"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.channels.ChannelT.on_value_decode_error" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.channels.ChannelT.on_decode_error">
+<em class="property">abstract async </em><code class="sig-name descname">on_decode_error</code><span class="sig-paren">(</span><em class="sig-param">exc: Exception</em>, <em class="sig-param">message: faust.types.tuples.Message</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/types/channels.html#ChannelT.on_decode_error"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.channels.ChannelT.on_decode_error" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.channels.ChannelT.on_stop_iteration">
+<em class="property">abstract </em><code class="sig-name descname">on_stop_iteration</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/types/channels.html#ChannelT.on_stop_iteration"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.channels.ChannelT.on_stop_iteration" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.channels.ChannelT.throw">
+<em class="property">abstract async </em><code class="sig-name descname">throw</code><span class="sig-paren">(</span><em class="sig-param">exc: BaseException</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/types/channels.html#ChannelT.throw"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.channels.ChannelT.throw" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.channels.ChannelT.derive">
+<em class="property">abstract </em><code class="sig-name descname">derive</code><span class="sig-paren">(</span><em class="sig-param">**kwargs: Any</em><span class="sig-paren">)</span> &#x2192; faust.types.channels.ChannelT<a class="reference internal" href="../_modules/faust/types/channels.html#ChannelT.derive"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.types.channels.ChannelT.derive" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="#faust.types.channels.ChannelT" title="faust.types.channels.ChannelT"><code class="xref py py-class docutils literal notranslate"><span class="pre">ChannelT</span></code></a>[~_T]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.channels.ChannelT.subscriber_count">
+<em class="property">abstract property </em><code class="sig-name descname">subscriber_count</code><a class="headerlink" href="#faust.types.channels.ChannelT.subscriber_count" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/functions.html#int" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.types.channels.ChannelT.queue">
+<em class="property">abstract property </em><code class="sig-name descname">queue</code><a class="headerlink" href="#faust.types.channels.ChannelT.queue" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://mode.readthedocs.io/en/latest/reference/mode.utils.queues.html#mode.utils.queues.ThrowableQueue" title="(in Mode v4.3)"><code class="xref py py-class docutils literal notranslate"><span class="pre">ThrowableQueue</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../playbooks/index.html">Playbooks</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../userguide/index.html">User Guide</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../history/index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">API Reference</a><ul>
+      <li>Previous: <a href="faust.types.auth.html" title="previous chapter"><code class="docutils literal notranslate"><span class="pre">faust.types.auth</span></code></a></li>
+      <li>Next: <a href="faust.types.codecs.html" title="next chapter"><code class="docutils literal notranslate"><span class="pre">faust.types.codecs</span></code></a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2020, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../_sources/reference/faust.types.channels.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

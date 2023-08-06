@@ -1,0 +1,380 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>faust.types.tuples &#8212; Faust 1.11.0a1 documentation</title>
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../../../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <link rel="copyright" title="Copyright" href="../../../copyright.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for faust.types.tuples</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">asyncio</span>
+<span class="kn">from</span> <span class="nn">time</span> <span class="k">import</span> <span class="n">time</span>
+<span class="kn">import</span> <span class="nn">typing</span>
+<span class="kn">from</span> <span class="nn">collections</span> <span class="k">import</span> <span class="n">defaultdict</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">Any</span><span class="p">,</span>
+    <span class="n">Awaitable</span><span class="p">,</span>
+    <span class="n">Callable</span><span class="p">,</span>
+    <span class="n">MutableMapping</span><span class="p">,</span>
+    <span class="n">NamedTuple</span><span class="p">,</span>
+    <span class="n">Optional</span><span class="p">,</span>
+    <span class="n">Set</span><span class="p">,</span>
+    <span class="n">Union</span><span class="p">,</span>
+    <span class="n">cast</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="kn">from</span> <span class="nn">.codecs</span> <span class="k">import</span> <span class="n">CodecArg</span>
+<span class="kn">from</span> <span class="nn">.core</span> <span class="k">import</span> <span class="n">HeadersArg</span><span class="p">,</span> <span class="n">K</span><span class="p">,</span> <span class="n">OpenHeadersArg</span><span class="p">,</span> <span class="n">V</span>
+
+<span class="k">if</span> <span class="n">typing</span><span class="o">.</span><span class="n">TYPE_CHECKING</span><span class="p">:</span>
+    <span class="kn">from</span> <span class="nn">.channels</span> <span class="k">import</span> <span class="n">ChannelT</span> <span class="k">as</span> <span class="n">_ChannelT</span>
+    <span class="kn">from</span> <span class="nn">.transports</span> <span class="k">import</span> <span class="n">ConsumerT</span> <span class="k">as</span> <span class="n">_ConsumerT</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="k">class</span> <span class="nc">_ChannelT</span><span class="p">:</span> <span class="o">...</span>   <span class="c1"># noqa</span>
+    <span class="k">class</span> <span class="nc">_ConsumerT</span><span class="p">:</span> <span class="o">...</span>  <span class="c1"># noqa</span>
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="s1">&#39;ConsumerMessage&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;FutureMessage&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;Message&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;MessageSentCallback&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;PendingMessage&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;RecordMetadata&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;TP&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;tp_set_to_map&#39;</span><span class="p">,</span>
+<span class="p">]</span>
+
+<span class="n">MessageSentCallback</span> <span class="o">=</span> <span class="n">Callable</span><span class="p">[[</span><span class="s1">&#39;FutureMessage&#39;</span><span class="p">],</span> <span class="n">Union</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="n">Awaitable</span><span class="p">[</span><span class="kc">None</span><span class="p">]]]</span>
+
+
+<div class="viewcode-block" id="TP"><a class="viewcode-back" href="../../../reference/faust.types.tuples.html#faust.types.tuples.TP">[docs]</a><span class="k">class</span> <span class="nc">TP</span><span class="p">(</span><span class="n">NamedTuple</span><span class="p">):</span>
+    <span class="n">topic</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">partition</span><span class="p">:</span> <span class="nb">int</span></div>
+
+
+<div class="viewcode-block" id="RecordMetadata"><a class="viewcode-back" href="../../../reference/faust.types.tuples.html#faust.types.tuples.RecordMetadata">[docs]</a><span class="k">class</span> <span class="nc">RecordMetadata</span><span class="p">(</span><span class="n">NamedTuple</span><span class="p">):</span>
+    <span class="n">topic</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">partition</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">topic_partition</span><span class="p">:</span> <span class="n">TP</span>
+    <span class="n">offset</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">timestamp</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">timestamp_type</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span></div>
+
+
+<div class="viewcode-block" id="PendingMessage"><a class="viewcode-back" href="../../../reference/faust.types.tuples.html#faust.types.tuples.PendingMessage">[docs]</a><span class="k">class</span> <span class="nc">PendingMessage</span><span class="p">(</span><span class="n">NamedTuple</span><span class="p">):</span>
+    <span class="n">channel</span><span class="p">:</span> <span class="n">_ChannelT</span>
+    <span class="n">key</span><span class="p">:</span> <span class="n">K</span>
+    <span class="n">value</span><span class="p">:</span> <span class="n">V</span>
+    <span class="n">partition</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span>
+    <span class="n">timestamp</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span>
+    <span class="n">headers</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">OpenHeadersArg</span><span class="p">]</span>
+    <span class="n">key_serializer</span><span class="p">:</span> <span class="n">CodecArg</span>
+    <span class="n">value_serializer</span><span class="p">:</span> <span class="n">CodecArg</span>
+    <span class="n">callback</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">MessageSentCallback</span><span class="p">]</span>
+    <span class="n">topic</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">offset</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span></div>
+
+
+<span class="k">def</span> <span class="nf">_PendingMessage_to_Message</span><span class="p">(</span><span class="n">p</span><span class="p">:</span> <span class="n">PendingMessage</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s1">&#39;Message&#39;</span><span class="p">:</span>
+    <span class="c1"># CPython3.6.0 does not support methods on NamedTuple [ask]</span>
+
+    <span class="c1"># In-memory channel.send uses this to convert</span>
+    <span class="c1"># PendingMessage to Message.</span>
+    <span class="n">topic</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">p</span><span class="o">.</span><span class="n">topic</span><span class="p">)</span>
+    <span class="n">partition</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="n">p</span><span class="o">.</span><span class="n">partition</span><span class="p">)</span> <span class="ow">or</span> <span class="mi">0</span>
+    <span class="n">tp</span> <span class="o">=</span> <span class="n">TP</span><span class="p">(</span><span class="n">topic</span><span class="p">,</span> <span class="n">partition</span><span class="p">)</span>
+    <span class="n">timestamp</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="nb">float</span><span class="p">,</span> <span class="n">p</span><span class="o">.</span><span class="n">timestamp</span><span class="p">)</span> <span class="ow">or</span> <span class="n">time</span><span class="p">()</span>
+    <span class="n">timestamp_type</span> <span class="o">=</span> <span class="mi">1</span> <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">timestamp</span> <span class="k">else</span> <span class="mi">0</span>
+    <span class="k">return</span> <span class="n">Message</span><span class="p">(</span>
+        <span class="n">topic</span><span class="p">,</span>
+        <span class="n">partition</span><span class="p">,</span>
+        <span class="o">-</span><span class="mi">1</span><span class="p">,</span>
+        <span class="n">timestamp</span><span class="o">=</span><span class="n">timestamp</span><span class="p">,</span>
+        <span class="n">timestamp_type</span><span class="o">=</span><span class="n">timestamp_type</span><span class="p">,</span>
+        <span class="n">headers</span><span class="o">=</span><span class="n">p</span><span class="o">.</span><span class="n">headers</span><span class="p">,</span>
+        <span class="n">key</span><span class="o">=</span><span class="n">p</span><span class="o">.</span><span class="n">key</span><span class="p">,</span>
+        <span class="n">value</span><span class="o">=</span><span class="n">p</span><span class="o">.</span><span class="n">value</span><span class="p">,</span>
+        <span class="n">checksum</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">tp</span><span class="o">=</span><span class="n">tp</span><span class="p">,</span>
+    <span class="p">)</span>
+
+
+<div class="viewcode-block" id="FutureMessage"><a class="viewcode-back" href="../../../reference/faust.types.tuples.html#faust.types.tuples.FutureMessage">[docs]</a><span class="k">class</span> <span class="nc">FutureMessage</span><span class="p">(</span><span class="n">asyncio</span><span class="o">.</span><span class="n">Future</span><span class="p">,</span> <span class="n">Awaitable</span><span class="p">[</span><span class="n">RecordMetadata</span><span class="p">]):</span>
+    <span class="n">message</span><span class="p">:</span> <span class="n">PendingMessage</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="p">:</span> <span class="n">PendingMessage</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">message</span> <span class="o">=</span> <span class="n">message</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+
+<div class="viewcode-block" id="FutureMessage.set_result"><a class="viewcode-back" href="../../../reference/faust.types.tuples.html#faust.types.tuples.FutureMessage.set_result">[docs]</a>    <span class="k">def</span> <span class="nf">set_result</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">result</span><span class="p">:</span> <span class="n">RecordMetadata</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">set_result</span><span class="p">(</span><span class="n">result</span><span class="p">)</span></div></div>
+
+
+<span class="k">def</span> <span class="nf">_get_len</span><span class="p">(</span><span class="n">s</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bytes</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+    <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="n">s</span><span class="p">)</span> <span class="k">if</span> <span class="n">s</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="nb">bytes</span><span class="p">)</span> <span class="k">else</span> <span class="mi">0</span>
+
+
+<div class="viewcode-block" id="Message"><a class="viewcode-back" href="../../../reference/faust.types.tuples.html#faust.types.tuples.Message">[docs]</a><span class="k">class</span> <span class="nc">Message</span><span class="p">:</span>
+
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="s1">&#39;topic&#39;</span><span class="p">,</span>
+        <span class="s1">&#39;partition&#39;</span><span class="p">,</span>
+        <span class="s1">&#39;offset&#39;</span><span class="p">,</span>
+        <span class="s1">&#39;timestamp&#39;</span><span class="p">,</span>
+        <span class="s1">&#39;timestamp_type&#39;</span><span class="p">,</span>
+        <span class="s1">&#39;headers&#39;</span><span class="p">,</span>
+        <span class="s1">&#39;key&#39;</span><span class="p">,</span>
+        <span class="s1">&#39;value&#39;</span><span class="p">,</span>
+        <span class="s1">&#39;checksum&#39;</span><span class="p">,</span>
+        <span class="s1">&#39;serialized_key_size&#39;</span><span class="p">,</span>
+        <span class="s1">&#39;serialized_value_size&#39;</span><span class="p">,</span>
+        <span class="s1">&#39;acked&#39;</span><span class="p">,</span>
+        <span class="s1">&#39;refcount&#39;</span><span class="p">,</span>
+        <span class="s1">&#39;time_in&#39;</span><span class="p">,</span>
+        <span class="s1">&#39;time_out&#39;</span><span class="p">,</span>
+        <span class="s1">&#39;time_total&#39;</span><span class="p">,</span>
+        <span class="s1">&#39;tp&#39;</span><span class="p">,</span>
+        <span class="s1">&#39;tracked&#39;</span><span class="p">,</span>
+        <span class="s1">&#39;span&#39;</span><span class="p">,</span>
+        <span class="s1">&#39;__weakref__&#39;</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">use_tracking</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                 <span class="n">topic</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+                 <span class="n">partition</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+                 <span class="n">offset</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+                 <span class="n">timestamp</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+                 <span class="n">timestamp_type</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+                 <span class="n">headers</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">HeadersArg</span><span class="p">],</span>
+                 <span class="n">key</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bytes</span><span class="p">],</span>
+                 <span class="n">value</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bytes</span><span class="p">],</span>
+                 <span class="n">checksum</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bytes</span><span class="p">],</span>
+                 <span class="n">serialized_key_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">serialized_value_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">tp</span><span class="p">:</span> <span class="n">TP</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">time_in</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">time_out</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">time_total</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">topic</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">topic</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">partition</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">partition</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">offset</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">offset</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">timestamp</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">timestamp</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">timestamp_type</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">timestamp_type</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">headers</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">HeadersArg</span><span class="p">]</span> <span class="o">=</span> <span class="n">headers</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">key</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bytes</span><span class="p">]</span> <span class="o">=</span> <span class="n">key</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">value</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bytes</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">checksum</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bytes</span><span class="p">]</span> <span class="o">=</span> <span class="n">checksum</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">serialized_key_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">_get_len</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">serialized_key_size</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">serialized_key_size</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">serialized_value_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">_get_len</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">serialized_value_size</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">serialized_value_size</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">acked</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">refcount</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">tp</span> <span class="o">=</span> <span class="n">tp</span> <span class="k">if</span> <span class="n">tp</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">TP</span><span class="p">(</span><span class="n">topic</span><span class="p">,</span> <span class="n">partition</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">tracked</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">use_tracking</span>
+
+        <span class="c1">#: Monotonic timestamp of when the consumer received this message.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">time_in</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="n">time_in</span>
+        <span class="c1">#: Monotonic timestamp of when the consumer acknowledged this message.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">time_out</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="n">time_out</span>
+        <span class="c1">#: Total processing time (in seconds), or None if the event is</span>
+        <span class="c1">#: still processing.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">time_total</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="n">time_total</span>
+
+<div class="viewcode-block" id="Message.ack"><a class="viewcode-back" href="../../../reference/faust.types.tuples.html#faust.types.tuples.Message.ack">[docs]</a>    <span class="k">def</span> <span class="nf">ack</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">consumer</span><span class="p">:</span> <span class="n">_ConsumerT</span><span class="p">,</span> <span class="n">n</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">acked</span><span class="p">:</span>
+            <span class="c1"># if no more references, mark offset as safe-to-commit in</span>
+            <span class="c1"># Consumer.</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">decref</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">on_final_ack</span><span class="p">(</span><span class="n">consumer</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">False</span></div>
+
+<div class="viewcode-block" id="Message.on_final_ack"><a class="viewcode-back" href="../../../reference/faust.types.tuples.html#faust.types.tuples.Message.on_final_ack">[docs]</a>    <span class="k">def</span> <span class="nf">on_final_ack</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">consumer</span><span class="p">:</span> <span class="n">_ConsumerT</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">acked</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">return</span> <span class="kc">True</span></div>
+
+<div class="viewcode-block" id="Message.incref"><a class="viewcode-back" href="../../../reference/faust.types.tuples.html#faust.types.tuples.Message.incref">[docs]</a>    <span class="k">def</span> <span class="nf">incref</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">refcount</span> <span class="o">+=</span> <span class="n">n</span></div>
+
+<div class="viewcode-block" id="Message.decref"><a class="viewcode-back" href="../../../reference/faust.types.tuples.html#faust.types.tuples.Message.decref">[docs]</a>    <span class="k">def</span> <span class="nf">decref</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="n">refcount</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">refcount</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">refcount</span> <span class="o">-</span> <span class="n">n</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">refcount</span></div>
+
+<div class="viewcode-block" id="Message.from_message"><a class="viewcode-back" href="../../../reference/faust.types.tuples.html#faust.types.tuples.Message.from_message">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">from_message</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">message</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">tp</span><span class="p">:</span> <span class="n">TP</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s1">&#39;Message&#39;</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span>
+            <span class="n">message</span><span class="o">.</span><span class="n">topic</span><span class="p">,</span>
+            <span class="n">message</span><span class="o">.</span><span class="n">partition</span><span class="p">,</span>
+            <span class="n">message</span><span class="o">.</span><span class="n">offset</span><span class="p">,</span>
+            <span class="n">message</span><span class="o">.</span><span class="n">timestamp</span><span class="p">,</span>
+            <span class="n">message</span><span class="o">.</span><span class="n">timestamp_type</span><span class="p">,</span>
+            <span class="n">message</span><span class="o">.</span><span class="n">headers</span><span class="p">,</span>
+            <span class="n">message</span><span class="o">.</span><span class="n">key</span><span class="p">,</span>
+            <span class="n">message</span><span class="o">.</span><span class="n">value</span><span class="p">,</span>
+            <span class="n">message</span><span class="o">.</span><span class="n">checksum</span><span class="p">,</span>
+            <span class="n">message</span><span class="o">.</span><span class="n">serialized_key_size</span><span class="p">,</span>
+            <span class="n">message</span><span class="o">.</span><span class="n">serialized_value_size</span><span class="p">,</span>
+            <span class="n">tp</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">f</span><span class="s1">&#39;&lt;{type(self).__name__}: </span><span class="si">{self.tp}</span><span class="s1"> offset=</span><span class="si">{self.offset}</span><span class="s1">&gt;&#39;</span></div>
+
+
+<div class="viewcode-block" id="ConsumerMessage"><a class="viewcode-back" href="../../../reference/faust.types.tuples.html#faust.types.tuples.ConsumerMessage">[docs]</a><span class="k">class</span> <span class="nc">ConsumerMessage</span><span class="p">(</span><span class="n">Message</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Message type used by Kafka Consumer.&quot;&quot;&quot;</span>
+
+    <span class="n">use_tracking</span> <span class="o">=</span> <span class="kc">True</span>
+
+<div class="viewcode-block" id="ConsumerMessage.on_final_ack"><a class="viewcode-back" href="../../../reference/faust.types.tuples.html#faust.types.tuples.ConsumerMessage.on_final_ack">[docs]</a>    <span class="k">def</span> <span class="nf">on_final_ack</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">consumer</span><span class="p">:</span> <span class="n">_ConsumerT</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">consumer</span><span class="o">.</span><span class="n">ack</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="tp_set_to_map"><a class="viewcode-back" href="../../../reference/faust.types.tuples.html#faust.types.tuples.tp_set_to_map">[docs]</a><span class="k">def</span> <span class="nf">tp_set_to_map</span><span class="p">(</span><span class="n">tps</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="n">TP</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">MutableMapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Set</span><span class="p">[</span><span class="n">TP</span><span class="p">]]:</span>
+    <span class="c1"># convert revoked/assigned to mapping of topic to partitions</span>
+    <span class="n">tpmap</span><span class="p">:</span> <span class="n">MutableMapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Set</span><span class="p">[</span><span class="n">TP</span><span class="p">]]</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">set</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">tp</span> <span class="ow">in</span> <span class="n">tps</span><span class="p">:</span>
+        <span class="n">tpmap</span><span class="p">[</span><span class="n">tp</span><span class="o">.</span><span class="n">topic</span><span class="p">]</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">tp</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">tpmap</span></div>
+
+
+<span class="c1"># XXX See top of module! We redefine this with final FutureMessage</span>
+<span class="c1"># for Sphinx as it cannot read non-final types.</span>
+<span class="n">MessageSentCallback</span> <span class="o">=</span> <span class="n">Callable</span><span class="p">[</span>  <span class="c1"># type: ignore</span>
+    <span class="p">[</span><span class="n">FutureMessage</span><span class="p">],</span> <span class="n">Union</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="n">Awaitable</span><span class="p">[</span><span class="kc">None</span><span class="p">]]]</span>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../../index.html">
+              <img class="logo" src="../../../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../../../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../playbooks/index.html">Playbooks</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../userguide/index.html">User Guide</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../reference/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../history/index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2020, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

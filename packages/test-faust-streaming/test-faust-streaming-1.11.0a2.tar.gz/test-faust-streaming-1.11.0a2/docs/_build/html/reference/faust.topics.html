@@ -1,0 +1,330 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>faust.topics &#8212; Faust 1.11.0a1 documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="copyright" title="Copyright" href="../copyright.html" />
+    <link rel="next" title="faust.windows" href="faust.windows.html" />
+    <link rel="prev" title="faust.streams" href="faust.streams.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="faust-topics">
+<h1><code class="docutils literal notranslate"><span class="pre">faust.topics</span></code><a class="headerlink" href="#faust-topics" title="Permalink to this headline">¶</a></h1>
+<span class="target" id="module-faust.topics"></span><p>Topic - Named channel using Kafka.</p>
+<dl class="class">
+<dt id="faust.topics.Topic">
+<em class="property">class </em><code class="sig-prename descclassname">faust.topics.</code><code class="sig-name descname">Topic</code><span class="sig-paren">(</span><em class="sig-param">app: faust.types.app.AppT, *, topics: Sequence[str] = None, pattern: Union[str, Pattern[~AnyStr]] = None, schema: faust.types.serializers.SchemaT = None, key_type: Union[Type[faust.types.models.ModelT], Type[bytes], Type[str]] = None, value_type: Union[Type[faust.types.models.ModelT], Type[bytes], Type[str]] = None, is_iterator: bool = False, partitions: int = None, retention: Union[datetime.timedelta, float, str] = None, compacting: bool = None, deleting: bool = None, replicas: int = None, acks: bool = True, internal: bool = False, config: Mapping[str, Any] = None, queue: mode.utils.queues.ThrowableQueue = None, key_serializer: Union[faust.types.codecs.CodecT, str, None] = None, value_serializer: Union[faust.types.codecs.CodecT, str, None] = None, maxsize: int = None, root: faust.types.channels.ChannelT = None, active_partitions: Set[faust.types.tuples.TP] = None, allow_empty: bool = None, has_prefix: bool = False, loop: asyncio.events.AbstractEventLoop = None</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/topics.html#Topic"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.topics.Topic" title="Permalink to this definition">¶</a></dt>
+<dd><p>Define new topic description.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>app</strong> (<a class="reference internal" href="faust.types.app.html#faust.types.app.AppT" title="faust.types.app.AppT"><code class="xref py py-class docutils literal notranslate"><span class="pre">AppT</span></code></a>[]) – App instance used to create this topic description.</p></li>
+<li><p><strong>topics</strong> (<a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Optional" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Sequence" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Sequence</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>]]) – List of topic names.</p></li>
+<li><p><strong>partitions</strong> (<a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Optional" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/functions.html#int" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>]) – Number of partitions for these topics.
+On declaration, topics are created using this.
+Note: If a message is produced before the topic is
+declared, and <code class="docutils literal notranslate"><span class="pre">autoCreateTopics</span></code> is enabled on
+the Kafka Server, the number of partitions used
+will be specified by the server configuration.</p></li>
+<li><p><strong>retention</strong> (<a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Union" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/datetime.html#datetime.timedelta" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">timedelta</span></code></a>, <a class="reference external" href="https://docs.python.org/dev/library/functions.html#float" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <code class="docutils literal notranslate"><span class="pre">None</span></code>]) – Number of seconds (as float/<a class="reference external" href="https://docs.python.org/dev/library/datetime.html#datetime.timedelta" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">timedelta</span></code></a>)
+to keep messages in the topic before they can
+be expired by the server.</p></li>
+<li><p><strong>pattern</strong> (<a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Union" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Pattern" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Pattern</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.AnyStr" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">AnyStr</span></code></a>], <code class="docutils literal notranslate"><span class="pre">None</span></code>]) – Regular expression evaluated to decide what topics to
+subscribe to. You cannot specify both topics and a pattern.</p></li>
+<li><p><strong>schema</strong> (<a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Optional" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<a class="reference internal" href="faust.types.serializers.html#faust.types.serializers.SchemaT" title="faust.types.serializers.SchemaT"><code class="xref py py-class docutils literal notranslate"><span class="pre">SchemaT</span></code></a>[~KT, ~VT]]) – Schema used for serialization/deserialization.</p></li>
+<li><p><strong>key_type</strong> (<a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Union" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Type" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Type</span></code></a>[<a class="reference internal" href="faust.types.models.html#faust.types.models.ModelT" title="faust.types.models.ModelT"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModelT</span></code></a>], <a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Type" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Type</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#bytes" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bytes</span></code></a>], <a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Type" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Type</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>], <code class="docutils literal notranslate"><span class="pre">None</span></code>]) – How to deserialize keys for messages in this topic.
+Can be a <code class="xref py py-class docutils literal notranslate"><span class="pre">faust.Model</span></code> type, <a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>,
+<a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#bytes" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bytes</span></code></a>, or <code class="xref py py-const docutils literal notranslate"><span class="pre">None</span></code> for “autodetect”
+(Overrides schema if one is defined).</p></li>
+<li><p><strong>value_type</strong> (<a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Union" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Type" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Type</span></code></a>[<a class="reference internal" href="faust.types.models.html#faust.types.models.ModelT" title="faust.types.models.ModelT"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModelT</span></code></a>], <a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Type" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Type</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#bytes" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bytes</span></code></a>], <a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Type" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Type</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>], <code class="docutils literal notranslate"><span class="pre">None</span></code>]) – How to deserialize values for messages in this topic.
+Can be a <code class="xref py py-class docutils literal notranslate"><span class="pre">faust.Model</span></code> type, <a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>,
+<a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#bytes" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bytes</span></code></a>, or <code class="xref py py-const docutils literal notranslate"><span class="pre">None</span></code> for “autodetect”
+(Overrides schema if ones is defined).</p></li>
+<li><p><strong>active_partitions</strong> (<a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Optional" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Set" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Set</span></code></a>[<a class="reference internal" href="faust.types.tuples.html#faust.types.tuples.TP" title="faust.types.tuples.TP"><code class="xref py py-class docutils literal notranslate"><span class="pre">TP</span></code></a>]]) – Set of <a class="reference internal" href="faust.types.tuples.html#faust.types.tuples.TP" title="faust.types.tuples.TP"><code class="xref py py-class docutils literal notranslate"><span class="pre">faust.types.tuples.TP</span></code></a> that this
+topic should be restricted to.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Raises</dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/dev/library/exceptions.html#TypeError" title="(in Python v3.9)"><strong>TypeError</strong></a> – if both <cite>topics</cite> and <cite>pattern</cite> is provided.</p>
+</dd>
+</dl>
+<dl class="method">
+<dt id="faust.topics.Topic.send">
+<em class="property">async </em><code class="sig-name descname">send</code><span class="sig-paren">(</span><em class="sig-param">*, key: Union[bytes, faust.types.core._ModelT, Any, None] = None, value: Union[bytes, faust.types.core._ModelT, Any] = None, partition: int = None, timestamp: float = None, headers: Union[List[Tuple[str, bytes]], Mapping[str, bytes], None] = None, schema: faust.types.serializers.SchemaT = None, key_serializer: Union[faust.types.codecs.CodecT, str, None] = None, value_serializer: Union[faust.types.codecs.CodecT, str, None] = None, callback: Callable[faust.types.tuples.FutureMessage, Union[None, Awaitable[None]]] = None, force: bool = False</em><span class="sig-paren">)</span> &#x2192; Awaitable[faust.types.tuples.RecordMetadata]<a class="reference internal" href="../_modules/faust/topics.html#Topic.send"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.topics.Topic.send" title="Permalink to this definition">¶</a></dt>
+<dd><p>Send message to topic.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Awaitable" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Awaitable</span></code></a>[<a class="reference internal" href="faust.types.tuples.html#faust.types.tuples.RecordMetadata" title="faust.types.tuples.RecordMetadata"><code class="xref py py-class docutils literal notranslate"><span class="pre">RecordMetadata</span></code></a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.topics.Topic.send_soon">
+<code class="sig-name descname">send_soon</code><span class="sig-paren">(</span><em class="sig-param">*, key: Union[bytes, faust.types.core._ModelT, Any, None] = None, value: Union[bytes, faust.types.core._ModelT, Any] = None, partition: int = None, timestamp: float = None, headers: Union[List[Tuple[str, bytes]], Mapping[str, bytes], None] = None, schema: faust.types.serializers.SchemaT = None, key_serializer: Union[faust.types.codecs.CodecT, str, None] = None, value_serializer: Union[faust.types.codecs.CodecT, str, None] = None, callback: Callable[faust.types.tuples.FutureMessage, Union[None, Awaitable[None]]] = None, force: bool = False, eager_partitioning: bool = False</em><span class="sig-paren">)</span> &#x2192; faust.types.tuples.FutureMessage<a class="reference internal" href="../_modules/faust/topics.html#Topic.send_soon"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.topics.Topic.send_soon" title="Permalink to this definition">¶</a></dt>
+<dd><p>Produce message by adding to buffer.</p>
+<p class="rubric">Notes</p>
+<p>This method can be used by non-<cite>async def</cite> functions
+to produce messages.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="faust.types.tuples.html#faust.types.tuples.FutureMessage" title="faust.types.tuples.FutureMessage"><code class="xref py py-class docutils literal notranslate"><span class="pre">FutureMessage</span></code></a>[]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.topics.Topic.put">
+<em class="property">async </em><code class="sig-name descname">put</code><span class="sig-paren">(</span><em class="sig-param">event: faust.types.events.EventT</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/topics.html#Topic.put"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.topics.Topic.put" title="Permalink to this definition">¶</a></dt>
+<dd><p>Put event directly onto the underlying queue of this topic.</p>
+<p>This will only affect subscribers to a particular
+instance, in a particular process.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.topics.Topic.pattern">
+<em class="property">property </em><code class="sig-name descname">pattern</code><a class="headerlink" href="#faust.topics.Topic.pattern" title="Permalink to this definition">¶</a></dt>
+<dd><p>Regular expression used by this topic (if any).
+:rtype: <a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Optional" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Pattern" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Pattern</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.AnyStr" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">AnyStr</span></code></a>]]</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.topics.Topic.partitions">
+<em class="property">property </em><code class="sig-name descname">partitions</code><a class="headerlink" href="#faust.topics.Topic.partitions" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return the number of configured partitions for this topic.</p>
+<p class="rubric">Notes</p>
+<p>This is only active for internal topics, fully owned
+and managed by Faust itself.</p>
+<p>We never touch the configuration of a topic that exists in Kafka,
+and Kafka will sometimes automatically create topics
+when they don’t exist.  In this case the number of
+partitions for the automatically created topic
+will depend on the Kafka server configuration
+(<code class="docutils literal notranslate"><span class="pre">num.partitions</span></code>).</p>
+<p>Always make sure your topics have the correct
+number of partitions.
+:rtype: <a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Optional" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/functions.html#int" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>]</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.topics.Topic.derive">
+<code class="sig-name descname">derive</code><span class="sig-paren">(</span><em class="sig-param">**kwargs: Any</em><span class="sig-paren">)</span> &#x2192; faust.types.channels.ChannelT<a class="reference internal" href="../_modules/faust/topics.html#Topic.derive"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.topics.Topic.derive" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create topic derived from the configuration of this topic.</p>
+<p>Configuration will be copied from this topic, but any parameter
+overridden as a keyword argument.</p>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="#faust.topics.Topic.derive_topic" title="faust.topics.Topic.derive_topic"><code class="xref py py-meth docutils literal notranslate"><span class="pre">derive_topic()</span></code></a>: for a list of supported keyword arguments.</p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="faust.types.channels.html#faust.types.channels.ChannelT" title="faust.types.channels.ChannelT"><code class="xref py py-class docutils literal notranslate"><span class="pre">ChannelT</span></code></a>[~_T]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.topics.Topic.derive_topic">
+<code class="sig-name descname">derive_topic</code><span class="sig-paren">(</span><em class="sig-param">*, topics: Sequence[str] = None, schema: faust.types.serializers.SchemaT = None, key_type: Union[Type[faust.types.models.ModelT], Type[bytes], Type[str]] = None, value_type: Union[Type[faust.types.models.ModelT], Type[bytes], Type[str]] = None, key_serializer: Union[faust.types.codecs.CodecT, str, None] = None, value_serializer: Union[faust.types.codecs.CodecT, str, None] = None, partitions: int = None, retention: Union[datetime.timedelta, float, str] = None, compacting: bool = None, deleting: bool = None, internal: bool = None, config: Mapping[str, Any] = None, prefix: str = '', suffix: str = '', **kwargs: Any</em><span class="sig-paren">)</span> &#x2192; faust.types.topics.TopicT<a class="reference internal" href="../_modules/faust/topics.html#Topic.derive_topic"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.topics.Topic.derive_topic" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create new topic with configuration derived from this topic.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="faust.types.topics.html#faust.types.topics.TopicT" title="faust.types.topics.TopicT"><code class="xref py py-class docutils literal notranslate"><span class="pre">TopicT</span></code></a>[]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.topics.Topic.get_topic_name">
+<code class="sig-name descname">get_topic_name</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; str<a class="reference internal" href="../_modules/faust/topics.html#Topic.get_topic_name"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.topics.Topic.get_topic_name" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return the main topic name of this topic description.</p>
+<p>As topic descriptions can have multiple topic names, this will only
+return when the topic has a singular topic name in the description.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Raises</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><a class="reference external" href="https://docs.python.org/dev/library/exceptions.html#TypeError" title="(in Python v3.9)"><strong>TypeError</strong></a> – if configured with a regular expression pattern.</p></li>
+<li><p><a class="reference external" href="https://docs.python.org/dev/library/exceptions.html#ValueError" title="(in Python v3.9)"><strong>ValueError</strong></a> – if configured with multiple topic names.</p></li>
+<li><p><a class="reference external" href="https://docs.python.org/dev/library/exceptions.html#TypeError" title="(in Python v3.9)"><strong>TypeError</strong></a> – if not configured with any names or patterns.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.topics.Topic.publish_message">
+<em class="property">async </em><code class="sig-name descname">publish_message</code><span class="sig-paren">(</span><em class="sig-param">fut: faust.types.tuples.FutureMessage</em>, <em class="sig-param">wait: bool = False</em><span class="sig-paren">)</span> &#x2192; Awaitable[faust.types.tuples.RecordMetadata]<a class="reference internal" href="../_modules/faust/topics.html#Topic.publish_message"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.topics.Topic.publish_message" title="Permalink to this definition">¶</a></dt>
+<dd><p>Fulfill promise to publish message to topic.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Awaitable" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Awaitable</span></code></a>[<a class="reference internal" href="faust.types.tuples.html#faust.types.tuples.RecordMetadata" title="faust.types.tuples.RecordMetadata"><code class="xref py py-class docutils literal notranslate"><span class="pre">RecordMetadata</span></code></a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.topics.Topic.maybe_declare">
+<code class="sig-name descname">maybe_declare</code><a class="reference internal" href="../_modules/faust/topics.html#Topic.maybe_declare"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.topics.Topic.maybe_declare" title="Permalink to this definition">¶</a></dt>
+<dd><p>Declare/create this topic, only if it does not exist.
+:rtype: <code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.topics.Topic.declare">
+<em class="property">async </em><code class="sig-name descname">declare</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/topics.html#Topic.declare"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.topics.Topic.declare" title="Permalink to this definition">¶</a></dt>
+<dd><p>Declare/create this topic on the server.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../playbooks/index.html">Playbooks</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../userguide/index.html">User Guide</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../history/index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">API Reference</a><ul>
+      <li>Previous: <a href="faust.streams.html" title="previous chapter"><code class="docutils literal notranslate"><span class="pre">faust.streams</span></code></a></li>
+      <li>Next: <a href="faust.windows.html" title="next chapter"><code class="docutils literal notranslate"><span class="pre">faust.windows</span></code></a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2020, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../_sources/reference/faust.topics.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

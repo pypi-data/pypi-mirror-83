@@ -1,0 +1,360 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>faust.assignor.partition_assignor &#8212; Faust 1.11.0a1 documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="copyright" title="Copyright" href="../copyright.html" />
+    <link rel="next" title="faust.types.agents" href="faust.types.agents.html" />
+    <link rel="prev" title="faust.assignor.leader_assignor" href="faust.assignor.leader_assignor.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="faust-assignor-partition-assignor">
+<h1><code class="docutils literal notranslate"><span class="pre">faust.assignor.partition_assignor</span></code><a class="headerlink" href="#faust-assignor-partition-assignor" title="Permalink to this headline">¶</a></h1>
+<span class="target" id="module-faust.assignor.partition_assignor"></span><p>Partition assignor.</p>
+<dl class="attribute">
+<dt id="faust.assignor.partition_assignor.MemberAssignmentMapping">
+<code class="sig-prename descclassname">faust.assignor.partition_assignor.</code><code class="sig-name descname">MemberAssignmentMapping</code><a class="headerlink" href="#faust.assignor.partition_assignor.MemberAssignmentMapping" title="Permalink to this definition">¶</a></dt>
+<dd><p>alias of <a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.MutableMapping" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">typing.MutableMapping</span></code></a></p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.assignor.partition_assignor.MemberMetadataMapping">
+<code class="sig-prename descclassname">faust.assignor.partition_assignor.</code><code class="sig-name descname">MemberMetadataMapping</code><a class="headerlink" href="#faust.assignor.partition_assignor.MemberMetadataMapping" title="Permalink to this definition">¶</a></dt>
+<dd><p>alias of <a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.MutableMapping" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">typing.MutableMapping</span></code></a></p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.assignor.partition_assignor.MemberSubscriptionMapping">
+<code class="sig-prename descclassname">faust.assignor.partition_assignor.</code><code class="sig-name descname">MemberSubscriptionMapping</code><a class="headerlink" href="#faust.assignor.partition_assignor.MemberSubscriptionMapping" title="Permalink to this definition">¶</a></dt>
+<dd><p>alias of <a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.MutableMapping" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">typing.MutableMapping</span></code></a></p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.assignor.partition_assignor.ClientMetadataMapping">
+<code class="sig-prename descclassname">faust.assignor.partition_assignor.</code><code class="sig-name descname">ClientMetadataMapping</code><a class="headerlink" href="#faust.assignor.partition_assignor.ClientMetadataMapping" title="Permalink to this definition">¶</a></dt>
+<dd><p>alias of <a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.MutableMapping" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">typing.MutableMapping</span></code></a></p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.assignor.partition_assignor.ClientAssignmentMapping">
+<code class="sig-prename descclassname">faust.assignor.partition_assignor.</code><code class="sig-name descname">ClientAssignmentMapping</code><a class="headerlink" href="#faust.assignor.partition_assignor.ClientAssignmentMapping" title="Permalink to this definition">¶</a></dt>
+<dd><p>alias of <a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.MutableMapping" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">typing.MutableMapping</span></code></a></p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.assignor.partition_assignor.CopartitionedGroups">
+<code class="sig-prename descclassname">faust.assignor.partition_assignor.</code><code class="sig-name descname">CopartitionedGroups</code><a class="headerlink" href="#faust.assignor.partition_assignor.CopartitionedGroups" title="Permalink to this definition">¶</a></dt>
+<dd><p>alias of <a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.MutableMapping" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">typing.MutableMapping</span></code></a></p>
+</dd></dl>
+
+<dl class="class">
+<dt id="faust.assignor.partition_assignor.PartitionAssignor">
+<em class="property">class </em><code class="sig-prename descclassname">faust.assignor.partition_assignor.</code><code class="sig-name descname">PartitionAssignor</code><span class="sig-paren">(</span><em class="sig-param">app: faust.types.app.AppT</em>, <em class="sig-param">replicas: int = 0</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/assignor/partition_assignor.html#PartitionAssignor"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.assignor.partition_assignor.PartitionAssignor" title="Permalink to this definition">¶</a></dt>
+<dd><p>PartitionAssignor handles internal topic creation.</p>
+<p>Further, this assignor needs to be sticky and potentially redundant</p>
+<p class="rubric">Notes</p>
+<p>Interface copied from <code class="xref py py-mod docutils literal notranslate"><span class="pre">kafka.coordinator.assignors.abstract</span></code>.</p>
+<dl class="method">
+<dt id="faust.assignor.partition_assignor.PartitionAssignor.group_for_topic">
+<code class="sig-name descname">group_for_topic</code><span class="sig-paren">(</span><em class="sig-param">topic: str</em><span class="sig-paren">)</span> &#x2192; int<a class="reference internal" href="../_modules/faust/assignor/partition_assignor.html#PartitionAssignor.group_for_topic"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.assignor.partition_assignor.PartitionAssignor.group_for_topic" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/functions.html#int" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.assignor.partition_assignor.PartitionAssignor.changelog_distribution">
+<em class="property">property </em><code class="sig-name descname">changelog_distribution</code><a class="headerlink" href="#faust.assignor.partition_assignor.PartitionAssignor.changelog_distribution" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.MutableMapping" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">MutableMapping</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.MutableMapping" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">MutableMapping</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.List" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">List</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/functions.html#int" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>]]]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.assignor.partition_assignor.PartitionAssignor.on_assignment">
+<code class="sig-name descname">on_assignment</code><span class="sig-paren">(</span><em class="sig-param">assignment: kafka.coordinator.protocol.ConsumerProtocolMemberMetadata</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/assignor/partition_assignor.html#PartitionAssignor.on_assignment"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.assignor.partition_assignor.PartitionAssignor.on_assignment" title="Permalink to this definition">¶</a></dt>
+<dd><p>Callback that runs on each assignment.</p>
+<p>This method can be used to update internal state, if any, of the
+partition assignor.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>assignment</strong> (<em>MemberAssignment</em>) – the member’s assignment</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.assignor.partition_assignor.PartitionAssignor.metadata">
+<code class="sig-name descname">metadata</code><span class="sig-paren">(</span><em class="sig-param">topics: Set[str]</em><span class="sig-paren">)</span> &#x2192; kafka.coordinator.protocol.ConsumerProtocolMemberMetadata<a class="reference internal" href="../_modules/faust/assignor/partition_assignor.html#PartitionAssignor.metadata"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.assignor.partition_assignor.PartitionAssignor.metadata" title="Permalink to this definition">¶</a></dt>
+<dd><p>Generate ProtocolMetadata to be submitted via JoinGroupRequest.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>topics</strong> (<a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#set" title="(in Python v3.9)"><em>set</em></a>) – a member’s subscribed topics</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">ConsumerProtocolMemberMetadata</span></code></p>
+</dd>
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>MemberMetadata struct</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.assignor.partition_assignor.PartitionAssignor.assign">
+<code class="sig-name descname">assign</code><span class="sig-paren">(</span><em class="sig-param">cluster: kafka.cluster.ClusterMetadata, member_metadata: MutableMapping[str, kafka.coordinator.protocol.ConsumerProtocolMemberMetadata]</em><span class="sig-paren">)</span> &#x2192; MutableMapping[str, kafka.coordinator.protocol.ConsumerProtocolMemberAssignment]<a class="reference internal" href="../_modules/faust/assignor/partition_assignor.html#PartitionAssignor.assign"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.assignor.partition_assignor.PartitionAssignor.assign" title="Permalink to this definition">¶</a></dt>
+<dd><p>Perform group assignment given cluster metadata and member subscriptions</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>cluster</strong> (<em>ClusterMetadata</em>) – metadata for use in assignment</p></li>
+<li><p><strong>(</strong><strong>dict of {member_id</strong> (<em>members</em>) – MemberMetadata}): decoded metadata for
+each member in the group.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.MutableMapping" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">MutableMapping</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <code class="xref py py-class docutils literal notranslate"><span class="pre">ConsumerProtocolMemberAssignment</span></code>]</p>
+</dd>
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>{member_id: MemberAssignment}</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#dict" title="(in Python v3.9)">dict</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.assignor.partition_assignor.PartitionAssignor.name">
+<em class="property">property </em><code class="sig-name descname">name</code><a class="headerlink" href="#faust.assignor.partition_assignor.PartitionAssignor.name" title="Permalink to this definition">¶</a></dt>
+<dd><p>.name should be a string identifying the assignor
+:rtype: <a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.assignor.partition_assignor.PartitionAssignor.version">
+<em class="property">property </em><code class="sig-name descname">version</code><a class="headerlink" href="#faust.assignor.partition_assignor.PartitionAssignor.version" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/functions.html#int" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.assignor.partition_assignor.PartitionAssignor.assigned_standbys">
+<code class="sig-name descname">assigned_standbys</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; Set[faust.types.tuples.TP]<a class="reference internal" href="../_modules/faust/assignor/partition_assignor.html#PartitionAssignor.assigned_standbys"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.assignor.partition_assignor.PartitionAssignor.assigned_standbys" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Set" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Set</span></code></a>[<a class="reference internal" href="faust.types.tuples.html#faust.types.tuples.TP" title="faust.types.tuples.TP"><code class="xref py py-class docutils literal notranslate"><span class="pre">TP</span></code></a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.assignor.partition_assignor.PartitionAssignor.assigned_actives">
+<code class="sig-name descname">assigned_actives</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; Set[faust.types.tuples.TP]<a class="reference internal" href="../_modules/faust/assignor/partition_assignor.html#PartitionAssignor.assigned_actives"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.assignor.partition_assignor.PartitionAssignor.assigned_actives" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Set" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Set</span></code></a>[<a class="reference internal" href="faust.types.tuples.html#faust.types.tuples.TP" title="faust.types.tuples.TP"><code class="xref py py-class docutils literal notranslate"><span class="pre">TP</span></code></a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.assignor.partition_assignor.PartitionAssignor.table_metadata">
+<code class="sig-name descname">table_metadata</code><span class="sig-paren">(</span><em class="sig-param">topic: str</em><span class="sig-paren">)</span> &#x2192; MutableMapping[str, MutableMapping[str, List[int]]]<a class="reference internal" href="../_modules/faust/assignor/partition_assignor.html#PartitionAssignor.table_metadata"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.assignor.partition_assignor.PartitionAssignor.table_metadata" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.MutableMapping" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">MutableMapping</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.MutableMapping" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">MutableMapping</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.List" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">List</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/functions.html#int" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>]]]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.assignor.partition_assignor.PartitionAssignor.tables_metadata">
+<code class="sig-name descname">tables_metadata</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; MutableMapping[str, MutableMapping[str, List[int]]]<a class="reference internal" href="../_modules/faust/assignor/partition_assignor.html#PartitionAssignor.tables_metadata"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.assignor.partition_assignor.PartitionAssignor.tables_metadata" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.MutableMapping" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">MutableMapping</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.MutableMapping" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">MutableMapping</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.List" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">List</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/functions.html#int" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>]]]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.assignor.partition_assignor.PartitionAssignor.key_store">
+<code class="sig-name descname">key_store</code><span class="sig-paren">(</span><em class="sig-param">topic: str</em>, <em class="sig-param">key: bytes</em><span class="sig-paren">)</span> &#x2192; yarl.URL<a class="reference internal" href="../_modules/faust/assignor/partition_assignor.html#PartitionAssignor.key_store"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.assignor.partition_assignor.PartitionAssignor.key_store" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://yarl.readthedocs.io/en/latest/api.html#yarl.URL" title="(in yarl v1.5)"><code class="xref py py-class docutils literal notranslate"><span class="pre">URL</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.assignor.partition_assignor.PartitionAssignor.is_active">
+<code class="sig-name descname">is_active</code><span class="sig-paren">(</span><em class="sig-param">tp: faust.types.tuples.TP</em><span class="sig-paren">)</span> &#x2192; bool<a class="reference internal" href="../_modules/faust/assignor/partition_assignor.html#PartitionAssignor.is_active"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.assignor.partition_assignor.PartitionAssignor.is_active" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/functions.html#bool" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.assignor.partition_assignor.PartitionAssignor.is_standby">
+<code class="sig-name descname">is_standby</code><span class="sig-paren">(</span><em class="sig-param">tp: faust.types.tuples.TP</em><span class="sig-paren">)</span> &#x2192; bool<a class="reference internal" href="../_modules/faust/assignor/partition_assignor.html#PartitionAssignor.is_standby"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.assignor.partition_assignor.PartitionAssignor.is_standby" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/functions.html#bool" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../playbooks/index.html">Playbooks</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../userguide/index.html">User Guide</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../history/index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">API Reference</a><ul>
+      <li>Previous: <a href="faust.assignor.leader_assignor.html" title="previous chapter"><code class="docutils literal notranslate"><span class="pre">faust.assignor.leader_assignor</span></code></a></li>
+      <li>Next: <a href="faust.types.agents.html" title="next chapter"><code class="docutils literal notranslate"><span class="pre">faust.types.agents</span></code></a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2020, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../_sources/reference/faust.assignor.partition_assignor.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

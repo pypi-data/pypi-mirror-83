@@ -1,0 +1,252 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>Debugging &#8212; Faust 1.11.0a1 documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="copyright" title="Copyright" href="../copyright.html" />
+    <link rel="next" title="Workers Guide" href="workers.html" />
+    <link rel="prev" title="Kafka - The basics you need to know" href="kafka.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="debugging">
+<span id="guide-debugging"></span><h1>Debugging<a class="headerlink" href="#debugging" title="Permalink to this headline">¶</a></h1>
+<div class="contents local topic" id="contents">
+<ul class="simple">
+<li><p><a class="reference internal" href="#debugging-with-aiomonitor" id="id1">Debugging with aiomonitor</a></p></li>
+</ul>
+</div>
+<div class="section" id="debugging-with-aiomonitor">
+<h2>Debugging with <a class="reference external" href="https://pypi.python.org/pypi/aiomonitor/">aiomonitor</a><a class="headerlink" href="#debugging-with-aiomonitor" title="Permalink to this headline">¶</a></h2>
+<p>To use the debugging console you first need to install the <a class="reference external" href="https://pypi.python.org/pypi/aiomonitor/">aiomonitor</a>
+library:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> pip install aiomonitor
+</pre></div>
+</div>
+<p>You can also install it as part of a <a class="reference internal" href="installation.html#bundles"><span class="std std-ref">bundle</span></a>:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> pip install -U faust<span class="o">[</span>debug<span class="o">]</span>
+</pre></div>
+</div>
+<p>After <a class="reference external" href="https://pypi.python.org/pypi/aiomonitor/">aiomonitor</a> is installed you may start the worker with the
+<a class="reference internal" href="cli.html#cmdoption-faust-debug"><code class="xref std std-option docutils literal notranslate"><span class="pre">--debug</span></code></a> option enabled:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> faust -A myapp --debug worker -l info
+<span class="go">┌ƒaµS† v0.9.20─────────────────────────────────────────┐</span>
+<span class="go">│ id        │ word-counts                              │</span>
+<span class="go">│ transport │ kafka://localhost:9092                   │</span>
+<span class="go">│ store     │ rocksdb:                                 │</span>
+<span class="go">│ web       │ http://localhost:6066/                   │</span>
+<span class="go">│ log       │ -stderr- (info)                          │</span>
+<span class="go">│ pid       │ 55522                                    │</span>
+<span class="go">│ hostname  │ grainstate.local                         │</span>
+<span class="go">│ platform  │ CPython 3.6.3 (Darwin x86_64)            │</span>
+<span class="go">│ drivers   │ aiokafka=0.3.2 aiohttp=2.3.7             │</span>
+<span class="go">│ datadir   │ /opt/devel/faust/word-counts-data        │</span>
+<span class="go">└───────────┴──────────────────────────────────────────┘</span>
+<span class="go">[2018-01-04 12:41:07,635: INFO]: Starting aiomonitor at 127.0.0.1:50101</span>
+<span class="go">[2018-01-04 12:41:07,637: INFO]: Starting console at 127.0.0.1:50101</span>
+<span class="go">[2018-01-04 12:41:07,638: INFO]: [^Worker]: Starting...</span>
+<span class="go">[2018-03-13 13:41:39,275: INFO]: [^-App]: Starting...</span>
+<span class="go">[2018-01-04 12:41:07,638: INFO]: [^--Web]: Starting...</span>
+<span class="go">[...]</span>
+</pre></div>
+</div>
+<p>From the log output you can tell that the <a class="reference external" href="https://pypi.python.org/pypi/aiomonitor/">aiomonitor</a> console was
+started on the local port 50101. If you get a different output,
+such as that the port is already taken you can set a custom port
+using the <a class="reference internal" href="cli.html#cmdoption-faust-worker-console-port"><code class="xref std std-option docutils literal notranslate"><span class="pre">--console-port</span></code></a>.</p>
+<p>Once you have the port number, you can telnet into the console to use it:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> telnet localhost <span class="m">50101</span>
+<span class="go">Trying 127.0.0.1...</span>
+<span class="go">Connected to localhost.</span>
+<span class="go">Escape character is &#39;^]&#39;.</span>
+
+<span class="go">Asyncio Monitor: 38 tasks running</span>
+<span class="go">Type help for commands</span>
+
+<span class="go">monitor &gt;&gt;&gt;</span>
+</pre></div>
+</div>
+<p>Type <code class="docutils literal notranslate"><span class="pre">help</span></code> and then press enter to see a list of available commands:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="go">monitor &gt;&gt;&gt; help</span>
+<span class="go">Commands:</span>
+<span class="go">         ps               : Show task table</span>
+<span class="go">         where taskid     : Show stack frames for a task</span>
+<span class="go">         cancel taskid    : Cancel an indicated task</span>
+<span class="go">         signal signame   : Send a Unix signal</span>
+<span class="go">         console          : Switch to async Python REPL</span>
+<span class="go">         quit             : Leave the monitor</span>
+<span class="go">monitor &gt;&gt;&gt;</span>
+</pre></div>
+</div>
+<p>To exit out of the console you can either type <cite>quit</cite> at the <code class="docutils literal notranslate"><span class="pre">monitor</span> <span class="pre">&gt;&gt;</span></code>
+prompt. If that is unresponsive you may hit the special telnet escape character
+(<kbd class="kbd docutils literal notranslate">Ctrl-]</kbd>), to drop you into the telnet command console, and from
+there you just type <cite>quit</cite> to exit out of the telnet session:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span>&gt; telnet localhost <span class="m">50101</span>
+<span class="go">Trying 127.0.0.1...</span>
+<span class="go">Connected to localhost.</span>
+<span class="go">Escape character is &#39;^]&#39;.</span>
+
+<span class="go">Asyncio Monitor: 38 tasks running</span>
+<span class="go">Type help for commands</span>
+<span class="go">monitor &gt;&gt;&gt; ^]</span>
+<span class="go">telnet&gt; quit</span>
+<span class="go">Connection closed.</span>
+</pre></div>
+</div>
+</div>
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../playbooks/index.html">Playbooks</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">User Guide</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="application.html">The App - Define your Faust project</a></li>
+<li class="toctree-l2"><a class="reference internal" href="agents.html">Agents - Self-organizing Stream Processors</a></li>
+<li class="toctree-l2"><a class="reference internal" href="streams.html">Streams - Infinite Data Structures</a></li>
+<li class="toctree-l2"><a class="reference internal" href="channels.html">Channels &amp; Topics - Data Sources</a></li>
+<li class="toctree-l2"><a class="reference internal" href="models.html">Models, Serialization, and Codecs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tables.html">Tables and Windowing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tasks.html">Tasks, Timers, Cron Jobs, Web Views, and CLI Commands</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cli.html">Command-line Interface</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sensors.html">Sensors - Monitors and Statistics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="testing.html">Testing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="livecheck.html">LiveCheck: End-to-end test for production/staging.</a></li>
+<li class="toctree-l2"><a class="reference internal" href="settings.html">Configuration Reference</a></li>
+<li class="toctree-l2"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="kafka.html">Kafka - The basics you need to know</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Debugging</a></li>
+<li class="toctree-l2"><a class="reference internal" href="workers.html">Workers Guide</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../history/index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">User Guide</a><ul>
+      <li>Previous: <a href="kafka.html" title="previous chapter">Kafka - The basics you need to know</a></li>
+      <li>Next: <a href="workers.html" title="next chapter">Workers Guide</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2020, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../_sources/userguide/debugging.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

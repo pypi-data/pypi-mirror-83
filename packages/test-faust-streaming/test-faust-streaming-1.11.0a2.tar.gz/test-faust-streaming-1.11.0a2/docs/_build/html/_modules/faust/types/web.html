@@ -1,0 +1,316 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>faust.types.web &#8212; Faust 1.11.0a1 documentation</title>
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../../../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <link rel="copyright" title="Copyright" href="../../../copyright.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for faust.types.web</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">abc</span>
+<span class="kn">import</span> <span class="nn">typing</span>
+<span class="kn">from</span> <span class="nn">pathlib</span> <span class="k">import</span> <span class="n">Path</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">Any</span><span class="p">,</span>
+    <span class="n">Awaitable</span><span class="p">,</span>
+    <span class="n">Callable</span><span class="p">,</span>
+    <span class="n">Coroutine</span><span class="p">,</span>
+    <span class="n">NamedTuple</span><span class="p">,</span>
+    <span class="n">Optional</span><span class="p">,</span>
+    <span class="n">Sequence</span><span class="p">,</span>
+    <span class="n">Type</span><span class="p">,</span>
+    <span class="n">Union</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="kn">from</span> <span class="nn">aiohttp.client</span> <span class="k">import</span> <span class="n">ClientSession</span> <span class="k">as</span> <span class="n">HttpClientT</span>
+<span class="kn">from</span> <span class="nn">mode</span> <span class="k">import</span> <span class="n">Seconds</span><span class="p">,</span> <span class="n">ServiceT</span>
+<span class="kn">from</span> <span class="nn">mypy_extensions</span> <span class="k">import</span> <span class="n">Arg</span><span class="p">,</span> <span class="n">KwArg</span><span class="p">,</span> <span class="n">VarArg</span>
+<span class="kn">from</span> <span class="nn">yarl</span> <span class="k">import</span> <span class="n">URL</span>
+
+<span class="k">if</span> <span class="n">typing</span><span class="o">.</span><span class="n">TYPE_CHECKING</span><span class="p">:</span>
+    <span class="kn">from</span> <span class="nn">faust.types.app</span> <span class="k">import</span> <span class="n">AppT</span> <span class="k">as</span> <span class="n">_AppT</span>
+    <span class="kn">from</span> <span class="nn">faust.web.base</span> <span class="k">import</span> <span class="n">Request</span><span class="p">,</span> <span class="n">Response</span><span class="p">,</span> <span class="n">Web</span>
+    <span class="kn">from</span> <span class="nn">faust.web.views</span> <span class="k">import</span> <span class="n">View</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="k">class</span> <span class="nc">_AppT</span><span class="p">:</span> <span class="o">...</span>          <span class="c1"># noqa</span>
+<div class="viewcode-block" id="Request"><a class="viewcode-back" href="../../../reference/faust.types.web.html#faust.types.web.Request">[docs]</a>    <span class="k">class</span> <span class="nc">Request</span><span class="p">:</span> <span class="o">...</span>        <span class="c1"># noqa</span></div>
+<div class="viewcode-block" id="Response"><a class="viewcode-back" href="../../../reference/faust.types.web.html#faust.types.web.Response">[docs]</a>    <span class="k">class</span> <span class="nc">Response</span><span class="p">:</span> <span class="o">...</span>       <span class="c1"># noqa</span></div>
+<div class="viewcode-block" id="Web"><a class="viewcode-back" href="../../../reference/faust.types.web.html#faust.types.web.Web">[docs]</a>    <span class="k">class</span> <span class="nc">Web</span><span class="p">:</span> <span class="o">...</span>            <span class="c1"># noqa</span></div>
+<div class="viewcode-block" id="View"><a class="viewcode-back" href="../../../reference/faust.types.web.html#faust.types.web.View">[docs]</a>    <span class="k">class</span> <span class="nc">View</span><span class="p">:</span> <span class="o">...</span>           <span class="c1"># noqa</span></div>
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="s1">&#39;Request&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;Response&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;ResourceOptions&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;View&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;ViewHandlerMethod&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;ViewHandlerFun&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;ViewDecorator&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;PageArg&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;HttpClientT&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;Web&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;CacheBackendT&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;CacheT&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;BlueprintT&#39;</span><span class="p">,</span>
+<span class="p">]</span>
+
+<span class="n">ViewHandlerMethod</span> <span class="o">=</span> <span class="n">Callable</span><span class="p">[</span>
+    <span class="p">[</span><span class="n">Arg</span><span class="p">(</span><span class="n">Request</span><span class="p">),</span> <span class="n">VarArg</span><span class="p">(</span><span class="n">Any</span><span class="p">),</span> <span class="n">KwArg</span><span class="p">(</span><span class="n">Any</span><span class="p">)],</span>
+    <span class="n">Awaitable</span><span class="p">[</span><span class="n">Response</span><span class="p">],</span>
+<span class="p">]</span>
+
+<span class="n">ViewHandler2ArgsFun</span> <span class="o">=</span> <span class="n">Callable</span><span class="p">[</span>
+    <span class="p">[</span><span class="n">Arg</span><span class="p">(</span><span class="n">View</span><span class="p">),</span> <span class="n">Arg</span><span class="p">(</span><span class="n">Request</span><span class="p">)],</span>
+    <span class="n">Union</span><span class="p">[</span><span class="n">Coroutine</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Response</span><span class="p">],</span> <span class="n">Awaitable</span><span class="p">[</span><span class="n">Response</span><span class="p">]],</span>
+<span class="p">]</span>
+
+<span class="n">ViewHandlerVarArgsFun</span> <span class="o">=</span> <span class="n">Callable</span><span class="p">[</span>
+    <span class="p">[</span><span class="n">Arg</span><span class="p">(</span><span class="n">View</span><span class="p">),</span> <span class="n">Arg</span><span class="p">(</span><span class="n">Request</span><span class="p">),</span> <span class="n">VarArg</span><span class="p">(</span><span class="n">Any</span><span class="p">),</span> <span class="n">KwArg</span><span class="p">(</span><span class="n">Any</span><span class="p">)],</span>
+    <span class="n">Union</span><span class="p">[</span><span class="n">Coroutine</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Response</span><span class="p">],</span> <span class="n">Awaitable</span><span class="p">[</span><span class="n">Response</span><span class="p">]],</span>
+<span class="p">]</span>
+
+<span class="n">ViewHandlerFun</span> <span class="o">=</span> <span class="n">Union</span><span class="p">[</span><span class="n">ViewHandler2ArgsFun</span><span class="p">,</span> <span class="n">ViewHandlerVarArgsFun</span><span class="p">]</span>
+
+<span class="n">ViewGetHandler</span> <span class="o">=</span> <span class="n">ViewHandlerFun</span>  <span class="c1"># XXX compat</span>
+<span class="n">ViewDecorator</span> <span class="o">=</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">ViewHandlerFun</span><span class="p">],</span> <span class="n">ViewHandlerFun</span><span class="p">]</span>
+<span class="n">RoutedViewGetHandler</span> <span class="o">=</span> <span class="n">ViewDecorator</span>  <span class="c1"># XXX compat</span>
+<span class="n">PageArg</span> <span class="o">=</span> <span class="n">Union</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">View</span><span class="p">],</span> <span class="n">ViewHandlerFun</span><span class="p">]</span>
+<span class="n">RouteDecoratorRet</span> <span class="o">=</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">PageArg</span><span class="p">],</span> <span class="n">PageArg</span><span class="p">]</span>
+
+
+<span class="c1"># Lists in ResourceOptions can be list of string or scalar &#39;*&#39;</span>
+<span class="c1"># for matching any.</span>
+<span class="n">CORSListOption</span> <span class="o">=</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span>
+
+
+<div class="viewcode-block" id="ResourceOptions"><a class="viewcode-back" href="../../../reference/faust.types.web.html#faust.types.web.ResourceOptions">[docs]</a><span class="k">class</span> <span class="nc">ResourceOptions</span><span class="p">(</span><span class="n">NamedTuple</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;CORS Options for specific route, or defaults.&quot;&quot;&quot;</span>
+
+    <span class="n">allow_credentials</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">expose_headers</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">CORSListOption</span><span class="p">]</span> <span class="o">=</span> <span class="p">()</span>
+    <span class="n">allow_headers</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">CORSListOption</span><span class="p">]</span> <span class="o">=</span> <span class="p">()</span>
+    <span class="n">max_age</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">allow_methods</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">CORSListOption</span><span class="p">]</span> <span class="o">=</span> <span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="CacheBackendT"><a class="viewcode-back" href="../../../reference/faust.types.web.html#faust.types.web.CacheBackendT">[docs]</a><span class="k">class</span> <span class="nc">CacheBackendT</span><span class="p">(</span><span class="n">ServiceT</span><span class="p">):</span>
+
+    <span class="n">Unavailable</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="ne">BaseException</span><span class="p">]</span>
+
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                 <span class="n">app</span><span class="p">:</span> <span class="n">_AppT</span><span class="p">,</span>
+                 <span class="n">url</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">URL</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;memory://&#39;</span><span class="p">,</span>
+                 <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span>
+
+<div class="viewcode-block" id="CacheBackendT.get"><a class="viewcode-back" href="../../../reference/faust.types.web.html#faust.types.web.CacheBackendT.get">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">get</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bytes</span><span class="p">]:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="CacheBackendT.set"><a class="viewcode-back" href="../../../reference/faust.types.web.html#faust.types.web.CacheBackendT.set">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">set</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">,</span> <span class="n">timeout</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="CacheBackendT.delete"><a class="viewcode-back" href="../../../reference/faust.types.web.html#faust.types.web.CacheBackendT.delete">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">delete</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span></div></div>
+
+
+<div class="viewcode-block" id="CacheT"><a class="viewcode-back" href="../../../reference/faust.types.web.html#faust.types.web.CacheT">[docs]</a><span class="k">class</span> <span class="nc">CacheT</span><span class="p">(</span><span class="n">abc</span><span class="o">.</span><span class="n">ABC</span><span class="p">):</span>
+
+    <span class="n">timeout</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Seconds</span><span class="p">]</span>
+    <span class="n">include_headers</span><span class="p">:</span> <span class="nb">bool</span>
+    <span class="n">key_prefix</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">backend</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">CacheBackendT</span><span class="p">],</span> <span class="nb">str</span><span class="p">]]</span>
+
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                 <span class="n">timeout</span><span class="p">:</span> <span class="n">Seconds</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">key_prefix</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">backend</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">CacheBackendT</span><span class="p">],</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span>
+
+<div class="viewcode-block" id="CacheT.view"><a class="viewcode-back" href="../../../reference/faust.types.web.html#faust.types.web.CacheT.view">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">view</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+             <span class="n">timeout</span><span class="p">:</span> <span class="n">Seconds</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+             <span class="n">include_headers</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+             <span class="n">key_prefix</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+             <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">Callable</span><span class="p">],</span> <span class="n">Callable</span><span class="p">]:</span>
+        <span class="o">...</span></div></div>
+
+
+<div class="viewcode-block" id="BlueprintT"><a class="viewcode-back" href="../../../reference/faust.types.web.html#faust.types.web.BlueprintT">[docs]</a><span class="k">class</span> <span class="nc">BlueprintT</span><span class="p">(</span><span class="n">abc</span><span class="o">.</span><span class="n">ABC</span><span class="p">):</span>
+    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">url_prefix</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
+
+<div class="viewcode-block" id="BlueprintT.cache"><a class="viewcode-back" href="../../../reference/faust.types.web.html#faust.types.web.BlueprintT.cache">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">cache</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+              <span class="n">timeout</span><span class="p">:</span> <span class="n">Seconds</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+              <span class="n">include_headers</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+              <span class="n">key_prefix</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+              <span class="n">backend</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">CacheBackendT</span><span class="p">],</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CacheT</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="BlueprintT.route"><a class="viewcode-back" href="../../../reference/faust.types.web.html#faust.types.web.BlueprintT.route">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">route</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+              <span class="n">uri</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+              <span class="o">*</span><span class="p">,</span>
+              <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+              <span class="n">base</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">View</span><span class="p">]</span> <span class="o">=</span> <span class="n">View</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RouteDecoratorRet</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="BlueprintT.static"><a class="viewcode-back" href="../../../reference/faust.types.web.html#faust.types.web.BlueprintT.static">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">static</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+               <span class="n">uri</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+               <span class="n">file_or_directory</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">],</span>
+               <span class="o">*</span><span class="p">,</span>
+               <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="BlueprintT.register"><a class="viewcode-back" href="../../../reference/faust.types.web.html#faust.types.web.BlueprintT.register">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">register</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">app</span><span class="p">:</span> <span class="n">_AppT</span><span class="p">,</span>
+                 <span class="o">*</span><span class="p">,</span>
+                 <span class="n">url_prefix</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="BlueprintT.init_webserver"><a class="viewcode-back" href="../../../reference/faust.types.web.html#faust.types.web.BlueprintT.init_webserver">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">init_webserver</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">web</span><span class="p">:</span> <span class="n">Web</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span></div>
+
+<div class="viewcode-block" id="BlueprintT.on_webserver_init"><a class="viewcode-back" href="../../../reference/faust.types.web.html#faust.types.web.BlueprintT.on_webserver_init">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">on_webserver_init</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">web</span><span class="p">:</span> <span class="n">Web</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span></div></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../../index.html">
+              <img class="logo" src="../../../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../../../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../playbooks/index.html">Playbooks</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../userguide/index.html">User Guide</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../reference/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../history/index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2020, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

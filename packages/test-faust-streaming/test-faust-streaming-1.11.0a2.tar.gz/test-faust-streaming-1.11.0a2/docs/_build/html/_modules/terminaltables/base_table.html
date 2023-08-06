@@ -1,0 +1,358 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>terminaltables.base_table &#8212; Faust 1.11.0a1 documentation</title>
+    <link rel="stylesheet" href="../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="copyright" title="Copyright" href="../../copyright.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for terminaltables.base_table</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Base table class. Define just the bare minimum to build tables.&quot;&quot;&quot;</span>
+
+<span class="kn">from</span> <span class="nn">terminaltables.build</span> <span class="k">import</span> <span class="n">build_border</span><span class="p">,</span> <span class="n">build_row</span><span class="p">,</span> <span class="n">flatten</span>
+<span class="kn">from</span> <span class="nn">terminaltables.width_and_alignment</span> <span class="k">import</span> <span class="n">align_and_pad_cell</span><span class="p">,</span> <span class="n">max_dimensions</span>
+
+
+<span class="k">class</span> <span class="nc">BaseTable</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Base table class.</span>
+
+<span class="sd">    :ivar iter table_data: List (empty or list of lists of strings) representing the table.</span>
+<span class="sd">    :ivar str title: Optional title to show within the top border of the table.</span>
+<span class="sd">    :ivar bool inner_column_border: Separates columns.</span>
+<span class="sd">    :ivar bool inner_footing_row_border: Show a border before the last row.</span>
+<span class="sd">    :ivar bool inner_heading_row_border: Show a border after the first row.</span>
+<span class="sd">    :ivar bool inner_row_border: Show a border in between every row.</span>
+<span class="sd">    :ivar bool outer_border: Show the top, left, right, and bottom border.</span>
+<span class="sd">    :ivar dict justify_columns: Horizontal justification. Keys are column indexes (int). Values are right/left/center.</span>
+<span class="sd">    :ivar int padding_left: Number of spaces to pad on the left side of every cell.</span>
+<span class="sd">    :ivar int padding_right: Number of spaces to pad on the right side of every cell.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">CHAR_F_INNER_HORIZONTAL</span> <span class="o">=</span> <span class="s1">&#39;-&#39;</span>
+    <span class="n">CHAR_F_INNER_INTERSECT</span> <span class="o">=</span> <span class="s1">&#39;+&#39;</span>
+    <span class="n">CHAR_F_INNER_VERTICAL</span> <span class="o">=</span> <span class="s1">&#39;|&#39;</span>
+    <span class="n">CHAR_F_OUTER_LEFT_INTERSECT</span> <span class="o">=</span> <span class="s1">&#39;+&#39;</span>
+    <span class="n">CHAR_F_OUTER_LEFT_VERTICAL</span> <span class="o">=</span> <span class="s1">&#39;|&#39;</span>
+    <span class="n">CHAR_F_OUTER_RIGHT_INTERSECT</span> <span class="o">=</span> <span class="s1">&#39;+&#39;</span>
+    <span class="n">CHAR_F_OUTER_RIGHT_VERTICAL</span> <span class="o">=</span> <span class="s1">&#39;|&#39;</span>
+    <span class="n">CHAR_H_INNER_HORIZONTAL</span> <span class="o">=</span> <span class="s1">&#39;-&#39;</span>
+    <span class="n">CHAR_H_INNER_INTERSECT</span> <span class="o">=</span> <span class="s1">&#39;+&#39;</span>
+    <span class="n">CHAR_H_INNER_VERTICAL</span> <span class="o">=</span> <span class="s1">&#39;|&#39;</span>
+    <span class="n">CHAR_H_OUTER_LEFT_INTERSECT</span> <span class="o">=</span> <span class="s1">&#39;+&#39;</span>
+    <span class="n">CHAR_H_OUTER_LEFT_VERTICAL</span> <span class="o">=</span> <span class="s1">&#39;|&#39;</span>
+    <span class="n">CHAR_H_OUTER_RIGHT_INTERSECT</span> <span class="o">=</span> <span class="s1">&#39;+&#39;</span>
+    <span class="n">CHAR_H_OUTER_RIGHT_VERTICAL</span> <span class="o">=</span> <span class="s1">&#39;|&#39;</span>
+    <span class="n">CHAR_INNER_HORIZONTAL</span> <span class="o">=</span> <span class="s1">&#39;-&#39;</span>
+    <span class="n">CHAR_INNER_INTERSECT</span> <span class="o">=</span> <span class="s1">&#39;+&#39;</span>
+    <span class="n">CHAR_INNER_VERTICAL</span> <span class="o">=</span> <span class="s1">&#39;|&#39;</span>
+    <span class="n">CHAR_OUTER_BOTTOM_HORIZONTAL</span> <span class="o">=</span> <span class="s1">&#39;-&#39;</span>
+    <span class="n">CHAR_OUTER_BOTTOM_INTERSECT</span> <span class="o">=</span> <span class="s1">&#39;+&#39;</span>
+    <span class="n">CHAR_OUTER_BOTTOM_LEFT</span> <span class="o">=</span> <span class="s1">&#39;+&#39;</span>
+    <span class="n">CHAR_OUTER_BOTTOM_RIGHT</span> <span class="o">=</span> <span class="s1">&#39;+&#39;</span>
+    <span class="n">CHAR_OUTER_LEFT_INTERSECT</span> <span class="o">=</span> <span class="s1">&#39;+&#39;</span>
+    <span class="n">CHAR_OUTER_LEFT_VERTICAL</span> <span class="o">=</span> <span class="s1">&#39;|&#39;</span>
+    <span class="n">CHAR_OUTER_RIGHT_INTERSECT</span> <span class="o">=</span> <span class="s1">&#39;+&#39;</span>
+    <span class="n">CHAR_OUTER_RIGHT_VERTICAL</span> <span class="o">=</span> <span class="s1">&#39;|&#39;</span>
+    <span class="n">CHAR_OUTER_TOP_HORIZONTAL</span> <span class="o">=</span> <span class="s1">&#39;-&#39;</span>
+    <span class="n">CHAR_OUTER_TOP_INTERSECT</span> <span class="o">=</span> <span class="s1">&#39;+&#39;</span>
+    <span class="n">CHAR_OUTER_TOP_LEFT</span> <span class="o">=</span> <span class="s1">&#39;+&#39;</span>
+    <span class="n">CHAR_OUTER_TOP_RIGHT</span> <span class="o">=</span> <span class="s1">&#39;+&#39;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">table_data</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Constructor.</span>
+
+<span class="sd">        :param iter table_data: List (empty or list of lists of strings) representing the table.</span>
+<span class="sd">        :param title: Optional title to show within the top border of the table.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">table_data</span> <span class="o">=</span> <span class="n">table_data</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">title</span> <span class="o">=</span> <span class="n">title</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">inner_column_border</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">inner_footing_row_border</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">inner_heading_row_border</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">inner_row_border</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">outer_border</span> <span class="o">=</span> <span class="kc">True</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">justify_columns</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>  <span class="c1"># {0: &#39;right&#39;, 1: &#39;left&#39;, 2: &#39;center&#39;}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">padding_left</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">padding_right</span> <span class="o">=</span> <span class="mi">1</span>
+
+    <span class="k">def</span> <span class="nf">horizontal_border</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">style</span><span class="p">,</span> <span class="n">outer_widths</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Build any kind of horizontal border for the table.</span>
+
+<span class="sd">        :param str style: Type of border to return.</span>
+<span class="sd">        :param iter outer_widths: List of widths (with padding) for each column.</span>
+
+<span class="sd">        :return: Prepared border as a tuple of strings.</span>
+<span class="sd">        :rtype: tuple</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">style</span> <span class="o">==</span> <span class="s1">&#39;top&#39;</span><span class="p">:</span>
+            <span class="n">horizontal</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">CHAR_OUTER_TOP_HORIZONTAL</span>
+            <span class="n">left</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">CHAR_OUTER_TOP_LEFT</span>
+            <span class="n">intersect</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">CHAR_OUTER_TOP_INTERSECT</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">inner_column_border</span> <span class="k">else</span> <span class="s1">&#39;&#39;</span>
+            <span class="n">right</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">CHAR_OUTER_TOP_RIGHT</span>
+            <span class="n">title</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">title</span>
+        <span class="k">elif</span> <span class="n">style</span> <span class="o">==</span> <span class="s1">&#39;bottom&#39;</span><span class="p">:</span>
+            <span class="n">horizontal</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">CHAR_OUTER_BOTTOM_HORIZONTAL</span>
+            <span class="n">left</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">CHAR_OUTER_BOTTOM_LEFT</span>
+            <span class="n">intersect</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">CHAR_OUTER_BOTTOM_INTERSECT</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">inner_column_border</span> <span class="k">else</span> <span class="s1">&#39;&#39;</span>
+            <span class="n">right</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">CHAR_OUTER_BOTTOM_RIGHT</span>
+            <span class="n">title</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">elif</span> <span class="n">style</span> <span class="o">==</span> <span class="s1">&#39;heading&#39;</span><span class="p">:</span>
+            <span class="n">horizontal</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">CHAR_H_INNER_HORIZONTAL</span>
+            <span class="n">left</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">CHAR_H_OUTER_LEFT_INTERSECT</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">outer_border</span> <span class="k">else</span> <span class="s1">&#39;&#39;</span>
+            <span class="n">intersect</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">CHAR_H_INNER_INTERSECT</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">inner_column_border</span> <span class="k">else</span> <span class="s1">&#39;&#39;</span>
+            <span class="n">right</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">CHAR_H_OUTER_RIGHT_INTERSECT</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">outer_border</span> <span class="k">else</span> <span class="s1">&#39;&#39;</span>
+            <span class="n">title</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">elif</span> <span class="n">style</span> <span class="o">==</span> <span class="s1">&#39;footing&#39;</span><span class="p">:</span>
+            <span class="n">horizontal</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">CHAR_F_INNER_HORIZONTAL</span>
+            <span class="n">left</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">CHAR_F_OUTER_LEFT_INTERSECT</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">outer_border</span> <span class="k">else</span> <span class="s1">&#39;&#39;</span>
+            <span class="n">intersect</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">CHAR_F_INNER_INTERSECT</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">inner_column_border</span> <span class="k">else</span> <span class="s1">&#39;&#39;</span>
+            <span class="n">right</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">CHAR_F_OUTER_RIGHT_INTERSECT</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">outer_border</span> <span class="k">else</span> <span class="s1">&#39;&#39;</span>
+            <span class="n">title</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">horizontal</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">CHAR_INNER_HORIZONTAL</span>
+            <span class="n">left</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">CHAR_OUTER_LEFT_INTERSECT</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">outer_border</span> <span class="k">else</span> <span class="s1">&#39;&#39;</span>
+            <span class="n">intersect</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">CHAR_INNER_INTERSECT</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">inner_column_border</span> <span class="k">else</span> <span class="s1">&#39;&#39;</span>
+            <span class="n">right</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">CHAR_OUTER_RIGHT_INTERSECT</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">outer_border</span> <span class="k">else</span> <span class="s1">&#39;&#39;</span>
+            <span class="n">title</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="n">build_border</span><span class="p">(</span><span class="n">outer_widths</span><span class="p">,</span> <span class="n">horizontal</span><span class="p">,</span> <span class="n">left</span><span class="p">,</span> <span class="n">intersect</span><span class="p">,</span> <span class="n">right</span><span class="p">,</span> <span class="n">title</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">gen_row_lines</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">row</span><span class="p">,</span> <span class="n">style</span><span class="p">,</span> <span class="n">inner_widths</span><span class="p">,</span> <span class="n">height</span><span class="p">):</span>
+        <span class="sa">r</span><span class="sd">&quot;&quot;&quot;Combine cells in row and group them into lines with vertical borders.</span>
+
+<span class="sd">        Caller is expected to pass yielded lines to &#39;&#39;.join() to combine them into a printable line. Caller must append</span>
+<span class="sd">        newline character to the end of joined line.</span>
+
+<span class="sd">        In:</span>
+<span class="sd">        [&#39;Row One Column One&#39;, &#39;Two&#39;, &#39;Three&#39;]</span>
+<span class="sd">        Out:</span>
+<span class="sd">        [</span>
+<span class="sd">            (&#39;|&#39;, &#39; Row One Column One &#39;, &#39;|&#39;, &#39; Two &#39;, &#39;|&#39;, &#39; Three &#39;, &#39;|&#39;),</span>
+<span class="sd">        ]</span>
+
+<span class="sd">        In:</span>
+<span class="sd">        [&#39;Row One\nColumn One&#39;, &#39;Two&#39;, &#39;Three&#39;],</span>
+<span class="sd">        Out:</span>
+<span class="sd">        [</span>
+<span class="sd">            (&#39;|&#39;, &#39; Row One    &#39;, &#39;|&#39;, &#39; Two &#39;, &#39;|&#39;, &#39; Three &#39;, &#39;|&#39;),</span>
+<span class="sd">            (&#39;|&#39;, &#39; Column One &#39;, &#39;|&#39;, &#39;     &#39;, &#39;|&#39;, &#39;       &#39;, &#39;|&#39;),</span>
+<span class="sd">        ]</span>
+
+<span class="sd">        :param iter row: One row in the table. List of cells.</span>
+<span class="sd">        :param str style: Type of border characters to use.</span>
+<span class="sd">        :param iter inner_widths: List of widths (no padding) for each column.</span>
+<span class="sd">        :param int height: Inner height (no padding) (number of lines) to expand row to.</span>
+
+<span class="sd">        :return: Yields lines split into components in a list. Caller must &#39;&#39;.join() line.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">cells_in_row</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+
+        <span class="c1"># Resize row if it doesn&#39;t have enough cells.</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">row</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">inner_widths</span><span class="p">):</span>
+            <span class="n">row</span> <span class="o">=</span> <span class="n">row</span> <span class="o">+</span> <span class="p">[</span><span class="s1">&#39;&#39;</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">inner_widths</span><span class="p">)</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="n">row</span><span class="p">))</span>
+
+        <span class="c1"># Pad and align each cell. Split each cell into lines to support multi-line cells.</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">cell</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">row</span><span class="p">):</span>
+            <span class="n">align</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">justify_columns</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">i</span><span class="p">),)</span>
+            <span class="n">inner_dimensions</span> <span class="o">=</span> <span class="p">(</span><span class="n">inner_widths</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">height</span><span class="p">)</span>
+            <span class="n">padding</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">padding_left</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">padding_right</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+            <span class="n">cells_in_row</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">align_and_pad_cell</span><span class="p">(</span><span class="n">cell</span><span class="p">,</span> <span class="n">align</span><span class="p">,</span> <span class="n">inner_dimensions</span><span class="p">,</span> <span class="n">padding</span><span class="p">))</span>
+
+        <span class="c1"># Determine border characters.</span>
+        <span class="k">if</span> <span class="n">style</span> <span class="o">==</span> <span class="s1">&#39;heading&#39;</span><span class="p">:</span>
+            <span class="n">left</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">CHAR_H_OUTER_LEFT_VERTICAL</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">outer_border</span> <span class="k">else</span> <span class="s1">&#39;&#39;</span>
+            <span class="n">center</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">CHAR_H_INNER_VERTICAL</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">inner_column_border</span> <span class="k">else</span> <span class="s1">&#39;&#39;</span>
+            <span class="n">right</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">CHAR_H_OUTER_RIGHT_VERTICAL</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">outer_border</span> <span class="k">else</span> <span class="s1">&#39;&#39;</span>
+        <span class="k">elif</span> <span class="n">style</span> <span class="o">==</span> <span class="s1">&#39;footing&#39;</span><span class="p">:</span>
+            <span class="n">left</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">CHAR_F_OUTER_LEFT_VERTICAL</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">outer_border</span> <span class="k">else</span> <span class="s1">&#39;&#39;</span>
+            <span class="n">center</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">CHAR_F_INNER_VERTICAL</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">inner_column_border</span> <span class="k">else</span> <span class="s1">&#39;&#39;</span>
+            <span class="n">right</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">CHAR_F_OUTER_RIGHT_VERTICAL</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">outer_border</span> <span class="k">else</span> <span class="s1">&#39;&#39;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">left</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">CHAR_OUTER_LEFT_VERTICAL</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">outer_border</span> <span class="k">else</span> <span class="s1">&#39;&#39;</span>
+            <span class="n">center</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">CHAR_INNER_VERTICAL</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">inner_column_border</span> <span class="k">else</span> <span class="s1">&#39;&#39;</span>
+            <span class="n">right</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">CHAR_OUTER_RIGHT_VERTICAL</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">outer_border</span> <span class="k">else</span> <span class="s1">&#39;&#39;</span>
+
+        <span class="c1"># Yield each line.</span>
+        <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">build_row</span><span class="p">(</span><span class="n">cells_in_row</span><span class="p">,</span> <span class="n">left</span><span class="p">,</span> <span class="n">center</span><span class="p">,</span> <span class="n">right</span><span class="p">):</span>
+            <span class="k">yield</span> <span class="n">line</span>
+
+    <span class="k">def</span> <span class="nf">gen_table</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">inner_widths</span><span class="p">,</span> <span class="n">inner_heights</span><span class="p">,</span> <span class="n">outer_widths</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Combine everything and yield every line of the entire table with borders.</span>
+
+<span class="sd">        :param iter inner_widths: List of widths (no padding) for each column.</span>
+<span class="sd">        :param iter inner_heights: List of heights (no padding) for each row.</span>
+<span class="sd">        :param iter outer_widths: List of widths (with padding) for each column.</span>
+<span class="sd">        :return:</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Yield top border.</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">outer_border</span><span class="p">:</span>
+            <span class="k">yield</span> <span class="bp">self</span><span class="o">.</span><span class="n">horizontal_border</span><span class="p">(</span><span class="s1">&#39;top&#39;</span><span class="p">,</span> <span class="n">outer_widths</span><span class="p">)</span>
+
+        <span class="c1"># Yield table body.</span>
+        <span class="n">row_count</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">table_data</span><span class="p">)</span>
+        <span class="n">last_row_index</span><span class="p">,</span> <span class="n">before_last_row_index</span> <span class="o">=</span> <span class="n">row_count</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="n">row_count</span> <span class="o">-</span> <span class="mi">2</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">row</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">table_data</span><span class="p">):</span>
+            <span class="c1"># Yield the row line by line (e.g. multi-line rows).</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">inner_heading_row_border</span> <span class="ow">and</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">style</span> <span class="o">=</span> <span class="s1">&#39;heading&#39;</span>
+            <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">inner_footing_row_border</span> <span class="ow">and</span> <span class="n">i</span> <span class="o">==</span> <span class="n">last_row_index</span><span class="p">:</span>
+                <span class="n">style</span> <span class="o">=</span> <span class="s1">&#39;footing&#39;</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">style</span> <span class="o">=</span> <span class="s1">&#39;row&#39;</span>
+            <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">gen_row_lines</span><span class="p">(</span><span class="n">row</span><span class="p">,</span> <span class="n">style</span><span class="p">,</span> <span class="n">inner_widths</span><span class="p">,</span> <span class="n">inner_heights</span><span class="p">[</span><span class="n">i</span><span class="p">]):</span>
+                <span class="k">yield</span> <span class="n">line</span>
+            <span class="c1"># If this is the last row then break. No separator needed.</span>
+            <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="n">last_row_index</span><span class="p">:</span>
+                <span class="k">break</span>
+            <span class="c1"># Yield heading separator.</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">inner_heading_row_border</span> <span class="ow">and</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">yield</span> <span class="bp">self</span><span class="o">.</span><span class="n">horizontal_border</span><span class="p">(</span><span class="s1">&#39;heading&#39;</span><span class="p">,</span> <span class="n">outer_widths</span><span class="p">)</span>
+            <span class="c1"># Yield footing separator.</span>
+            <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">inner_footing_row_border</span> <span class="ow">and</span> <span class="n">i</span> <span class="o">==</span> <span class="n">before_last_row_index</span><span class="p">:</span>
+                <span class="k">yield</span> <span class="bp">self</span><span class="o">.</span><span class="n">horizontal_border</span><span class="p">(</span><span class="s1">&#39;footing&#39;</span><span class="p">,</span> <span class="n">outer_widths</span><span class="p">)</span>
+            <span class="c1"># Yield row separator.</span>
+            <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">inner_row_border</span><span class="p">:</span>
+                <span class="k">yield</span> <span class="bp">self</span><span class="o">.</span><span class="n">horizontal_border</span><span class="p">(</span><span class="s1">&#39;row&#39;</span><span class="p">,</span> <span class="n">outer_widths</span><span class="p">)</span>
+
+        <span class="c1"># Yield bottom border.</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">outer_border</span><span class="p">:</span>
+            <span class="k">yield</span> <span class="bp">self</span><span class="o">.</span><span class="n">horizontal_border</span><span class="p">(</span><span class="s1">&#39;bottom&#39;</span><span class="p">,</span> <span class="n">outer_widths</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">table</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return a large string of the entire table ready to be printed to the terminal.&quot;&quot;&quot;</span>
+        <span class="n">dimensions</span> <span class="o">=</span> <span class="n">max_dimensions</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">table_data</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">padding_left</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">padding_right</span><span class="p">)[:</span><span class="mi">3</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">flatten</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">gen_table</span><span class="p">(</span><span class="o">*</span><span class="n">dimensions</span><span class="p">))</span>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../index.html">
+              <img class="logo" src="../../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../playbooks/index.html">Playbooks</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../userguide/index.html">User Guide</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../reference/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../history/index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2020, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

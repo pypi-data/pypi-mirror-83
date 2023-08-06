@@ -1,0 +1,620 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>Change history for Faust 1.4 &#8212; Faust 1.11.0a1 documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="copyright" title="Copyright" href="../copyright.html" />
+    <link rel="next" title="Change history for Faust 1.3" href="changelog-1.3.html" />
+    <link rel="prev" title="Change history for Faust 1.5" href="changelog-1.5.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="change-history-for-faust-1-4">
+<span id="changelog-1-4"></span><h1>Change history for Faust 1.4<a class="headerlink" href="#change-history-for-faust-1-4" title="Permalink to this headline">¶</a></h1>
+<p>This document contain change notes for bugfix releases in
+the Faust 1.4.x series. If you’re looking for changes in the latest
+series, please visit the latest <a class="reference internal" href="../changelog.html#changelog"><span class="std std-ref">Changes</span></a>.</p>
+<p>For even older releases you can visit the <a class="reference internal" href="index.html#history"><span class="std std-ref">History</span></a> section.</p>
+<div class="section" id="version-1-4-9">
+<span id="id1"></span><h2>1.4.9<a class="headerlink" href="#version-1-4-9" title="Permalink to this headline">¶</a></h2>
+<dl class="field-list simple">
+<dt class="field-odd">release-date</dt>
+<dd class="field-odd"><p>2019-03-14 04:00 P.M PST</p>
+</dd>
+<dt class="field-even">release-by</dt>
+<dd class="field-even"><p>Ask Solem (<a class="reference external" href="https://github.com/ask/">&#64;ask</a>)</p>
+</dd>
+</dl>
+<ul>
+<li><p><strong>Requirements</strong></p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Now depends on <a class="reference external" href="https://mode.readthedocs.io/en/latest/changelog.html#version-3-0-10" title="(in Mode v4.3)"><span class="xref std std-ref">Mode 3.0.10</span></a>.</p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p><code class="xref std std-setting docutils literal notranslate"><span class="pre">max_poll_records</span></code> accidentally set to 500 by default.</p>
+<blockquote>
+<div><p>The setting has been reverted to its documented default of <code class="xref py py-const docutils literal notranslate"><span class="pre">None</span></code>.
+This resulted in a 20x performance improvement.</p>
+</div></blockquote>
+</li>
+<li><p><strong>CLI</strong>: Now correctly returns non-zero exitcode when exception raised
+inside <code class="docutils literal notranslate"><span class="pre">&#64;app.command</span></code>.</p></li>
+<li><p><strong>CLI</strong>: Option <code class="docutils literal notranslate"><span class="pre">--no_color</span></code> renamed to <code class="docutils literal notranslate"><span class="pre">--no-color</span></code>
+to be consistent with other options.</p>
+<blockquote>
+<div><p>This change is backwards compatible and <code class="docutils literal notranslate"><span class="pre">--no_color</span></code> will continue to
+work.</p>
+</div></blockquote>
+</li>
+<li><p><strong>CLI</strong>: The <code class="docutils literal notranslate"><span class="pre">model</span> <span class="pre">x</span></code> command used “default*” as the field name
+for default value.</p>
+<blockquote>
+<div><div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> python examples/withdrawals.py --json model Withdrawal <span class="p">|</span> python -m json.tool
+<span class="go">[</span>
+<span class="go">    {</span>
+<span class="go">        &quot;field&quot;: &quot;user&quot;,</span>
+<span class="go">        &quot;type&quot;: &quot;str&quot;,</span>
+<span class="go">        &quot;default*&quot;: &quot;*&quot;</span>
+<span class="go">    },</span>
+<span class="go">    {</span>
+<span class="go">        &quot;field&quot;: &quot;country&quot;,</span>
+<span class="go">        &quot;type&quot;: &quot;str&quot;,</span>
+<span class="go">        &quot;default*&quot;: &quot;*&quot;</span>
+<span class="go">    },</span>
+<span class="go">    {</span>
+<span class="go">        &quot;field&quot;: &quot;amount&quot;,</span>
+<span class="go">        &quot;type&quot;: &quot;float&quot;,</span>
+<span class="go">        &quot;default*&quot;: &quot;*&quot;</span>
+<span class="go">    },</span>
+<span class="go">    {</span>
+<span class="go">        &quot;field&quot;: &quot;date&quot;,</span>
+<span class="go">        &quot;type&quot;: &quot;datetime&quot;,</span>
+<span class="go">        &quot;default*&quot;: &quot;None&quot;</span>
+<span class="go">    }</span>
+<span class="go">]</span>
+</pre></div>
+</div>
+<p>This now gives “default” without the extraneous star.</p>
+</div></blockquote>
+</li>
+<li><p><strong>App</strong>: Can now override the settings class used.</p>
+<blockquote>
+<div><p>This means you can now easily extend your app with custom settings:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">faust</span>
+
+<span class="k">class</span> <span class="nc">MySettings</span><span class="p">(</span><span class="n">faust</span><span class="o">.</span><span class="n">Settings</span><span class="p">):</span>
+    <span class="n">foobar</span><span class="p">:</span> <span class="nb">int</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">foobar</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="nb">id</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">foobar</span> <span class="o">=</span> <span class="n">foobar</span>
+
+<span class="k">class</span> <span class="nc">App</span><span class="p">(</span><span class="n">faust</span><span class="o">.</span><span class="n">App</span><span class="p">):</span>
+    <span class="n">Settings</span> <span class="o">=</span> <span class="n">MySettings</span>
+
+<span class="n">app</span> <span class="o">=</span> <span class="n">App</span><span class="p">(</span><span class="s1">&#39;id&#39;</span><span class="p">,</span> <span class="n">foobar</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+<span class="k">print</span><span class="p">(</span><span class="n">app</span><span class="o">.</span><span class="n">conf</span><span class="o">.</span><span class="n">foobar</span><span class="p">)</span>
+</pre></div>
+</div>
+</div></blockquote>
+</li>
+</ul>
+</div>
+<div class="section" id="version-1-4-8">
+<span id="id2"></span><h2>1.4.8<a class="headerlink" href="#version-1-4-8" title="Permalink to this headline">¶</a></h2>
+<dl class="field-list simple">
+<dt class="field-odd">release-date</dt>
+<dd class="field-odd"><p>2019-03-11 05:30 P.M PDT</p>
+</dd>
+<dt class="field-even">release-by</dt>
+<dd class="field-even"><p>Ask Solem (<a class="reference external" href="https://github.com/ask/">&#64;ask</a>)</p>
+</dd>
+</dl>
+<ul>
+<li><p><strong>Tables</strong>: Recovery would hang when changelog have
+<code class="docutils literal notranslate"><span class="pre">committed_offset</span> <span class="pre">==</span> <span class="pre">0</span></code>.</p>
+<blockquote>
+<div><p>Added this test to our manual testing procedure.</p>
+</div></blockquote>
+</li>
+</ul>
+</div>
+<div class="section" id="version-1-4-7">
+<span id="id3"></span><h2>1.4.7<a class="headerlink" href="#version-1-4-7" title="Permalink to this headline">¶</a></h2>
+<dl class="field-list simple">
+<dt class="field-odd">release-date</dt>
+<dd class="field-odd"><p>2019-03-08 02:21 P.M PDT</p>
+</dd>
+<dt class="field-even">release-by</dt>
+<dd class="field-even"><p>Ask Solem (<a class="reference external" href="https://github.com/ask/">&#64;ask</a>)</p>
+</dd>
+</dl>
+<ul>
+<li><p><strong>Requirements</strong></p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Now depends on <a class="reference external" href="https://mode.readthedocs.io/en/latest/changelog.html#version-3-0-9" title="(in Mode v4.3)"><span class="xref std std-ref">Mode 3.0.9</span></a>.</p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p><strong>Tables</strong>: Read offset not always updated after seek
+caused recovery to hang.</p></li>
+<li><p><strong>Consumer</strong>: Fix to make sure fetch requests will not block method queue.</p></li>
+<li><p><strong>App</strong>: Fixed deadlock in rebalancing.</p></li>
+<li><p><strong>Web</strong>: Views can now define <code class="docutils literal notranslate"><span class="pre">options</span></code> method to
+implement a handler for the HTTP <code class="docutils literal notranslate"><span class="pre">OPTIONS</span></code> method.
+(<span class="xref issue">Issue #304</span>)</p>
+<blockquote>
+<div><p>Contributed by Perk Lim (<a class="reference external" href="https://github.com/perklun/">&#64;perklun</a>).</p>
+</div></blockquote>
+</li>
+<li><p><strong>Web</strong>: Can now pass headers to HTTP responses.</p></li>
+</ul>
+</div>
+<div class="section" id="version-1-4-6">
+<span id="id4"></span><h2>1.4.6<a class="headerlink" href="#version-1-4-6" title="Permalink to this headline">¶</a></h2>
+<dl class="field-list simple">
+<dt class="field-odd">release-date</dt>
+<dd class="field-odd"><p>2019-01-29 01:52 P.M PDT</p>
+</dd>
+<dt class="field-even">release-by</dt>
+<dd class="field-even"><p>Ask Solem (<a class="reference external" href="https://github.com/ask/">&#64;ask</a>)</p>
+</dd>
+</dl>
+<ul class="simple">
+<li><p><strong>App</strong>: Better support for custom boot strategies by having
+the app start without waiting for recovery when no tables started.</p></li>
+<li><dl class="simple">
+<dt><strong>Docs</strong>: Fixed doc build after intersphinx</dt><dd><p>URL <a class="reference external" href="https://click.palletsprojects.com/en/latest">https://click.palletsprojects.com/en/latest</a> no longer works.</p>
+</dd>
+</dl>
+</li>
+</ul>
+</div>
+<div class="section" id="version-1-4-5">
+<span id="id5"></span><h2>1.4.5<a class="headerlink" href="#version-1-4-5" title="Permalink to this headline">¶</a></h2>
+<dl class="field-list simple">
+<dt class="field-odd">release-date</dt>
+<dd class="field-odd"><p>2019-01-18 02:15 P.M PDT</p>
+</dd>
+<dt class="field-even">release-by</dt>
+<dd class="field-even"><p>Ask Solem (<a class="reference external" href="https://github.com/ask/">&#64;ask</a>)</p>
+</dd>
+</dl>
+<ul class="simple">
+<li><p>Fixed typo in 1.4.4 release (on_recovery_set_flags -&gt; on_rebalance_start).</p></li>
+</ul>
+</div>
+<div class="section" id="version-1-4-4">
+<span id="id6"></span><h2>1.4.4<a class="headerlink" href="#version-1-4-4" title="Permalink to this headline">¶</a></h2>
+<dl class="field-list simple">
+<dt class="field-odd">release-date</dt>
+<dd class="field-odd"><p>2019-01-18 01:10 P.M PDT</p>
+</dd>
+<dt class="field-even">release-by</dt>
+<dd class="field-even"><p>Ask Solem (<a class="reference external" href="https://github.com/ask/">&#64;ask</a>)</p>
+</dd>
+</dl>
+<ul>
+<li><p><strong>Requirements</strong></p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Now depends on <a class="reference external" href="https://mode.readthedocs.io/en/latest/changelog.html#version-3-0-7" title="(in Mode v4.3)"><span class="xref std std-ref">Mode 3.0.7</span></a>.</p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p><strong>App</strong>: App now starts even if there are no agents defined.</p></li>
+<li><p><strong>Table</strong>: Added new flags to detect if actives/standbys are ready.</p>
+<blockquote>
+<div><ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">app.tables.actives_ready</span></code></p>
+<blockquote>
+<div><p>Set to <code class="xref py py-const docutils literal notranslate"><span class="pre">True</span></code> when active tables are recovered from
+and are ready to use.</p>
+</div></blockquote>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">app.tables.standbys_ready</span></code></p>
+<blockquote>
+<div><p>Set to <code class="xref py py-const docutils literal notranslate"><span class="pre">True</span></code> when standbys are up to date after
+recovery.</p>
+</div></blockquote>
+</li>
+</ul>
+</div></blockquote>
+</li>
+</ul>
+</div>
+<div class="section" id="version-1-4-3">
+<span id="id7"></span><h2>1.4.3<a class="headerlink" href="#version-1-4-3" title="Permalink to this headline">¶</a></h2>
+<dl class="field-list simple">
+<dt class="field-odd">release-date</dt>
+<dd class="field-odd"><p>2019-01-14 03:01 P.M PDT</p>
+</dd>
+<dt class="field-even">release-by</dt>
+<dd class="field-even"><p>Ask Solem (<a class="reference external" href="https://github.com/ask/">&#64;ask</a>)</p>
+</dd>
+</dl>
+<ul>
+<li><p><strong>Requirements</strong></p>
+<ul>
+<li><p>Require series 0.4.x of <a class="reference external" href="https://pypi.python.org/pypi/robinhood-aiokafka/">robinhood-aiokafka</a>.</p>
+<ul class="simple">
+<li><p>Recently version 0.5.0 was released but this has not been tested
+in production yet, so we have pinned Faust 1.4.x to aiokafka 0.4.x.
+For more information see <span class="xref issue">Issue #277</span>.</p></li>
+</ul>
+</li>
+<li><p>Test requirements now depends on <a class="reference external" href="https://pypi.python.org/pypi/pytest/">pytest</a> greater than 3.6.</p>
+<p>Contributed by Michael Seifert (<a class="reference external" href="https://github.com/seifertm/">&#64;seifertm</a>).</p>
+</li>
+</ul>
+</li>
+<li><p><strong>Documentation improvements by</strong>:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Allison Wang (<a class="reference external" href="https://github.com/allisonwang/">&#64;allisonwang</a>).</p></li>
+<li><p>Thibault Serot (<a class="reference external" href="https://github.com/thibserot/">&#64;thibserot</a>).</p></li>
+<li><p><a class="reference external" href="https://github.com/oucb/">&#64;oucb</a>.</p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p><strong>CI</strong>: Added CPython 3.7.2 and 3.6.8 to Travis CI build matrix.</p></li>
+</ul>
+</div>
+<div class="section" id="version-1-4-2">
+<span id="id8"></span><h2>1.4.2<a class="headerlink" href="#version-1-4-2" title="Permalink to this headline">¶</a></h2>
+<dl class="field-list simple">
+<dt class="field-odd">release-date</dt>
+<dd class="field-odd"><p>2018-12-19 12:49 P.M PDT</p>
+</dd>
+<dt class="field-even">release-by</dt>
+<dd class="field-even"><p>Ask Solem (<a class="reference external" href="https://github.com/ask/">&#64;ask</a>)</p>
+</dd>
+</dl>
+<ul>
+<li><p><strong>Requirements</strong></p>
+<blockquote>
+<div><ul>
+<li><p>Now depends on <a class="reference external" href="https://mode.readthedocs.io/en/latest/changelog.html#version-3-0-5" title="(in Mode v4.3)"><span class="xref std std-ref">Mode 3.0.5</span></a>.</p>
+<blockquote>
+<div><p>Fixed compatibility with <a class="reference external" href="https://pypi.python.org/pypi/colorlog/">colorlog</a>,
+thanks to Ryan Whitten (<a class="reference external" href="https://github.com/rwhitten577/">&#64;rwhitten577</a>).</p>
+</div></blockquote>
+</li>
+<li><p>Now compatible with <a class="reference external" href="https://pypi.python.org/pypi/yarl/">yarl</a> 1.3.x.</p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p><strong>Agent</strong>: Allow <code class="docutils literal notranslate"><span class="pre">yield</span></code> in agents that use <code class="docutils literal notranslate"><span class="pre">Stream.take</span></code> (<span class="xref issue">Issue #237</span>).</p></li>
+<li><dl class="simple">
+<dt><strong>App</strong>: Fixed error “future for different event loop” when web views</dt><dd><p>send messages to Kafka at startup.</p>
+</dd>
+</dl>
+</li>
+<li><p><strong>Table</strong>: Table views now return HTTP 503 status code during startup
+when table routing information not available.</p></li>
+<li><p><strong>App</strong>: New <code class="docutils literal notranslate"><span class="pre">App.BootStrategy</span></code> class now decides what services
+are started when starting the app.</p></li>
+<li><p>Documentation fixes by:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Robert Krzyzanowski (<a class="reference external" href="https://github.com/robertzk/">&#64;robertzk</a>).</p></li>
+</ul>
+</div></blockquote>
+</li>
+</ul>
+</div>
+<div class="section" id="version-1-4-1">
+<span id="id9"></span><h2>1.4.1<a class="headerlink" href="#version-1-4-1" title="Permalink to this headline">¶</a></h2>
+<dl class="field-list simple">
+<dt class="field-odd">release-date</dt>
+<dd class="field-odd"><p>2018-12-10 4:49 P.M PDT</p>
+</dd>
+<dt class="field-even">release-by</dt>
+<dd class="field-even"><p>Ask Solem (<a class="reference external" href="https://github.com/ask/">&#64;ask</a>)</p>
+</dd>
+</dl>
+<ul class="simple">
+<li><p><strong>Web</strong>: Disable <a class="reference external" href="https://pypi.python.org/pypi/aiohttp/">aiohttp</a> access logs for performance.</p></li>
+</ul>
+</div>
+<div class="section" id="version-1-4-0">
+<span id="id10"></span><h2>1.4.0<a class="headerlink" href="#version-1-4-0" title="Permalink to this headline">¶</a></h2>
+<dl class="field-list simple">
+<dt class="field-odd">release-date</dt>
+<dd class="field-odd"><p>2018-12-07 4:29 P.M PDT</p>
+</dd>
+<dt class="field-even">release-by</dt>
+<dd class="field-even"><p>Ask Solem (<a class="reference external" href="https://github.com/ask/">&#64;ask</a>)</p>
+</dd>
+</dl>
+<ul>
+<li><p><strong>Requirements</strong></p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Now depends on <a class="reference external" href="https://mode.readthedocs.io/en/latest/changelog.html#version-3-0-0" title="(in Mode v4.3)"><span class="xref std std-ref">Mode 3.0</span></a>.</p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p><strong>Worker</strong>: The Kafka consumer is now running in a separate thread.</p>
+<blockquote>
+<div><p>The Kafka heartbeat background coroutine sends heartbeats
+every 3.0 seconds, and if those are missed rebalancing occurs.</p>
+<p>This patch moves the <a class="reference external" href="https://pypi.python.org/pypi/aiokafka/">aiokafka</a> library inside a separate thread,
+this way it can send responsive heartbeats and operate even when agents
+call blocking functions such as <code class="docutils literal notranslate"><span class="pre">time.sleep(60)</span></code> for every event.</p>
+</div></blockquote>
+</li>
+<li><p><strong>Table</strong>: Experimental support for tables where values are sets.</p>
+<blockquote>
+<div><p>The new <code class="docutils literal notranslate"><span class="pre">app.SetTable</span></code> constructor creates a table where values are sets.
+Example uses include keeping track of users at a location:
+<code class="docutils literal notranslate"><span class="pre">table[location].add(user_id)</span></code>.</p>
+<p>Supports all set operations: <code class="docutils literal notranslate"><span class="pre">add</span></code>, <code class="docutils literal notranslate"><span class="pre">discard</span></code>, <code class="docutils literal notranslate"><span class="pre">intersection</span></code>,
+<code class="docutils literal notranslate"><span class="pre">union</span></code>, <code class="docutils literal notranslate"><span class="pre">symmetric_difference</span></code>, <code class="docutils literal notranslate"><span class="pre">difference</span></code>, etc.</p>
+<p>Sets are kept in memory for fast operation, and this way we also avoid
+the overhead of constantly serializing/deserializing the data to RocksDB.
+Instead we periodically flush changes to RocksDB, and populate the sets
+from disk at worker startup/table recovery.</p>
+</div></blockquote>
+</li>
+<li><p><strong>App</strong>: Adds support for Crontab tasks.</p>
+<blockquote>
+<div><p>You can now define periodic tasks using Cron-syntax:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@app.crontab</span><span class="p">(</span><span class="s1">&#39;*/1 * * * *&#39;</span><span class="p">,</span> <span class="n">on_leader</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+<span class="n">async</span> <span class="k">def</span> <span class="nf">publish_every_minute</span><span class="p">():</span>
+    <span class="k">print</span><span class="p">(</span><span class="s1">&#39;-- We should send a message every minute --&#39;</span><span class="p">)</span>
+    <span class="k">print</span><span class="p">(</span><span class="n">f</span><span class="s1">&#39;Sending message at: {datetime.now()}&#39;</span><span class="p">)</span>
+    <span class="n">msg</span> <span class="o">=</span> <span class="n">Model</span><span class="p">(</span><span class="n">random</span><span class="o">=</span><span class="nb">round</span><span class="p">(</span><span class="n">random</span><span class="p">(),</span> <span class="mi">2</span><span class="p">))</span>
+    <span class="n">await</span> <span class="n">tz_unaware_topic</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">value</span><span class="o">=</span><span class="n">msg</span><span class="p">)</span><span class="o">.</span>
+</pre></div>
+</div>
+<p>See <a class="reference internal" href="../userguide/tasks.html#tasks-cron-jobs"><span class="std std-ref">Cron Jobs</span></a> for more information.</p>
+<p>Contributed by Omar Rayward (<a class="reference external" href="https://github.com/omarrayward/">&#64;omarrayward</a>).</p>
+</div></blockquote>
+</li>
+<li><p><strong>App</strong>: Providing multiple URLs to the <a class="reference internal" href="../userguide/settings.html#std:setting-broker"><code class="xref std std-setting docutils literal notranslate"><span class="pre">broker</span></code></a> setting
+now works as expected.</p>
+<blockquote>
+<div><p>To facilitate this change <code class="docutils literal notranslate"><span class="pre">app.conf.broker</span></code> is now
+<code class="docutils literal notranslate"><span class="pre">List[URL]</span></code> instead of a single <a class="reference external" href="https://yarl.readthedocs.io/en/latest/api.html#yarl.URL" title="(in yarl v1.5)"><code class="xref py py-class docutils literal notranslate"><span class="pre">URL</span></code></a>.</p>
+</div></blockquote>
+</li>
+<li><p><strong>App</strong>: New <a class="reference internal" href="../userguide/settings.html#std:setting-timezone"><code class="xref std std-setting docutils literal notranslate"><span class="pre">timezone</span></code></a> setting.</p>
+<blockquote>
+<div><p>This setting is currently used as the default timezone for Crontab tasks.</p>
+</div></blockquote>
+</li>
+<li><p><strong>App</strong>: New <a class="reference internal" href="../userguide/settings.html#std:setting-broker_request_timeout"><code class="xref std std-setting docutils literal notranslate"><span class="pre">broker_request_timeout</span></code></a> setting.</p>
+<blockquote>
+<div><p>Contributed by Martin Maillard (<a class="reference external" href="https://github.com/martinmaillard/">&#64;martinmaillard</a>).</p>
+</div></blockquote>
+</li>
+<li><p><strong>App</strong>: New <a class="reference internal" href="../userguide/settings.html#std:setting-broker_max_poll_records"><code class="xref std std-setting docutils literal notranslate"><span class="pre">broker_max_poll_records</span></code></a> setting.</p>
+<blockquote>
+<div><p>Contributed by Alexander Oberegger (<a class="reference external" href="https://github.com/aoberegg/">&#64;aoberegg</a>).</p>
+</div></blockquote>
+</li>
+<li><p><strong>App</strong>: New <a class="reference internal" href="../userguide/settings.html#std:setting-consumer_max_fetch_size"><code class="xref std std-setting docutils literal notranslate"><span class="pre">consumer_max_fetch_size</span></code></a> setting.</p>
+<blockquote>
+<div><p>Contributed by Matthew Stump (<a class="reference external" href="https://github.com/mstump/">&#64;mstump</a>).</p>
+</div></blockquote>
+</li>
+<li><p><strong>App</strong>: New <a class="reference internal" href="../userguide/settings.html#std:setting-producer_request_timeout"><code class="xref std std-setting docutils literal notranslate"><span class="pre">producer_request_timeout</span></code></a> setting.</p>
+<blockquote>
+<div><p>Controls when producer batch requests expire, and when we give up
+sending batches as producer requests fail.</p>
+<p>This setting has been increased to 20 minutes by default.</p>
+</div></blockquote>
+</li>
+<li><p><strong>Web</strong>: <a class="reference external" href="https://pypi.python.org/pypi/aiohttp/">aiohttp</a> driver now uses <code class="docutils literal notranslate"><span class="pre">AppRunner</span></code> to start the web
+server.</p>
+<blockquote>
+<div><p>Contributed by Mattias Karlsson (<a class="reference external" href="https://github.com/stevespark/">&#64;stevespark</a>).</p>
+</div></blockquote>
+</li>
+<li><p><strong>Agent</strong>: Fixed RPC example (<span class="xref issue">Issue #155</span>).</p>
+<blockquote>
+<div><p>Contributed by Mattias Karlsson (<a class="reference external" href="https://github.com/stevespark/">&#64;stevespark</a>).</p>
+</div></blockquote>
+</li>
+<li><p><strong>Table</strong>: Added support for iterating over windowed tables.</p>
+<blockquote>
+<div><p>See <a class="reference internal" href="../userguide/tables.html#windowed-table-iter"><span class="std std-ref">Iterating over keys/values/items in a windowed table.</span></a>.</p>
+<p>This requires us to keep a second table for the key index, so support
+for windowed table iteration requires you to set a <code class="docutils literal notranslate"><span class="pre">use_index=True</span></code>
+setting for the table:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">windowed_table</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">Table</span><span class="p">(</span>
+    <span class="s1">&#39;name&#39;</span><span class="p">,</span>
+    <span class="n">default</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span>
+<span class="p">)</span><span class="o">.</span><span class="n">hopping</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="n">expires</span><span class="o">=</span><span class="n">timedelta</span><span class="p">(</span><span class="n">minutes</span><span class="o">=</span><span class="mi">10</span><span class="p">),</span> <span class="n">key_index</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>After enabling the <code class="docutils literal notranslate"><span class="pre">key_index=True</span></code> setting you may iterate over
+keys/items/values in the table:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">windowed_table</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+    <span class="k">print</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+
+<span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">windowed_table</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+    <span class="k">print</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+
+<span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">windowed_table</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+    <span class="k">print</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">items</span></code> and <code class="docutils literal notranslate"><span class="pre">values</span></code> views can also select time-relative
+iteration:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">windowed_table</span><span class="o">.</span><span class="n">items</span><span class="p">()</span><span class="o">.</span><span class="n">delta</span><span class="p">(</span><span class="mi">30</span><span class="p">):</span>
+    <span class="k">print</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">windowed_table</span><span class="o">.</span><span class="n">items</span><span class="p">()</span><span class="o">.</span><span class="n">now</span><span class="p">():</span>
+    <span class="k">print</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">windowed_table</span><span class="o">.</span><span class="n">items</span><span class="p">()</span><span class="o">.</span><span class="n">current</span><span class="p">():</span>
+    <span class="k">print</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+</pre></div>
+</div>
+</div></blockquote>
+</li>
+<li><dl class="simple">
+<dt><strong>Table</strong>: Now raises error if source topic has mismatching</dt><dd><p>number of partitions with changelog topic. (<span class="xref issue">Issue #137</span>).</p>
+</dd>
+</dl>
+</li>
+<li><p><strong>Table</strong>: Allow using raw serializer in tables.</p>
+<blockquote>
+<div><p>You can now control the serialization format for changelog tables,
+using the <code class="docutils literal notranslate"><span class="pre">key_serializer</span></code> and <code class="docutils literal notranslate"><span class="pre">value_serializer</span></code> keyword
+arguments to <code class="docutils literal notranslate"><span class="pre">app.Table(...)</span></code>.</p>
+<p>Contributed by Matthias Wutte (<a class="reference external" href="https://github.com/wuttem/">&#64;wuttem</a>).</p>
+</div></blockquote>
+</li>
+<li><p><strong>Worker</strong>: Fixed spinner output at shutdown.</p></li>
+<li><p><strong>Models</strong>: <code class="docutils literal notranslate"><span class="pre">isodates</span></code> option now correctly parses
+timezones without separator such as <cite>-0500</cite>.</p></li>
+<li><p><strong>Testing</strong>: Calling <code class="docutils literal notranslate"><span class="pre">AgentTestWrapper.put</span></code> now propagates exceptions
+raised in the agent.</p></li>
+<li><p><strong>App</strong>: Default value for <a class="reference internal" href="../userguide/settings.html#std:setting-stream_recovery_delay"><code class="xref std std-setting docutils literal notranslate"><span class="pre">stream_recovery_delay</span></code></a> is now 3.0
+seconds.</p></li>
+<li><p><strong>CLI</strong>: New command “clean_versions” used to delete old version directories
+(<span class="xref issue">Issue #68</span>).</p></li>
+<li><p><strong>Web</strong>: Added view decorators: <code class="docutils literal notranslate"><span class="pre">takes_model</span></code> and <code class="docutils literal notranslate"><span class="pre">gives_model</span></code>.</p></li>
+</ul>
+</div>
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../playbooks/index.html">Playbooks</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../userguide/index.html">User Guide</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">History</a><ul>
+      <li>Previous: <a href="changelog-1.5.html" title="previous chapter">Change history for Faust 1.5</a></li>
+      <li>Next: <a href="changelog-1.3.html" title="next chapter">Change history for Faust 1.3</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2020, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../_sources/history/changelog-1.4.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>

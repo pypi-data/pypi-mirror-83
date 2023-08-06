@@ -1,0 +1,568 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>faust.models.fields &#8212; Faust 1.11.0a1 documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/language_data.js"></script>
+    <link rel="shortcut icon" href="../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="copyright" title="Copyright" href="../copyright.html" />
+    <link rel="next" title="faust.models.record" href="faust.models.record.html" />
+    <link rel="prev" title="faust.models.base" href="faust.models.base.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="faust-models-fields">
+<h1><code class="docutils literal notranslate"><span class="pre">faust.models.fields</span></code><a class="headerlink" href="#faust-models-fields" title="Permalink to this headline">¶</a></h1>
+<span class="target" id="module-faust.models.fields"></span><dl class="class">
+<dt id="faust.models.fields.FieldDescriptor">
+<em class="property">class </em><code class="sig-prename descclassname">faust.models.fields.</code><code class="sig-name descname">FieldDescriptor</code><span class="sig-paren">(</span><em class="sig-param">*</em>, <em class="sig-param">field: str = None</em>, <em class="sig-param">input_name: str = None</em>, <em class="sig-param">output_name: str = None</em>, <em class="sig-param">type: Type[T] = None</em>, <em class="sig-param">model: Type[faust.types.models.ModelT] = None</em>, <em class="sig-param">required: bool = True</em>, <em class="sig-param">default: T = None</em>, <em class="sig-param">parent: faust.types.models.FieldDescriptorT = None</em>, <em class="sig-param">coerce: bool = None</em>, <em class="sig-param">exclude: bool = None</em>, <em class="sig-param">date_parser: Callable[Any</em>, <em class="sig-param">datetime.datetime] = None</em>, <em class="sig-param">tag: Type[faust.models.tags.Tag] = None</em>, <em class="sig-param">**options: Any</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/models/fields.html#FieldDescriptor"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.models.fields.FieldDescriptor" title="Permalink to this definition">¶</a></dt>
+<dd><p>Describes a field.</p>
+<p>Used for every field in Record so that they can be used in join’s
+/group_by etc.</p>
+<p class="rubric">Examples</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="k">class</span> <span class="nc">Withdrawal</span><span class="p">(</span><span class="n">Record</span><span class="p">):</span>
+<span class="gp">... </span>   <span class="n">account_id</span><span class="p">:</span> <span class="nb">str</span>
+<span class="gp">... </span>   <span class="n">amount</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span>
+</pre></div>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">Withdrawal</span><span class="o">.</span><span class="n">account_id</span>
+<span class="go">&lt;FieldDescriptor: Withdrawal.account_id: str&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">Withdrawal</span><span class="o">.</span><span class="n">amount</span>
+<span class="go">&lt;FieldDescriptor: Withdrawal.amount: float = 0.0&gt;</span>
+</pre></div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>field</strong> (<a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – Name of field.</p></li>
+<li><p><strong>type</strong> (<em>Type</em>) – Field value type.</p></li>
+<li><p><strong>required</strong> (<a class="reference external" href="https://docs.python.org/dev/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – Set to false if field is optional.</p></li>
+<li><p><strong>default</strong> (<em>Any</em>) – Default value when <cite>required=False</cite>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Keyword Arguments</dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>model</strong> (<em>Type</em>) – Model class the field belongs to.</p></li>
+<li><p><strong>parent</strong> (<a class="reference internal" href="faust.types.models.html#faust.types.models.FieldDescriptorT" title="faust.types.models.FieldDescriptorT"><em>FieldDescriptorT</em></a>) – parent field if any.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="attribute">
+<dt id="faust.models.fields.FieldDescriptor.field">
+<code class="sig-name descname">field</code><em class="property"> = None</em><a class="headerlink" href="#faust.models.fields.FieldDescriptor.field" title="Permalink to this definition">¶</a></dt>
+<dd><p>Name of attribute on Model.</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.models.fields.FieldDescriptor.input_name">
+<code class="sig-name descname">input_name</code><em class="property"> = None</em><a class="headerlink" href="#faust.models.fields.FieldDescriptor.input_name" title="Permalink to this definition">¶</a></dt>
+<dd><p>Name of field in serialized data (if differs from <a class="reference internal" href="#faust.models.fields.FieldDescriptor.field" title="faust.models.fields.FieldDescriptor.field"><code class="xref py py-attr docutils literal notranslate"><span class="pre">field</span></code></a>).
+Defaults to <a class="reference internal" href="#faust.models.fields.FieldDescriptor.field" title="faust.models.fields.FieldDescriptor.field"><code class="xref py py-attr docutils literal notranslate"><span class="pre">field</span></code></a>.</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.models.fields.FieldDescriptor.output_name">
+<code class="sig-name descname">output_name</code><em class="property"> = None</em><a class="headerlink" href="#faust.models.fields.FieldDescriptor.output_name" title="Permalink to this definition">¶</a></dt>
+<dd><p>Name of field when serializing data (if differs from <a class="reference internal" href="#faust.models.fields.FieldDescriptor.field" title="faust.models.fields.FieldDescriptor.field"><code class="xref py py-attr docutils literal notranslate"><span class="pre">field</span></code></a>).
+Defaults to <a class="reference internal" href="#faust.models.fields.FieldDescriptor.input_name" title="faust.models.fields.FieldDescriptor.input_name"><code class="xref py py-attr docutils literal notranslate"><span class="pre">input_name</span></code></a>.</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.models.fields.FieldDescriptor.type">
+<code class="sig-name descname">type</code><em class="property"> = None</em><a class="headerlink" href="#faust.models.fields.FieldDescriptor.type" title="Permalink to this definition">¶</a></dt>
+<dd><p>Type of value (e.g. <code class="docutils literal notranslate"><span class="pre">int</span></code>, or <code class="docutils literal notranslate"><span class="pre">Optional[int]</span></code>)).</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.models.fields.FieldDescriptor.model">
+<code class="sig-name descname">model</code><em class="property"> = None</em><a class="headerlink" href="#faust.models.fields.FieldDescriptor.model" title="Permalink to this definition">¶</a></dt>
+<dd><p>The model class this field is associated with.</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.models.fields.FieldDescriptor.required">
+<code class="sig-name descname">required</code><em class="property"> = True</em><a class="headerlink" href="#faust.models.fields.FieldDescriptor.required" title="Permalink to this definition">¶</a></dt>
+<dd><p>Set if a value for this field is required (cannot be <code class="xref py py-const docutils literal notranslate"><span class="pre">None</span></code>).</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.models.fields.FieldDescriptor.default">
+<code class="sig-name descname">default</code><em class="property"> = None</em><a class="headerlink" href="#faust.models.fields.FieldDescriptor.default" title="Permalink to this definition">¶</a></dt>
+<dd><p>Default value for non-required field.</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.models.fields.FieldDescriptor.coerce">
+<code class="sig-name descname">coerce</code><em class="property"> = False</em><a class="headerlink" href="#faust.models.fields.FieldDescriptor.coerce" title="Permalink to this definition">¶</a></dt>
+<dd><p>Coerce value to field descriptors type.
+This means assigning a value to this field, will first convert
+the value to the requested type.
+For example for a <a class="reference internal" href="#faust.models.fields.FloatField" title="faust.models.fields.FloatField"><code class="xref py py-class docutils literal notranslate"><span class="pre">FloatField</span></code></a> the input will be converted
+to float, and passing any value that cannot be converted to float
+will raise an error.</p>
+<p>If coerce is not enabled you can store any type of value.</p>
+<p>Note: <code class="xref py py-const docutils literal notranslate"><span class="pre">None</span></code> is usually considered a valid value for any field
+but this depends on the descriptor type.</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.models.fields.FieldDescriptor.exclude">
+<code class="sig-name descname">exclude</code><em class="property"> = False</em><a class="headerlink" href="#faust.models.fields.FieldDescriptor.exclude" title="Permalink to this definition">¶</a></dt>
+<dd><p>Exclude field from model representation.
+This means the field will not be part of the serialized structure.
+(<code class="docutils literal notranslate"><span class="pre">Model.dumps()</span></code>, <code class="docutils literal notranslate"><span class="pre">Model.asdict()</span></code>, and
+<code class="docutils literal notranslate"><span class="pre">Model.to_representation()</span></code>).</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.models.fields.FieldDescriptor.tag">
+<code class="sig-name descname">tag</code><em class="property"> = None</em><a class="headerlink" href="#faust.models.fields.FieldDescriptor.tag" title="Permalink to this definition">¶</a></dt>
+<dd><p>Field may be tagged with Secret/Sensitive/etc.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.models.fields.FieldDescriptor.on_model_attached">
+<code class="sig-name descname">on_model_attached</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/models/fields.html#FieldDescriptor.on_model_attached"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.models.fields.FieldDescriptor.on_model_attached" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.models.fields.FieldDescriptor.clone">
+<code class="sig-name descname">clone</code><span class="sig-paren">(</span><em class="sig-param">**kwargs: Any</em><span class="sig-paren">)</span> &#x2192; faust.types.models.FieldDescriptorT<a class="reference internal" href="../_modules/faust/models/fields.html#FieldDescriptor.clone"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.models.fields.FieldDescriptor.clone" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="faust.types.models.html#faust.types.models.FieldDescriptorT" title="faust.types.models.FieldDescriptorT"><code class="xref py py-class docutils literal notranslate"><span class="pre">FieldDescriptorT</span></code></a>[~T]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.models.fields.FieldDescriptor.as_dict">
+<code class="sig-name descname">as_dict</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; Mapping[str, Any]<a class="reference internal" href="../_modules/faust/models/fields.html#FieldDescriptor.as_dict"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.models.fields.FieldDescriptor.as_dict" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Mapping" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Mapping</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Any" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code></a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.models.fields.FieldDescriptor.validate_all">
+<code class="sig-name descname">validate_all</code><span class="sig-paren">(</span><em class="sig-param">value: Any</em><span class="sig-paren">)</span> &#x2192; Iterable[faust.exceptions.ValidationError]<a class="reference internal" href="../_modules/faust/models/fields.html#FieldDescriptor.validate_all"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.models.fields.FieldDescriptor.validate_all" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Iterable" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Iterable</span></code></a>[<a class="reference internal" href="faust.exceptions.html#faust.exceptions.ValidationError" title="faust.exceptions.ValidationError"><code class="xref py py-class docutils literal notranslate"><span class="pre">ValidationError</span></code></a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.models.fields.FieldDescriptor.validate">
+<code class="sig-name descname">validate</code><span class="sig-paren">(</span><em class="sig-param">value: T</em><span class="sig-paren">)</span> &#x2192; Iterable[faust.exceptions.ValidationError]<a class="reference internal" href="../_modules/faust/models/fields.html#FieldDescriptor.validate"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.models.fields.FieldDescriptor.validate" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Iterable" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Iterable</span></code></a>[<a class="reference internal" href="faust.exceptions.html#faust.exceptions.ValidationError" title="faust.exceptions.ValidationError"><code class="xref py py-class docutils literal notranslate"><span class="pre">ValidationError</span></code></a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.models.fields.FieldDescriptor.to_python">
+<code class="sig-name descname">to_python</code><span class="sig-paren">(</span><em class="sig-param">value: Any</em><span class="sig-paren">)</span> &#x2192; Optional[T]<a class="reference internal" href="../_modules/faust/models/fields.html#FieldDescriptor.to_python"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.models.fields.FieldDescriptor.to_python" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Optional" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[~T]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.models.fields.FieldDescriptor.prepare_value">
+<code class="sig-name descname">prepare_value</code><span class="sig-paren">(</span><em class="sig-param">value: Any</em>, <em class="sig-param">*</em>, <em class="sig-param">coerce: bool = None</em><span class="sig-paren">)</span> &#x2192; Optional[T]<a class="reference internal" href="../_modules/faust/models/fields.html#FieldDescriptor.prepare_value"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.models.fields.FieldDescriptor.prepare_value" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Optional" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[~T]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.models.fields.FieldDescriptor.should_coerce">
+<code class="sig-name descname">should_coerce</code><span class="sig-paren">(</span><em class="sig-param">value: Any</em>, <em class="sig-param">coerce: bool = None</em><span class="sig-paren">)</span> &#x2192; bool<a class="reference internal" href="../_modules/faust/models/fields.html#FieldDescriptor.should_coerce"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.models.fields.FieldDescriptor.should_coerce" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/functions.html#bool" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.models.fields.FieldDescriptor.getattr">
+<code class="sig-name descname">getattr</code><span class="sig-paren">(</span><em class="sig-param">obj: faust.types.models.ModelT</em><span class="sig-paren">)</span> &#x2192; T<a class="reference internal" href="../_modules/faust/models/fields.html#FieldDescriptor.getattr"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.models.fields.FieldDescriptor.getattr" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get attribute from model recursively.</p>
+<p>Supports recursive lookups e.g. <code class="docutils literal notranslate"><span class="pre">model.getattr('x.y.z')</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>~T</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.models.fields.FieldDescriptor.validation_error">
+<code class="sig-name descname">validation_error</code><span class="sig-paren">(</span><em class="sig-param">reason: str</em><span class="sig-paren">)</span> &#x2192; faust.exceptions.ValidationError<a class="reference internal" href="../_modules/faust/models/fields.html#FieldDescriptor.validation_error"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.models.fields.FieldDescriptor.validation_error" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="faust.exceptions.html#faust.exceptions.ValidationError" title="faust.exceptions.ValidationError"><code class="xref py py-class docutils literal notranslate"><span class="pre">ValidationError</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.models.fields.FieldDescriptor.ident">
+<em class="property">property </em><code class="sig-name descname">ident</code><a class="headerlink" href="#faust.models.fields.FieldDescriptor.ident" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return the fields identifier.
+:rtype: <a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.models.fields.FieldDescriptor.related_models">
+<code class="sig-name descname">related_models</code><a class="reference internal" href="../_modules/faust/models/fields.html#FieldDescriptor.related_models"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.models.fields.FieldDescriptor.related_models" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="faust.models.fields.FieldDescriptor.lazy_coercion">
+<code class="sig-name descname">lazy_coercion</code><a class="reference internal" href="../_modules/faust/models/fields.html#FieldDescriptor.lazy_coercion"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.models.fields.FieldDescriptor.lazy_coercion" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="faust.models.fields.BooleanField">
+<em class="property">class </em><code class="sig-prename descclassname">faust.models.fields.</code><code class="sig-name descname">BooleanField</code><span class="sig-paren">(</span><em class="sig-param">*</em>, <em class="sig-param">field: str = None</em>, <em class="sig-param">input_name: str = None</em>, <em class="sig-param">output_name: str = None</em>, <em class="sig-param">type: Type[T] = None</em>, <em class="sig-param">model: Type[faust.types.models.ModelT] = None</em>, <em class="sig-param">required: bool = True</em>, <em class="sig-param">default: T = None</em>, <em class="sig-param">parent: faust.types.models.FieldDescriptorT = None</em>, <em class="sig-param">coerce: bool = None</em>, <em class="sig-param">exclude: bool = None</em>, <em class="sig-param">date_parser: Callable[Any</em>, <em class="sig-param">datetime.datetime] = None</em>, <em class="sig-param">tag: Type[faust.models.tags.Tag] = None</em>, <em class="sig-param">**options: Any</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/models/fields.html#BooleanField"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.models.fields.BooleanField" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="method">
+<dt id="faust.models.fields.BooleanField.validate">
+<code class="sig-name descname">validate</code><span class="sig-paren">(</span><em class="sig-param">value: T</em><span class="sig-paren">)</span> &#x2192; Iterable[faust.exceptions.ValidationError]<a class="reference internal" href="../_modules/faust/models/fields.html#BooleanField.validate"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.models.fields.BooleanField.validate" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Iterable" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Iterable</span></code></a>[<a class="reference internal" href="faust.exceptions.html#faust.exceptions.ValidationError" title="faust.exceptions.ValidationError"><code class="xref py py-class docutils literal notranslate"><span class="pre">ValidationError</span></code></a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.models.fields.BooleanField.prepare_value">
+<code class="sig-name descname">prepare_value</code><span class="sig-paren">(</span><em class="sig-param">value: Any</em>, <em class="sig-param">*</em>, <em class="sig-param">coerce: bool = None</em><span class="sig-paren">)</span> &#x2192; Optional[bool]<a class="reference internal" href="../_modules/faust/models/fields.html#BooleanField.prepare_value"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.models.fields.BooleanField.prepare_value" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Optional" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/functions.html#bool" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="faust.models.fields.NumberField">
+<em class="property">class </em><code class="sig-prename descclassname">faust.models.fields.</code><code class="sig-name descname">NumberField</code><span class="sig-paren">(</span><em class="sig-param">*</em>, <em class="sig-param">max_value: int = None</em>, <em class="sig-param">min_value: int = None</em>, <em class="sig-param">**kwargs: Any</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/models/fields.html#NumberField"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.models.fields.NumberField" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="method">
+<dt id="faust.models.fields.NumberField.validate">
+<code class="sig-name descname">validate</code><span class="sig-paren">(</span><em class="sig-param">value: T</em><span class="sig-paren">)</span> &#x2192; Iterable[faust.exceptions.ValidationError]<a class="reference internal" href="../_modules/faust/models/fields.html#NumberField.validate"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.models.fields.NumberField.validate" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Iterable" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Iterable</span></code></a>[<a class="reference internal" href="faust.exceptions.html#faust.exceptions.ValidationError" title="faust.exceptions.ValidationError"><code class="xref py py-class docutils literal notranslate"><span class="pre">ValidationError</span></code></a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="faust.models.fields.IntegerField">
+<em class="property">class </em><code class="sig-prename descclassname">faust.models.fields.</code><code class="sig-name descname">IntegerField</code><span class="sig-paren">(</span><em class="sig-param">*</em>, <em class="sig-param">max_value: int = None</em>, <em class="sig-param">min_value: int = None</em>, <em class="sig-param">**kwargs: Any</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/models/fields.html#IntegerField"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.models.fields.IntegerField" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="method">
+<dt id="faust.models.fields.IntegerField.prepare_value">
+<code class="sig-name descname">prepare_value</code><span class="sig-paren">(</span><em class="sig-param">value: Any</em>, <em class="sig-param">*</em>, <em class="sig-param">coerce: bool = None</em><span class="sig-paren">)</span> &#x2192; Optional[int]<a class="reference internal" href="../_modules/faust/models/fields.html#IntegerField.prepare_value"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.models.fields.IntegerField.prepare_value" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Optional" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/functions.html#int" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="faust.models.fields.FloatField">
+<em class="property">class </em><code class="sig-prename descclassname">faust.models.fields.</code><code class="sig-name descname">FloatField</code><span class="sig-paren">(</span><em class="sig-param">*</em>, <em class="sig-param">max_value: int = None</em>, <em class="sig-param">min_value: int = None</em>, <em class="sig-param">**kwargs: Any</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/models/fields.html#FloatField"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.models.fields.FloatField" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="method">
+<dt id="faust.models.fields.FloatField.prepare_value">
+<code class="sig-name descname">prepare_value</code><span class="sig-paren">(</span><em class="sig-param">value: Any</em>, <em class="sig-param">*</em>, <em class="sig-param">coerce: bool = None</em><span class="sig-paren">)</span> &#x2192; Optional[float]<a class="reference internal" href="../_modules/faust/models/fields.html#FloatField.prepare_value"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.models.fields.FloatField.prepare_value" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Optional" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/functions.html#float" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="faust.models.fields.DecimalField">
+<em class="property">class </em><code class="sig-prename descclassname">faust.models.fields.</code><code class="sig-name descname">DecimalField</code><span class="sig-paren">(</span><em class="sig-param">*</em>, <em class="sig-param">max_digits: int = None</em>, <em class="sig-param">max_decimal_places: int = None</em>, <em class="sig-param">**kwargs: Any</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/models/fields.html#DecimalField"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.models.fields.DecimalField" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="attribute">
+<dt id="faust.models.fields.DecimalField.max_digits">
+<code class="sig-name descname">max_digits</code><em class="property"> = None</em><a class="headerlink" href="#faust.models.fields.DecimalField.max_digits" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="faust.models.fields.DecimalField.max_decimal_places">
+<code class="sig-name descname">max_decimal_places</code><em class="property"> = None</em><a class="headerlink" href="#faust.models.fields.DecimalField.max_decimal_places" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="faust.models.fields.DecimalField.to_python">
+<code class="sig-name descname">to_python</code><span class="sig-paren">(</span><em class="sig-param">value: Any</em><span class="sig-paren">)</span> &#x2192; Any<a class="reference internal" href="../_modules/faust/models/fields.html#DecimalField.to_python"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.models.fields.DecimalField.to_python" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Any" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.models.fields.DecimalField.prepare_value">
+<code class="sig-name descname">prepare_value</code><span class="sig-paren">(</span><em class="sig-param">value: Any</em>, <em class="sig-param">*</em>, <em class="sig-param">coerce: bool = None</em><span class="sig-paren">)</span> &#x2192; Optional[decimal.Decimal]<a class="reference internal" href="../_modules/faust/models/fields.html#DecimalField.prepare_value"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.models.fields.DecimalField.prepare_value" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Optional" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/decimal.html#decimal.Decimal" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Decimal</span></code></a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.models.fields.DecimalField.validate">
+<code class="sig-name descname">validate</code><span class="sig-paren">(</span><em class="sig-param">value: decimal.Decimal</em><span class="sig-paren">)</span> &#x2192; Iterable[faust.exceptions.ValidationError]<a class="reference internal" href="../_modules/faust/models/fields.html#DecimalField.validate"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.models.fields.DecimalField.validate" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Iterable" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Iterable</span></code></a>[<a class="reference internal" href="faust.exceptions.html#faust.exceptions.ValidationError" title="faust.exceptions.ValidationError"><code class="xref py py-class docutils literal notranslate"><span class="pre">ValidationError</span></code></a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="faust.models.fields.StringField">
+<em class="property">class </em><code class="sig-prename descclassname">faust.models.fields.</code><code class="sig-name descname">StringField</code><span class="sig-paren">(</span><em class="sig-param">*</em>, <em class="sig-param">max_length: int = None</em>, <em class="sig-param">min_length: int = None</em>, <em class="sig-param">trim_whitespace: bool = False</em>, <em class="sig-param">allow_blank: bool = False</em>, <em class="sig-param">**kwargs: Any</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/models/fields.html#StringField"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.models.fields.StringField" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="method">
+<dt id="faust.models.fields.StringField.prepare_value">
+<code class="sig-name descname">prepare_value</code><span class="sig-paren">(</span><em class="sig-param">value: Any</em>, <em class="sig-param">*</em>, <em class="sig-param">coerce: bool = None</em><span class="sig-paren">)</span> &#x2192; Optional[str]<a class="reference internal" href="../_modules/faust/models/fields.html#StringField.prepare_value"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.models.fields.StringField.prepare_value" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Optional" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="faust.models.fields.DatetimeField">
+<em class="property">class </em><code class="sig-prename descclassname">faust.models.fields.</code><code class="sig-name descname">DatetimeField</code><span class="sig-paren">(</span><em class="sig-param">*</em>, <em class="sig-param">field: str = None</em>, <em class="sig-param">input_name: str = None</em>, <em class="sig-param">output_name: str = None</em>, <em class="sig-param">type: Type[T] = None</em>, <em class="sig-param">model: Type[faust.types.models.ModelT] = None</em>, <em class="sig-param">required: bool = True</em>, <em class="sig-param">default: T = None</em>, <em class="sig-param">parent: faust.types.models.FieldDescriptorT = None</em>, <em class="sig-param">coerce: bool = None</em>, <em class="sig-param">exclude: bool = None</em>, <em class="sig-param">date_parser: Callable[Any</em>, <em class="sig-param">datetime.datetime] = None</em>, <em class="sig-param">tag: Type[faust.models.tags.Tag] = None</em>, <em class="sig-param">**options: Any</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/models/fields.html#DatetimeField"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.models.fields.DatetimeField" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="method">
+<dt id="faust.models.fields.DatetimeField.to_python">
+<code class="sig-name descname">to_python</code><span class="sig-paren">(</span><em class="sig-param">value: Any</em><span class="sig-paren">)</span> &#x2192; Any<a class="reference internal" href="../_modules/faust/models/fields.html#DatetimeField.to_python"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.models.fields.DatetimeField.to_python" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Any" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="faust.models.fields.DatetimeField.prepare_value">
+<code class="sig-name descname">prepare_value</code><span class="sig-paren">(</span><em class="sig-param">value: Any</em>, <em class="sig-param">*</em>, <em class="sig-param">coerce: bool = None</em><span class="sig-paren">)</span> &#x2192; Optional[datetime.datetime]<a class="reference internal" href="../_modules/faust/models/fields.html#DatetimeField.prepare_value"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.models.fields.DatetimeField.prepare_value" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Optional" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/datetime.html#datetime.datetime" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">datetime</span></code></a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="faust.models.fields.BytesField">
+<em class="property">class </em><code class="sig-prename descclassname">faust.models.fields.</code><code class="sig-name descname">BytesField</code><span class="sig-paren">(</span><em class="sig-param">*</em>, <em class="sig-param">encoding: str = None</em>, <em class="sig-param">errors: str = None</em>, <em class="sig-param">**kwargs: Any</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/faust/models/fields.html#BytesField"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.models.fields.BytesField" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="attribute">
+<dt id="faust.models.fields.BytesField.encoding">
+<code class="sig-name descname">encoding</code><em class="property"> = 'utf-8'</em><a class="headerlink" href="#faust.models.fields.BytesField.encoding" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="faust.models.fields.BytesField.errors">
+<code class="sig-name descname">errors</code><em class="property"> = 'strict'</em><a class="headerlink" href="#faust.models.fields.BytesField.errors" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="faust.models.fields.BytesField.prepare_value">
+<code class="sig-name descname">prepare_value</code><span class="sig-paren">(</span><em class="sig-param">value: Any</em>, <em class="sig-param">*</em>, <em class="sig-param">coerce: bool = None</em><span class="sig-paren">)</span> &#x2192; Optional[bytes]<a class="reference internal" href="../_modules/faust/models/fields.html#BytesField.prepare_value"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.models.fields.BytesField.prepare_value" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Optional" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/stdtypes.html#bytes" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bytes</span></code></a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="attribute">
+<dt id="faust.models.fields.field_for_type">
+<code class="sig-prename descclassname">faust.models.fields.</code><code class="sig-name descname">field_for_type</code><span class="sig-paren">(</span><em class="sig-param">typ: Type</em><span class="sig-paren">)</span> &#x2192; Tuple[Type[faust.types.models.FieldDescriptorT], Optional[Type[faust.models.tags.Tag]]]<a class="reference internal" href="../_modules/faust/models/fields.html#field_for_type"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#faust.models.fields.field_for_type" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">Tuple</span></code>[<a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Type" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Type</span></code></a>[<a class="reference internal" href="faust.types.models.html#faust.types.models.FieldDescriptorT" title="faust.types.models.FieldDescriptorT"><code class="xref py py-class docutils literal notranslate"><span class="pre">FieldDescriptorT</span></code></a>[~T]], <a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Optional" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<a class="reference external" href="https://docs.python.org/dev/library/typing.html#typing.Type" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Type</span></code></a>[<a class="reference internal" href="faust.models.tags.html#faust.models.tags.Tag" title="faust.models.tags.Tag"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tag</span></code></a>[~T]]]]</p>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../index.html">Faust</a></h1>
+
+
+
+<p class="blurb">A library for building streaming applications in Python.</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=robinhood&repo=faust&type=star&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+    
+
+<p>
+<a class="badge" href="https://travis-ci.org/robinhood/faust">
+    <img
+        alt="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+        src="https://secure.travis-ci.org/robinhood/faust.svg?branch=master"
+    />
+</a>
+</p>
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../copyright.html">Copyright</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../introduction.html">Introducing Faust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../playbooks/index.html">Playbooks</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../userguide/index.html">User Guide</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">Frequently Asked Questions (FAQ)</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../changelog.html">Changes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../developerguide/index.html">Developer Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../history/index.html">History</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">API Reference</a><ul>
+      <li>Previous: <a href="faust.models.base.html" title="previous chapter"><code class="docutils literal notranslate"><span class="pre">faust.models.base</span></code></a></li>
+      <li>Next: <a href="faust.models.record.html" title="next chapter"><code class="docutils literal notranslate"><span class="pre">faust.models.record</span></code></a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2020, Robinhood Markets, Inc..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../_sources/reference/faust.models.fields.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+    <a href="https://github.com/robinhood/faust" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
+    
+
+    
+  </body>
+</html>
