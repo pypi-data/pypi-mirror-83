@@ -1,0 +1,40 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="mt-2 mb-4">
+{% if reports %}
+    <table class="pd-table-bordered">
+        <tr>
+            <th>Date</th>
+            <th>User</th>
+            <th>Report Type</th>
+            <th>Content</th>
+        </tr>
+        {% for report in reports %}
+        <tr>
+            <td>{{ report.datetime }}</td>
+            <td>
+                {% if report.user_contact %}{{ report.user_contact }}{% endif %}
+                {% if report.user_contact and report.user %}<br />{% endif %}
+                {% if report.user %}{{ report.user }}{% endif %}
+            </td>
+            <td>
+                {% if report.type == "url" %}<i class="fas fa-link"></i>
+                {% elif report.type == "email" %}<i class="far fa-envelope"></i>
+                {% endif %}{{ report.type }}
+            </td>
+            <td>
+                {% if report.type == "url" %}
+                    {{ report.content }}
+                {% else %}
+                <button class="pd-btn-outline" onClick="location.href='/reports/view/{{ report.uuid }}/'">View</button>
+                <button class="pd-btn ml-2" onClick="location.href='/reports/download/{{ report.uuid }}/'">Download</button>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+{% else %}
+<p>No new reports have been recorded yet.</p>
+{% endif %}
+</div>
+{% endblock %}
