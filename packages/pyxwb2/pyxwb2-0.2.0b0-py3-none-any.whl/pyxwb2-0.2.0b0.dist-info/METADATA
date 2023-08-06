@@ -1,0 +1,123 @@
+Metadata-Version: 2.1
+Name: pyxwb2
+Version: 0.2.0b0
+Summary: Python API for FFG X-wing 2.0
+Home-page: https://github.com/minsis/pyxwb2
+Author: Dennis Whitney
+Author-email: dennis@irunasroot.com
+License: GNU GPLv3
+Download-URL: https://github.com/minsis/pyxwb2/archive/v0.1.0b.tar.gz
+Keywords: ffg,x-wing,xwing,x-wing 2.0,xwing 2.0
+Platform: UNKNOWN
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Software Development :: Build Tools
+Classifier: License :: OSI Approved :: GNU General Public License v3 (GPLv3)
+Classifier: Programming Language :: Python :: 3.6
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown
+Requires-Dist: antlr4-python3-runtime (==4.7.2)
+Requires-Dist: attrs (==20.1.0)
+Requires-Dist: bleach (==3.1.5)
+Requires-Dist: certifi (==2020.6.20)
+Requires-Dist: chardet (==3.0.4)
+Requires-Dist: colorama (==0.4.3)
+Requires-Dist: docutils (==0.16)
+Requires-Dist: idna (==2.10)
+Requires-Dist: jsonpath2 (==0.4.4)
+Requires-Dist: jsonschema (==3.2.0)
+Requires-Dist: keyring (==21.3.1)
+Requires-Dist: packaging (==20.4)
+Requires-Dist: pkginfo (==1.5.0.1)
+Requires-Dist: Pygments (==2.6.1)
+Requires-Dist: pyparsing (==2.4.7)
+Requires-Dist: pyrsistent (==0.16.0)
+Requires-Dist: readme-renderer (==26.0)
+Requires-Dist: requests (==2.24.0)
+Requires-Dist: requests-toolbelt (==0.9.1)
+Requires-Dist: rfc3986 (==1.4.0)
+Requires-Dist: six (==1.15.0)
+Requires-Dist: tqdm (==4.48.2)
+Requires-Dist: twine (==3.2.0)
+Requires-Dist: urllib3 (==1.25.10)
+Requires-Dist: webencodings (==0.5.1)
+
+# Python Xwing Builder for X-wing v2.0
+
+An Xwing builder written in python
+
+master branch:  
+![Unittest - master](https://github.com/minsis/pyxwb2/workflows/Python%20package/badge.svg?branch=master)
+
+beta branch:  
+![Unittest - beta](https://github.com/minsis/pyxwb2/workflows/Python%20package/badge.svg?branch=beta)
+
+
+## Installation
+Install from pypi
+```bash
+pip install pyxwb2
+```
+
+Install locally
+```bash
+git clone https://github.com/minsis/pyxwb2.git
+cd pyxwb2
+pip install .
+```
+
+## Usage
+There are two separate libraries to use here: one fro loading XWS import data 
+and one for loading the entire xwing-data pack for usage in an app or web app, etc
+
+### XWS Data Load
+To load and validate an XWB json file you can load it in. With a basic XWS load you get
+a full manifest of data for the pilots included.
+
+```python
+from pyxwb2 import XwingSquadron
+
+squadron = XwingSquadron()
+squadron.import_squad("xws-squad.json")
+```
+
+As per the XWS standard point costs are ignored on import and loaded from the manifest.
+If the source is trusted then the json schema is ignored.
+
+To load trusted data
+```python
+from pyxwb2 import XwingSquadron
+
+squadron = XwingSquadron(trust_source=True)
+squadron.import_squad("xws-squad.json")
+```
+
+### X-wing Data Pack
+This loads the entire manifest data from xwing-data. Gives you access to the entire data
+strcutre that it has to offer.
+
+```python
+from pyxwb2 import XwingDataPack
+
+data = XwingDataPack()
+```
+
+## Citing
+
+### xwing-data2
+The dataset included is provided by guidokessels/xwing-data2 under the MIT license
+
+* Author: guidokessels
+* Title: xwing-data2
+* Version: 1.21.0
+* Availability: [xwing-data2](https://github.com/guidokessels/xwing-data2)
+
+### xws 
+The ruleset spec used is provided by elistevens/xws-spec
+
+* Author: elistevens
+* Title: xws-spec
+* Version: 2.0.0
+* Availability: [xws-spec](https://github.com/elistevens/xws-spec)
+
+
