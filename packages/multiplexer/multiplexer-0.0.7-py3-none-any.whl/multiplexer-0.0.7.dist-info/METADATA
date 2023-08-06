@@ -1,0 +1,68 @@
+Metadata-Version: 2.1
+Name: multiplexer
+Version: 0.0.7
+Summary: [WIP] New cypher library.
+Home-page: https://github.com/mathix420/multiplexer
+Author: Arnaud Gissinger
+Author-email: agissing@student.42.fr
+License: MIT
+Platform: UNKNOWN
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: System Administrators
+Classifier: Development Status :: 4 - Beta
+Classifier: Topic :: Security :: Cryptography
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown
+Requires-Dist: python-dotenv (==0.10.5)
+Requires-Dist: PyInquirer (==1.0.3)
+Requires-Dist: PyYAML (>=3.13)
+Requires-Dist: boto3 (>=1.11.6)
+
+# Multiplexer
+---
+Multiplexer is an encryption library.
+
+## Installation
+
+```bash
+pip install multiplexer
+```
+
+## Usage
+
+```python
+from multiplexer import Plex, generate, load
+
+book = load() or generate("michel", save=True)
+
+p = Plex(book)
+
+cypher = p.encode('My secret message')
+print(cypher)
+
+secret_message = p.decode(cypher)
+print(secret_message)
+
+# Human readable
+cypher = p.h_encode('My secret message')
+print(cypher)
+
+secret_message = p.h_decode(cypher)
+print(secret_message)
+```
+
+## Logging
+
+```python
+import logging
+
+logger = logging.getLogger('multiplexer')
+logger.setLevel(logging.INFO)
+```
+
