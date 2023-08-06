@@ -1,0 +1,2 @@
+STATE_USER_FULL_NAME_FIELD = "full_name"
+STATE_USER_FIELD = "user"
