@@ -1,0 +1,94 @@
+<registry>
+  <record field="enabled" interface="plone.caching.interfaces.ICacheSettings" name="plone.caching.interfaces.ICacheSettings.enabled">
+    <field type="plone.registry.field.Bool">
+      <default>False</default>
+      <title>Globally enabled</title>
+    </field>
+    <value>True</value>
+  </record>
+
+  <record name="plone.app.caching.interfaces.IPloneCacheSettings.purgedContentTypes" interface="plone.app.caching.interfaces.IPloneCacheSettings" field="purgedContentTypes">
+    <field type="plone.registry.field.Tuple">
+      <title xmlns:ns0="http://xml.zope.org/namespaces/i18n" ns0:domain="plone.app.caching" ns0:translate="">Content types to purge</title>
+      <value_type type="plone.registry.field.ASCIILine">
+        <title xmlns:ns0="http://xml.zope.org/namespaces/i18n" ns0:domain="plone.app.caching" ns0:translate="">Content type name</title>
+      </value_type>
+    </field>
+    <value>
+      <element>Event</element>
+      <element>File</element>
+      <element>Image</element>
+      <element>News Item</element>
+      <element>Document</element>
+      <element>Folder</element>
+      <element>Organization</element>
+    </value>
+  </record>
+
+  <record name="plone.cachepurging.interfaces.ICachePurgingSettings.enabled" interface="plone.cachepurging.interfaces.ICachePurgingSettings" field="enabled">
+    <field type="plone.registry.field.Bool">
+      <default>True</default>
+      <title>Enable purging</title>
+    </field>
+    <value>True</value>
+  </record>
+
+  <record name="plone.cachepurging.interfaces.ICachePurgingSettings.virtualHosting" interface="plone.cachepurging.interfaces.ICachePurgingSettings" field="enabled">
+    <field type="plone.registry.field.Bool">
+      <default>True</default>
+      <title>Enable VirtualHosting</title>
+    </field>
+    <value>True</value>
+  </record>
+
+  <record name="plone.app.caching.weakCaching.ramCache">
+    <field type="plone.registry.field.Bool">
+      <required>False</required>
+      <title>RAM cache</title>
+    </field>
+    <value>False</value>
+  </record>
+
+  <record name="plone.app.caching.moderateCaching.ramCache">
+    <field type="plone.registry.field.Bool">
+      <required>False</required>
+      <title>RAM cache</title>
+    </field>
+    <value>False</value>
+  </record>
+
+  <record name="plone.app.caching.strongCaching.ramCache">
+    <field type="plone.registry.field.Bool">
+      <required>False</required>
+      <title>RAM cache</title>
+    </field>
+    <value>False</value>
+  </record>
+
+  <record name="plone.app.caching.moderateCaching.plone.content.feed.ramCache">
+    <field ref="plone.app.caching.moderateCaching.ramCache"/>
+    <value>False</value>
+  </record>
+
+  <record name="plone.app.caching.weakCaching.plone.content.folderView.ramCache">
+    <field ref="plone.app.caching.weakCaching.ramCache"/>
+    <value>False</value>
+  </record>
+
+  <record name="plone.app.caching.weakCaching.plone.content.itemView.ramCache">
+    <field ref="plone.app.caching.weakCaching.ramCache"/>
+    <value>False</value>
+  </record>
+
+  <record name="plone.cachepurging.interfaces.ICachePurgingSettings.cachingProxies" interface="plone.cachepurging.interfaces.ICachePurgingSettings" field="cachingProxies">
+    <field type="plone.registry.field.Tuple">
+      <description xmlns:ns0="http://xml.zope.org/namespaces/i18n" ns0:domain="plone.cachepurging" ns0:translate="">Provide the URLs of each proxy to which PURGE requests shoudl be sent.</description>
+      <title xmlns:ns0="http://xml.zope.org/namespaces/i18n" ns0:domain="plone.cachepurging" ns0:translate="">Caching proxies</title>
+      <value_type type="plone.registry.field.URI"/>
+    </field>
+    <value>
+            <element>http://override-by-environment-variable.CACHING_SERVERS</element>
+    </value>
+  </record>
+
+</registry>

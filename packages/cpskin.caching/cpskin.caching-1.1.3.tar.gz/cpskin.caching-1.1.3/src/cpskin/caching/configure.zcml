@@ -1,0 +1,63 @@
+<configure
+    xmlns="http://namespaces.zope.org/zope"
+    xmlns:five="http://namespaces.zope.org/five"
+    xmlns:genericsetup="http://namespaces.zope.org/genericsetup"
+    xmlns:i18n="http://namespaces.zope.org/i18n"
+    xmlns:monkey="http://namespaces.plone.org/monkey"
+    xmlns:zcml="http://namespaces.zope.org/zcml"
+    i18n_domain="cpskin.caching">
+
+  <includeDependencies package="." />
+
+  <i18n:registerTranslations directory="locales" />
+
+  <include package=".browser" />
+
+  <adapter factory=".rewrite.CPSkinRewriter" />
+
+  <!-- Dexterity images -->
+  <adapter factory=".purge.ScalesPurgePaths" name="plone.files" />
+
+
+  <include package="z3c.unconfigure" file="meta.zcml" />
+
+  <unconfigure>
+    <subscriber handler="plone.cachepurging.hooks.purge" />
+  </unconfigure>
+
+  <include package="plone.app.caching"/>
+
+  <subscriber handler=".hooks.purge" />
+  <include package="collective.monkeypatcher" file="meta.zcml" />
+
+  <monkey:patch
+      description="proxies url are stored in environment variable not in registry, so we need to fix isCachePurgingEnabled accordingly"
+      module="plone.cachepurging.utils"
+      original="isCachePurgingEnabled"
+      replacement=".patch.isCachePurgingEnabled"
+      docstringWarning="false" />
+
+  <genericsetup:registerProfile
+      name="default"
+      title="cpskin.caching"
+      directory="profiles/default"
+      description="Installs the cpskin.caching add-on."
+      provides="Products.GenericSetup.interfaces.EXTENSION"
+      />
+
+  <genericsetup:importStep
+      name="cpskin.caching-postInstall"
+      title="cpskin.caching post_install import step"
+      description="Post install import step from cpskin.caching"
+      handler=".setuphandlers.post_install">
+  </genericsetup:importStep>
+
+  <genericsetup:upgradeStep
+    source="1000"
+    destination="1001"
+    title="Reload regsitry.xml file"
+    description=""
+    profile="cpskin.caching:default"
+    handler=".upgrades.reload_registry_xml"
+    />
+</configure>

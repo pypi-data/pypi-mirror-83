@@ -1,0 +1,5 @@
+====================
+cpskin.caching
+====================
+
+User documentation
