@@ -1,0 +1,69 @@
+# Django Firebase Custom Auth
+
+Django backend for Firebase custom authentication.
+
+## Requirements
+- Django 3
+- Python 3
+
+## Setup
+Install dependencies.
+```
+pip install djangorestframework firebase-admin
+```
+Install this package.
+```
+pip install django-firebase-custom-auth
+```
+Add `django_firebase_custom_auth` to your `INSTALLED_APPS` in your `settings.py`.
+```
+INSTALLED_APPS = (
+    ...,
+    'rest_framework',
+    ...,
+    'django_firebase_custom_auth',
+)
+```
+Add URL patterns.
+```
+urlpatterns = [
+    path('custom-auth/', include('django_firebase_custom_auth.urls')),
+]
+```
+Specify a file path service account info is stored.
+```
+SERVICE_ACCOUNT_KEY_FILE_PATH = os.path.join(BASE_DIR, 'serviceAccountKey.json')
+```
+(Optional) Provide a key to generate a custom token. The default value is `id`.
+Make sure this value is a primary key your user model has.
+```
+CUSTOM_TOKEN_KEY = 'uuid'
+```
+Now you can send a user's credentials (username and password) from your Firebase client app to Django backend. And your server will return a custom token if the credentials are valid. And you can sign in with Firebase using the token. Below is an example in JavaScript.
+```
+const url = "http://127.0.0.1:8000/custom-auth/login/"
+const credentials = {
+	username: username,
+	password: password,
+}
+
+axios.post(url, credentials).then((resp) => {
+	const token = resp.data.token
+
+	firebase.auth().signInWithCustomToken(token)
+		.then(() => {
+			// Sign in with Firebase
+		})
+		.catch((err) => {
+			// Handle an error
+		})
+})
+```
+
+## Use Case
+Let's say your users will be added by admin manually and you want to authenticate users without email.
+Since Firebase built-in authentication requires email and password, you need a server that provides a custom token to authenticate users with Firebase. This package can handle the custom authentication. 
+For more details, see these resources below.  
+  
+- [Authenticate with Firebase in JavaScript Using a Custom Authentication System](https://firebase.google.com/docs/auth/web/custom-auth)  
+- [How do I create users without email in firebase?](https://stackoverflow.com/questions/52349032/how-do-i-create-users-without-email-in-firebase)
