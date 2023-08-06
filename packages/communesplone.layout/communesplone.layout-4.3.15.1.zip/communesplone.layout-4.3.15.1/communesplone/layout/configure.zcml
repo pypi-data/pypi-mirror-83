@@ -1,0 +1,23 @@
+<configure
+    xmlns="http://namespaces.zope.org/zope"
+    xmlns:five="http://namespaces.zope.org/five"
+    xmlns:cmf="http://namespaces.zope.org/cmf"
+    xmlns:i18n="http://namespaces.zope.org/i18n"
+    xmlns:browser="http://namespaces.zope.org/browser"
+    i18n_domain="communesplone.layout">
+
+  <five:registerPackage package="." initialize=".initialize" />
+  <include file="skins.zcml" />
+  <include file="profiles.zcml" />
+  <i18n:registerTranslations directory="locales" />
+
+  <!-- make collective.captcha verify method callable in restricted python scripts -->
+  <browser:page
+      name="cp_captcha"
+      for="*"
+      permission="zope2.View"
+      class="collective.captcha.browser.captcha.Captcha"
+      allowed_attributes="verify"
+      />
+
+</configure>
