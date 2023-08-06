@@ -1,0 +1,2 @@
+# StrawberryPy
+### Graphical animation module.
