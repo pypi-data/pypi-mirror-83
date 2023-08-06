@@ -1,0 +1,65 @@
+#!/usr/bin/env python3
+#
+# remt - reMarkable tablet command-line tools
+#
+# Copyright (C) 2018-2020 by Artur Wroblewski <wrobell@riseup.net>
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+
+import argparse
+import dataclasses as dtc
+import logging
+import typing as tp
+from statistics import fmean
+
+import remt
+from remt.indexer import page_strokes, to_line_selection, \
+    merge_line_selection
+
+logging.basicConfig(level=logging.INFO)
+
+parser = argparse.ArgumentParser(description="""\
+List highlighter annotations detected in reMarkable table lines file.
+""")
+
+parser.add_argument('input', help='reMarkable table lines file')
+
+args = parser.parse_args()
+
+with open(args.input, 'rb') as f:
+    items = page_strokes(remt.parse(f, 0))
+    for p, strokes in items:
+        for stroke in strokes:
+            x1 = min(s.x for s in stroke.segments)
+            x2 = max(s.x for s in stroke.segments)
+            y1 = min(s.y for s in stroke.segments)
+            y2 = max(s.y for s in stroke.segments)
+            ys = fmean(s.y for s in stroke.segments)
+
+            ls = to_line_selection(stroke)
+            print(
+                '({:.1f}, {:.1f}), ({:.1f}, {:.1f})  y.avg={:.1f}, is-line={}'
+                .format(x1, y1, x2, y2, ys, ls is not None)
+            )
+
+with open(args.input, 'rb') as f:
+    items = page_strokes(remt.parse(f, 0))
+    for p, strokes in items:
+        selections = (ls for st in strokes if (ls := to_line_selection(st)))
+        selections = merge_line_selection(selections)
+        for s in selections:
+            print(s)
+
+# vim: sw=4:et:ai
