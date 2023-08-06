@@ -1,0 +1,64 @@
+Metadata-Version: 2.1
+Name: mypy-ls
+Version: 0.3.6
+Summary: Mypy linter for the Python Language Server
+Home-page: https://github.com/Richardk2n/pyls-mypy
+Author: Tom van Ommeren, Richard Kellnberger
+License: 'MIT'
+Platform: UNKNOWN
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Software Development
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Requires-Python: >=3.6
+Requires-Dist: python-language-server (>=0.34.0)
+Requires-Dist: mypy
+Provides-Extra: test
+Requires-Dist: tox ; extra == 'test'
+Requires-Dist: pytest ; extra == 'test'
+Requires-Dist: pytest-cov ; extra == 'test'
+Requires-Dist: coverage ; extra == 'test'
+Requires-Dist: mock ; extra == 'test'
+
+Mypy plugin for PYLS
+======================
+
+.. image:: https://badge.fury.io/py/mypy-ls.svg
+    :target: https://badge.fury.io/py/mypy-ls
+
+.. image:: https://github.com/Richardk2n/pyls-mypy/workflows/Python%20package/badge.svg?branch=master
+    :target: https://github.com/Richardk2n/pyls-mypy/
+
+This is a plugin for the Palantir's Python Language Server (https://github.com/palantir/python-language-server)
+
+It, like mypy, requires Python 3.6 or newer.
+
+
+Installation
+------------
+
+Install into the same virtualenv as pyls itself.
+
+``pip install mypy-ls``
+
+Configuration
+-------------
+
+``live_mode`` (default is True) provides type checking as you type. This writes to a tempfile every time a check is done.
+
+Turning off live_mode means you must save your changes for mypy diagnostics to update correctly.
+
+Depending on your editor, the configuration (found in a file called mypy-ls.cfg in your workspace or a parent directory) should be roughly like this:
+
+::
+
+    {
+	"enabled": True,
+	"live_mode": True,
+	"strict": False
+    }
+
+
