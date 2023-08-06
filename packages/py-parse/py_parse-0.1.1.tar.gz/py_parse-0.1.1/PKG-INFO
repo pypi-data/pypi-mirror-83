@@ -1,0 +1,58 @@
+Metadata-Version: 2.1
+Name: py_parse
+Version: 0.1.1
+Summary: A simplest HTML parsing library.
+Home-page: https://bitbucket.org/kotolex/html_parser
+Author: Lex Draven
+Author-email: lexman2@yandex.ru
+License: UNKNOWN
+Description: # README #
+        
+        A simplest html parsing library.
+        
+        
+        Key features:
+        
+         * no third-party dependencies
+         * no need to know CSS, Xpath or complicated rules to find element
+         * interaction with native python lambda syntax or function-predicate
+         * opportunity to work with damaged html
+         * ability to use element relations (find ancestor, descendant, siblings)
+         * standard find first element or find all by current filter
+        
+        ### Installation ###
+        
+        Via pip:
+        
+        `pip install py_parse`
+        
+        ### First example ###
+        Lets get src attribute (link) of the Google logo on google.com
+        ```python
+        import requests
+        from py_parse import parse
+        
+        # get content of the google web page
+        content = requests.get('https://www.google.com/').text
+        # find first element with img-tag and 'alt' attribute equal to Google (logo)
+        google_logo = parse(content).find(lambda e: e.tag == 'img' and e.alt == 'Google')
+        # prints src attribute of the logo element
+        print(google_logo.src)
+        ```
+        You will see following result
+        ```text
+        /images/branding/googlelogo/1x/googlelogo_white_background_color_272x92dp.png
+        ```
+        
+        
+        TODO - child, ancestor, sibling, descendant, mailformed html, check tags, autoclose
+        
+        ### Contact me ###
+        Lexman2@yandex.ru
+        
+Platform: UNKNOWN
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown
