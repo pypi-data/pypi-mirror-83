@@ -1,0 +1,61 @@
+Metadata-Version: 2.1
+Name: faust-prometheus-monitor
+Version: 0.1.4
+Summary: prometheus monitor for faust
+License: MIT
+Keywords: faust,prometheus,logging,monitoring
+Author: Hamzah Qudsi
+Author-email: hamzah.qudsi@kensho.com
+Requires-Python: >=3.6,<4.0
+Classifier: Development Status :: 1 - Planning
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Dist: faust (>=1.10.4,<2.0.0)
+Requires-Dist: prometheus-client (>=0,<1)
+Description-Content-Type: text/markdown
+
+# Faust Prometheus Monitor
+Prometheus Monitor for Faust applications
+
+## Usage
+
+```python
+import faust
+from faust_prometheus_monitor import expose_metrics_http_response, PrometheusMonitor
+
+APP_NAME = "app"
+app = faust.App(APP_NAME, monitor=PrometheusMonitor(APP_NAME))
+
+@app.page("/metrics")
+async def expose_metrics(self, request):
+    return expose_metrics_http_response(request)
+```
+
+## Metrics collected
+| Metric | Type | Labels | Description |
+| --- | --- | --- | --- |
+| faust_message_in | Counter | app, topic, partition | Message received by consumer |
+| faust_message_out | Counter | app, topic, partition | All streams finished processing message |
+| faust_stream_event_in | Counter | app, topic, stream | Message sent to a stream as an event |
+| faust_stream_event_out | Counter | app, topic, stream | Event was acknowledged by stream |
+| faust_stream_event_latency | Histogram | app, topic, stream | How long the event took to process
+| faust_topic_buffer_full | Counter | app, topic | Topic buffer full so conductor had to wait |
+| faust_table_operations | Counter | app, table, operation | Operations of faust tables (get, set, delete) |
+| faust_commit_latency | Histogram | app | Latency of consumer committing topic offset |
+| faust_send_initialized | Counter | app, topic | About to send a message |
+| faust_send_handled | Counter | app, status | Total number of messages sent regardless of success or failure |
+| faust_send_latency | Histogram | app | Latency of sending messages |
+| faust_topic_commit | Gauge | app, topic, partition | Gauge for what offset in topic partition is committed |
+| faust_topic_end_offset | Gauge | app, topic, partition | Track new topic partition end offset for monitoring lags |
+| faust_topic_read_offset | Gauge | app, topic, partition | topic partition read offset that consumer is on |
+| faust_assignment_latency | Histogram | app, status | Partition assignor completion latency regardless success or error |
+| faust_rebalance_time | Histogram | app, status | Cluster rebalance latency |
+| faust_rebalance_status | Gauge | app | Cluster rebalance status. 0: rebalance fully completed (including recovery); 1: rebalance started; 2: Consumer replied assignment is done to broker |
+| faust_web_request_status_codes | Counter | app, status_code | Status code counters on faust web views |
+| faust_web_request_latency | Histogram | app | Request latency on faust web views |
+
