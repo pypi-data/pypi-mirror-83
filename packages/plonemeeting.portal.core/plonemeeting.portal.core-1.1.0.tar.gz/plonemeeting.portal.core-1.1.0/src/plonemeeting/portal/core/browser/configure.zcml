@@ -1,0 +1,76 @@
+<configure
+    xmlns="http://namespaces.zope.org/zope"
+    xmlns:browser="http://namespaces.zope.org/browser"
+    xmlns:plone="http://namespaces.plone.org/plone"
+    i18n_domain="plonemeeting.portal.core">
+
+  <!-- Set overrides folder for Just-a-Bunch-Of-Templates product -->
+  <include package="z3c.jbot" file="meta.zcml" />
+  <browser:jbot
+      directory="overrides"
+      layer="plonemeeting.portal.core.interfaces.IPlonemeetingPortalCoreLayer"
+      />
+
+  <!-- Publish static files -->
+  <plone:static
+      name="plonemeeting.portal.core"
+      type="plone"
+      directory="static"
+      />
+
+  <browser:page
+      name="view"
+      for="plonemeeting.portal.core.content.institution.IInstitution"
+      class=".institution.InstitutionView"
+      template="templates/institution.pt"
+      permission="zope2.View"
+      />
+
+  <browser:page
+      name="view"
+      for="plonemeeting.portal.core.content.item.IItem"
+      class=".item.ItemView"
+      template="templates/item.pt"
+      permission="zope2.View"
+      />
+
+  <browser:page
+      name="import_meeting"
+      for="plonemeeting.portal.core.content.institution.IInstitution"
+      permission="cmf.ModifyPortalContent"
+      class=".sync.ImportMeetingForm"
+      layer="plonemeeting.portal.core.interfaces.IPlonemeetingPortalCoreLayer"
+      />
+
+  <browser:page
+    name="reimport_meeting"
+    for="plonemeeting.portal.core.content.meeting.IMeeting"
+    permission="cmf.ModifyPortalContent"
+    class=".sync.SyncMeetingView"
+    layer="plonemeeting.portal.core.interfaces.IPlonemeetingPortalCoreLayer"
+    />
+
+  <browser:page
+    name="force_reimport_meeting"
+    for="plonemeeting.portal.core.content.meeting.IMeeting"
+    permission="cmf.ModifyPortalContent"
+    class=".sync.ForceReimportMeetingView"
+    layer="plonemeeting.portal.core.interfaces.IPlonemeetingPortalCoreLayer"
+    />
+
+  <browser:page
+      name="utils_view"
+      for="*"
+      class=".utils.UtilsView"
+      permission="zope2.View"
+      layer="plonemeeting.portal.core.interfaces.IPlonemeetingPortalCoreLayer"
+      />
+
+  <browser:page
+    name="custom_colors.css"
+    for="Products.CMFPlone.interfaces.IPloneSiteRoot"
+    class=".colors.ColorsCSSView"
+    permission="zope2.View"
+    />
+
+</configure>
