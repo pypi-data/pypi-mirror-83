@@ -1,0 +1,89 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: {{ workflow['name'] }}
+spec:
+  entrypoint: dag
+  templates:
+  {%- for job in workflow.jobs %}
+  - name: {{ job['name'] }}
+    {% if singleuser['serviceAccountName'] -%}
+    serviceAccountName: {{ singleuser['serviceAccountName'] }}
+    {%- endif %}
+    container:
+      image: {{ runtime['image'] }}
+      command: {{ job['command'] }}
+      workingDir: {{ runtime['workingDir'] }}
+      {% if singleuser['image']['pullPolicy'] -%}
+      imagePullPolicy: {{ singleuser['image']['pullPolicy'] }}
+      {%- endif %}
+      {%- if singleuser['image']['secret'] -%}
+      imagePullSecret: 
+      - name: {{ singleuser['image']['secret'] }}
+      {%- endif %}
+      securityContext:
+        runAsUser: {{ runtime['runAsUser'] }}
+        runAsGroup: {{ runtime['runAsGroup'] }}
+        fsGroup: {{ runtime['fsGroup'] }}
+      env:
+      - name: JUPYTERHUB_USER
+        value: {{ runtime['env']['JUPYTERHUB_USER'] }}
+      - name: NB_USER
+        value: {{ runtime['env']['NB_USER'] }}
+      - name: PATH
+        value: {{ runtime['env']['PATH'] }}
+      - name: HOME
+        value: {{ runtime['env']['HOME'] }}
+      {%- if singleuser['env'] -%}
+      {%- for k, v in singleuser['env'].items() %}
+      - name: {{ k }}
+        value: "{{ v }}"
+      {%- endfor %}
+      {% endif %}
+      {%- if singleuser['resources'] -%}
+      resources:
+        {%- if singleuser['resources']['requests'] %}
+        requests:
+          cpu: "{{ singleuser['resources']['requests']['cpu'] }}"
+          memory: "{{ singleuser['resources']['requests']['memory'] }}"
+        {%- endif -%}
+        {%- if singleuser['resources']['limits'] %}
+        limits:
+          cpu: "{{ singleuser['resources']['limits']['cpu'] }}"
+          memory: "{{ singleuser['resources']['limits']['memory'] }}"
+        {%- endif -%}
+      {%- endif %}
+      volumeMounts:
+      - mountPath: "{{ runtime['env']['HOME'] }}"
+        name: home-pvc
+      {%- if singleuser['storage']['extraVolumeMounts'] %}
+      {%- for v in singleuser['storage']['extraVolumeMounts'] %}
+      - name: {{ v['name'] }}
+        mountPath: {{ v['mountPath'] }}
+      {%- endfor %}
+      {%- endif %}
+      
+  {% endfor %}
+  - name: dag
+    dag:
+      tasks:
+      {% for job in workflow['jobs'] %}
+      - name: {{ job['name'] }}
+        template: {{ job['name'] }}
+        dependencies: {{ job['dependencies']}}
+      {% endfor %}
+  volumes:
+  - name: home-pvc
+    persistentVolumeClaim:
+      claimName: {{ singleuser['storage']['homePvcName'] }}
+  {%- if singleuser['storage']['extraVolumeMounts'] %}
+  {%- for v in singleuser['storage']['extraVolumes'] %}
+  - {{ v | to_nice_yaml | indent }}
+  {%- endfor %}
+  {%- endif %}
+  {%- if singleuser['nodeSelector'] %}
+  nodeSelector:
+  {%- for k, v in singleuser['nodeSelector'].items() %}
+    {{ k }}: "{{ v }}"
+  {%- endfor %}
+  {% endif %}
