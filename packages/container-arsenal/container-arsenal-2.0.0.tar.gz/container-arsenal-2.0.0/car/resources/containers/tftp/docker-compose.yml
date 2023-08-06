@@ -1,0 +1,16 @@
+version: '3.7'
+
+services:
+
+  car.tftp:
+    container_name: car.tftp
+    image: car/tftp
+    build: .
+    environment:
+      LISTEN_PORT: ${car_tftp_port}
+      LOCAL_UID: ${car_local_uid}
+    volumes:
+      - ${car_tftp_folder}:/ftp
+      - ./scripts/start.sh:/scripts/start.sh
+      - ./config/mapfile:/config/mapfile
+    network_mode: "host"

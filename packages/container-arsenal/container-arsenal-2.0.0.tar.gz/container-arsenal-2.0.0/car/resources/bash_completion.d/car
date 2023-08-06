@@ -1,0 +1,80 @@
+#!/bin/bash
+
+type _comp_contains &> /dev/null || return
+type _comp_filter &> /dev/null || return
+type _comp_filter_shorts &> /dev/null || return
+
+_car() {
+
+    local cur prev words cword cline opts arg args
+    _init_completion || return
+
+    _count_args "" "--cmd"
+    _get_first_arg
+
+    COMPREPLY=()
+    CONTAINERS="neo4j h2b mysql tftp nginx ftp samba ajp ssh"
+
+	if [[ $args -eq 1 ]]; then
+
+        if [[ $cur == -* ]]; then
+            opts="-h --help --dry"
+        else
+            opts="run stop rm build shell env wipe clean exec mirror list images"
+        fi
+
+
+	elif [[ "$arg" == "run" ]]; then
+
+        if [[ $cur == -* || $args -ge 3 ]]; then
+            opts="-h --help --rm --rebuild"
+        else
+            opts=$CONTAINERS
+        fi
+	
+
+	elif [[ "$arg" == "exec" ]]; then
+
+        if [[ $prev == "--cmd" ]]; then
+            return 0
+        elif [[ $cur == -* || $args -ge 3 ]]; then
+            opts="-h --help --it --cmd"
+        else
+            opts=$CONTAINERS
+        fi
+
+
+	elif _comp_contains "list images" $arg; then
+        opts="-h --help"
+
+
+	elif _comp_contains "stop mirror env shell" $arg; then
+
+        if [[ $cur == -* || $args -ge 3 ]]; then
+            opts="-h --help"
+        else
+            opts=$CONTAINERS
+        fi
+
+
+	elif _comp_contains "rm clean build wipe" $arg; then
+
+        if [[ $cur == -* || $args -ge 3 ]]; then
+            opts="-h --help"
+        else
+            opts=$CONTAINERS
+            opts="$opts all"
+        fi
+
+    else
+        return 1
+	fi
+
+    _comp_filter "opts"
+    _comp_filter_shorts "opts"
+
+	mapfile -t COMPREPLY < <(compgen -W "${opts}" -- "${cur}") 
+	return 0
+}
+
+complete -F _car car
