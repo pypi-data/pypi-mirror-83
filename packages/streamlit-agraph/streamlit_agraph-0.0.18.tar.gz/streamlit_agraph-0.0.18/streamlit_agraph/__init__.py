@@ -1,0 +1,62 @@
+import os
+import streamlit.components.v1 as components
+import json
+
+
+_RELEASE = True
+
+if not _RELEASE:
+    _streamlit_agraph = components.declare_component(
+        # We give the component a simple, descriptive name ("streamlit_agraph"
+        # does not fit this bill, so please choose something better for your
+        # own component :)
+        "streamlit_agraph",
+        # Pass `url` here to tell Streamlit that the component will be served
+        # by the local dev server that you run via `npm run start`.
+        # (This is useful while your component is in development.)
+        url="http://localhost:3001",
+    )
+else:
+    # When we're distributing a production version of the component, we'll
+    # replace the `url` param with `path`, and point it to to the component's
+    # build directory:
+    parent_dir = os.path.dirname(os.path.abspath(__file__))
+    build_dir = os.path.join(parent_dir, "frontend/build")
+    _streamlit_agraph = components.declare_component("streamlit_agraph", path=build_dir)
+
+
+# Create a wrapper function for the component. This is an optional
+# best practice - we could simply expose the component function returned by
+# `declare_component` and call it done. The wrapper allows us to customize
+# our component's API: we can pre-process its input args, post-process its
+# output value, and add a docstring for users.
+def agraph(nodes, edges, nodeHighlightBehavior="true", node_color="lightreen", node_size=120, highlightStrokeColor="blue", highlightColor="lightblue", key=None):
+
+    nodes_data = [{"id": f"{node}"} for node in nodes]
+    edges_data = [ {"source": f"{edge[0]}", "target": f"{edge[1]}"} for edge in edges]
+    data = { "nodes": nodes_data, "links": edges_data }
+    data_json = json.dumps(data)
+    component_value = _streamlit_agraph(data=data_json, nodeHighlightBehavior=nodeHighlightBehavior, node_color=node_color, node_size=node_size, highlightStrokeColor=highlightStrokeColor, highlightColor=highlightColor, key=key, default=0)
+
+    return component_value
+
+# Add some test code to play with the component while it's in development.
+# During development, we can run this just as we would any other Streamlit
+# app: `$ streamlit run streamlit_agraph/__init__.py`
+if not _RELEASE:
+    import json
+    import streamlit as st
+
+    st.subheader("Component with constant args")
+
+    nodes = ["Harry","Sally","Peter","Chris"]
+    edges = [("Harry","Sally"),("Peter","Chris")]
+
+    myConfig = { "nodeHighlightBehavior": "true", "node": { "color": "lightgreen", "size": 120, "highlightStrokeColor": "blue",}, "link": { "highlightColor": "lightblue",}, }
+
+    return_value = agraph(nodes=nodes, edges=edges, nodeHighlightBehavior="true", node_color="darkorange", node_size=1000, highlightStrokeColor="blue", highlightColor="lightblue" )
+
+    # st.write(return_value)
+    # st.markdown("You've clicked %s times!" % int(num_clicks))
+
+    st.markdown("---")
