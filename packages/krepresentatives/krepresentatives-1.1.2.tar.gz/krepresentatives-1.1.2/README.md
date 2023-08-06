@@ -1,0 +1,83 @@
+Python implementations of the k-Representatives and LSH-k-Representatives algorithms for clustering categorical data:
+
+Different from k-Modes algorithm, k-Representatives and LSH-k-Representatives define the "representatives" that keep the frequencies of all categorical values of the clusters.
+
+## Installation:
+### Using pip: 
+```shell
+pip install krepresentatives
+```
+
+### Import the packages:
+```shell
+import numpy as np
+from krepresentatives.kRepresentatives import kRepresentatives
+```
+### Generate a simple categorical dataset:
+
+```shell
+X = np.array([[0,0],[0,1],[0,0],[1,1],[2,2],[2,3],[2,3]])
+y = np.array([0,0,0,0,1,1,1])
+```
+
+### k-Representatives: 
+
+```shell
+kreps = kRepresentatives(X,y,n_init=5,n_clusters=2 ,verbose=3)
+kreps.fit_predict()
+```
+
+### Built-in evaluattion metrics:
+```shell
+kreps.CalcScore()
+```
+
+### Out come:
+```shell
+kRepresentatives Init 0
+Iter 0  Cost: 8.00  Move: 0  Num empty: 0  Timelapse: 0.00
+Iter 1  Cost: 4.83  Move: 0  Num empty: 0  Timelapse: 0.00
+Iter 2  Cost: 4.83  Move: 0  Num empty: 0  Timelapse: 0.00
+kRepresentatives Init 1
+Iter 0  Cost: 9.48  Move: 0  Num empty: 0  Timelapse: 0.00
+Iter 1  Cost: 6.50  Move: 1  Num empty: 0  Timelapse: 0.00
+Iter 2  Cost: 5.33  Move: 0  Num empty: 0  Timelapse: 0.00
+Iter 3  Cost: 5.33  Move: 0  Num empty: 0  Timelapse: 0.00
+kRepresentatives Init 2
+Iter 0  Cost: 9.08  Move: 0  Num empty: 0  Timelapse: 0.00
+Iter 1  Cost: 7.60  Move: 0  Num empty: 0  Timelapse: 0.00
+Iter 2  Cost: 7.60  Move: 0  Num empty: 0  Timelapse: 0.00
+kRepresentatives Init 3
+Iter 0  Cost: 9.31  Move: 0  Num empty: 0  Timelapse: 0.00
+Iter 1  Cost: 6.50  Move: 1  Num empty: 0  Timelapse: 0.00
+Iter 2  Cost: 5.33  Move: 0  Num empty: 0  Timelapse: 0.00
+Iter 3  Cost: 5.33  Move: 0  Num empty: 0  Timelapse: 0.00
+kRepresentatives Init 4
+Iter 0  Cost: 9.42  Move: 0  Num empty: 0  Timelapse: 0.00
+Iter 1  Cost: 7.60  Move: 0  Num empty: 0  Timelapse: 0.00
+Iter 2  Cost: 7.60  Move: 0  Num empty: 0  Timelapse: 0.00
+Score:  4.833333333333334  Time: 0.0015569399999999956
+Purity: 1.00 NMI: 1.00 ARI: 1.00 Sil:  0.52 Acc: 1.00 Recall: 1.00 Precision: 1.00
+```
+
+
+## Parameters:
+X: Categorical dataset\
+y: Labels of object (for evaluation only)\
+n_init: Number of initializations \
+n_clusters: Number of target clusters\
+max_iter: Maximum iterations\
+verbose: \
+random_state: 
+
+## Outputs:
+cluster_representatives: List of final representatives\
+labels_: Prediction labels\
+cost_: Final sum of squared distance from objects to their centroids\
+n_iter_: Number of iterations\
+epoch_costs_: Average time for an initialization
+## LSH-k-Representatives: *To be updated*
+
+## References:
+[1] San, Ohn Mar, Van-Nam Huynh, and Yoshiteru Nakamori. "An alternative extension of the k-means algorithm for clustering categorical data." International journal of applied mathematics and computer science 14 (2004): 241-247.
+[2] *To be updated*
