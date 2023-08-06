@@ -1,0 +1,128 @@
+# from
+# https://github.com/do-community/example-doctl-action/blob/master/.github/workflows/workflow.yaml
+
+on: push
+name: Build images and kick off builds
+jobs:
+  build:
+    name: Build, test and push Docker images
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@master
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
+
+      # Must upgrade to 1.6 which isn't available by default on ubuntu
+      # https://stedolan.github.io/jq/download/
+      - name: Create bin dir
+        run: |
+          mkdir -p /tmp/bin
+          echo "::add-path::/tmp/bin"
+
+      - name: Install new jq version
+        run: |
+          curl https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64 -L -o /tmp/bin/jq
+
+      - name: Install argo
+        run: |
+          curl https://github.com/argoproj/argo/releases/download/v2.9.3/argo-linux-amd64 -L -o /tmp/bin/argo
+      - name: Make bin executable
+        run: chmod +x /tmp/bin/*
+
+      - name: Cache pip
+        uses: actions/cache@v2
+        with:
+          path: ~/.cache/pip
+          key: pip-${{ hashFiles('pyproject.toml') }}
+          restore-keys: |
+            pip-
+
+      - name: Install flit
+        run: |
+          python -m pip install --upgrade pip
+          pip install flit
+
+      - name: Install package
+        run: flit install
+
+      - name: Cache Buildx
+        id: cache-buildx
+        uses: actions/cache@v2
+        with:
+          path: ~/.docker/cli-plugins/docker-buildx
+          key: buildx
+
+      - name: Clone buildx
+        uses: actions/checkout@master
+        if: steps.cache-buildx.outputs.cache-hit != 'true'
+        with:
+          repository: docker/buildx
+          path: ./buildx-source
+          ref: fd6de6b6aeac780c59e5079a96b068076b676d73
+
+      - name: Install buildx
+        if: steps.cache-buildx.outputs.cache-hit != 'true'
+        working-directory: ./buildx-source
+        run: make install
+
+      - name: Install doctl
+        uses: digitalocean/action-doctl@v2
+        with:
+          token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+
+      - name: Login DigitalOcean container registry
+        run: doctl registry login
+
+      - name: Save DigitalOcean kubeconfig
+        run: doctl kubernetes cluster kubeconfig save python-record-api
+
+      - name: Create buildx driver
+        working-directory: ./k8
+        run: make buildx-driver
+
+      - name: Create logs dir
+        run: mkdir /tmp/my-logs/
+
+      - name: Set argo namespace
+        working-directory: ./k8
+        run: make k8-argo-default
+
+      - name: run tests
+        run: pytest record_api/test.py
+        env:
+          PYTEST_DISABLE_PLUGIN_AUTOLOAD: true
+
+      - name: Try publishing to PyPi
+        run: flit publish
+        id: flit-publish
+        continue-on-error: true
+        env:
+          FLIT_USERNAME: ${{ secrets.PYPI_USERNAME }}
+          FLIT_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
+      - name: Sleep to let published packages percolate...
+        run: sleep 60
+        if: steps.flit-publish.outcome == 'success'
+      - name: Push images
+        working-directory: ./k8
+        run: make push-images 2>&1 | tee /tmp/my-logs/push-images
+        shell: bash
+
+      - name: Submit argo jobs
+        working-directory: ./k8
+        run: make argo-submit 2>&1 | tee /tmp/my-logs/argo-submit
+        shell: bash
+
+      - name: list argo jobs
+        run: argo list 2>&1 | tee /tmp/my-logs/argo-list
+        shell: bash
+
+      - name: Upload logs
+        uses: actions/upload-artifact@v2
+        if: ${{ always() }}
+        with:
+          name: logs
+          path: /tmp/my-logs/
