@@ -1,0 +1,146 @@
+#!python
+
+import time
+import argparse
+from functools import partial
+import logging
+from multiprocessing import Queue
+from concurrent.futures import ProcessPoolExecutor
+
+from src.camera_class import ThermalCamera
+from src.socket_class import SocketServer
+from src.utils import \
+    make_frame_buffer, \
+    show_frame, \
+    int16_to_bytes
+from src.constants import \
+    FPS, \
+    SOCKET_RECV_LENGTH, \
+    MAX_WORKERS
+
+logging.getLogger().setLevel(logging.INFO)
+
+
+def streaming():
+    for temperatures, frames in camera.streaming():
+        queue.put([temperatures, frames])
+        if show:
+            show_frame(frames)
+
+
+def health_check_handler():
+    for _, frames in camera.streaming():
+        for index, frame in enumerate(frames):
+            show_frame(frame, index=index)
+
+
+def get_queue_frame():
+    return queue.get()
+
+
+def get_streaming_frame():
+    return camera.get_frame()
+        
+
+def connection_handler(connection, client_address, get_frame_func):
+    logging.info('Connection %s started...', client_address)
+    try:
+        while True:
+            data = connection.recv(SOCKET_RECV_LENGTH)
+            if not data:
+                logging.exception('Connection %s closed...', client_address)
+                connection.close()
+                break
+
+            connection.sendall(int16_to_bytes(camera.buffer_size, length=3))
+            try:
+                temperatures, frames = get_frame_func()
+                if show:
+                    for index, frame in enumerate(frames):
+                        show_frame(frame, index=index)
+            except KeyboardInterrupt:
+                camera.release_devices()
+                exit()
+            except Exception as e:
+                logging.exception('Getting frame exception: %s', e)
+                is_reconnected = camera.connect_devices(is_retry=True)
+                if not is_reconnected:
+                    exit()
+                connection.sendall(bytes([0]) * camera.buffer_size)
+                continue
+
+            buffer = make_frame_buffer(temperatures, frames)
+            connection.sendall(buffer)
+
+            time.sleep(1.0 / float(fps))
+    except Exception as e:
+        logging.exception('Exception from client, %s', e)
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--fps',
+        type=int,
+        required=False,
+        help='video fps',
+        default=FPS,
+    )
+    parser.add_argument(
+        '--show',
+        type=int,
+        help='if show locally enter 1 (default = 0)',
+        default=0,
+    )
+    parser.add_argument(
+        '--queue',
+        type=int,
+        help='if to use queue and parallel connections',
+        default=0,
+    )
+    parser.add_argument(
+        '--health_check',
+        type=int,
+        help='local picture check',
+        default=0,
+    )
+
+    args = parser.parse_args()
+
+    fps = int(args.fps)
+    show = bool(args.show)
+    camera = ThermalCamera(fps)
+
+    is_queue = bool(args.queue)
+    is_health_check = bool(args.health_check)
+    try:
+        if is_health_check:
+            health_check_handler()
+        elif is_queue:
+            queue = Queue(maxsize=20)
+            connection_handler_func = partial(connection_handler, get_frame_func=get_queue_frame) 
+            with ProcessPoolExecutor(max_workers=MAX_WORKERS) as executor:
+                executor.submit(streaming)
+
+                socket = SocketServer(is_parallel=is_queue)
+                while True:
+                    connection, client_address = socket.accept()
+
+                    executor.submit(
+                        connection_handler_func,
+                        connection,
+                        client_address,
+                    )
+        else:
+            connection_handler_func = partial(connection_handler, get_frame_func=get_streaming_frame) 
+            socket = SocketServer()
+            while True:
+                connection, client_address = socket.accept()
+                connection_handler_func(
+                    connection,
+                    client_address,
+                )
+    except Exception as e:
+        logging.exception('Error occurred %s', e)
+        logging.info('Releasing devices...')
+        camera.release_devices()
