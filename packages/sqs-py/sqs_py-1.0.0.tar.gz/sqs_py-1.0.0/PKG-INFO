@@ -1,0 +1,53 @@
+Metadata-Version: 2.1
+Name: sqs_py
+Version: 1.0.0
+Summary: AWS SQS utility package for producing and consuming messages
+Home-page: https://github.com/wengjiyao/sqs_py
+Author: wengjiyao
+Author-email: w.j@live.ca
+License: MIT
+Description: # sqspy
+        
+        Forked from [the sqspy][1] package and removed sqs list_queues.
+        
+        ## Install
+        
+        ```Shell
+        pip install sqs_py
+        ```
+        
+        ## Usage
+        
+        ```Python
+        from sqs_py import Consumer
+        
+        
+        class MyWorker(Consumer):
+            def handle_message(self, body, attributes, message_attributes):
+                print(body)
+        
+        
+        listener = MyWorker('Q1', error_queue='EQ1')
+        listener.listen()
+        ```
+        
+        More documentation coming soon.
+        
+        ## Why
+        
+        - SQS list_queues conflicts with the permission in my AWS environment. 
+        - Messages are deleted from SQS after processing.
+        
+        Support python 3.6+
+        
+        
+        [1]: https://pypi.org/project/sqspy/ "sqspy on PyPI"
+        
+Keywords: aws sqs messages producer/consumer
+Platform: UNKNOWN
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Software Development :: Libraries
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3.7
+Description-Content-Type: text/markdown
