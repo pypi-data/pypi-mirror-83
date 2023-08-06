@@ -1,0 +1,100 @@
+Metadata-Version: 2.1
+Name: webpub-manifest-parser
+Version: 0.0.3
+Summary: A parser for the Readium Web Publication Manifest and OPDS 2.0 formats.
+Home-page: https://github.com/NYPL-Simplified/python-webpub-manifest-parser
+License: Apache-2.0
+Keywords: Readium Web Publication Manifest,RWPM,Open Publication Distribution System 2.0,OPDS 2.0
+Author: Leonard Richardson
+Author-email: leonardr@segfault.org
+Maintainer: Viacheslav Bessonov
+Maintainer-email: viacheslav.bessonov@hilbertteam.com
+Requires-Python: >=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 2
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Dist: enum34 (>=1.1.10,<2.0.0)
+Requires-Dist: jsonschema (>=3.2.0,<4.0.0)
+Requires-Dist: multipledispatch (>=0.6.0,<0.7.0)
+Requires-Dist: pyrsistent (==0.16.1)
+Requires-Dist: rfc3987 (>=1.3.8,<2.0.0)
+Requires-Dist: strict-rfc3339 (>=0.7,<0.8)
+Requires-Dist: uritemplate (>=3.0.1,<4.0.0)
+Project-URL: Repository, https://github.com/NYPL-Simplified/python-webpub-manifest-parser
+Description-Content-Type: text/markdown
+
+# python-webpub-manifest-parser
+
+[![Build Status](https://travis-ci.com/vbessonov/python-webpub-manifest-parser.svg?branch=master)](https://travis-ci.com/vbessonov/python-webpub-manifest-parser)
+
+A parser for the [Readium Web Publication Manifest (RWPM)](https://github.com/readium/webpub-manifest) and [Open Publication Distribution System 2.0 (OPDS 2.0)](https://drafts.opds.io/opds-2.0) formats.
+
+## Usage
+1. Install [pyenv](https://github.com/pyenv/pyenv#installation)
+
+3. Install one of the supported Python versions mentioned in [.python-version](.python-version) or other PATCH versions of the same MINOR versions:
+```bash
+pyenv install <python-version>
+```
+
+4. Install [pyenv-virtualenv](https://github.com/pyenv/pyenv-virtualenv#installation) plugin
+
+5. Create a virtual environment:
+```bash
+pyenv virtualenv <virtual-env-name>
+pyenv activate <virtual-env-name>
+```
+
+6. Install the library
+```bash
+pip install webpub-manifest-parser
+``` 
+
+
+# Setting up a development environment
+
+## Running tests using tox
+1. Make sure that a virtual environment is not activated and deactivate it if needed:
+```bash
+deactivate
+```
+
+2. Install `tox` and `tox-pyenv` globally:
+```bash
+pip install tox tox-pyenv
+```
+
+3. Make your code prettier using isort and black:
+```bash
+make reformat
+``` 
+
+4. Run the linters:
+```bash
+make lint
+```
+
+5. To run the unit tests use the following command:
+```bash
+make test-<python-version>
+```
+where `<python-version>` is one of supported python versions:
+- py27
+- py36
+- py37
+- py38
+
+For example, to run the unit test using Python 2.7 run the following command:
+```bash
+make test-py27
+```
