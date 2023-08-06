@@ -1,0 +1,98 @@
+{% extends 'base.html' %}
+{% load custom_links %}
+{% load static %}
+{% load helpers %}
+{% block title %}Device WorkLog-Detail{% endblock %}
+{% block header %}
+    <div class="row noprint">
+        <div class="col-sm-12 col-md-12">
+            <ol class="breadcrumb">
+                <li><a href="{{ deviceworklog.device.get_absolute_url }}">{{ deviceworklog.device }}</a></li>
+                <li>{{ deviceworklog.subject }}</li>
+            </ol>
+        </div>
+        {% comment %} <div class="col-sm-4 col-md-3">
+            <form>
+                <div class="input-group">
+                    <input type="text" name="q" class="form-control" placeholder="Search Device work logs"/>
+                    <span class="input-group-btn">
+                        <button type="submit" class="btn btn-primary">
+                            <span class="fa fa-search"></span>
+                        </button>
+                    </span>
+                </div>
+            </form>
+        </div> {% endcomment %}
+    </div>
+    <div class="pull-right noprint">
+        <a href="{% url 'plugins:netbox_work_logs:deviceworklog_edit' pk=deviceworklog.pk %}" class="btn btn-warning">
+            <span class="fa fa-pencil" aria-hidden="true"></span> Edit
+        </a>
+        <a href="{% url 'plugins:netbox_work_logs:deviceworklog_delete' pk=deviceworklog.pk%}" class="btn btn-danger">
+            <span class="fa fa-trash" aria-hidden="true"></span> Delete
+        </a>
+    </div>
+    <h1>Device Work Log</h1>
+    <p>
+        <small class="text-muted">
+        {{ deviceworklog.device }} - {{ deviceworklog.subject }}
+        </small>
+    </p>
+    <div class="pull-right noprint">
+    </div>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-6">
+        <div class="panel panel-default">
+            <div class="panel-heading">
+                <strong>Log content</strong>
+            </div>
+            <div class="panel-body">
+                <div class="col-sm-12 col-md-12">
+                    <textarea class="form-control" style="height:200px">{{deviceworklog.content}}</textarea>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="panel panel-default">
+            <div class="panel-heading">
+                <strong>Work Log Details</strong>
+            </div>
+            <table class="table table-hover panel-body attr-table">
+                <tr>
+                    <td>Time</td>
+                    <td>{{ deviceworklog.time }}</td>
+                </tr>
+                <tr>
+                    <td>Author</td>
+                    <td>{{ deviceworklog.user }}</td>
+                </tr>
+                <tr>
+                    <td>Subject</td>
+                    <td>{{deviceworklog.subject}}</td>
+                </tr>
+                <tr>
+                    <td>Category</td>
+                    <td><span class="label label-success">{{ deviceworklog.category.category}}</span></td>
+                </tr>
+                <tr>
+                    <td>Device</td>
+                    <td>{{deviceworklog.device}}</td>
+                </tr>
+                <tr>
+                    <td>Ticket ID</td>
+                    <td><span class="label label-primary">{{deviceworklog.ticket_id}}</span></td>
+                </tr>
+                <tr>
+                    <td>Log ID</td>
+                    <td><span class="label label-success">{{deviceworklog.log_id}}</span></td>
+                </tr>
+            </table>
+        </div>
+    </div>
+    
+</div>
+{% endblock %}
