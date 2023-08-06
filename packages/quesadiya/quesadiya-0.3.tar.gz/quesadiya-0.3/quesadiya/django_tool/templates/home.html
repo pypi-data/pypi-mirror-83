@@ -1,0 +1,164 @@
+
+{% extends 'base.html' %}
+{% load static %}
+{% block link %}
+
+<link rel="stylesheet" href='/static/styles/css/dashboard.css'/>
+
+{% endblock %}
+{% block title %}Home{% endblock %}
+
+{% block content %}
+{% load update_var_tag %}
+{% load text_split_tag %}
+{% if  user.username is not '' %}
+  {% comment %} Hi {{ user.username }}!
+  <p>You are not logged in</p>
+
+
+  <p><a href="{% url 'logout' %}">logout</a></p> {% endcomment %}
+<div class="body">
+    <nav class="navbar navbar-dark sticky-top bg-dark flex-md-nowrap p-0">
+      <a class="navbar-brand col-sm-3 col-md-2 mr-0" href="#">Quesadiya</a>
+      {% comment %} <input class="form-control form-control-dark w-100" type="text" placeholder="Search" aria-label="Search"> {% endcomment %}
+      <ul class="navbar-nav px-3">
+        <li class="nav-item text-nowrap">
+          <a class="nav-link" href="{% url 'logout' %}">Sign out</a>
+        </li>
+      </ul>
+    </nav>
+
+    <div class="container-fluid">
+      <div class="row">
+        <nav class="col-md-2 d-none d-md-block bg-light sidebar">
+          <div class="sidebar-sticky">
+            <ul class="nav flex-column">
+              <li class="nav-item">
+                <div class="nav-link" >
+                  <span data-feather="book-open"></span>
+                    {{ infos.0.project_name }}
+                  <span class="sr-only">(current)</span>
+                </div>
+              </li>
+              <li class="nav-item">
+                <div class="nav-link" >
+                  <span data-feather="user"></span>
+                  {% comment %} <ul class="list-group list-group-horizontal"> {% endcomment %}
+                  {% for participant in infos.0.participants %}
+                     {% comment %} <li class=list-group-item></li> {% endcomment %}
+                     {{ participant }} ,
+                  {% endfor %}
+                  {% comment %} </ul> {% endcomment %}
+                </div>
+              </li>
+              <li class="nav-item">
+                <div class="nav-link" >
+                  <span data-feather="info"></span>
+                  {{ infos.0.project_description }}
+                </div>
+              </li>
+              
+
+            <h6 class="sidebar-heading d-flex justify-content-between align-items-center px-3 mt-4 mb-1 text-muted">
+              <span>Status</span>
+            </h6>
+            <ul class="nav flex-column mb-2">
+              <li class="nav-item">
+                <div class="nav-link" >
+                  <span data-feather="hash"></span>
+                  Total<span> : {{ infos.0.total }}</span>
+                </div>
+              </li>
+              <li class="nav-item">
+                <div class="nav-link" >
+                  <span data-feather="hash"></span>
+                  Finished<span> : {{ infos.0.finished }}</span>
+                </div>
+              </li>
+              <li class="nav-item">
+                <div class="nav-link" >
+                  <span data-feather="hash"></span>
+                  unfinish<span> : {{ infos.0.unfinished }}</span>
+                </div>
+              </li>
+              <li class="nav-item">
+                <div class="nav-link" >
+                  <span data-feather="hash"></span>
+                  Discarded<span> : {{ infos.0.discarded }}</span>
+                </div>
+              </li>
+            </ul>
+          </div>
+        </nav>
+
+        <main role="main" class="col-md-9 ml-sm-auto col-lg-10 pt-3 px-4">
+          <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pb-2 mb-3 border-bottom">
+            <h1 class="h2">{{ infos.0.project_name }}</h1>
+            <div class="btn-toolbar mb-2 mb-md-0">
+              {% comment %} <div class="btn-group mr-2">
+                <button class="btn btn-sm btn-outline-secondary">Share</button>
+                <button class="btn btn-sm btn-outline-secondary">Export</button>
+              </div> {% endcomment %}
+              {% comment %} <button class="btn btn-sm btn-outline-secondary dropdown-toggle">
+                <span data-feather="calendar"></span>
+                This week
+              </button> {% endcomment %}
+            </div>
+          </div>
+          <div class="row">
+          {% if anchor_data %}
+            <div class="col-4 w-auto border-right">
+              <div class="card">
+                <div class="card-body">
+                  <h5 class="card-title anchor-id">{{ anchor_data.0.sample_id }}</h5>
+                  {% comment %} <h6 class="card-subtitle mb-2 text-muted">Card subtitle</h6> {% endcomment %}
+                  <div class="card-text">{% textSplit anchor_data.0.sample_body as textSplits%}{% for ts in textSplits %}<p>{{ts}}</p>{% endfor %}</div>
+                  <button id="anchor_submit" class="card-link btn btn-success disabled" name="finish_btn">Submit</button>
+                  <button id="anchor_next" class="card-link btn btn-success" name="next_btn">Discard</button>
+                </div>
+              </div>
+            </div>
+            <div class="col-8"  id="sample_cards">
+              {% for candidate in candidate_groups %}
+              <div class="card mb-2">
+                <h5 class="card-header">{{ candidate.candidate_sample_id }}</h5>
+                <div class="card-body">
+                  <h5 class="card-title">{{ candidate.sample_title }}</h5>
+                    <div class="card-text">{% textSplit candidate.sample_body as textSplits%}{% for ts in textSplits %}<p>{{ts}}</p>{% endfor %}</div>
+                  <button id="sample_btn" class="btn btn-primary">Select</button>
+                </div>
+              </div>
+              {% endfor %}
+              {% csrf_token %}
+            </div>
+            {% else %}
+              <h1>All finished!</h1>
+            {% endif %}
+          </div>
+        </main>
+      </div>
+    </div>
+</div>
+{% else %}
+  Your Need To <a href="{% url 'login' %}">login</a>
+{% endif %}
+{% endblock %}
+{% block script %}
+<script src="https://unpkg.com/feather-icons/dist/feather.min.js"></script>
+<script src="{% static '/styles/js/home.js' %}"></script>
+{% endblock %}
+
+  {% comment %} $('#anchor_submit').click(function() {    
+      var data = {anchor_id: 'Lee pal kwar',};
+      $.ajax({
+          data: data,
+          url: 'getAnchor/',
+          method: 'POST',
+          success: function (data) {        
+              console.log(data);
+              d = {"project_name": "t", "project_description": "testproject"}
+              {{infos | update_var}}
+              context_dict = {"infos": [{"project_name": "t", "project_description": "testproject"}], "anchor_data": [{"sample_id": "5ed953a2d98c5b4207f187fa", "sample_body": "A number of public health issues, particularly noncommunicable diseases, significantly contribute to morbidity, mortality, and economic losses in the UAE. In view of the population demographics of the UAE, future national population-based public health initiatives should consider the sociocultural, religious, ethnic, and educational diversity of the UAE in the design, development, and implementation of campaigns, interventions, and strategies. The major public health challenges posed by certain personal, lifestyle, occupational, and environmental factors associated with the development of chronic diseases are not isolated to the UAE; rather, they form part of a global health problem, which requires international collaboration and action.", "sample_title": "Conclusion"}], "candidate_groups": [{"candidate_sample_id": "5ed93d5fd98c5b4207f0b64c", "sample_body": "We identified genetic variability of MERS-CoV S genes among infected persons in South Korea. Samples from 7 patients identified as positive for MERS-CoV were sequenced. These patients were identified by using sequences upstream of the envelope protein gene and open reading frame (ORF) 1a in real-time reverse transcription PCRs (5) ( Table 1) .", "sample_title": "The Study"}]}
+          }
+      });
+  }); {% endcomment %}
