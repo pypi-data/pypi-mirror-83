@@ -1,0 +1,87 @@
+Metadata-Version: 2.1
+Name: EngimaEncryptionConcept
+Version: 0.0.5
+Summary: Enigma Machine Encryption
+Home-page: UNKNOWN
+Author: Youwei Zhen
+Author-email: anthony20151128@gmail.com
+License: MIT
+Description: This is Project Encryption, which allows you to encrypt any strings using the Enigma Machine concepts.
+        This module can **only encrypt strings** as of now, encryption for numbers and symbols will come in the future updates.
+        
+        **Encryption**
+        
+        *Concept*
+        In order to Encrypt a string, you would need three rotor layouts.
+        A rotor layout is a list consisting 26 numbers, ranging from 1-26, with each number representing a letter in the alphabet.
+        For example, in [1,2,3,4,5,...], 1 would equal A, and 2 would equal B and so on.
+        You can change the order of the numbers to enhance the description. For example: [1,26,3,9,11,20...]
+        **If you do not** want to make your own list, there is an **autogenerate** option to generate a random rotor layout and random rotor position (will be explained later).
+        
+        *Example*
+        ```
+        from EnigmaEncryption import *
+        
+        EnigmaMachine = EnigmaAssembly(autogenerate=True)
+        encryptedText = EnigmaMachine.Encrypt("Example string getting encrypted")
+        print(encryptedText)
+        ```
+        **Output (Varies and is different each time you run it)**
+        An example of the output might be:
+        ```
+        Padzkfj avugmg rgieasa mimknkrss
+        ```
+        
+        **Decryption**
+        
+        *Concept*
+        In order to Encrypt a string, you would need the three rotor layouts and the initial position for the rotors of the machine.
+        The starting position of the rotors can affect the encoding even with the same set of rotor layouts.
+        
+        You can get the rotations and the rotor layouts using:
+        ```
+        from EnigmaEncryption import *
+        
+        EnigmaMachine = EnigmaAssembly(autogenerate=True)
+        
+        Rotations = EnigmaMachine.getRotations() //Gets the rotations of the three rotors in a dictionary. For example, Rotations["Rotor1"] will get the rotation of Rotor 1, Rotations["Rotor2"] will get rotations of Rotor 2.
+        
+        Keys = EnigmaMachine.getKeys() //Gets the rotor layouts in a dictionary. For example, Rotations["Rotor1"] will get the layout of Rotor 1, Rotations["Rotor2"] will get layout of Rotor 2.
+        
+        ```
+        
+        To decrypt the message, you have to input the encrypted text,  rotations and the layouts like the following code:
+        
+        ```
+        from EnigmaEncryption import *
+        
+        EnigmaMachine = EnigmaAssembly(autogenerate=True)
+        Rotations = EnigmaMachine.getRotations()
+        Keys = EnigmaMachine.getKeys()
+        Rotor1 = Rotations["Rotor1"] //get Rotation of rotor 1
+        Rotor2 = Rotations["Rotor2"] //get Rotation of rotor 2
+        Rotor3 = Rotations["Rotor3"] //get Rotation of rotor 3
+        Key1 = Keys["Rotor1"] //get Layout 1
+        Key2 = Keys["Rotor2"] //get Layout 2
+        Key3 = Keys["Rotor3"] //get Layout 3
+        
+        encryptedText = EnigmaMachine.Encrypt("Example string getting encrypted")
+        d = EnigmaMachine.Decrypt(encryptedText,rotation1=Rotor1,rotation2=Rotor2,rotation3=Rotor3,code1=Key1,code2=Key2,code3=Key3)
+        
+        print(f"Encrypted: {encryptedText}")
+        print(f"Decrypted: {d}")
+        ```
+        **Output (May vary)**
+        ```
+        Encrypted: Reotmlc pvdxex mxkwpqp ekxafactt
+        Decrypted: Example string getting encrypted
+        ```
+        
+Keywords: encryption
+Platform: UNKNOWN
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Education
+Classifier: Operating System :: Microsoft :: Windows :: Windows 10
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Description-Content-Type: text/markdown
