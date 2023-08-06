@@ -1,0 +1,151 @@
+import os
+import weakref
+from abc import ABCMeta, abstractmethod
+import numpy as np
+from baredl.core import Parameter, get_array_module
+import baredl.functions as F
+
+
+class Layer(metaclass=ABCMeta):
+    def __init__(self):
+        self._params = set()
+        self.training = True
+
+    def __setattr__(self, name, value):
+        if isinstance(value, (Parameter, Layer)):
+            self._params.add(name)
+        super().__setattr__(name, value)
+
+    def __call__(self, *inputs):
+        outputs = self.forward(*inputs)
+        if not isinstance(outputs, tuple):
+            outputs = (outputs,)
+        self.inputs = [weakref.ref(x) for x in inputs]
+        self.outputs = [weakref.ref(y) for y in outputs]
+        return outputs if len(outputs) > 1 else outputs[0]
+    
+    @abstractmethod
+    def forward(self, inputs):
+        pass
+
+    def parameters(self):
+        for name in self._params:
+            obj = self.__dict__[name]
+            if isinstance(obj, Layer):
+                yield from obj.parameters()
+            else:
+                yield obj
+
+    def train(self, mode=True):
+        self.training = mode
+        for name in self._params:
+            obj = self.__dict__[name]
+            if isinstance(obj, Layer):
+                obj.train(mode)
+
+    def eval(self):
+        self.train(mode=False)
+
+    def zero_grad(self):
+        for param in self.parameters():
+            param.cleargrad()
+
+    def to_cpu(self):
+        for param in self.parameters():
+            param.to_cpu()
+
+    def to_gpu(self):
+        for param in self.parameters():
+            param.to_gpu()
+
+    def _flatten_params(self, params_dict, parent_key=''):
+        for name in self._params:
+            obj = self.__dict__[name]
+            key = parent_key + '/' + name if parent_key else name
+
+            if isinstance(obj, Layer):
+                obj._flatten_params(params_dict, key)
+            else:
+                params_dict[key] = obj
+
+    def save_weights(self, path):
+        self.to_cpu() # always save as np.ndarray not cp.ndarray
+
+        params_dict = {}
+        self._flatten_params(params_dict)
+        array_dict = {key: param.data for key, param in params_dict.items() if param is not None}
+
+        try:
+            np.savez_compressed(path, **array_dict)
+        except (Exception, KeyboardInterrupt) as e:
+            # if the save operation is interrupted by user input (such as Ctrl+C)
+            # then remove the work-in-progress file
+            if os.path.exists(path):
+                os.remove(path) 
+            raise
+
+    def load_weights(self, path):
+        npz = np.load(path)
+        params_dict = {}
+        self._flatten_params(params_dict)
+        for key, param in params_dict.items():
+            param.data = npz[key]
+
+
+class Sequential(Layer):
+    def __init__(self, *layers):
+        if not layers:
+            raise ValueError('At least one layer needed.')
+        elif not all([isinstance(l, Layer) for l in layers]):
+            raise ValueError('Every input needs to be a Layer instance.')
+
+        super().__init__()
+        self.layers = []
+        for i, layer in enumerate(layers):
+            setattr(self, 'l'+str(i), layer)
+            self.layers.append(layer)
+            
+    def forward(self, x):  
+        for layer in self.layers:
+            x = layer(x)
+        return x
+
+
+class Linear(Layer):
+    def __init__(self, out_features, in_features=None, bias=True, dtype=np.float32):
+        super().__init__()
+        self.in_features = in_features # we can leave this None, and get from data in forward
+        self.out_features = out_features
+        self.dtype = dtype
+
+        # init W. if in_features not specified, init later (when forward called)
+        self.W = Parameter(None, name='W')
+        if self.in_features is not None:
+            self._init_W()
+        # init bias
+        self.b = None if not bias else Parameter(np.zeros(out_features, dtype=dtype), name='b')
+
+    def _init_W(self, xp=np):
+        I, O = self.in_features, self.out_features
+        # http://yann.lecun.com/exdb/publis/pdf/lecun-98b.pdf
+        W_data = xp.random.randn(I, O).astype(self.dtype) * xp.sqrt(1 / I)
+        self.W.data = W_data
+
+    def forward(self, x):
+        if self.W.data is None:
+            self.in_features = x.shape[1]
+            xp = get_array_module(x)
+            self._init_W(xp)
+        
+        y = F.linear(x, self.W, self.b)
+        return y
+
+
+class Dropout(Layer):
+    def __init__(self, p=0.5):
+        super().__init__()
+        self.p = p
+
+    def forward(self, x):
+        y = F.dropout(x, dropout_ratio=self.p, training=self.training)
+        return y
