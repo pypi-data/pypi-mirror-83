@@ -1,0 +1,100 @@
+# -*- coding: utf-8 -*-
+
+# Form implementation generated from reading ui file 'galacteek/ui/iptagsmanager.ui'
+#
+# Created by: PyQt5 UI code generator 5.13.2
+#
+# WARNING! All changes made in this file will be lost!
+
+
+from PyQt5 import QtCore, QtGui, QtWidgets
+
+
+class Ui_IPTagsDialog(object):
+    def setupUi(self, IPTagsDialog):
+        IPTagsDialog.setObjectName("IPTagsDialog")
+        IPTagsDialog.resize(474, 365)
+        self.verticalLayout_2 = QtWidgets.QVBoxLayout(IPTagsDialog)
+        self.verticalLayout_2.setObjectName("verticalLayout_2")
+        self.horizontalLayout_2 = QtWidgets.QHBoxLayout()
+        self.horizontalLayout_2.setObjectName("horizontalLayout_2")
+        self.label = QtWidgets.QLabel(IPTagsDialog)
+        self.label.setObjectName("label")
+        self.horizontalLayout_2.addWidget(self.label)
+        self.lineEditTag = QtWidgets.QLineEdit(IPTagsDialog)
+        self.lineEditTag.setObjectName("lineEditTag")
+        self.horizontalLayout_2.addWidget(self.lineEditTag)
+        self.addTagButton = QtWidgets.QPushButton(IPTagsDialog)
+        self.addTagButton.setObjectName("addTagButton")
+        self.horizontalLayout_2.addWidget(self.addTagButton)
+        self.verticalLayout_2.addLayout(self.horizontalLayout_2)
+        self.verticalLayout = QtWidgets.QVBoxLayout()
+        self.verticalLayout.setObjectName("verticalLayout")
+        self.horizontalLayout = QtWidgets.QHBoxLayout()
+        self.horizontalLayout.setObjectName("horizontalLayout")
+        self.verticalLayout_3 = QtWidgets.QVBoxLayout()
+        self.verticalLayout_3.setObjectName("verticalLayout_3")
+        self.label_2 = QtWidgets.QLabel(IPTagsDialog)
+        self.label_2.setObjectName("label_2")
+        self.verticalLayout_3.addWidget(self.label_2)
+        self.allTagsView = QtWidgets.QListView(IPTagsDialog)
+        self.allTagsView.setObjectName("allTagsView")
+        self.verticalLayout_3.addWidget(self.allTagsView)
+        self.horizontalLayout.addLayout(self.verticalLayout_3)
+        self.verticalLayout_5 = QtWidgets.QVBoxLayout()
+        self.verticalLayout_5.setObjectName("verticalLayout_5")
+        spacerItem = QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
+        self.verticalLayout_5.addItem(spacerItem)
+        self.untagItButton = QtWidgets.QPushButton(IPTagsDialog)
+        self.untagItButton.setText("")
+        icon = QtGui.QIcon()
+        icon.addPixmap(QtGui.QPixmap(":/share/icons/left-arrow.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        self.untagItButton.setIcon(icon)
+        self.untagItButton.setIconSize(QtCore.QSize(32, 32))
+        self.untagItButton.setObjectName("untagItButton")
+        self.verticalLayout_5.addWidget(self.untagItButton)
+        self.tagItButton = QtWidgets.QPushButton(IPTagsDialog)
+        self.tagItButton.setText("")
+        icon1 = QtGui.QIcon()
+        icon1.addPixmap(QtGui.QPixmap(":/share/icons/right-arrow.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        self.tagItButton.setIcon(icon1)
+        self.tagItButton.setIconSize(QtCore.QSize(32, 32))
+        self.tagItButton.setObjectName("tagItButton")
+        self.verticalLayout_5.addWidget(self.tagItButton)
+        spacerItem1 = QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
+        self.verticalLayout_5.addItem(spacerItem1)
+        self.horizontalLayout.addLayout(self.verticalLayout_5)
+        self.verticalLayout_4 = QtWidgets.QVBoxLayout()
+        self.verticalLayout_4.setObjectName("verticalLayout_4")
+        self.label_3 = QtWidgets.QLabel(IPTagsDialog)
+        self.label_3.setText("")
+        self.label_3.setObjectName("label_3")
+        self.verticalLayout_4.addWidget(self.label_3)
+        self.destTagsView = QtWidgets.QListView(IPTagsDialog)
+        self.destTagsView.setObjectName("destTagsView")
+        self.verticalLayout_4.addWidget(self.destTagsView)
+        self.horizontalLayout.addLayout(self.verticalLayout_4)
+        self.verticalLayout.addLayout(self.horizontalLayout)
+        self.verticalLayout_2.addLayout(self.verticalLayout)
+        self.horizontalLayout_3 = QtWidgets.QHBoxLayout()
+        self.horizontalLayout_3.setObjectName("horizontalLayout_3")
+        self.noTagsButton = QtWidgets.QPushButton(IPTagsDialog)
+        self.noTagsButton.setObjectName("noTagsButton")
+        self.horizontalLayout_3.addWidget(self.noTagsButton)
+        self.okButton = QtWidgets.QPushButton(IPTagsDialog)
+        self.okButton.setObjectName("okButton")
+        self.horizontalLayout_3.addWidget(self.okButton)
+        self.verticalLayout_2.addLayout(self.horizontalLayout_3)
+
+        self.retranslateUi(IPTagsDialog)
+        QtCore.QMetaObject.connectSlotsByName(IPTagsDialog)
+
+    def retranslateUi(self, IPTagsDialog):
+        _translate = QtCore.QCoreApplication.translate
+        IPTagsDialog.setWindowTitle(_translate("IPTagsDialog", "Dialog"))
+        self.label.setText(_translate("IPTagsDialog", "IPTag"))
+        self.addTagButton.setText(_translate("IPTagsDialog", "Add"))
+        self.label_2.setText(_translate("IPTagsDialog", "All tags"))
+        self.noTagsButton.setText(_translate("IPTagsDialog", "No tags, thanks"))
+        self.okButton.setText(_translate("IPTagsDialog", "OK"))
+from . import galacteek_rc
