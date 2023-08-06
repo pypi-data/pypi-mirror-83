@@ -1,0 +1,52 @@
+[build-system]
+requires = ["setuptools>=42", "wheel", "setuptools_scm[toml]>=3.4"]
+build-backend = "setuptools.build_meta"
+
+[tool.poetry]
+name = "async-email"
+version = "0.1.1"
+description = ""
+authors = ["Elton Lima <me@eltonplima.dev>"]
+license = "Mozilla Public License 2.0"
+readme = "README.md"
+homepage = "https://github.com/eltonplima/django-async-email"
+repository = "https://github.com/eltonplima/django-async-email"
+keywords = ["async", "celery", "email", "django"]
+classifiers = [
+        "Development Status :: 1 - Planning",
+        "Framework :: Django",
+        "Programming Language :: Python",
+        "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.7",
+        "Programming Language :: Python :: 3.8",
+        "Intended Audience :: Developers",
+        "License :: OSI Approved :: BSD License",
+        "Operating System :: POSIX",
+        "Topic :: Communications",
+        "Topic :: Communications :: Email",
+        "Topic :: System :: Distributed Computing",
+        "Topic :: Software Development :: Libraries :: Python Modules",
+]
+include = [
+    "LICENSE",
+]
+
+[tool.black]
+multi_line_output = 3
+force_grid_wrap = 0
+line_length = 88
+target-version = ['py37', 'py38']
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+DJANGO_SETTINGS_MODULE = "tests.test_settings"
+python_files = [
+    "test_*.py",
+    "*_test.py",
+    "tests.py",
+]
+addopts = "-ra --strict --doctest-modules --doctest-glob=*.rst --tb=short --reuse-db -p no:warnings -s -vvv"
+testpaths = "tests"
+markers = [
+    "integration_test: marks tests as integration (deselect with '-m \"not integration\"')",
+]
