@@ -1,0 +1,34 @@
+%YAML 1.1
+---
+$schema: "http://stsci.edu/schemas/yaml-schema/draft-01"
+id: "http://weldx.bam.de/schemas/weldx/arc_welding_process/base/pulsed_UI-1.0.0"
+
+title: |
+  GMAW pulsed process - UI.
+
+description: |
+  Base schema describing a default UI modulated pulsed GMAW processes.
+
+type: object
+properties:
+  modulation:
+    type: string
+    enum: [UI]
+  wire_feedrate:
+    tag: "tag:weldx.bam.de:weldx/core/time_series-1.0.0"
+    wx_unit: "m/s"
+  pulse_voltage:
+    tag: "tag:weldx.bam.de:weldx/core/time_series-1.0.0"
+    wx_unit: "V"
+  pulse_duration:
+    tag: "tag:weldx.bam.de:weldx/core/time_series-1.0.0"
+    wx_unit: "s"
+  pulse_frequency:
+    tag: "tag:weldx.bam.de:weldx/core/time_series-1.0.0"
+    wx_unit: "Hz"
+  base_current:
+    tag: "tag:weldx.bam.de:weldx/core/time_series-1.0.0"
+    wx_unit: "A"
+
+required: [modulation, wire_feedrate, pulse_voltage, pulse_duration, pulse_frequency, base_current]
+...
