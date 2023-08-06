@@ -1,0 +1,23 @@
+include *.txt
+include LICENSE
+exclude payment_text_parser/data/test_data/test_data_synthetic.csv
+
+exclude payment_text_parser/data/scraped_data/*
+include payment_text_parser/data/scraped_data/tfidf.pickle
+include payment_text_parser/data/scraped_data/first_name.pickle
+exclude payment_text_parser/data_generator/*scraping.py
+
+graft payment_text_parser/models/spacy_models/custom_de_core_news_sm_LOC-ENT_100000_1_0.0.72
+graft payment_text_parser/models/spacy_models/custom_de_core_news_sm_LOC-ENT_100000_0_0.0.72
+graft payment_text_parser/models/spacy_models/de_core_news_sm-2.1.0
+include payment_text_parser/models/keras_models/model_concat*
+
+exclude payment_text_parser/tests/*.py
+exclude payment_text_parser/tests/syn_msg_unit_tests.py
+exclude payment_text_parser/tests/syn_msg_unit_tests_good.py
+exclude payment_text_parser/tests/syn_msg_unit_tests_bad.py
+exclude payment_text_parser/tests/syn_msg_unit_tests_nd.py
+
+prune payment_text_parser_venv*
+prune payment_text_parser/core_nlp*
+prune build

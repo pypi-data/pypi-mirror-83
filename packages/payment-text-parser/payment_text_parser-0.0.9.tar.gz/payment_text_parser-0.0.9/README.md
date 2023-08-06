@@ -1,0 +1,131 @@
+# Payment text parser
+
+### Description
+
+
+Inputs a text string and parses entity/address free text input to:
+- Flag entity fields ('ORG' for companies, 'PER' for individuals, 'PER_ORG' for uncertain decision) <= Based on [Spacy](https://spacy.io/)
+- Flag address components of the address ('house number', 'town', 'country', ...) <= Based on [Libpostal](https://github.com/openvenues/libpostal)
+- Flag other fields (i.e. not entity nor address) with POS tags ('NE', 'ADJ', 'NN', ..) <= Based on [CoreNLP](https://stanfordnlp.github.io/CoreNLP/)
+
+More generally, the package includes following features:
+- A data generator for entity/address fields and free text fields (based on open data)
+- A model distinguishing entity/address field from free text (using Keras/TensorFlow and CoreNLP) to apply dedicated heuristics
+- A series of cleaning_postprocessing steps including true case recognition (CoreNLP)
+- A parser of entity/address/other fields as described above using re-trained vanilla Spacy model (based on labeled open data)
+- Simple heuristics and metrics applied after the parsing to improve accuracy
+- Part-of-speech (POS) tagging of the remaining flags (Spacy and/or CoreNLP) for downstream processing
+
+This package is specifically intended to be used together with the upstream Swiftflow pipeline that parses
+all fields from the SWIFT MT messages, including the entity/address and free text fields, which are decisive for inter-banking
+transactional communication.
+
+### Installation
+
+The package uses essentally Libpostal and Spacy.
+Also, it uses Keras on Tensorflow to recognize if the text input is a free text or an entity/address text.
+
+#### Pre-requiste: Libpostal
+
+Refer to [Libpostal installation](https://github.com/openvenues/libpostal).
+Once Libpostal is installed, the Python binder `postal` will be installed as part
+of the package with pip (see below)
+
+#### Payment_text_parser
+
+The other dependencies, including [Spacy](https://spacy.io/), will be installed via `pip` on the present package:
+
+#### Create environment
+
+One recommends to use Python 3.7.
+
+Native Python:
+
+```
+/usr/local/bin/python3 -m venv <my_env>
+source <my_env>/bin/activate`
+```
+
+Conda:
+
+``
+conda create --name <my_env> python=3.7`
+conda activate <my_env>
+``
+
+##### From pip
+
+```
+pip install payment-text-parser --use-feature=2020-resolver
+python -m spacy download de_core_news_sm
+```
+
+##### From git
+
+```
+pip install git+https://gitlab.com/alpina-analytics/payment_text_parser.git
+python -m spacy download de_core_news_sm
+```
+
+#### From requirements.txt
+
+```
+git clone https://gitlab.com/alpina-analytics/payment_text_parser.git
+cd payment_text_parser
+pip install -r requirements.txt
+python -m spacy download de_core_news_sm
+export PYTHONPATH=$(pwd)
+```
+
+### Usage
+
+#### Script
+
+```
+from payment_text_parser.entity_extractor.entity_extractor import ExtractorClass
+e = ExtractorClass(text)
+d_res = e.d_res
+```
+
+#### Webserver
+
+```
+# Launch
+python main.py
+
+# Test
+curl -H "Content-type: application/json" -X POST http://127.0.0.1:5000/parse -d '{"text":"John Deere Les Abues 2 75000 Paris"}'
+```
+
+#### Optional : start Stanford NLP server
+
+Required if :
+- Field type detection enabled by `ExtractorClass(text,check_field_type=True)`
+- POS-tagging of rest fields enabled by `ExtractorClass(text,create_nlp_tags_rest_text=True)`
+If not started, an warning message will be prompted, however full processing can still take place.
+
+CoreNLP server can be started as follow:
+
+```
+cd ./core_nlp/stanford-corenlp-full-2018-10-05
+java -Xmx4g -cp "*" edu.stanford.nlp.pipeline.StanfordCoreNLPServer \
+-serverProperties StanfordCoreNLP-german.properties \
+-preload tokenize,ssplit,pos,parse \
+-status_port 9000  -port 9000 -timeout 15000
+```
+
+### References
+
+#### Spacy
+
+https://spacy.io/
+
+#### Libpostal
+
+https://github.com/openvenues/libpostal
+
+#### CoreNLP
+
+https://stackoverflow.com/questions/33259191/installing-libicu-dev-on-mac
+https://stackoverflow.com/questions/50217214/import-error-for-icu-in-mac-and-ubuntu-although-pyicu-is-installed-correctly/50364835#50364835
+https://www.khalidalnajjar.com/setup-use-stanford-corenlp-server-python/
