@@ -1,0 +1,80 @@
+Metadata-Version: 2.1
+Name: ope
+Version: 0.8
+Summary: Abstracts away running gnu-parallel on tools with FASTA input and provides parsers for some common formats produced by said tools.
+Home-page: https://github.com/camillescott/ope
+Author: Camille Scott
+Author-email: cswel@ucdavis.edu
+License: MIT license
+Keywords: ope
+Platform: UNKNOWN
+Classifier: Development Status :: 2 - Pre-Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Natural Language :: English
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Requires-Python: >=3.5
+Requires-Dist: Click (>=7.0)
+Requires-Dist: numpy
+Requires-Dist: pandas
+Requires-Dist: screed
+
+=========
+ope
+=========
+
+.. image:: https://img.shields.io/badge/install%20with-bioconda-brightgreen.svg?style=flat
+        :target: http://bioconda.github.io/recipes/ope/README.html
+
+.. image:: https://img.shields.io/pypi/v/ope.svg
+        :target: https://pypi.python.org/pypi/ope
+
+.. image:: https://img.shields.io/travis/camillescott/ope.svg
+        :target: https://travis-ci.org/camillescott/ope
+
+.. image:: https://readthedocs.org/projects/ope/badge/?version=latest
+        :target: https://ope.readthedocs.io/en/latest/?badge=latest
+        :alt: Documentation Status
+
+
+Abstracts away running `gnu-parallel` on tools with FASTA input and provides parsers for some common
+formats produced by said tools.
+
+Example usage::
+
+   ope parallel -j 4 [query.pep.fa] hmmscan --domtblout [results.tbl] -E 1e-05 -o /dev/null /store/biodb/Pfam-A.hmm /dev/stdin
+
+Hence, the only `gnu-parallel` flag one needs to worry about is `-j` for the number of cores to use.
+Note that you also need to set the input in the actual tool invocation as `/dev/stdin`.
+
+* Free software: MIT license
+* Documentation: https://ope.readthedocs.io.
+
+
+Features
+--------
+
+* TODO
+
+Credits
+-------
+
+This package was created with Cookiecutter_ and the `audreyr/cookiecutter-pypackage`_ project template.
+
+.. _Cookiecutter: https://github.com/audreyr/cookiecutter
+.. _`audreyr/cookiecutter-pypackage`: https://github.com/audreyr/cookiecutter-pypackage
+
+
+=======
+History
+=======
+
+0.1.0 (2019-12-11)
+------------------
+
+* First release on PyPI.
+
+
