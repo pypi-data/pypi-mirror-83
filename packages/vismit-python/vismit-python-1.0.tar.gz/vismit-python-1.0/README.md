@@ -1,0 +1,3 @@
+# Vismit-pip
+
+An application that uses hashing and encoding for generating a random password. The application asks for the website/app name, secret key, and key length. Website/App name is variable. Your secret key and the key length is constant for every app/website. The crucial thing is your secret key, and key length should be private and unforgettable. After filling these columns, you get a "passphrase".
