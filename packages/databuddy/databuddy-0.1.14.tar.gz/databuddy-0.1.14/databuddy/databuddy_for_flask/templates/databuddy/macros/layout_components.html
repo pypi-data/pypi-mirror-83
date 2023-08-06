@@ -1,0 +1,108 @@
+{% macro page_heading(title, db_name_to_switch) %}
+  <!-- Page Heading -->
+  <div class="d-sm-flex align-items-center justify-content-between mb-4">
+    <h1 class="h3 mb-0 text-gray-800">{{title}}</h1>
+
+  </div>
+{% endmacro %}
+
+{% macro render_select_tag(field) %}
+  <select
+    name="{{field.name}}"
+    id="{{field.name}}"
+  >
+    <option value=""></option>
+    {% for option in field.options %}
+      <option 
+        value="{{option.value}}"
+        {% if field.value is defined and option.value==field.value %}
+        selected
+        {% endif %}
+      >
+        {{option.label}}
+      </option>
+    {% endfor %}
+  </select>
+{% endmacro %}
+
+{% macro render_bool_select_tag(field) %}
+  <select
+    name="{{field.name}}"
+    id="{{field.name}}"
+  >
+    <option value=""></option>
+    <option value="true"
+    {% if field.value is defined and field.value=="true"%}
+    selected
+    {% endif %}
+    >
+      Yes
+    </option>
+    <option value="false"
+    {% if field.value is defined and field.value=="false"%}
+    selected
+    {% endif %}
+    >
+      No
+    </option>
+  </select>
+{% endmacro %}
+
+
+{% macro render_input_tag(field) %}
+  <input 
+    type="{{field.type}}" 
+    id="{{field.name}}" 
+    name="{{field.name}}"
+    {% if field.value is defined %}
+    value="{{field.value}}"
+    {% endif %}
+  >  
+  </input>
+{% endmacro %}
+
+{% macro render_field(field) %}
+  <label for="{{field.name}}">{{field.label or field.name}}</label>
+  {% if field.type == "select" %}
+    {{render_select_tag(field)}}
+  {% elif field.type == "bool-select" %}
+    {{render_bool_select_tag(field)}}
+  {% else %}
+    {{render_input_tag(field)}}
+  {% endif %}
+{% endmacro %}
+
+{% macro render_form(fields, form_id, method) %}
+    <form 
+      name="{{form_id}}" 
+      id="{{form_id}}"
+      {% if method is defined %}
+      method="{{method}}"
+      {% endif %}
+    >
+        {% for field in fields %}
+          {{render_field(field)}}
+        {% endfor %}
+        <button id="{{form_id}}-submit" class="btn btn-sm btn-info">
+        Submit
+        </button>
+    </form>
+{% endmacro %}
+
+{% macro tab_heading(name, tab_heading_id, tab_content_id, selected) %}
+  <li class="nav-item" role="presentation">
+    <a 
+      class="nav-link active" 
+      id="{{tab_heading_id}}" 
+      data-toggle="tab" 
+      href="#{{tab_content_id}}" 
+      role="tab" 
+      aria-controls="{{tab_content_id}}"
+      {% if selected %} 
+      aria-selected="true"
+      {% endif %}
+    >
+      {{name}}
+    </a>
+  </li>
+{% endmacro %}

@@ -1,0 +1,53 @@
+{% import "databuddy/macros/layout_components.html" as layout_components %}
+{% import "databuddy/default_theme/macros/layout_components.html" as theme_layout_components %}
+{% import "databuddy/macros/widgets.html" as widgets %}
+
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>DataViewer</title>
+  <!-- Tell the browser to be responsive to screen width -->
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  {% include "databuddy/default_theme/partials/head_css.html" %}
+  {% include "databuddy/default_theme/partials/head_js.html" %}
+  {% block page_css_in_head %}{% endblock %}
+  {% block page_js_in_head %}{% endblock %}
+</head>
+<body class="hold-transition sidebar-mini layout-fixed">
+<div class="wrapper">
+
+  {% include "databuddy/default_theme/partials/topbar.html" %}
+
+
+  <!-- Content Wrapper. Contains page content -->
+  <div class="content-wrapper">
+    {% include "databuddy/default_theme/partials/content_header.html" %}
+
+    <!-- Main content -->
+    <section class="content">
+      <div class="container-fluid">
+        {% block page_content %}
+        {% endblock %}
+      </div><!-- /.container-fluid -->
+    </section>
+    <!-- /.content -->
+  </div>
+  <!-- /.content-wrapper -->
+  <footer class="main-footer">
+  </footer>
+
+</div>
+<!-- ./wrapper -->
+
+{% include "databuddy/default_theme/partials/foot_js.html" %}
+<script>
+  $(function(){
+      listree();
+  });
+</script>
+{% block page_css_in_footer %}{% endblock %}
+{% block page_js_in_footer %}{% endblock %}
+</body>
+</html>
