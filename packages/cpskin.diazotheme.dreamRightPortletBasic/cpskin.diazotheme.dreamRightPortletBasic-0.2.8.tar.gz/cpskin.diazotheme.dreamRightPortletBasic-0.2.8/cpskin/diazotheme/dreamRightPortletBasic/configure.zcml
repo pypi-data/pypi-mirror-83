@@ -1,0 +1,53 @@
+<configure xmlns="http://namespaces.zope.org/zope"
+           xmlns:genericsetup="http://namespaces.zope.org/genericsetup"
+           xmlns:plone="http://namespaces.plone.org/plone"
+           xmlns:i18n="http://namespaces.zope.org/i18n"
+           xmlns:cmf="http://namespaces.zope.org/cmf"
+           i18n_domain="cpskin">
+
+    <!-- Dependencies -->
+    <include package="cpskin.theme" />
+
+    <!-- Profile -->
+    <genericsetup:registerProfile
+        name="default"
+        title="cpskin.diazotheme.dreamRightPortletBasic"
+        directory="profiles/default"
+        description="Installs cpskin.diazotheme.dreamRightPortletBasic theme"
+        for="Products.CMFPlone.interfaces.IPloneSiteRoot"
+        provides="Products.GenericSetup.interfaces.EXTENSION"
+        />
+
+    <genericsetup:registerProfile
+        name="uninstall"
+        title="cpskin.diazotheme.dreamRightPortletBasic uninstall"
+        directory="profiles/uninstall"
+        description="Uninstalls cpskin.diazotheme.dreamRightPortletBasic theme"
+        for="Products.CMFPlone.interfaces.IPloneSiteRoot"
+        provides="Products.GenericSetup.interfaces.EXTENSION"
+        />
+
+    <!-- Theme -->
+    <plone:static directory="static" name="cpskin.diazotheme.dreamRightPortletBasic" type="theme" />
+
+
+    <!-- Upgrades -->
+    <genericsetup:upgradeStep
+        title="cpskin.diazotheme.dreamRightPortletBasic theme: upgrade to LESS (v0002)"
+        description="Upgrade step for cpskin.diazotheme.dreamRightPortletBasic theme to LESS (v0002)"
+        handler=".upgradehandlers.upgrade_to_less"
+        source="0001"
+        destination="0002"
+        profile="cpskin.diazotheme.dreamRightPortletBasic:default"
+        />
+
+    <genericsetup:upgradeStep
+        title="cpskin.diazotheme.dreamRightPortletBasic theme: add missing base JS files (v0003)"
+        description="Upgrade step for cpskin.diazotheme.dreamRightPortletBasic theme to add missing base JS files (v0003)"
+        handler=".upgradehandlers.upgrade_portal_javascript"
+        source="0002"
+        destination="0003"
+        profile="cpskin.diazotheme.dreamRightPortletBasic:default"
+        />
+
+</configure>
