@@ -1,0 +1,104 @@
+{SimaPro 8.4.0.0}
+{processes}
+{CSV Format version: 8.0.5}
+{CSV separator: Semicolon}
+{Decimal separator: .}
+{Date separator: /}
+{Short date format: dd/MM/yyyy}
+{Skip empty fields: No}
+{Convert expressions to constants: No}
+{Related objects (system descriptions, substances, units, etc.): Yes}
+{Include sub product stages and processes: Yes}
+
+{% for process in processes -%}
+Process
+
+Category type
+{{process.category_type.lower()}}
+
+Process name
+{{encode_simapro_csv_format(process.name)}}
+
+Status
+Draft
+
+Date
+{{encode_simapro_csv_format(process.date)}}
+
+Record
+{{encode_simapro_csv_format(process.record)}}
+
+Generator
+{{encode_simapro_csv_format(process.author)}}
+
+Collection method
+{{encode_simapro_csv_format(process.collection_method)}}
+
+Data treatment
+{{encode_simapro_csv_format(process.data_treatment)}}
+
+Comment
+{{encode_simapro_csv_format(process.encoded_comment(elda_only_data=elda_only_data))}}
+
+Allocation rules
+{{encode_simapro_csv_format(process.allocation_rules)}}
+
+{{'Products' if process.product_type == 'Output/Technosphere/Product' else 'Waste treatment'}}
+{{process.simapro_csv_format('Products' if process.product_type == 'Output/Technosphere/Product' else 'Waste treatment', elda_only_data=elda_only_data)}}
+
+Avoided products
+{{process.simapro_csv_format('Avoided products', elda_only_data=elda_only_data)}}
+
+Resources
+{{process.simapro_csv_format('Resources', elda_only_data=elda_only_data)}}
+
+Materials/fuels
+{{process.simapro_csv_format('Materials/fuels', elda_only_data=elda_only_data)}}
+
+Electricity/heat
+{# For now, Material/fuels and Electricity/heat are gathered in Input/Technosphere, so the latter category is left empty #}
+{# {{process.simapro_csv_format('Electricity/heat', elda_only_data=elda_only_data)}}#}
+
+Emissions to air
+{{process.simapro_csv_format('Emissions to air', elda_only_data=elda_only_data)}}
+
+Emissions to water
+{{process.simapro_csv_format('Emissions to water', elda_only_data=elda_only_data)}}
+
+Emissions to soil
+{{process.simapro_csv_format('Emissions to soil', elda_only_data=elda_only_data)}}
+
+Final waste flows
+{{process.simapro_csv_format('Final waste flows', elda_only_data=elda_only_data)}}
+
+Waste to treatment
+{{process.simapro_csv_format('Waste to treatment', elda_only_data=elda_only_data)}}
+
+Input parameters
+{{process.simapro_csv_format('Input parameters', elda_only_data=elda_only_data)}}
+
+Calculated parameters
+{{process.simapro_csv_format('Calculated parameters', elda_only_data=elda_only_data)}}
+
+End
+
+{% endfor %}
+Database Input parameters
+{{database_input_parameters}}
+
+End
+
+Database Calculated parameters
+{{database_calculated_parameters}}
+
+End
+
+Project Input parameters
+{{project_input_parameters}}
+
+End
+
+Project Calculated parameters
+{{project_calculated_parameters}}
+
+End

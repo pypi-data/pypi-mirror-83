@@ -1,0 +1,18 @@
+{% if relevance_code or confidence_code %}
+{{ relevance_code }}{{ confidence_code }}:
+{% endif %}
+{% if (relevance_code and relevance_code != 'A') or (relevance_comment and relevance_code == 'A') %}
+{{ relevance_code }}:{{ relevance_comment|space_prefix }}
+{% endif %}
+{% if confidence_code %}
+{{ confidence_code }}:{{ confidence_comment|space_prefix }}
+{% endif %}
+
+{% if comment %}
+{{ comment }}
+{% endif %}
+
+{% if json_data %}
+!!! DO NOT EDIT BELOW THIS LINE !!!
+[[{{ json_data }}]]
+{% endif %}
