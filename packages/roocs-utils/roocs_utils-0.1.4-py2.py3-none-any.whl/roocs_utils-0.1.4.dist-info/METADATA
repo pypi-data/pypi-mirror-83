@@ -1,0 +1,137 @@
+Metadata-Version: 2.1
+Name: roocs-utils
+Version: 0.1.4
+Summary: A package containing common components for the roocs project
+Home-page: https://github.com/roocs/roocs_utils
+Author: Elle Smith
+Author-email: eleanor.smith@stfc.ac.uk
+License: BSD - see LICENSE file in top-level package directory
+Keywords: roocs_utils
+Platform: UNKNOWN
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Console
+Classifier: Environment :: Web Environment
+Classifier: Intended Audience :: End Users/Desktop
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: System Administrators
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Natural Language :: English
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Topic :: Security
+Classifier: Topic :: Internet
+Classifier: Topic :: Scientific/Engineering
+Classifier: Topic :: System :: Distributed Computing
+Classifier: Topic :: System :: Systems Administration :: Authentication/Directory
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.6.0
+Description-Content-Type: text/x-rst
+Requires-Dist: numpy (>=1.16)
+Requires-Dist: xarray (>=0.15)
+Requires-Dist: dask[complete] (>=2.6)
+Requires-Dist: cfunits (>=3.2.7)
+Requires-Dist: netCDF4 (>=1.4)
+Requires-Dist: python-dateutil (>=2.8.1)
+Requires-Dist: cf-xarray (>=0.2.1)
+Provides-Extra: docs
+Requires-Dist: sphinx; extra == 'docs'
+Requires-Dist: sphinx-rtd-theme; extra == 'docs'
+Requires-Dist: nbsphinx; extra == 'docs'
+Requires-Dist: pandoc; extra == 'docs'
+Requires-Dist: ipython; extra == 'docs'
+Requires-Dist: ipykernel; extra == 'docs'
+Requires-Dist: jupyter-client; extra == 'docs'
+Requires-Dist: matplotlib; extra == 'docs'
+
+roocs-utils
+===========
+
+.. image:: https://img.shields.io/pypi/v/roocs_utils.svg
+   :target: https://pypi.python.org/pypi/roocs_utils
+   :alt: Pypi
+
+
+
+.. image:: https://img.shields.io/travis/roocs/roocs-utils.svg
+   :target: https://travis-ci.com/roocs/roocs-utils
+   :alt: Travis
+
+
+
+.. image:: https://readthedocs.org/projects/roocs-utils/badge/?version=latest
+   :target: https://roocs-utils.readthedocs.io/en/latest/?badge=latest
+   :alt: Documentation
+
+
+A package containing common components for the roocs project
+
+
+* Free software: BSD - see LICENSE file in top-level package directory
+* Documentation: https://roocs-utils.readthedocs.io.
+
+Features
+--------
+
+
+*
+
+  #. Data Inventories
+
+1. Data Inventories
+^^^^^^^^^^^^^^^^^^^
+
+The module ``roocs_utils.inventory`` provides tools for writing inventories of the known
+data holdings in a YAML format, e.g.:
+
+.. code-block:: shell
+
+   $ python roocs_utils/inventory/inventory.py -pr c3s-cmip5
+   [INFO] Reading /group_workspaces/jasmin2/cp4cds1/vol1/data/c3s-cmip5/output1/MOHC/HadGEM2-ES/rcp45/mon/atmos/Amon/r1i1p1/tas/v20111                                                                  128/tas_Amon_HadGEM2-ES_rcp45_r1i1p1_212412-214911.nc
+   [INFO] Reading /group_workspaces/jasmin2/cp4cds1/vol1/data/c3s-cmip5/output1/MOHC/HadGEM2-ES/rcp45/mon/atmos/Amon/r1i1p1/ts/v201111                                                                  28/ts_Amon_HadGEM2-ES_rcp45_r1i1p1_209912-212411.nc
+   [INFO] Wrote: c3s-cmip5_MOHC_HadGEM2-ES.yml
+
+One file is created for each model/institute pairing. These can be merged to one file
+using ``roocs_utils/inventory/merge_yaml.py``
+
+Writes:
+
+.. code-block:: shell
+
+   - base_dir: /group_workspaces/jasmin2/cp4cds1/vol1/data/
+     project: c3s-cmip5
+
+   - path: c3s-cmip5/output1/MOHC/HadGEM2-ES/rcp45/mon/atmos/Amon/r1i1p1/tas/v20111128
+     dsid: c3s-cmip5.output1.MOHC.HadGEM2-ES.rcp45.mon.atmos.Amon.r1i1p1.tas.v20111128
+     var_id: tas
+     array_dims: time lat lon
+     array_shape: 3529 145 192
+     time: 2005-12-16T00:00:00 2299-12-16T00:00:00
+     facets:
+       activity: c3s-cmip5
+       ensemble_member: r1i1p1
+       experiment: rcp45
+       frequency: mon
+       institute: MOHC
+       mip_table: Amon
+       model: HadGEM2-ES
+       product: output1
+       realm: atmos
+       variable: tas
+       version: v20111128
+
+Credits
+=======
+
+This package was created with ``Cookiecutter`` and the ``audreyr/cookiecutter-pypackage`` project template.
+
+
+* Cookiecutter: https://github.com/audreyr/cookiecutter
+* cookiecutter-pypackage: https://github.com/audreyr/cookiecutter-pypackage
+
+
