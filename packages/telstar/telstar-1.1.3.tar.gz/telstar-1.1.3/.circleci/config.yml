@@ -1,0 +1,131 @@
+version: 2.1
+
+jobs:
+  build:
+    working_directory: ~/telstar
+    docker:
+      - image: circleci/python:3.6
+    steps:
+      - checkout
+      - restore_cache:
+          key: v1-deps-{{ .Branch }}-{{ checksum "requirements.txt" }}
+      - run:
+          command: |
+            python3 -m venv venv
+            source venv/bin/activate
+            pip install -r requirements.txt
+      - save_cache:
+          key: v1-deps-{{ .Branch }}-{{ checksum "requirements.txt" }}
+          paths:
+            - "./venv"
+
+  test:
+    parameters:
+      orm:
+        type: string
+    working_directory: ~/telstar
+    docker:
+      - image: circleci/python:3.6
+        environment: # environment variables for primary container
+          DATABASE: "sqlite:///:memory:"
+    steps:
+      - checkout
+      - restore_cache:
+          key: v1-deps-{{ .Branch }}-{{ checksum "requirements.txt" }}
+      - run:
+          environment:
+            ORM: << parameters.orm >>
+
+          command: |
+            source venv/bin/activate
+            pytest -m 'not integration' --ignore=telstar/
+
+  integration-test:
+    parameters:
+      command:
+        type: string
+      redis_image:
+        type: string
+      orm:
+        type: string
+    working_directory: ~/telstar
+    docker:
+      - image: circleci/python:3.6
+        environment: # environment variables for primary container
+          REDIS: redis://localhost:6379/10
+          DATABASE: mysql://root:root@127.0.0.1:3306/test
+
+      - image: << parameters.redis_image >>
+      - image: circleci/mysql:8-ram
+        command: [--default-authentication-plugin=mysql_native_password]
+        environment:
+          MYSQL_DATABASE: test
+          MYSQL_ROOT_PASSWORD: root
+    steps:
+      - checkout
+      - restore_cache:
+          key: v1-deps-{{ .Branch }}-{{ checksum "requirements.txt" }}
+      - run:
+          environment:
+            ORM: << parameters.orm >>
+          command: |
+            pushd `pwd`
+            cd /tmp
+            wget http://download.redis.io/redis-stable.tar.gz
+            tar xzf redis-stable.tar.gz
+            cd redis-stable
+            make redis-cli
+            sudo cp src/redis-cli /usr/local/bin/
+            sudo chmod 755 /usr/local/bin/redis-cli
+            popd
+            source venv/bin/activate
+            dockerize -wait tcp://localhost:3306 -timeout 1m
+            << parameters.command >>
+
+  release:
+    docker:
+      - image: circleci/python:3.6
+    working_directory: ~/telstar
+    steps:
+      - checkout
+      - restore_cache:
+          key: v1-deps-{{ .Branch }}-{{ checksum "requirements.txt" }}
+      - run:
+          command: |
+            source venv/bin/activate
+            flit build
+            flit publish || exit 0
+
+workflows:
+  build_and_test:
+    jobs:
+      - build
+      - test:
+          matrix:
+            parameters:
+              orm: [peewee, sqlalchemy]
+          requires:
+            - build
+
+      - integration-test:
+          name: integration
+          matrix:
+            parameters:
+              redis_image: [circleci/redis:5-alpine, circleci/redis:6-alpine]
+              command:
+                [
+                  ./telstar/tests/test_telstar.sh,
+                  pytest -m 'integration' --ignore=telstar/,
+                ]
+              orm: [peewee, sqlalchemy]
+          requires:
+            - build
+            - test
+
+      - release:
+          filters:
+            branches:
+              only:
+                - master
+          requires:
+            - integration-test
