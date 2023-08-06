@@ -1,0 +1,177 @@
+Metadata-Version: 2.1
+Name: snub
+Version: 0.0.2
+Summary: Snup is a python package to check IPs, Hashes, Emails, Domains, or URLs against blackhole lists and DNS services.
+Home-page: https://github.com/swimlane/snub
+Author: Josh Rickard
+Author-email: josh.rickard@swimlane.com
+License: MIT
+Keywords: blackhole python api ip email hash domain url
+Platform: UNKNOWN
+Description-Content-Type: text/markdown
+Requires-Dist: requests
+Requires-Dist: pyyaml
+Requires-Dist: flask-restful
+Requires-Dist: hopper
+
+# Snub
+
+Snub is a python package that enables users to retrieve whether or not a given IP, Hash, Email, Domain, or URL is on a blackhole list via the CLI or Flask API.  You can specify whether to check if one of the indicators above is on a text based list or a DNSBL list. Alternatively you can specify your own static (known bad) indicators.
+
+If you clone this repository you can also use the provided [docker-compose.yml](docker-compose.yml) file to utilize an API built around Snub.
+
+## Installation
+
+### Python Package or CLI Tool
+
+To use `Snub` as a Python package with in your project or a CLI tool, you can install it via `pip` or `pip3`.  
+
+```bash
+pip3 install snub
+```
+
+### Flask API
+
+In order to utilize the provided Flask API, you will need to clone this repository and build the image:
+
+```bash
+git clone https://github.com/swimlane/snub.git
+```
+
+## Using Python Package or CLI
+
+Once `Snub` is installed using pip or from the repository, you can import the Python package within your project:
+
+```python
+from snub import Snub
+
+snub = Snub()
+
+# You can check an indicator against all or a specific snubbed list
+# By default snub checks all lists for the given indicator
+
+snub.check('10.103.79.86')
+
+# To select to use a specific list provide one of the following value set to `True` or any combination of the following.
+
+snub.check('10.103.79.86', text_list=True, dns_list=True, static_list=True)
+
+# Snub also includes another python package called Hopper (https://github.com/MSAdministrator/hopper).
+
+# By using the `analyze` method within Snub you can pass in a email message raw string header and get information about the received from hops as well as whether they are on any of Snubs lists
+
+snub.analyze('''
+Delivered-To: money@capitalism.com
+Received: by 10.129.52.209 with SMTP id b200csp1430876ywa;
+        Tue, 10 Oct 2017 01:17:02 -0700 (PDT)
+X-Received: by 10.31.153.20 with SMTP id b20mr6116862vke.110.1507623422746;
+        Tue, 10 Oct 2017 01:17:02 -0700 (PDT)
+Received: from mail-sor-f65.google.com (mail-sor-f65.google.com. [209.85.220.65])
+        by mx.google.com with SMTPS id b31sor1345013uaa.124.2017.10.10.01.17.02
+        for <money@capitalism.com>
+        (Google Transport Security);
+        Tue, 10 Oct 2017 01:17:02 -0700 (PDT)
+Received-SPF: pass (google.com: domain of bags@test_email.ua.edu designates 209.85.220.65 as permitted sender) client-ip=209.85.220.65;
+X-Received: by 10.176.85.196 with SMTP id w4mr6874179uaa.75.1507623422198; Tue, 10 Oct 2017 01:17:02 -0700 (PDT)
+MIME-Version: 1.0
+Received: by 10.103.79.86 with HTTP; Tue, 10 Oct 2017 01:17:01 -0700 (PDT)
+From: Mr. Money Bags <bags@moneyrules.com>
+Date: Tue, 10 Oct 2017 01:17:01 -0700
+Subject:
+To: money@capitalism.com;
+Content-Type: text/plain; charset="UTF-8"
+Bcc: satan@wallstreet.com
+
+A business opportunity awaits
+''')  
+
+# You can provide any of the same lists types as optional paramters.  By default it will search all from and receivedBy indicators against all lists.
+```
+
+## Building Docker Image
+
+You first need to build the Docker image:
+
+```bash
+docker build --force-rm -t snub .
+```
+
+### Running the Docker Image
+
+You can run the docker image in a few different ways:
+
+#### Running the CLI tool 
+
+If running the CLI tool inside of Docker then you can run the container with the value you are wanting to search blackhole or DNS based lists for:
+
+```bash
+docker run -t -i -p 5000:5000 snub {SOME_VALUE_HERE}
+```
+
+An example would be:
+
+```bash
+docker run -t -i -p 5000:5000 snub tfvai.marketer.mobi
+```
+
+#### Running the API 
+
+If you want to run the API, then simply emit the value you want to search:
+
+**NOTE**: You must now use docker-compose to expose the api directly
+
+```bash
+docker-compose up
+```
+
+If you have made changes to either of the defined lists (yml files) file then you must rebuild docker-compose:
+
+```bash
+docker-compose build
+```
+
+Then run docker-compose:
+
+```bash
+docker-compose up
+```
+
+#### API ENDPOINTS
+
+There are several new API endpoints available:
+
+##### Search All Snubbed Lists
+
+To search all snubbed lists then navigate to your browser at:
+
+```bash
+http://0.0.0.0:5000/snub/search/{SOME_VALUE_HERE}
+```
+
+##### Search text based snubbed list
+
+To search just the text based snubbed lists then navigate to your browser at:
+
+```bash
+http://0.0.0.0:5000/snub/blackhole/{SOME_VALUE_HERE}
+```
+
+##### Search only DNS Based Lists
+
+To search DNS blackhole lists then navigate to your browser at:
+
+```bash
+http://0.0.0.0:5000/snub/dns/{SOME_VALUE_HERE}
+```
+
+##### Search only static items in your text.static.yml
+
+To search only your static list then navigate to your browser at:
+
+```bash
+http://0.0.0.0:5000/snub/static/{SOME_VALUE_HERE}
+```
+
+This will return any information found about the value you are searching for.
+
+
