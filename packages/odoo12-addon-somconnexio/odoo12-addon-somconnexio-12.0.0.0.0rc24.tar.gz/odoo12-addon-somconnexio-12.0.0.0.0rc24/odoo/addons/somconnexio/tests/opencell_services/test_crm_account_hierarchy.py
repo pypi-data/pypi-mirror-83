@@ -1,0 +1,278 @@
+from odoo.tests import TransactionCase
+from mock import Mock, patch
+import mock
+import factory
+from ...opencell_services.crm_account_hierarchy import \
+    CRMAccountHierarchyFromContractService
+
+from ..factories import ContractFactory
+from pyopencell.exceptions import PyOpenCellAPIException
+
+
+class OpenCellConfigurationFake:
+    seller_code = 'SC'
+    customer_category_code = 'CLIENT'
+
+
+class OpenCellCustomerResource:
+    """
+    Represents an OpenCell Customer Resource.
+    """
+
+    def __init__(self, code, email=None, iban=None):
+        self.code = code
+        self.email = email or factory.Faker("email")
+        self.iban = iban or factory.Faker("iban")
+
+    @property
+    def customerAccounts(self):
+        return {
+            "customerAccount": [{
+                "code": self.code,
+                "contactInformation": {
+                    "email": self.email,
+                },
+                "methodOfPayment": [{
+                    "bankCoordinates": {
+                        "iban": self.iban
+                    }
+                }]
+            }]}
+
+
+class CRMAccountHierarchyFromContractServiceTests(TransactionCase):
+
+    def setUp(self):
+        super().setUp()
+        self.contract = ContractFactory()
+        self.opencell_configuration = OpenCellConfigurationFake()
+
+    @patch('odoo.addons.somconnexio.opencell_services.crm_account_hierarchy_strategies.Customer') # noqa
+    @patch(
+        'odoo.addons.somconnexio.opencell_services.crm_account_hierarchy.Access',  # noqa
+        spec=['create']
+    )
+    @patch(
+        'odoo.addons.somconnexio.opencell_services.crm_account_hierarchy.AccessFromContract',  # noqa
+        return_value=Mock(spec=['to_dict'])
+    )
+    @patch(
+        'odoo.addons.somconnexio.opencell_services.crm_account_hierarchy.Subscription',  # noqa
+        spec=['create']
+    )
+    @patch(
+        'odoo.addons.somconnexio.opencell_services.crm_account_hierarchy.SubscriptionFromContract',  # noqa
+        return_value=Mock(spec=['to_dict'])
+    )
+    @patch(
+        'odoo.addons.somconnexio.opencell_services.crm_account_hierarchy.CRMAccountHierarchy',  # noqa
+        spec=['create']
+    )
+    @patch(
+        'odoo.addons.somconnexio.opencell_services.crm_account_hierarchy.CRMAccountHierarchyFromContract',  # noqa
+        return_value=Mock(spec=['to_dict', 'code'])
+    )
+    @patch(
+        'odoo.addons.somconnexio.opencell_services.crm_account_hierarchy.Customer',
+        spec=['create']
+    )
+    @patch(
+        'odoo.addons.somconnexio.opencell_services.crm_account_hierarchy.CustomerFromPartner',  # noqa
+        return_value=Mock(spec=['to_dict'])
+    )
+    def test_create_customer_hierarchy_in_opencell(
+        self,
+        MockCustomerFromPartner,
+        MockCustomer,
+        MockCRMAccountHierarchyFromContract,
+        MockCRMAccountHierarchy,
+        MockSubscriptionFromContract,
+        MockSubscription,
+        MockAccessFromContract,
+        MockAccess,
+        MockCustomerInStrategies
+    ):
+
+        MockCustomerFromPartner.return_value.to_dict.return_value = {
+            'example_data': 123
+        }
+        MockCRMAccountHierarchyFromContract.return_value.to_dict.return_value = {
+            'example_data': 123
+        }
+        MockSubscriptionFromContract.return_value.to_dict.return_value = {
+            'example_data': 123
+        }
+        MockAccessFromContract.return_value.to_dict.return_value = {
+            'example_data': 123
+        }
+        MockCustomerInStrategies.get.side_effect = PyOpenCellAPIException(
+            verb=mock.ANY, url=mock.ANY, status=400, body=mock.ANY
+        )
+        CRMAccountHierarchyFromContractService(
+            self.contract,
+            self.opencell_configuration
+        ).run()
+
+        MockCustomerFromPartner.assert_called_with(
+            self.contract.partner_id,
+            self.opencell_configuration
+        )
+        MockCustomer.create.assert_called_with(
+            **MockCustomerFromPartner.return_value.to_dict.return_value
+        )
+        MockCRMAccountHierarchyFromContract.assert_called_with(
+            self.contract,
+            str(self.contract.partner_id.id)+"_0"
+        )
+        MockCRMAccountHierarchy.create.assert_called_with(
+            **MockCRMAccountHierarchyFromContract.return_value.to_dict.return_value
+        )
+        MockSubscriptionFromContract.assert_called_with(
+            self.contract,
+            MockCRMAccountHierarchyFromContract.return_value.code
+        )
+        MockSubscription.create.assert_called_with(
+            **MockSubscriptionFromContract.return_value.to_dict.return_value
+        )
+        MockAccessFromContract.assert_called_with(
+            self.contract
+        )
+        MockAccess.create.assert_called_with(
+            **MockAccessFromContract.return_value.to_dict.return_value
+        )
+
+    @patch('odoo.addons.somconnexio.opencell_services.crm_account_hierarchy_strategies.Customer') # noqa
+    @patch(
+        'odoo.addons.somconnexio.opencell_services.crm_account_hierarchy.Access',  # noqa
+        spec=['create']
+    )
+    @patch(
+        'odoo.addons.somconnexio.opencell_services.crm_account_hierarchy.AccessFromContract',  # noqa
+        return_value=Mock(spec=['to_dict'])
+    )
+    @patch(
+        'odoo.addons.somconnexio.opencell_services.crm_account_hierarchy.Subscription',  # noqa
+        spec=['create']
+    )
+    @patch(
+        'odoo.addons.somconnexio.opencell_services.crm_account_hierarchy.SubscriptionFromContract',  # noqa
+        return_value=Mock(spec=['to_dict'])
+    )
+    @patch(
+        'odoo.addons.somconnexio.opencell_services.crm_account_hierarchy.CRMAccountHierarchy',  # noqa
+        spec=['create']
+    )
+    @patch(
+        'odoo.addons.somconnexio.opencell_services.crm_account_hierarchy.CRMAccountHierarchyFromContract',  # noqa
+        return_value=Mock(spec=['to_dict', 'code'])
+    )
+    def test_create_customer_account_hierarchy_in_opencell(
+        self,
+        MockCRMAccountHierarchyFromContract,
+        MockCRMAccountHierarchy,
+        MockSubscriptionFromContract,
+        MockSubscription,
+        MockAccessFromContract,
+        MockAccess,
+        MockCustomerInStrategies
+    ):
+
+        MockCRMAccountHierarchyFromContract.return_value.to_dict.return_value = {
+            'example_data': 123
+        }
+        MockSubscriptionFromContract.return_value.to_dict.return_value = {
+            'example_data': 123
+        }
+        MockAccessFromContract.return_value.to_dict.return_value = {
+            'example_data': 123
+        }
+        expected_email = "expeceted@email.com"
+        customer = OpenCellCustomerResource(
+            code="{}_0".format(self.contract.partner_id.id),
+            email=expected_email
+        )
+        MockCustomerInStrategies.get().customer = customer
+        CRMAccountHierarchyFromContractService(
+            self.contract,
+            self.opencell_configuration
+        ).run()
+
+        MockCRMAccountHierarchyFromContract.assert_called_with(
+            self.contract,
+            str(self.contract.partner_id.id)+"_0_1"
+        )
+        MockCRMAccountHierarchy.create.assert_called_with(
+            **MockCRMAccountHierarchyFromContract.return_value.to_dict.return_value
+        )
+        MockSubscriptionFromContract.assert_called_with(
+            self.contract,
+            MockCRMAccountHierarchyFromContract.return_value.code
+        )
+        MockSubscription.create.assert_called_with(
+            **MockSubscriptionFromContract.return_value.to_dict.return_value
+        )
+        MockAccessFromContract.assert_called_with(
+            self.contract
+        )
+        MockAccess.create.assert_called_with(
+            **MockAccessFromContract.return_value.to_dict.return_value
+        )
+
+    @patch('odoo.addons.somconnexio.opencell_services.crm_account_hierarchy_strategies.Customer') # noqa
+    @patch(
+        'odoo.addons.somconnexio.opencell_services.crm_account_hierarchy.Access',  # noqa
+        spec=['create']
+    )
+    @patch(
+        'odoo.addons.somconnexio.opencell_services.crm_account_hierarchy.AccessFromContract',  # noqa
+        return_value=Mock(spec=['to_dict'])
+    )
+    @patch(
+        'odoo.addons.somconnexio.opencell_services.crm_account_hierarchy.Subscription',  # noqa
+        spec=['create']
+    )
+    @patch(
+        'odoo.addons.somconnexio.opencell_services.crm_account_hierarchy.SubscriptionFromContract',  # noqa
+        return_value=Mock(spec=['to_dict'])
+    )
+    def test_create_subscription_in_opencell(
+        self,
+        MockSubscriptionFromContract,
+        MockSubscription,
+        MockAccessFromContract,
+        MockAccess,
+        MockCustomerInStrategies
+    ):
+        MockSubscriptionFromContract.return_value.to_dict.return_value = {
+            'example_data': 123
+        }
+        MockAccessFromContract.return_value.to_dict.return_value = {
+            'example_data': 123
+        }
+        expected_email = "expected@email.com"
+        self.contract.invoice_partner_id.email = expected_email
+        expected_iban = "ES00 0000 0000 0000 0000"
+        self.contract.bank_id.sanitized_acc_number = expected_iban
+        expected_customer_code = "{}_0_1".format(self.contract.partner_id.id)
+        customer = OpenCellCustomerResource(
+            code=expected_customer_code, email=expected_email, iban=expected_iban
+        )
+        MockCustomerInStrategies.get().customer = customer
+        CRMAccountHierarchyFromContractService(
+            self.contract,
+            self.opencell_configuration
+        ).run()
+
+        MockSubscriptionFromContract.assert_called_with(
+            self.contract,
+            expected_customer_code
+        )
+        MockSubscription.create.assert_called_with(
+            **MockSubscriptionFromContract.return_value.to_dict.return_value
+        )
+        MockAccessFromContract.assert_called_with(
+            self.contract
+        )
+        MockAccess.create.assert_called_with(
+            **MockAccessFromContract.return_value.to_dict.return_value
+        )
