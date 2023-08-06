@@ -1,0 +1,79 @@
+Metadata-Version: 2.1
+Name: hausgemachtspotipy
+Version: 0.1.4
+Summary: Access artist, album, and tracks details via Spotify Web API endpoints
+License: MIT
+Author: Rich Leung
+Author-email: kleung.hkg@gmail.com
+Requires-Python: >=3.6.1,<4.0.0
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Requires-Dist: DateTime (>=4.3,<5.0)
+Requires-Dist: pandas (>=1.1.3,<2.0.0)
+Requires-Dist: requests (>=2.24.0,<3.0.0)
+Description-Content-Type: text/x-rst
+
+hausgemachtSpotiPy
+==================
+
+**hausgemachtspotipy** is a Python package that access music artists,
+albums, and tracks, directly from the Spotify Data Catalogue via Spotify
+Web API endpoints.
+
+Inspired by the `SpotiPy <https://pypi.org/project/spotipy/>`__ Python
+package, the **hausgemachtspotipy** package focuses on easily querying
+music artists, albums, and tracks from Spotify.
+
+Installation
+------------
+
+To install
+
+.. code:: python
+
+    pip install hausgemachtspotipy
+
+To upgrade
+
+.. code:: python
+
+    pip install hausgemachtspotipy --upgrade
+
+Quick Start
+-----------
+
+**Import Libraries**
+
+::
+
+    import hausgemachtspotipy as haussp
+    import pandas as pd
+    import datetime
+    import math
+
+**Define credentials**
+
+::
+
+    client_id = "cd1845f23d914228b14f6bed139ee594"
+    client_secret = <insert secret key>
+
+Details on obtaining Spotify API credentials, head to
+
+**Create Spotify API token**
+
+::
+
+    sp = haussp.SpotifyAPI(client_id, client_secret)
+
+**Find Artist's details**
+
+::
+
+    artists = sp.search(query="Justin Timberlake")
+    print(artists)
+
+
