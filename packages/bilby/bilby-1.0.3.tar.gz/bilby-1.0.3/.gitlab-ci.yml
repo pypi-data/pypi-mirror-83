@@ -1,0 +1,190 @@
+# This script is an edited version of the example found at
+# https://git.ligo.org/lscsoft/example-ci-project/blob/python/.gitlab-ci.yml
+# Each 0th-indentation level is a job that will be run within GitLab CI
+# The only exception are a short list of reserved keywords
+#
+# https://docs.gitlab.com/ee/ci/yaml/#gitlab-ci-yml
+
+# stages is a reserved keyword that defines job dependencies and
+# parallelization. each stage runs in parallel but must complete
+# before the next stage begins
+
+stages:
+  - test
+  - deploy
+
+.test-python: &test-python
+  stage: test
+  image: python
+  before_script:
+    # this is required because pytables doesn't use a wheel on py37
+    - apt-get -yqq update
+    - apt-get -yqq install libhdf5-dev
+  script:
+    - python -m pip install .
+    - python -c "import bilby"
+    - python -c "import bilby.core"
+    - python -c "import bilby.core.prior"
+    - python -c "import bilby.core.sampler"
+    - python -c "import bilby.gw"
+    - python -c "import bilby.gw.detector"
+    - python -c "import bilby.gw.sampler"
+    - python -c "import bilby.hyper"
+    - python -c "import cli_bilby"
+    - for script in $(pip show -f bilby | grep "bin\/" | xargs -I {} basename {}); do
+          ${script} --help;
+      done
+
+# test basic setup on python3
+basic-3.7:
+  <<: *test-python
+  image: python:3.7
+
+# test example on python 3.7
+python-3.7:
+  stage: test
+  image: bilbydev/v2-dockerfile-test-suite-python37
+  script:
+    - python -m pip install .
+
+    # Run pyflakes
+    - flake8 .
+
+    # Run tests and collect coverage data
+    - pytest --cov=bilby --durations 10
+    - coverage html
+    - coverage-badge -o coverage_badge.svg -f
+
+    # Make the documentation
+    - cd docs
+    - make clean
+    - make html
+
+  artifacts:
+    paths:
+      - htmlcov/
+      - coverage_badge.svg
+      - docs/_build/html/
+
+# test example on python 3.8
+python-3.8:
+  stage: test
+  image: bilbydev/v2-dockerfile-test-suite-python38
+  script:
+    - python -m pip install .
+
+    - pytest
+
+# test example on python 3.6
+python-3.6:
+  stage: test
+  image: bilbydev/v2-dockerfile-test-suite-python36
+  script:
+    - python -m pip install .
+
+    - pytest
+
+# test samplers on python 3.7
+python-3.7-samplers:
+  stage: test
+  image: bilbydev/v2-dockerfile-test-suite-python37
+  script:
+    - python -m pip install .
+
+    - pytest test/integration/sampler_run_test.py --durations 10
+    - pytest test/integration/sample_from_the_prior_test.py
+
+# test samplers on python 3.6
+python-3.6-samplers:
+  stage: test
+  image: bilbydev/v2-dockerfile-test-suite-python36
+  script:
+    - python -m pip install .
+
+    - pytest test/integration/sampler_run_test.py
+
+# Test containers are up to date
+containers:
+  stage: test
+  image: bilbydev/v2-dockerfile-test-suite-python37
+  script:
+    - cd containers
+    - python write_dockerfiles.py
+    # Fail if differences exist. If this fails, you may need to run
+    # write_dockerfiles.py and commit the changes.
+    - git diff --exit-code
+
+# Tests run at a fixed schedule rather than on push
+scheduled-python-3.7:
+  stage: test
+  image: bilbydev/v2-dockerfile-test-suite-python37
+  only:
+    - schedules
+  script:
+    - python -m pip install .
+
+    # Run tests which are only done on schedule
+    - pytest test/integration/example_test.py
+    - pytest test/integration/sample_from_the_prior_test.py
+
+plotting:
+  stage: test
+  image: bilbydev/bilby-test-suite-python37
+  only:
+    - schedules
+  script:
+    - python -m pip install .
+    - python -m pip install ligo.skymap
+
+    - pytest test/gw/plot_test.py
+
+authors:
+  stage: test
+  image: bilbydev/bilby-test-suite-python37
+  script:
+    - python test/check_author_list.py
+
+pages:
+  stage: deploy
+  dependencies:
+    - python-3.7
+  script:
+    - mkdir public/
+    - mv htmlcov/ public/
+    - mv coverage_badge.svg public/
+    - mv docs/_build/html/* public/
+  artifacts:
+    paths:
+      - public
+    expire_in: 30 days
+  only:
+    - master
+
+deploy_release:
+  stage: deploy
+  image: bilbydev/v2-dockerfile-test-suite-python37
+  variables:
+    TWINE_USERNAME: $PYPI_USERNAME
+    TWINE_PASSWORD: $PYPI_PASSWORD
+  before_script:
+    - pip install twine
+    - python setup.py sdist
+  script:
+    - twine upload dist/*
+  only:
+  - tags
+
+
+precommits-py3.7:
+  stage: test
+  image: bilbydev/v2-dockerfile-test-suite-python37
+  script:
+    - source activate python37
+    - mkdir -p .pip37
+    - pip install --upgrade pip
+    - pip --cache-dir=.pip37 install --upgrade bilby
+    - pip --cache-dir=.pip37 install .
+    - pip --cache-dir=.pip37 install pre-commit
+
+    # Run precommits (flake8, spellcheck, isort, no merge conflicts, etc)
+    - pre-commit run --all-files --verbose --show-diff-on-failure
