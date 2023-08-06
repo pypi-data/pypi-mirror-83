@@ -1,0 +1,74 @@
+Metadata-Version: 2.1
+Name: pyixexplorer
+Version: 3.0.0
+Summary: Python OO API package to manage Ixia IxExplorer traffic generator
+Home-page: https://github.com/shmir/PyIxExplorer/
+Author: Yoram Shamir
+Author-email: yoram@ignissoft.com
+License: Apache Software License
+Keywords: ixexplorer ixnetwork l2l3 ixload l4l7 test tool ixia automation api
+Platform: any
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Natural Language :: English
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: Topic :: Software Development :: Testing
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Description-Content-Type: text/markdown
+Requires-Dist: future
+Requires-Dist: paramiko
+Requires-Dist: pytrafficgen (<=3.0.4,>3.0.3)
+
+
+TGN - Traffic Generator
+IXE - IxExplorer
+
+This package implements Python OO API for Ixia IxExplorer traffic generator.
+
+Functionality
+"""""""""""""
+The current version supports the following test flow:
+
+- Build configuration -> Start/Stop traffic -> Get statistics.
+
+Supported operations:
+
+- Load configuration - reserve ports and load configuration (prt or str)
+- Basic operations - get/set attributes, get/create children
+- Start/Stop - transmit, capture
+- Statistics - ports, streams and packet groups
+- Save configuration (prt or str)
+- Disconnect
+
+The package also support Add/Remove objects so it supports the following test case:
+- Load configuration -> Get/Set attributes -> Start/Stop traffic -> Get statistics.
+But this is less elaborated and documented at this version.
+
+Prerequisite:
+"""""""""""""
+Access to IxTclServer connected to IxServer. IxTclServer can run on any Windows machine as long as it can aceess the
+IxServer of the requested chassis.
+
+Installation:
+"""""""""""""
+stable - pip instsll pyixexplorer
+
+Getting started
+"""""""""""""""
+Under ixexplorer.test.ixe_samples you will shows basic samples.
+Set log_level = logging.DEBUG at the top of the module to see the underlying IxTclHal commands used.
+
+Additional code snippets can be found in ixexplorer.test.test*
+See inside for more info.
+
+Related works:
+""""""""""""""
+The low level API of the package is based on python-ixia package - https://github.com/kontron/python-ixia.
+
+Contact:
+""""""""
+Feel free to contact me with any question or feature request at yoram@ignissoft.com
+
+
