@@ -1,0 +1,96 @@
+<Page_Delete code="test_push_cssresources_1" />
+<Page_Delete code="test_push_cssresources_2" />
+<CSSResource_Delete code="test_push_cssresources_local_1" />
+<CSSResource_Delete code="test_push_cssresources_local_2" />
+<CSSResource_Delete code="test_push_cssresources_external" />
+<CSSResource_Delete code="test_push_cssresources_inline" />
+<CSSResource_Delete code="test_push_cssresources_combined" />
+
+<Page_Add>
+	<Code>test_push_cssresources_1</Code>
+	<Name>test_push_cssresources_1</Name>
+</Page_Add>
+
+<Page_Add>
+	<Code>test_push_cssresources_2</Code>
+	<Name>test_push_cssresources_2</Name>
+</Page_Add>
+
+<CSSResource_Add>
+	<Code>test_push_cssresources_local_1</Code>
+	<Type>LocalFile</Type>
+	<Global>false</Global>
+	<Active>false</Active>
+	<Attributes />
+	<File_Path>%test_push_cssresources_local_filepath%</File_Path>
+</CSSResource_Add>
+
+<CSSResource_Add>
+	<Code>test_push_cssresources_local_2</Code>
+	<Type>LocalFile</Type>
+	<Global>false</Global>
+	<Active>false</Active>
+	<Attributes />
+	<File_Path>%test_push_cssresources_local_filepath%</File_Path>
+</CSSResource_Add>
+
+<CSSResource_Add>
+	<Code>test_push_cssresources_external</Code>
+	<Type>ExternalFile</Type>
+	<Global>false</Global>
+	<Active>true</Active>
+	<Attributes>
+		<Attribute>
+			<Name>test_push_cssresources_external_name_1</Name>
+			<Value>test_push_cssresources_external_value_1</Value>
+		</Attribute>
+		<Attribute>
+			<Name>test_push_cssresources_external_name_2</Name>
+			<Value>test_push_cssresources_external_value_2</Value>
+		</Attribute>
+	</Attributes>
+	<File_Path>http://localhost/test_push_cssresources_external.css</File_Path>
+</CSSResource_Add>
+
+<CSSResourceXPage_Assign code="test_push_cssresources_external" page_code="test_push_cssresources_1" />
+
+<CSSResource_Add>
+	<Code>test_push_cssresources_inline</Code>
+	<Type>InlineCSS</Type>
+	<Global>false</Global>
+	<Active>true</Active>
+	<Attributes>
+		<Attribute>
+			<Name>test_push_cssresources_inline_name_1</Name>
+			<Value>test_push_cssresources_inline_value_1</Value>
+		</Attribute>
+		<Attribute>
+			<Name>test_push_cssresources_inline_name_2</Name>
+			<Value>test_push_cssresources_inline_value_2</Value>
+		</Attribute>
+	</Attributes>
+	<Template><![CDATA[span { font-weight: bold; }]]></Template>
+</CSSResource_Add>
+
+<CSSResourceXPage_Assign code="test_push_cssresources_inline" page_code="test_push_cssresources_1" />
+<CSSResourceXPage_Assign code="test_push_cssresources_inline" page_code="test_push_cssresources_2" />
+
+<CSSResource_Add>
+	<Code>test_push_cssresources_combined</Code>
+	<Type>CombinedResource</Type>
+	<Global>true</Global>
+	<Active>true</Active>
+	<Attributes>
+		<Attribute>
+			<Name>test_push_cssresources_combined_name_1</Name>
+			<Value>test_push_cssresources_combined_value_1</Value>
+		</Attribute>
+		<Attribute>
+			<Name>test_push_cssresources_combined_name_2</Name>
+			<Value>test_push_cssresources_combined_value_2</Value>
+		</Attribute>
+	</Attributes>
+</CSSResource_Add>
+
+<CSSCombinedResourceXResource_Assign combined_code="test_push_cssresources_combined" resource_code="test_push_cssresources_local_1" />
+<CSSCombinedResourceXResource_Assign combined_code="test_push_cssresources_combined" resource_code="test_push_cssresources_local_2" />

@@ -1,0 +1,31 @@
+# MMT
+The Miva Managed Templates tool is a comprehensive command line
+interface tool to help speed up the development process within
+the Miva Merchant software.
+
+Full documentation of all supported features and commands can be
+found at [https://docs.miva.com/template-branches/template-branches-overview](https://docs.miva.com/template-branches/template-branches-overview#mmt_overview)
+
+# Requirements
+
+* Miva Merchant 10.00+
+* Python 3.6 or higher
+
+# Versions
+## 1.0.1
+### New Features
+* Added support for HTTP Basic Authentication
+### Bug Fixes
+1. MMT-53: Cannot push product / category property changes
+1. MMT-52: Empty mmt sub-command raises an exception
+### Changes
+* The credential add / update command now accepts an HTTP Basic Authentication username / password that will be used to send the Authorization Basic header for all outgoing requests.
+
+## 1.0.0
+* Initial release
+
+# License
+
+This application is licensed under the `MMT License Agreement`.
+
+See the `LICENSE` file for more information.
