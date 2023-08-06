@@ -1,0 +1,47 @@
+{% extends "layout.html" %}
+{% block content %}
+<h2 class="mb-2 font-bold">Currently configured nodes</h2>
+{% if config.nodes %}
+    {% for node in config.nodes %}
+    <div class="mb-4 p-4 bg-gray-200 rounded-lg">
+        <div><b>Host:</b> {{ node.host }}</div>
+        <div><b>Key:</b> <span class="font-mono">{{ node.key }}</span></div>
+    </div>
+    {% endfor %}
+{% else %}
+<div>No PhishDetect Nodes have been configured yet.</div>
+{% endif %}
+
+<h2 class="mt-8 mb-2 font-bold">Add new node</h2>
+<form method="POST" action="/conf/node/">
+    <div class="mb-4">
+        <label for="host">Host:</label><br />
+        <input type="text" class="pd-input" name="host" value="" />
+    </div>
+    <div class="mb-4">
+        <label for="key">API Key:</label><br />
+        <input type="key" class="pd-input" name="key" value="" />
+    </div>
+    <div><input type="submit" class="pd-btn" name="submit" value="Add" /></div>
+</form>
+
+<hr class="mt-8 mb-8" />
+
+<h2 class="mb-2 font-bold">SMTP configuration</h2>
+<p class="mb-2">SMTP settings are necessary to be able to send a notification email whenever a user is activated.</p>
+<form method="POST" action="/conf/smtp/">
+    <div class="mb-4">
+        <label for="smtp_host">Host:</label><br />
+        <input type="text" class="pd-input" name="smtp_host" value="{{ config.smtp_host }}" />
+    </div>
+    <div class="mb-4">
+        <label for="smtp_user">User:</label><br />
+        <input type="smtp_user" class="pd-input" name="smtp_user" value="{{ config.smtp_user }}" />
+    </div>
+    <div class="mb-4">
+        <label for="smtp_pass">Password:</label><br />
+        <input type="smtp_pass" class="pd-input" name="smtp_pass" value="{{ config.smtp_pass }}" />
+    </div>
+    <div><input type="submit" class="pd-btn" name="submit" value="Save" /></div>
+</form>
+{% endblock %}

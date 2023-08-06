@@ -1,0 +1,39 @@
+{% extends "layout.html" %}
+{% block content %}
+<a href="/users/active/"><i class="fas fa-user-plus"></i> View <b>active</b> users</a>
+
+<div class="mt-4 mb-4">
+{% if users %}
+    <table class="pd-table-bordered">
+        <tr>
+            <th>Date</th>
+            <th>User name</th>
+            <th>User email</th>
+            <th>UUID</th>
+            <th class="text-center">Activate</th>
+        </tr>
+        {% for user in users %}
+        <tr>
+            <td>{{ user.datetime }}</td>
+            <td>{{ user.name }}</td>
+            <td>{{ user.email }}</td>
+            <td>{{ user.uuid }}</td>
+            <td class="text-center"><button class="pd-btn" onClick="confirmActivation('{{ user.uuid }}');">Activate</button></td>
+        </tr>
+        {% endfor %}
+    </table>
+{% else %}
+<p>There are no pending users to activate.</p>
+{% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function confirmActivation(uuid) {
+    if (confirm("Are you sure?")) {
+        location.href = "/users/activate/" + uuid + "/";
+    }
+}
+</script>
+{% endblock %}
